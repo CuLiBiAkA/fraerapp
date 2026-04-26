@@ -1,0 +1,8 @@
+{
+  "name": "fraerapp",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:ui": "node scripts/run-ui-tests.mjs"
+  }
+}

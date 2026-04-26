@@ -1,0 +1,154 @@
+{
+  "startNodeId": "platform",
+  "nodes": [
+    {
+      "id": "platform",
+      "title": "Платформа под дождем",
+      "text": "Ночной поезд ушел без тебя. На пустой платформе горит один фонарь, а в кармане лежит билет без пункта назначения.",
+      "imageUrl": "/assets/platform.svg",
+      "musicUrl": null,
+      "choices": [
+        {
+          "id": "inspect-ticket",
+          "label": "Рассмотреть билет",
+          "targetNodeId": "ticket"
+        },
+        {
+          "id": "enter-station",
+          "label": "Зайти в здание вокзала",
+          "targetNodeId": "hall"
+        }
+      ]
+    },
+    {
+      "id": "ticket",
+      "title": "Билет без города",
+      "text": "На бумаге проявляются чернила: 'Выбери путь, пока стрелки часов не сошлись'. За спиной щелкает стрелочный перевод.",
+      "imageUrl": "/assets/ticket.svg",
+      "musicUrl": null,
+      "choices": [
+        {
+          "id": "follow-tracks",
+          "label": "Спуститься к путям",
+          "targetNodeId": "tracks"
+        },
+        {
+          "id": "ask-window",
+          "label": "Найти кассу",
+          "targetNodeId": "hall"
+        }
+      ]
+    },
+    {
+      "id": "hall",
+      "title": "Зал ожидания",
+      "text": "В зале пахнет кофе и мокрой шерстью. Табло мигает тремя направлениями, но только одно написано твоим именем.",
+      "imageUrl": "/assets/hall.svg",
+      "musicUrl": null,
+      "choices": [
+        {
+          "id": "read-board",
+          "label": "Прочитать табло",
+          "targetNodeId": "board"
+        },
+        {
+          "id": "open-door",
+          "label": "Открыть служебную дверь",
+          "targetNodeId": "door"
+        }
+      ]
+    },
+    {
+      "id": "tracks",
+      "title": "Между рельсами",
+      "text": "Рельсы тихо гудят, хотя поездов нет. Вдалеке вспыхивает зеленый сигнал, приглашая идти вперед.",
+      "imageUrl": "/assets/tracks.svg",
+      "musicUrl": null,
+      "choices": [
+        {
+          "id": "go-signal",
+          "label": "Идти к сигналу",
+          "targetNodeId": "signal"
+        },
+        {
+          "id": "return-platform",
+          "label": "Вернуться на платформу",
+          "targetNodeId": "platform"
+        }
+      ]
+    },
+    {
+      "id": "board",
+      "title": "Табло",
+      "text": "Табло показывает: 'Поезд 404. Путь найден'. Под буквами появляется вопрос: готов ли ты сесть без расписания?",
+      "imageUrl": "/assets/board.svg",
+      "musicUrl": null,
+      "choices": [
+        {
+          "id": "accept-journey",
+          "label": "Принять поезд 404",
+          "targetNodeId": "departure"
+        },
+        {
+          "id": "refuse-journey",
+          "label": "Искать другой путь",
+          "targetNodeId": "door"
+        }
+      ]
+    },
+    {
+      "id": "door",
+      "title": "Служебный коридор",
+      "text": "За дверью узкий коридор и карта линий, которых нет ни в одном городе. Красная линия ведет обратно, белая - наружу.",
+      "imageUrl": "/assets/door.svg",
+      "musicUrl": null,
+      "choices": [
+        {
+          "id": "white-line",
+          "label": "Пойти по белой линии",
+          "targetNodeId": "signal"
+        },
+        {
+          "id": "red-line",
+          "label": "Вернуться в зал",
+          "targetNodeId": "hall"
+        }
+      ]
+    },
+    {
+      "id": "signal",
+      "title": "Зеленый сигнал",
+      "text": "Сигнал оказывается фонарем проводника. Он протягивает руку: 'Ты пришел вовремя. Осталось выбрать, кем вернешься'.",
+      "imageUrl": "/assets/signal.svg",
+      "musicUrl": null,
+      "choices": [
+        {
+          "id": "be-passenger",
+          "label": "Стать пассажиром",
+          "targetNodeId": "departure"
+        },
+        {
+          "id": "be-conductor",
+          "label": "Стать проводником",
+          "targetNodeId": "conductor"
+        }
+      ]
+    },
+    {
+      "id": "departure",
+      "title": "Отправление",
+      "text": "Двери закрываются мягко, как сон. Поезд трогается, и в окне впервые появляется город, которого ты ждал.",
+      "imageUrl": "/assets/departure.svg",
+      "musicUrl": null,
+      "choices": []
+    },
+    {
+      "id": "conductor",
+      "title": "Новый маршрут",
+      "text": "Ты берешь фонарь. Следующий пассажир уже стоит под дождем на платформе, не зная, что билет выбрал его.",
+      "imageUrl": "/assets/conductor.svg",
+      "musicUrl": null,
+      "choices": []
+    }
+  ]
+}

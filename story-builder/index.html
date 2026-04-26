@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FraerApp Story Builder</title>
+    <link rel="stylesheet" href="/styles.css?v=builder-3">
+  </head>
+  <body>
+    <main class="builder">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">FraerApp</p>
+          <h1 data-i18n="builderTitle">Конструктор историй</h1>
+        </div>
+        <div class="runtime-settings">
+          <label>
+            <span>Автор</span>
+            <input id="author-name" placeholder="alex">
+          </label>
+          <div class="actions tight">
+            <button id="author-login" type="button">Войти как автор</button>
+            <button id="author-logout" type="button" class="secondary">Выйти</button>
+          </div>
+          <label>
+            <span data-i18n="runtimeApiLabel">Runtime API</span>
+            <input id="runtime-url" value="http://localhost:8088">
+          </label>
+          <label>
+            <span data-i18n="adminTokenLabel">Токен администратора</span>
+            <input id="admin-token" value="dev-admin-token">
+          </label>
+          <div class="language-switch" aria-label="Language switcher">
+            <button id="lang-ru" type="button" class="secondary">RU</button>
+            <button id="lang-en" type="button" class="secondary">EN</button>
+          </div>
+        </div>
+      </header>
+
+      <section class="actions">
+        <button id="load-example" type="button" data-i18n="loadExample">Загрузить пример</button>
+        <button id="copy-json" type="button" data-i18n="copyJson">Копировать JSON</button>
+        <button id="download-json" type="button" data-i18n="downloadJson">Скачать JSON</button>
+        <label class="file-button">
+          <span data-i18n="importJsonFile">Импорт JSON-файла</span>
+          <input id="import-file" type="file" accept="application/json">
+        </label>
+        <button id="paste-json" type="button" data-i18n="pasteJson">Вставить JSON</button>
+        <button id="clear-draft" type="button" class="danger" data-i18n="clearDraft">Очистить черновик</button>
+      </section>
+
+      <section class="layout">
+        <div class="editor">
+          <section class="band">
+            <h2 data-i18n="storyMetadata">Метаданные истории</h2>
+            <div class="grid two">
+              <label><span data-i18n="keyLabel">Ключ</span> <input data-meta="key"></label>
+              <label><span data-i18n="titleLabel">Название</span> <input data-meta="title"></label>
+              <label><span data-i18n="versionLabel">Версия</span> <input data-meta="version" type="number" min="1"></label>
+              <label><span data-i18n="startSceneLabel">Стартовая сцена</span> <select data-meta="startSceneId"></select></label>
+            </div>
+            <label><span data-i18n="descriptionLabel">Описание</span> <textarea data-meta="description" rows="3"></textarea></label>
+          </section>
+
+          <section class="band">
+            <div class="section-head">
+              <h2 data-i18n="variablesTitle">Переменные</h2>
+              <button id="add-variable" type="button" data-i18n="addVariable">Добавить переменную</button>
+            </div>
+            <div id="variables"></div>
+          </section>
+
+          <section class="band">
+            <div class="section-head">
+              <h2 data-i18n="assetsTitle">Ассеты</h2>
+              <button id="add-asset" type="button" data-i18n="addAsset">Добавить ассет</button>
+            </div>
+            <div id="assets"></div>
+          </section>
+
+          <section class="band">
+            <div class="section-head">
+              <h2 data-i18n="scenesTitle">Сцены</h2>
+              <button id="add-scene" type="button" data-i18n="addScene">Добавить сцену</button>
+            </div>
+            <div id="scenes"></div>
+          </section>
+        </div>
+
+        <aside class="preview">
+          <section class="band">
+            <h2>Авторское рабочее место</h2>
+            <p id="author-state"></p>
+            <div class="actions tight">
+              <button id="refresh-author" type="button" class="secondary">Обновить</button>
+            </div>
+            <div id="author-stories"></div>
+            <pre id="author-analytics"></pre>
+          </section>
+
+          <section class="band">
+            <h2 data-i18n="runtimeActions">Действия с runtime</h2>
+            <div class="actions tight">
+              <button id="import-runtime" type="button" data-i18n="importToRuntime">Импортировать в Runtime</button>
+              <button id="validate-runtime" type="button" data-i18n="validateLastImport">Проверить последний импорт</button>
+              <button id="publish-runtime" type="button" data-i18n="publishLastImport">Опубликовать последний импорт</button>
+            </div>
+            <pre id="api-result"></pre>
+          </section>
+
+          <section class="band">
+            <h2 data-i18n="validationTitle">Проверка</h2>
+            <ul id="validation"></ul>
+          </section>
+
+          <section class="band">
+            <h2 data-i18n="storyJsonTitle">Story JSON</h2>
+            <pre id="json-preview"></pre>
+          </section>
+        </aside>
+      </section>
+    </main>
+
+    <dialog id="paste-dialog">
+      <form method="dialog">
+        <h2 data-i18n="pasteStoryJson">Вставить Story JSON</h2>
+        <textarea id="paste-area" rows="18"></textarea>
+        <div class="actions">
+          <button value="cancel" type="submit" data-i18n="cancelButton">Отмена</button>
+          <button id="apply-paste" value="default" type="button" data-i18n="applyButton">Применить</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/app.js?v=builder-3" type="module"></script>
+  </body>
+</html>

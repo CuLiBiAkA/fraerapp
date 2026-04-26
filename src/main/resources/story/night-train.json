@@ -1,0 +1,317 @@
+{
+  "key": "night_train",
+  "title": "Train 404",
+  "description": "A small branching story for the engine seed.",
+  "version": 1,
+  "startSceneId": "platform",
+  "variables": {
+    "trust": 0,
+    "hasTicket": false,
+    "visitedHall": false
+  },
+  "assets": [
+    {
+      "id": "platform_bg",
+      "type": "image",
+      "url": "/assets/platform.svg"
+    },
+    {
+      "id": "ticket_bg",
+      "type": "image",
+      "url": "/assets/ticket.svg"
+    },
+    {
+      "id": "hall_bg",
+      "type": "image",
+      "url": "/assets/hall.svg"
+    },
+    {
+      "id": "tracks_bg",
+      "type": "image",
+      "url": "/assets/tracks.svg"
+    },
+    {
+      "id": "board_bg",
+      "type": "image",
+      "url": "/assets/board.svg"
+    },
+    {
+      "id": "door_bg",
+      "type": "image",
+      "url": "/assets/door.svg"
+    },
+    {
+      "id": "signal_bg",
+      "type": "image",
+      "url": "/assets/signal.svg"
+    },
+    {
+      "id": "departure_bg",
+      "type": "image",
+      "url": "/assets/departure.svg"
+    },
+    {
+      "id": "conductor_bg",
+      "type": "image",
+      "url": "/assets/conductor.svg"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "platform",
+      "title": "Rainy platform",
+      "text": "The night train left without you. One lamp burns over the empty platform.",
+      "background": "platform_bg",
+      "music": null,
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 800
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "inspect_ticket",
+          "label": "Inspect the ticket",
+          "target": "ticket",
+          "conditions": [],
+          "effects": [
+            {
+              "set": "hasTicket",
+              "value": true
+            },
+            {
+              "inc": "trust",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "id": "enter_station",
+          "label": "Enter the station hall",
+          "target": "hall",
+          "conditions": [],
+          "effects": [
+            {
+              "set": "visitedHall",
+              "value": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ticket",
+      "title": "Ticket without a city",
+      "text": "Ink appears on the paper: choose while the clock still moves.",
+      "background": "ticket_bg",
+      "music": null,
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "follow_tracks",
+          "label": "Go down to the tracks",
+          "target": "tracks",
+          "conditions": [],
+          "effects": []
+        },
+        {
+          "id": "ask_window",
+          "label": "Look for the ticket window",
+          "target": "hall",
+          "conditions": [],
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "hall",
+      "title": "Waiting hall",
+      "text": "The board flashes three destinations, but only one is written in your name.",
+      "background": "hall_bg",
+      "music": null,
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "read_board",
+          "label": "Read the departure board",
+          "target": "board",
+          "conditions": [],
+          "effects": []
+        },
+        {
+          "id": "open_door",
+          "label": "Open the service door",
+          "target": "door",
+          "conditions": [],
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "tracks",
+      "title": "Between the rails",
+      "text": "The rails hum quietly. A green signal glows in the distance.",
+      "background": "tracks_bg",
+      "music": null,
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "go_signal",
+          "label": "Walk to the signal",
+          "target": "signal",
+          "conditions": [],
+          "effects": []
+        },
+        {
+          "id": "return_platform",
+          "label": "Return to the platform",
+          "target": "platform",
+          "conditions": [],
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "board",
+      "title": "Departure board",
+      "text": "Train 404. Track found. The letters wait for your answer.",
+      "background": "board_bg",
+      "music": null,
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "accept_journey",
+          "label": "Accept train 404",
+          "target": "departure",
+          "conditions": [
+            {
+              "var": "hasTicket",
+              "op": "==",
+              "value": true
+            }
+          ],
+          "effects": []
+        },
+        {
+          "id": "refuse_journey",
+          "label": "Search for another way",
+          "target": "door",
+          "conditions": [],
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "door",
+      "title": "Service corridor",
+      "text": "A map shows lines that do not exist in any city.",
+      "background": "door_bg",
+      "music": null,
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "white_line",
+          "label": "Follow the white line",
+          "target": "signal",
+          "conditions": [
+            {
+              "var": "trust",
+              "op": ">=",
+              "value": 1
+            }
+          ],
+          "effects": []
+        },
+        {
+          "id": "red_line",
+          "label": "Return to the hall",
+          "target": "hall",
+          "conditions": [],
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "signal",
+      "title": "Green signal",
+      "text": "The signal is a conductor's lamp. You arrived on time.",
+      "background": "signal_bg",
+      "music": null,
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "be_passenger",
+          "label": "Become a passenger",
+          "target": "departure",
+          "conditions": [],
+          "effects": []
+        },
+        {
+          "id": "be_conductor",
+          "label": "Become a conductor",
+          "target": "conductor",
+          "conditions": [],
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "departure",
+      "title": "Departure",
+      "text": "The doors close softly. The train moves toward the city you waited for.",
+      "background": "departure_bg",
+      "music": null,
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "ending": {
+        "type": "good",
+        "title": "You found the route"
+      },
+      "choices": []
+    },
+    {
+      "id": "conductor",
+      "title": "New route",
+      "text": "You take the lamp. The next passenger is already waiting in the rain.",
+      "background": "conductor_bg",
+      "music": null,
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "ending": {
+        "type": "strange",
+        "title": "You became the guide"
+      },
+      "choices": []
+    }
+  ]
+}

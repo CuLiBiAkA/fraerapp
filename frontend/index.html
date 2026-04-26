@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FraerApp Story</title>
+    <link rel="stylesheet" href="/styles.css?v=game-2">
+  </head>
+  <body>
+    <main class="game">
+      <div class="language-switch" aria-label="Language switcher">
+        <button id="lang-ru" type="button" class="secondary">RU</button>
+        <button id="lang-en" type="button" class="secondary">EN</button>
+      </div>
+
+      <section id="login-screen" class="login-screen" aria-label="Login">
+        <div>
+          <p class="eyebrow" data-i18n="loginEyebrow">&#1055;&#1086;&#1077;&#1079;&#1076; 404</p>
+          <h1 data-i18n="loginTitle">&#1053;&#1072;&#1079;&#1086;&#1074;&#1080; &#1089;&#1077;&#1073;&#1103;</h1>
+          <p data-i18n="loginSubtitle">&#1053;&#1086;&#1095;&#1085;&#1086;&#1081; &#1074;&#1086;&#1082;&#1079;&#1072;&#1083; &#1091;&#1078;&#1077; &#1079;&#1085;&#1072;&#1077;&#1090; &#1084;&#1072;&#1088;&#1096;&#1088;&#1091;&#1090;. &#1045;&#1084;&#1091; &#1086;&#1089;&#1090;&#1072;&#1083;&#1086;&#1089;&#1100; &#1091;&#1079;&#1085;&#1072;&#1090;&#1100;, &#1082;&#1090;&#1086; &#1076;&#1077;&#1088;&#1078;&#1080;&#1090; &#1073;&#1080;&#1083;&#1077;&#1090;.</p>
+        </div>
+
+        <form id="login-form" class="login-form">
+          <label for="username" data-i18n="usernameLabel">&#1048;&#1084;&#1103; &#1080;&#1075;&#1088;&#1086;&#1082;&#1072;</label>
+          <div class="form-row">
+            <input id="username" name="username" maxlength="80" required autocomplete="username" data-i18n-placeholder="usernamePlaceholder" placeholder="&#1053;&#1072;&#1087;&#1088;&#1080;&#1084;&#1077;&#1088;: &#1040;&#1083;&#1077;&#1082;&#1089;">
+            <button type="submit" data-i18n="loginButton">&#1042;&#1086;&#1081;&#1090;&#1080;</button>
+          </div>
+        </form>
+
+        <section id="admin-panel" class="admin-panel" aria-label="Admin">
+          <details>
+            <summary data-i18n="adminSummary">Story admin</summary>
+            <label for="admin-token" data-i18n="adminTokenLabel">Admin token</label>
+            <input id="admin-token" placeholder="dev-admin-token">
+            <label for="story-json" data-i18n="storyJsonLabel">Story JSON</label>
+            <textarea id="story-json" rows="10" data-i18n-placeholder="storyJsonPlaceholder" placeholder="Paste Story JSON here"></textarea>
+            <div class="controls">
+              <button id="import-story" type="button" class="secondary" data-i18n="importButton">Import</button>
+              <button id="publish-story" type="button" class="secondary" data-i18n="publishLastImportButton">Publish last import</button>
+            </div>
+            <pre id="admin-output"></pre>
+          </details>
+        </section>
+      </section>
+
+      <section id="story-screen" class="login-screen hidden" aria-label="Stories">
+        <div>
+          <p class="eyebrow" data-i18n="storyScreenEyebrow">Story Engine</p>
+          <h1 data-i18n="storyScreenTitle">Choose a story</h1>
+          <p data-i18n="storyScreenSubtitle">Every story runs through the same backend engine.</p>
+        </div>
+        <div id="stories" class="story-list"></div>
+      </section>
+
+      <section id="scene-screen" class="scene-screen hidden" aria-label="Scene">
+        <img id="scene-image" class="scene-image" alt="">
+        <div class="shade"></div>
+
+        <div class="hud">
+          <span id="player-name"></span>
+          <span id="scene-node"></span>
+        </div>
+
+        <article class="story-panel">
+          <p id="status" class="status" role="status">&#1047;&#1072;&#1075;&#1088;&#1091;&#1079;&#1082;&#1072;...</p>
+          <h2 id="scene-title"></h2>
+          <p id="scene-text"></p>
+          <div id="choices" class="choices"></div>
+          <div class="controls">
+            <button id="sound-toggle" type="button" class="secondary" data-i18n="soundOff">&#1047;&#1074;&#1091;&#1082;</button>
+            <button id="reset" type="button" class="secondary" data-i18n="resetButton">Start over</button>
+            <button id="logout" type="button" class="secondary" data-i18n="logoutButton">&#1042;&#1099;&#1081;&#1090;&#1080;</button>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script src="/engine.js?v=engine-1" type="module"></script>
+  </body>
+</html>
