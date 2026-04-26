@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FraerApp Scenario Map</title>
-    <link rel="stylesheet" href="/board.css?v=board-2">
+    <link rel="stylesheet" href="/board.css?v=board-3">
   </head>
   <body>
     <main class="board-shell">
@@ -24,10 +24,25 @@
             <button id="filter-scenes" type="button" class="secondary">Scenes</button>
             <button id="filter-variables" type="button" class="secondary">Variables</button>
             <button id="filter-assets" type="button" class="secondary">Assets</button>
+            <button id="filter-notes" type="button" class="secondary">Notes</button>
           </div>
           <div class="tool-row">
             <button id="auto-layout" type="button">Auto layout</button>
+            <button id="add-note" type="button" class="secondary">Add text</button>
+            <button id="connect-mode" type="button" class="secondary">Connect mode</button>
             <a id="open-builder" class="button-link" href="/index.html">Open Builder</a>
+          </div>
+          <div class="tool-row save-row">
+            <input id="layout-name" type="text" placeholder="Layout name">
+            <button id="save-layout" type="button" class="secondary">Save layout</button>
+            <select id="layout-select">
+              <option value="">No saved layouts</option>
+            </select>
+            <button id="load-layout" type="button" class="secondary">Load</button>
+            <button id="delete-layout" type="button" class="secondary">Delete</button>
+          </div>
+          <div class="tool-row lang-row">
+            <p id="line-hint" class="line-hint">Enable connect mode to link cards.</p>
             <div class="language-switch" aria-label="Language switcher">
               <button id="lang-ru" type="button" class="secondary">RU</button>
               <button id="lang-en" type="button" class="secondary">EN</button>
@@ -70,15 +85,19 @@
             <div class="lane lane-assets">
               <div class="lane-label" id="lane-assets">Assets</div>
             </div>
+            <div class="lane lane-notes">
+              <div class="lane-label" id="lane-notes">Notes</div>
+            </div>
             <div class="lane lane-scenes">
               <div class="lane-label" id="lane-scenes">Scenes</div>
             </div>
+            <svg id="board-lines" class="board-lines" viewBox="0 0 2200 1600" preserveAspectRatio="none"></svg>
             <div id="board-canvas" class="board-canvas"></div>
           </div>
         </div>
       </section>
     </main>
 
-    <script src="/board.js?v=board-2" type="module"></script>
+    <script src="/board.js?v=board-3" type="module"></script>
   </body>
 </html>
