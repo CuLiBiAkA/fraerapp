@@ -132,6 +132,15 @@ const translations = {
     sceneDefaultTitle: "Сцена",
     choicePrefix: "choice",
     choiceDefaultLabel: "Выбор",
+    collapseAll: "\u0421\u0432\u0435\u0440\u043d\u0443\u0442\u044c \u0432\u0441\u0435",
+    expandAll: "\u0420\u0430\u0437\u0432\u0435\u0440\u043d\u0443\u0442\u044c \u0432\u0441\u0435",
+    collapsedHint: "\u0421\u0432\u0435\u0440\u043d\u0443\u0442\u043e",
+    expandedHint: "\u0420\u0430\u0437\u0432\u0435\u0440\u043d\u0443\u0442\u043e",
+    sceneSummary: "{choices} \u0432\u044b\u0431\u043e\u0440\u043e\u0432, {effects} \u044d\u0444\u0444\u0435\u043a\u0442\u043e\u0432",
+    sceneSummaryEnding: "{choices} \u0432\u044b\u0431\u043e\u0440\u043e\u0432, {effects} \u044d\u0444\u0444\u0435\u043a\u0442\u043e\u0432, \u0444\u0438\u043d\u0430\u043b",
+    assetSummary: "\u0442\u0438\u043f: {type}",
+    variableSummary: "\u0442\u0438\u043f: {type}",
+    boardView: "\u041a\u0430\u0440\u0442\u0430 \u0441\u0446\u0435\u043d\u0430\u0440\u0438\u044f",
   },
   en: {
     pageTitle: "FraerApp - Story Builder",
@@ -243,14 +252,26 @@ const translations = {
     sceneDefaultTitle: "Scene",
     choicePrefix: "choice",
     choiceDefaultLabel: "Choice",
+    collapseAll: "Collapse all",
+    expandAll: "Expand all",
+    collapsedHint: "Collapsed",
+    expandedHint: "Expanded",
+    sceneSummary: "{choices} choices, {effects} effects",
+    sceneSummaryEnding: "{choices} choices, {effects} effects, ending",
+    assetSummary: "type: {type}",
+    variableSummary: "type: {type}",
+    boardView: "Scenario map",
   },
 };
 
 const storageKey = "fraerapp.storyBuilderDraft";
 const languageKey = "fraerapp.storyBuilderLanguage";
 const authorStorageKey = "fraerapp.storyBuilderAuthor";
+const collapseStateKey = "fraerapp.storyBuilderCollapseState";
 let lastImportedStoryId = localStorage.getItem("fraerapp.storyBuilderLastStoryId");
 let currentLanguage = localStorage.getItem(languageKey) || "ru";
+let collapseState = loadCollapseState();
+let lastAppliedHash = "";
 
 function t(key, params = {}) {
   const template = translations[currentLanguage]?.[key] ?? translations.ru[key] ?? key;
@@ -416,6 +437,7 @@ function render() {
   renderScenes();
   renderPreview();
   saveDraft();
+  applyHashFocus();
 }
 
 function renderMeta() {
@@ -438,10 +460,20 @@ function renderMeta() {
 
 function renderVariables() {
   els.variables.replaceChildren();
+  appendCollectionToolbar(
+    els.variables,
+    draft.variables.map((_, index) => collapseKey("variable", index)),
+  );
   draft.variables.forEach((variable, index) => {
-    const item = div("item");
+    const item = collapsibleItem({
+      title: t("variableItem", { index: index + 1 }),
+      subtitle: `${variable.name || `${t("variablePrefix")}_${index + 1}`} · ${t("variableSummary", { type: variable.type || "string" })}`,
+      key: collapseKey("variable", index),
+      onRemove: () => removeAt(draft.variables, index),
+      entityKind: "variable",
+      entityId: variable.name || `${index}`,
+    });
     item.append(
-      rowHead(t("variableItem", { index: index + 1 }), () => removeAt(draft.variables, index)),
       field(t("nameLabel"), input(variable.name, (value) => (variable.name = value))),
       selectField(t("typeLabel"), ["string", "number", "boolean"], variable.type, (value) => {
         variable.type = value;
@@ -456,10 +488,20 @@ function renderVariables() {
 
 function renderAssets() {
   els.assets.replaceChildren();
+  appendCollectionToolbar(
+    els.assets,
+    draft.assets.map((_, index) => collapseKey("asset", index)),
+  );
   draft.assets.forEach((asset, index) => {
-    const item = div("item");
+    const item = collapsibleItem({
+      title: t("assetItem", { index: index + 1 }),
+      subtitle: `${asset.id || `${t("assetPrefix")}_${index + 1}`} · ${t("assetSummary", { type: asset.type || "image" })}`,
+      key: collapseKey("asset", index),
+      onRemove: () => removeAt(draft.assets, index),
+      entityKind: "asset",
+      entityId: asset.id || `${index}`,
+    });
     item.append(
-      rowHead(t("assetItem", { index: index + 1 }), () => removeAt(draft.assets, index)),
       field(t("idLabel"), input(asset.id, (value) => (asset.id = value))),
       selectField(t("typeLabel"), ["image", "music", "sound", "video", "sprite"], asset.type, (value) => (asset.type = value)),
       field(t("urlLabel"), input(asset.url, (value) => (asset.url = value))),
@@ -472,10 +514,23 @@ function renderAssets() {
 function renderScenes() {
   els.scenes.replaceChildren();
   const assetIds = draft.assets.map((asset) => asset.id);
+  appendCollectionToolbar(
+    els.scenes,
+    draft.scenes.map((scene, index) => collapseKey("scene", scene.id || index)),
+  );
   draft.scenes.forEach((scene, sceneIndex) => {
-    const item = div("item");
+    const item = collapsibleItem({
+      title: t("sceneItem", { index: sceneIndex + 1, name: scene.id || t("newSceneFallback") }),
+      subtitle: `${scene.title || t("sceneDefaultTitle")} · ${t(scene.endingEnabled ? "sceneSummaryEnding" : "sceneSummary", {
+        choices: scene.choices.length,
+        effects: scene.effects.length,
+      })}`,
+      key: collapseKey("scene", scene.id || sceneIndex),
+      onRemove: () => removeAt(draft.scenes, sceneIndex),
+      entityKind: "scene",
+      entityId: scene.id || `${sceneIndex}`,
+    });
     item.append(
-      rowHead(t("sceneItem", { index: sceneIndex + 1, name: scene.id || t("newSceneFallback") }), () => removeAt(draft.scenes, sceneIndex)),
       field(t("idLabel"), input(scene.id, (value) => (scene.id = value))),
       field(t("titleLabel"), input(scene.title, (value) => (scene.title = value))),
       field(t("textLabel"), textarea(scene.text, (value) => (scene.text = value), 4)),
@@ -921,6 +976,119 @@ function div(className) {
   return el;
 }
 
+function appendCollectionToolbar(container, ids) {
+  if (!ids.length) return;
+  const toolbar = div("collection-toolbar");
+  toolbar.append(
+    button(t("collapseAll"), () => {
+      setCollapsedMany(ids, true);
+      render();
+    }),
+    button(t("expandAll"), () => {
+      setCollapsedMany(ids, false);
+      render();
+    }),
+  );
+  container.append(toolbar);
+}
+
+function collapsibleItem({ title, subtitle, key, onRemove, entityKind = "", entityId = "" }) {
+  const details = document.createElement("details");
+  details.className = "item collapsible-item";
+  details.open = !isCollapsed(key);
+  if (entityKind) details.dataset.entityKind = entityKind;
+  if (entityId) details.dataset.entityId = entityId;
+  details.ontoggle = () => {
+    collapseState[key] = !details.open;
+    saveCollapseState();
+  };
+
+  const summary = document.createElement("summary");
+  summary.className = "row-head collapsible-summary";
+
+  const text = div("summary-copy");
+  const strong = document.createElement("strong");
+  strong.textContent = title;
+  text.append(strong);
+  if (subtitle) {
+    const meta = document.createElement("span");
+    meta.className = "summary-subtitle";
+    meta.textContent = subtitle;
+    text.append(meta);
+  }
+
+  const actions = div("summary-actions");
+  const state = document.createElement("span");
+  state.className = "summary-state";
+  state.textContent = details.open ? t("expandedHint") : t("collapsedHint");
+  actions.append(state, summaryRemoveButton(onRemove));
+
+  details.addEventListener("toggle", () => {
+    state.textContent = details.open ? t("expandedHint") : t("collapsedHint");
+  });
+
+  summary.append(text, actions);
+  details.append(summary);
+  return details;
+}
+
+function summaryRemoveButton(onRemove) {
+  const el = document.createElement("button");
+  el.type = "button";
+  el.className = "danger small";
+  el.textContent = t("removeButton");
+  el.onclick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onRemove();
+    render();
+  };
+  return el;
+}
+
+function collapseKey(kind, value) {
+  return `${kind}:${value}`;
+}
+
+function isCollapsed(key) {
+  return collapseState[key] === true;
+}
+
+function setCollapsedMany(ids, collapsed) {
+  ids.forEach((id) => {
+    collapseState[id] = collapsed;
+  });
+  saveCollapseState();
+}
+
+function applyHashFocus() {
+  if (!window.location.hash.startsWith("#")) return;
+  if (window.location.hash === lastAppliedHash) return;
+  const raw = decodeURIComponent(window.location.hash.slice(1));
+  const [kind, ...rest] = raw.split(":");
+  const entityId = rest.join(":");
+  if (!kind || !entityId) return;
+  const target = document.querySelector(`[data-entity-kind="${cssEscape(kind)}"][data-entity-id="${cssEscape(entityId)}"]`);
+  if (!target) return;
+  if (target.tagName === "DETAILS") {
+    target.open = true;
+    const stateKey = target.dataset.entityKind === "scene"
+      ? collapseKey("scene", entityId)
+      : target.dataset.entityKind === "asset"
+        ? collapseKey("asset", draft.assets.findIndex((asset) => (asset.id || "") === entityId))
+        : collapseKey("variable", draft.variables.findIndex((variable) => (variable.name || "") === entityId));
+    collapseState[stateKey] = false;
+    saveCollapseState();
+  }
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+  lastAppliedHash = window.location.hash;
+}
+
+function cssEscape(value) {
+  if (window.CSS?.escape) return window.CSS.escape(value);
+  return String(value).replace(/["\\]/g, "\\$&");
+}
+
 function removeAt(list, index) {
   list.splice(index, 1);
   render();
@@ -1000,6 +1168,19 @@ function loadAuthorSession() {
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
+  }
+}
+
+function saveCollapseState() {
+  localStorage.setItem(collapseStateKey, JSON.stringify(collapseState));
+}
+
+function loadCollapseState() {
+  try {
+    const raw = localStorage.getItem(collapseStateKey);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
   }
 }
 
@@ -1239,6 +1420,11 @@ els.refreshAuthor.onclick = () => {
 if (authorSession?.username) {
   els.authorName.value = authorSession.username;
 }
+
+window.addEventListener("hashchange", () => {
+  lastAppliedHash = "";
+  applyHashFocus();
+});
 
 render();
 loadAuthorHome().catch(() => {
