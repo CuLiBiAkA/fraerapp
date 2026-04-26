@@ -36,6 +36,10 @@ button,
   justify-content: center;
 }
 
+.nav-link {
+  text-decoration: none;
+}
+
 button.secondary {
   background: #e2e8ea;
   color: #202426;
@@ -202,9 +206,48 @@ h2 {
   padding: 14px 0;
 }
 
+.collapsible-item[open] {
+  padding-bottom: 14px;
+}
+
 .item:first-child {
   border-top: 0;
   padding-top: 0;
+}
+
+.collection-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 0 10px;
+}
+
+.collapsible-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.collapsible-summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.summary-subtitle,
+.summary-state {
+  color: #5f6f73;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.summary-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .nested {

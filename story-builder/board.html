@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FraerApp Scenario Map</title>
+    <link rel="stylesheet" href="/board.css?v=board-2">
+  </head>
+  <body>
+    <main class="board-shell">
+      <header class="board-topbar">
+        <div class="board-title">
+          <p class="eyebrow">FraerApp</p>
+          <h1 id="board-title">Scenario Map</h1>
+          <p id="board-subtitle" class="board-subtitle"></p>
+        </div>
+        <div class="board-tools">
+          <label class="search-box">
+            <span id="search-label">Search</span>
+            <input id="search-input" type="search" placeholder="scene, variable, asset">
+          </label>
+          <div class="tool-row">
+            <button id="filter-all" type="button" class="secondary">All</button>
+            <button id="filter-scenes" type="button" class="secondary">Scenes</button>
+            <button id="filter-variables" type="button" class="secondary">Variables</button>
+            <button id="filter-assets" type="button" class="secondary">Assets</button>
+          </div>
+          <div class="tool-row">
+            <button id="auto-layout" type="button">Auto layout</button>
+            <a id="open-builder" class="button-link" href="/index.html">Open Builder</a>
+            <div class="language-switch" aria-label="Language switcher">
+              <button id="lang-ru" type="button" class="secondary">RU</button>
+              <button id="lang-en" type="button" class="secondary">EN</button>
+            </div>
+          </div>
+          <div class="zoom-row">
+            <button id="zoom-out" type="button" class="secondary">-</button>
+            <span id="zoom-value" class="zoom-value">100%</span>
+            <button id="zoom-in" type="button" class="secondary">+</button>
+            <button id="zoom-reset" type="button" class="secondary">100%</button>
+          </div>
+        </div>
+      </header>
+
+      <section class="board-summary">
+        <article class="summary-card">
+          <strong id="summary-scenes-count">0</strong>
+          <span id="summary-scenes-label">Scenes</span>
+        </article>
+        <article class="summary-card">
+          <strong id="summary-variables-count">0</strong>
+          <span id="summary-variables-label">Variables</span>
+        </article>
+        <article class="summary-card">
+          <strong id="summary-assets-count">0</strong>
+          <span id="summary-assets-label">Assets</span>
+        </article>
+        <article class="summary-card">
+          <strong id="summary-links-count">0</strong>
+          <span id="summary-links-label">Links</span>
+        </article>
+      </section>
+
+      <section class="board-stage">
+        <div class="board-surface-frame">
+          <div id="board-surface" class="board-surface">
+            <div class="lane lane-variables">
+              <div class="lane-label" id="lane-variables">Variables</div>
+            </div>
+            <div class="lane lane-assets">
+              <div class="lane-label" id="lane-assets">Assets</div>
+            </div>
+            <div class="lane lane-scenes">
+              <div class="lane-label" id="lane-scenes">Scenes</div>
+            </div>
+            <div id="board-canvas" class="board-canvas"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/board.js?v=board-2" type="module"></script>
+  </body>
+</html>
