@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FraerApp Scenario Map</title>
-    <link rel="stylesheet" href="/board.css?v=board-3">
+    <link rel="stylesheet" href="/board.css?v=board-5">
   </head>
   <body>
     <main class="board-shell">
@@ -28,8 +28,14 @@
           </div>
           <div class="tool-row">
             <button id="auto-layout" type="button">Auto layout</button>
+            <button id="add-scene" type="button" class="secondary">Add scene</button>
+            <button id="add-variable" type="button" class="secondary">Add variable</button>
+            <button id="add-asset" type="button" class="secondary">Add asset</button>
             <button id="add-note" type="button" class="secondary">Add text</button>
+          </div>
+          <div class="tool-row">
             <button id="connect-mode" type="button" class="secondary">Connect mode</button>
+            <a id="back-builder" class="button-link secondary-link" href="/index.html">Back to Builder</a>
             <a id="open-builder" class="button-link" href="/index.html">Open Builder</a>
           </div>
           <div class="tool-row save-row">
@@ -91,13 +97,13 @@
             <div class="lane lane-scenes">
               <div class="lane-label" id="lane-scenes">Scenes</div>
             </div>
-            <svg id="board-lines" class="board-lines" viewBox="0 0 2200 1600" preserveAspectRatio="none"></svg>
+            <svg id="board-lines" class="board-lines" preserveAspectRatio="none"></svg>
             <div id="board-canvas" class="board-canvas"></div>
           </div>
         </div>
       </section>
     </main>
 
-    <script src="/board.js?v=board-3" type="module"></script>
+    <script src="/board.js?v=board-5" type="module"></script>
   </body>
 </html>

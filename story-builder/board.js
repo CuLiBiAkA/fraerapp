@@ -6,11 +6,10 @@ const boardStateKey = "fraerapp.storyBuilderBoardState";
 const boardLayoutsKey = "fraerapp.storyBuilderBoardLayouts";
 const legacyPositionsKey = "fraerapp.storyBuilderBoardPositions";
 const legacyZoomKey = "fraerapp.storyBuilderBoardZoom";
+const autoLayoutKey = "__autosave__";
 
-const surfaceWidth = 2200;
-const surfaceHeight = 1600;
-const minZoom = 0.6;
-const maxZoom = 2;
+const minZoom = 0.3;
+const maxZoom = 2.5;
 const defaultZoom = 1;
 
 const ui = {
@@ -26,7 +25,11 @@ const ui = {
     notes: "Заметки",
     autoLayout: "Авто-раскладка",
     openBuilder: "Открыть Builder",
+    backBuilder: "Назад в конструктор",
     addNote: "Добавить текст",
+    addScene: "Добавить сцену",
+    addVariable: "Добавить переменную",
+    addAsset: "Добавить ассет",
     connectMode: "Режим линий",
     cancelConnect: "Отменить линию",
     saveLayout: "Сохранить раскладку",
@@ -65,6 +68,8 @@ const ui = {
     layoutLoaded: "Раскладка загружена",
     layoutDeleted: "Раскладка удалена",
     lineRemoved: "Линия удалена",
+    cardAdded: "Карточка добавлена",
+    autoSavedLayout: "Автосейв",
     zoomReset: "100%",
   },
   en: {
@@ -79,7 +84,11 @@ const ui = {
     notes: "Notes",
     autoLayout: "Auto layout",
     openBuilder: "Open Builder",
+    backBuilder: "Back to Builder",
     addNote: "Add text",
+    addScene: "Add scene",
+    addVariable: "Add variable",
+    addAsset: "Add asset",
     connectMode: "Connect mode",
     cancelConnect: "Cancel link",
     saveLayout: "Save layout",
@@ -118,6 +127,8 @@ const ui = {
     layoutLoaded: "Layout loaded",
     layoutDeleted: "Layout deleted",
     lineRemoved: "Line removed",
+    cardAdded: "Card added",
+    autoSavedLayout: "Autosave",
     zoomReset: "100%",
   },
 };
@@ -134,6 +145,10 @@ const els = {
   filterNotes: document.querySelector("#filter-notes"),
   autoLayout: document.querySelector("#auto-layout"),
   openBuilder: document.querySelector("#open-builder"),
+  backBuilder: document.querySelector("#back-builder"),
+  addScene: document.querySelector("#add-scene"),
+  addVariable: document.querySelector("#add-variable"),
+  addAsset: document.querySelector("#add-asset"),
   addNote: document.querySelector("#add-note"),
   connectMode: document.querySelector("#connect-mode"),
   lineHint: document.querySelector("#line-hint"),
@@ -177,6 +192,7 @@ let connectState = {
   source: "",
 };
 let renderedCards = new Map();
+let cameraInitialized = false;
 
 function text(key, params = {}) {
   const template = ui[currentLanguage]?.[key] ?? ui.ru[key] ?? key;
@@ -197,6 +213,10 @@ function applyLanguage() {
   els.filterNotes.textContent = text("notes");
   els.autoLayout.textContent = text("autoLayout");
   els.openBuilder.textContent = text("openBuilder");
+  els.backBuilder.textContent = text("backBuilder");
+  els.addScene.textContent = text("addScene");
+  els.addVariable.textContent = text("addVariable");
+  els.addAsset.textContent = text("addAsset");
   els.addNote.textContent = text("addNote");
   els.connectMode.textContent = connectState.enabled ? text("cancelConnect") : text("connectMode");
   els.layoutName.placeholder = text("layoutPlaceholder");
@@ -216,7 +236,7 @@ function applyLanguage() {
   els.langRu.classList.toggle("is-active", currentLanguage === "ru");
   els.langEn.classList.toggle("is-active", currentLanguage === "en");
   els.connectMode.classList.toggle("is-active", connectState.enabled);
-  els.stage.style.setProperty("--board-zoom", String(boardState.zoom));
+  applyCamera();
   renderLayoutOptions();
   updateLineHint();
 }
@@ -241,6 +261,8 @@ function render() {
   createAssetCards();
   createNoteCards();
   drawLines();
+  initializeCamera();
+  positionLaneLabels();
 }
 
 function normalizeBoardState() {
@@ -250,7 +272,10 @@ function normalizeBoardState() {
   boardState.positions ||= {};
   boardState.notes ||= [];
   boardState.lines ||= [];
+  boardState.camera ||= {};
   boardState.zoom = clamp(Number(boardState.zoom) || defaultZoom, minZoom, maxZoom);
+  boardState.camera.x = Number.isFinite(Number(boardState.camera.x)) ? Number(boardState.camera.x) : null;
+  boardState.camera.y = Number.isFinite(Number(boardState.camera.y)) ? Number(boardState.camera.y) : null;
 }
 
 function defaultBoardState() {
@@ -259,6 +284,7 @@ function defaultBoardState() {
     notes: [],
     lines: [],
     zoom: loadLegacyZoom(),
+    camera: {},
   };
 }
 
@@ -473,13 +499,11 @@ function makeDraggable(card, editable) {
 
   card.addEventListener("pointerdown", (event) => {
     if (event.target.closest("a,button,textarea,input,select")) return;
-    const bounds = els.surface.getBoundingClientRect();
-    const pointerX = (event.clientX - bounds.left) / boardState.zoom;
-    const pointerY = (event.clientY - bounds.top) / boardState.zoom;
+    const pointer = clientToWorld(event.clientX, event.clientY);
     drag = {
       key: entityKey(card.dataset.kind, card.dataset.id),
-      offsetX: pointerX - card.offsetLeft,
-      offsetY: pointerY - card.offsetTop,
+      offsetX: pointer.x - card.offsetLeft,
+      offsetY: pointer.y - card.offsetTop,
     };
     card.classList.add("is-dragging");
     card.setPointerCapture(event.pointerId);
@@ -487,11 +511,9 @@ function makeDraggable(card, editable) {
 
   card.addEventListener("pointermove", (event) => {
     if (!drag) return;
-    const bounds = els.surface.getBoundingClientRect();
-    const pointerX = (event.clientX - bounds.left) / boardState.zoom;
-    const pointerY = (event.clientY - bounds.top) / boardState.zoom;
-    const nextX = clamp(pointerX - drag.offsetX, 12, Math.max(12, surfaceWidth - card.offsetWidth - 12));
-    const nextY = clamp(pointerY - drag.offsetY, 12, Math.max(12, surfaceHeight - card.offsetHeight - 12));
+    const pointer = clientToWorld(event.clientX, event.clientY);
+    const nextX = pointer.x - drag.offsetX;
+    const nextY = pointer.y - drag.offsetY;
     card.style.left = `${nextX}px`;
     card.style.top = `${nextY}px`;
     boardState.positions[drag.key] = { x: nextX, y: nextY };
@@ -531,6 +553,7 @@ function drawLines() {
     const from = renderedCards.get(line.from);
     const to = renderedCards.get(line.to);
     if (!from || !to) return;
+    if (from.classList.contains("is-hidden") || to.classList.contains("is-hidden")) return;
     const x1 = from.offsetLeft + from.offsetWidth / 2;
     const y1 = from.offsetTop + from.offsetHeight / 2;
     const x2 = to.offsetLeft + to.offsetWidth / 2;
@@ -544,6 +567,29 @@ function drawLines() {
       removeLine(line.id);
     });
     els.lines.append(path);
+
+    const deleteButton = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    deleteButton.setAttribute("class", "line-delete");
+    deleteButton.setAttribute("tabindex", "0");
+    deleteButton.setAttribute("role", "button");
+    deleteButton.setAttribute("aria-label", text("remove"));
+    deleteButton.setAttribute("transform", `translate(${(x1 + x2) / 2} ${(y1 + y2) / 2})`);
+    deleteButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      removeLine(line.id);
+    });
+    deleteButton.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        removeLine(line.id);
+      }
+    });
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("r", "14");
+    const mark = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    mark.textContent = "x";
+    deleteButton.append(circle, mark);
+    els.lines.append(deleteButton);
   });
 }
 
@@ -570,11 +616,16 @@ function handleConnectClick(key) {
     return;
   }
 
-  boardState.lines.push({
-    id: `line-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-    from: connectState.source,
-    to: key,
-  });
+  const existing = boardState.lines.find((line) => line.from === connectState.source && line.to === key);
+  if (existing) {
+    removeLine(existing.id);
+    connectState.source = "";
+    highlightConnectSource();
+    updateLineHint(text("lineRemoved"));
+    return;
+  }
+
+  boardState.lines.push(createLine(connectState.source, key));
   persistBoardState();
   connectState.source = "";
   highlightConnectSource();
@@ -609,10 +660,51 @@ function addNote() {
     title: text("noteKind"),
     text: "",
   };
+  const point = nextInsertionPoint();
   boardState.notes.push(note);
-  boardState.positions[entityKey("note", note.id)] = layoutPoint("note", boardState.notes.length - 1);
+  boardState.positions[entityKey("note", note.id)] = point;
   persistBoardState();
   render();
+  updateLineHint(text("cardAdded"));
+}
+
+function addScene() {
+  const id = uniqueId("scene", draft.scenes.map((scene) => scene.id));
+  draft.scenes.push({
+    id,
+    title: `${text("sceneKind")} ${draft.scenes.length + 1}`,
+    text: "",
+    background: draft.assets[0]?.id || "",
+    music: "",
+    animationType: "fade-in",
+    animationDurationMs: 700,
+    effects: [],
+    endingEnabled: false,
+    endingType: "",
+    endingTitle: "",
+    choices: [],
+  });
+  addDraftEntityPosition("scene", id);
+}
+
+function addVariable() {
+  const name = uniqueId("variable", draft.variables.map((variable) => variable.name));
+  draft.variables.push({ name, type: "number", value: 0 });
+  addDraftEntityPosition("variable", name);
+}
+
+function addAsset() {
+  const id = uniqueId("asset", draft.assets.map((asset) => asset.id));
+  draft.assets.push({ id, type: "image", url: "", metadata: "" });
+  addDraftEntityPosition("asset", id);
+}
+
+function addDraftEntityPosition(kind, id) {
+  boardState.positions[entityKey(kind, id)] = nextInsertionPoint();
+  persistDraft();
+  persistBoardState();
+  render();
+  updateLineHint(text("cardAdded"));
 }
 
 function removeNote(noteId) {
@@ -631,16 +723,56 @@ function removeLine(lineId) {
   updateLineHint(text("lineRemoved"));
 }
 
+function createLine(from, to) {
+  return {
+    id: `line-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    from,
+    to,
+  };
+}
+
 function layoutPoint(kind, index) {
   const lanes = {
-    variable: 34,
-    asset: 620,
-    note: 1206,
-    scene: 1660,
+    variable: -840,
+    asset: -280,
+    note: 280,
+    scene: 840,
   };
   const x = lanes[kind] ?? 34;
   const y = 84 + (index % 8) * 134 + Math.floor(index / 8) * 18;
   return { x, y };
+}
+
+function nextInsertionPoint() {
+  const center = viewportCenterWorld();
+  const offset = (Object.keys(boardState.positions || {}).length % 6) * 28;
+  return {
+    x: Math.round(center.x + offset),
+    y: Math.round(center.y + offset),
+  };
+}
+
+function viewportCenterWorld() {
+  const rect = els.stage.getBoundingClientRect();
+  return {
+    x: (rect.width / 2 - boardState.camera.x) / boardState.zoom,
+    y: (rect.height / 2 - boardState.camera.y) / boardState.zoom,
+  };
+}
+
+function initializeCamera() {
+  if (cameraInitialized) return;
+  cameraInitialized = true;
+  requestAnimationFrame(() => {
+    const rect = els.stage.getBoundingClientRect();
+    if (boardState.camera.x === null || boardState.camera.y === null) {
+      boardState.camera.x = Math.round(rect.width / 2);
+      boardState.camera.y = Math.round(rect.height / 2 - 80);
+      persistBoardState();
+    }
+    applyCamera();
+    positionLaneLabels();
+  });
 }
 
 function autoLayout() {
@@ -658,19 +790,17 @@ function setZoom(nextZoom, focusClientX = null, focusClientY = null) {
   const stageRect = els.stage.getBoundingClientRect();
   const focusX = focusClientX ?? (stageRect.left + stageRect.width / 2);
   const focusY = focusClientY ?? (stageRect.top + stageRect.height / 2);
-  const localX = els.stage.scrollLeft + (focusX - stageRect.left);
-  const localY = els.stage.scrollTop + (focusY - stageRect.top);
-  const worldX = localX / previousZoom;
-  const worldY = localY / previousZoom;
+  const screenX = focusX - stageRect.left;
+  const screenY = focusY - stageRect.top;
+  const worldX = (screenX - boardState.camera.x) / previousZoom;
+  const worldY = (screenY - boardState.camera.y) / previousZoom;
 
   boardState.zoom = targetZoom;
+  boardState.camera.x = screenX - worldX * targetZoom;
+  boardState.camera.y = screenY - worldY * targetZoom;
   persistBoardState();
   applyLanguage();
-
-  const nextLocalX = worldX * targetZoom;
-  const nextLocalY = worldY * targetZoom;
-  els.stage.scrollLeft = nextLocalX - (focusX - stageRect.left);
-  els.stage.scrollTop = nextLocalY - (focusY - stageRect.top);
+  positionLaneLabels();
 }
 
 function setFilter(kind) {
@@ -683,6 +813,7 @@ function setFilter(kind) {
     [els.filterNotes, "note"],
   ].forEach(([button, value]) => button.classList.toggle("is-active", filterKind === value));
   document.querySelectorAll(".board-card").forEach(updateVisibility);
+  drawLines();
 }
 
 function pill(textValue) {
@@ -701,7 +832,7 @@ function renderLayoutOptions() {
   Object.keys(savedLayouts).sort().forEach((name) => {
     const option = document.createElement("option");
     option.value = name;
-    option.textContent = name;
+    option.textContent = name === autoLayoutKey ? text("autoSavedLayout") : name;
     els.layoutSelect.append(option);
   });
 }
@@ -709,11 +840,18 @@ function renderLayoutOptions() {
 function saveNamedLayout() {
   const name = els.layoutName.value.trim();
   if (!name) return;
-  savedLayouts[name] = structuredClone(boardState);
-  localStorage.setItem(boardLayoutsKey, JSON.stringify(savedLayouts));
+  savedLayouts[name] = cloneBoardState();
+  persistSavedLayouts();
   renderLayoutOptions();
   els.layoutSelect.value = name;
   updateLineHint(text("layoutSaved"));
+}
+
+function autoSaveLayout() {
+  normalizeBoardState();
+  savedLayouts[autoLayoutKey] = cloneBoardState();
+  persistBoardState();
+  persistSavedLayouts();
 }
 
 function loadNamedLayout() {
@@ -730,7 +868,7 @@ function deleteNamedLayout() {
   const name = els.layoutSelect.value;
   if (!name || !savedLayouts[name]) return;
   delete savedLayouts[name];
-  localStorage.setItem(boardLayoutsKey, JSON.stringify(savedLayouts));
+  persistSavedLayouts();
   renderLayoutOptions();
   updateLineHint(text("layoutDeleted"));
 }
@@ -744,6 +882,10 @@ function loadDraft() {
   }
 }
 
+function persistDraft() {
+  localStorage.setItem(draftStorageKey, JSON.stringify(draft));
+}
+
 function loadBoardState() {
   try {
     const raw = localStorage.getItem(boardStateKey);
@@ -755,6 +897,14 @@ function loadBoardState() {
 
 function persistBoardState() {
   localStorage.setItem(boardStateKey, JSON.stringify(boardState));
+}
+
+function persistSavedLayouts() {
+  localStorage.setItem(boardLayoutsKey, JSON.stringify(savedLayouts));
+}
+
+function cloneBoardState() {
+  return structuredClone(boardState);
 }
 
 function loadSavedLayouts() {
@@ -787,6 +937,56 @@ function entityKey(kind, id) {
   return `${kind}:${id}`;
 }
 
+function applyCamera() {
+  const cameraX = Number.isFinite(boardState.camera?.x) ? boardState.camera.x : 0;
+  const cameraY = Number.isFinite(boardState.camera?.y) ? boardState.camera.y : 0;
+  const gridSize = 32 * boardState.zoom;
+  els.stage.style.setProperty("--board-zoom", String(boardState.zoom));
+  els.stage.style.setProperty("--camera-x", `${cameraX}px`);
+  els.stage.style.setProperty("--camera-y", `${cameraY}px`);
+  els.stage.style.setProperty("--grid-x", `${positiveModulo(cameraX, gridSize)}px`);
+  els.stage.style.setProperty("--grid-y", `${positiveModulo(cameraY, gridSize)}px`);
+  els.zoomValue.textContent = `${Math.round(boardState.zoom * 100)}%`;
+}
+
+function clientToWorld(clientX, clientY) {
+  const rect = els.stage.getBoundingClientRect();
+  return {
+    x: (clientX - rect.left - boardState.camera.x) / boardState.zoom,
+    y: (clientY - rect.top - boardState.camera.y) / boardState.zoom,
+  };
+}
+
+function positionLaneLabels() {
+  const lanePositions = {
+    variable: -840,
+    asset: -280,
+    note: 280,
+    scene: 840,
+  };
+  [
+    [els.laneVariables, lanePositions.variable],
+    [els.laneAssets, lanePositions.asset],
+    [els.laneNotes, lanePositions.note],
+    [els.laneScenes, lanePositions.scene],
+  ].forEach(([label, x]) => {
+    label.parentElement.style.left = `${x}px`;
+  });
+}
+
+function positiveModulo(value, modulo) {
+  return ((value % modulo) + modulo) % modulo;
+}
+
+function uniqueId(prefix, usedValues) {
+  const used = new Set((usedValues || []).filter(Boolean));
+  for (let index = used.size + 1; index < used.size + 1000; index += 1) {
+    const candidate = `${prefix}_${index}`;
+    if (!used.has(candidate)) return candidate;
+  }
+  return `${prefix}_${Date.now()}`;
+}
+
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
@@ -798,6 +998,7 @@ function trimText(value, limit) {
 els.searchInput.addEventListener("input", () => {
   searchTerm = els.searchInput.value.trim().toLowerCase();
   document.querySelectorAll(".board-card").forEach(updateVisibility);
+  drawLines();
 });
 
 els.filterAll.onclick = () => setFilter("all");
@@ -806,7 +1007,12 @@ els.filterVariables.onclick = () => setFilter("variable");
 els.filterAssets.onclick = () => setFilter("asset");
 els.filterNotes.onclick = () => setFilter("note");
 els.autoLayout.onclick = autoLayout;
+els.addScene.onclick = addScene;
+els.addVariable.onclick = addVariable;
+els.addAsset.onclick = addAsset;
 els.addNote.onclick = addNote;
+els.backBuilder.addEventListener("click", autoSaveLayout);
+els.openBuilder.addEventListener("click", autoSaveLayout);
 els.connectMode.onclick = () => {
   connectState.enabled = !connectState.enabled;
   if (!connectState.enabled) connectState.source = "";
@@ -833,10 +1039,59 @@ els.langEn.onclick = () => {
 };
 
 els.stage.addEventListener("wheel", (event) => {
-  if (!event.ctrlKey) return;
   event.preventDefault();
-  setZoom(boardState.zoom + (event.deltaY < 0 ? 0.1 : -0.1), event.clientX, event.clientY);
+  if (event.ctrlKey) {
+    setZoom(boardState.zoom + (event.deltaY < 0 ? 0.1 : -0.1), event.clientX, event.clientY);
+    return;
+  }
+  boardState.camera.x -= event.deltaX;
+  boardState.camera.y -= event.deltaY;
+  persistBoardState();
+  applyCamera();
 }, { passive: false });
+
+let stagePan = null;
+
+els.stage.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0) return;
+  if (event.target.closest(".board-card, a, button, textarea, input, select, .line-delete, .board-line")) return;
+  stagePan = {
+    x: event.clientX,
+    y: event.clientY,
+    cameraX: boardState.camera.x,
+    cameraY: boardState.camera.y,
+  };
+  els.stage.classList.add("is-panning");
+  els.stage.setPointerCapture(event.pointerId);
+});
+
+els.stage.addEventListener("pointermove", (event) => {
+  if (!stagePan) return;
+  boardState.camera.x = stagePan.cameraX + (event.clientX - stagePan.x);
+  boardState.camera.y = stagePan.cameraY + (event.clientY - stagePan.y);
+  applyCamera();
+});
+
+els.stage.addEventListener("pointerup", (event) => {
+  if (!stagePan) return;
+  stagePan = null;
+  els.stage.classList.remove("is-panning");
+  els.stage.releasePointerCapture(event.pointerId);
+  persistBoardState();
+});
+
+els.stage.addEventListener("pointercancel", () => {
+  stagePan = null;
+  els.stage.classList.remove("is-panning");
+});
+
+window.addEventListener("pagehide", autoSaveLayout);
+window.addEventListener("beforeunload", autoSaveLayout);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") {
+    autoSaveLayout();
+  }
+});
 
 render();
 setFilter("all");

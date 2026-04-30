@@ -12,8 +12,10 @@
   --asset: #e9f3ff;
   --variable: #f2ebff;
   --board-zoom: 1;
-  --surface-width: 1600px;
-  --surface-height: 1400px;
+  --camera-x: 0px;
+  --camera-y: 0px;
+  --grid-x: 0px;
+  --grid-y: 0px;
 }
 
 * {
@@ -32,6 +34,7 @@ body {
 
 button,
 input,
+select,
 a {
   font: inherit;
 }
@@ -58,12 +61,19 @@ button.secondary {
   border: 1px solid var(--line);
 }
 
+.secondary-link {
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
 button.is-active {
   background: var(--accent);
   color: #ffffff;
 }
 
-input {
+input,
+select {
   width: 100%;
   min-width: 0;
   border: 1px solid var(--line);
@@ -190,20 +200,28 @@ h1 {
   border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 28px;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.35) 0, rgba(255, 255, 255, 0.35) 25%, transparent 25%, transparent 100%),
     linear-gradient(transparent calc(100% - 1px), rgba(31, 42, 45, 0.06) calc(100% - 1px)),
     linear-gradient(90deg, transparent calc(100% - 1px), rgba(31, 42, 45, 0.06) calc(100% - 1px)),
     rgba(255, 255, 255, 0.42);
-  background-size: auto, 100% 32px, 32px 100%, auto;
-  overflow: auto;
+  background-position: var(--grid-x) var(--grid-y);
+  background-size: calc(32px * var(--board-zoom)) calc(32px * var(--board-zoom));
+  overflow: hidden;
   padding: 12px;
+  cursor: grab;
+  overscroll-behavior: contain;
+  touch-action: none;
+}
+
+.board-stage.is-panning {
+  cursor: grabbing;
 }
 
 .board-surface-frame {
-  position: relative;
-  width: calc(var(--surface-width) * var(--board-zoom));
-  height: calc(var(--surface-height) * var(--board-zoom));
-  min-width: 100%;
+  position: absolute;
+  inset: 12px;
+  width: auto;
+  height: auto;
+  min-width: 0;
   min-height: calc(78vh - 24px);
 }
 
@@ -211,39 +229,23 @@ h1 {
   position: absolute;
   top: 0;
   left: 0;
-  width: var(--surface-width);
-  height: var(--surface-height);
-  transform: scale(var(--board-zoom));
-  transform-origin: top left;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+  transform: translate(var(--camera-x), var(--camera-y)) scale(var(--board-zoom));
+  transform-origin: 0 0;
+  will-change: transform;
 }
 
 .lane {
   position: absolute;
   top: 0;
-  bottom: 0;
-  width: 25%;
-}
-
-.lane-variables {
-  left: 0;
-}
-
-.lane-assets {
-  left: 25%;
-}
-
-.lane-notes {
-  left: 50%;
-}
-
-.lane-scenes {
-  left: 75%;
 }
 
 .lane-label {
   position: absolute;
-  top: 16px;
-  left: 16px;
+  top: -46px;
+  left: 0;
   padding: 7px 12px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.8);
@@ -251,20 +253,23 @@ h1 {
   font-size: 0.82rem;
   font-weight: 900;
   text-transform: uppercase;
+  pointer-events: none;
 }
 
 .board-canvas {
-  position: relative;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
+  overflow: visible;
 }
 
 .board-lines {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
   overflow: visible;
+  pointer-events: none;
 }
 
 .board-line {
@@ -279,6 +284,27 @@ h1 {
 
 .board-line:hover {
   stroke: #c35f1d;
+}
+
+.line-delete {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.line-delete circle {
+  fill: #ffffff;
+  stroke: #c35f1d;
+  stroke-width: 2;
+  filter: drop-shadow(0 5px 10px rgba(31, 42, 45, 0.16));
+}
+
+.line-delete text {
+  fill: #9b2218;
+  font-size: 18px;
+  font-weight: 900;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
 }
 
 .board-card {
@@ -452,31 +478,6 @@ h1 {
 
   .board-stage,
   .board-surface-frame {
-    min-height: 1100px;
-  }
-
-  .lane {
-    width: 100%;
-    height: 25%;
-  }
-
-  .lane-variables {
-    top: 0;
-    left: 0;
-  }
-
-  .lane-assets {
-    top: 25%;
-    left: 0;
-  }
-
-  .lane-notes {
-    top: 50%;
-    left: 0;
-  }
-
-  .lane-scenes {
-    top: 75%;
-    left: 0;
+    min-height: 780px;
   }
 }
