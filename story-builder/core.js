@@ -90,7 +90,7 @@ export function emptyDraft(language) {
     description: "",
     version: 1,
     startSceneId: "start",
-    variables: [{ name: "score", type: "number", value: 0 }],
+    variables: [{ name: "score", type: "number", value: 0, showInStats: false }],
     assets: [{ id: "start_bg", type: "image", url: "/assets/platform.svg", metadata: "" }],
     scenes: [
       {
@@ -119,8 +119,8 @@ export function exampleDraft(language) {
     version: 1,
     startSceneId: "start",
     variables: [
-      { name: "score", type: "number", value: 0 },
-      { name: "hasKey", type: "boolean", value: false },
+      { name: "score", type: "number", value: 0, showInStats: true },
+      { name: "hasKey", type: "boolean", value: false, showInStats: true },
     ],
     assets: [
       { id: "start_bg", type: "image", url: "/assets/platform.svg", metadata: "" },
@@ -276,9 +276,16 @@ export function localizeDraftDefaults(sourceDraft, language) {
 }
 
 export function detectType(value) {
+  if (value && typeof value === "object" && "value" in value) {
+    return detectType(value.value);
+  }
   if (typeof value === "number") return "number";
   if (typeof value === "boolean") return "boolean";
   return "string";
+}
+
+export function variableValue(value) {
+  return value && typeof value === "object" && "value" in value ? value.value : value;
 }
 
 export function parseEffects(effects) {
@@ -312,7 +319,7 @@ export function validateStory(story, language) {
   const sceneIds = story.scenes.map((scene) => scene.id);
   const assetIds = story.assets.map((asset) => asset.id);
   const variableNames = Object.keys(story.variables);
-  const variableTypes = Object.fromEntries(Object.entries(story.variables).map(([name, value]) => [name, detectType(value)]));
+  const variableTypes = Object.fromEntries(Object.entries(story.variables).map(([name, value]) => [name, detectType(variableValue(value))]));
   if (!story.key) errors.push(translate(language, "keyRequired"));
   if (!story.title) errors.push(translate(language, "titleRequired"));
   if (!story.startSceneId || !sceneIds.includes(story.startSceneId)) errors.push(translate(language, "startSceneMissing"));

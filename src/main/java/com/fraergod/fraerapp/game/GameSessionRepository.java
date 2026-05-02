@@ -9,4 +9,6 @@ interface GameSessionRepository extends JpaRepository<GameSession, String> {
 	long countByStoryIdAndStatus(String storyId, SessionStatus status);
 
 	java.util.List<GameSession> findTop20ByStoryIdOrderByUpdatedAtDesc(String storyId);
+
+	java.util.List<GameSession> findByPlayerIdOrderByUpdatedAtDesc(String playerId);
 }

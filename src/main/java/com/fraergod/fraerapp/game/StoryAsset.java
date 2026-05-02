@@ -47,7 +47,15 @@ class StoryAsset {
 		return assetKey;
 	}
 
+	String getType() {
+		return type;
+	}
+
 	String getUrl() {
 		return url;
+	}
+
+	String getMetadataJson() {
+		return metadataJson;
 	}
 }

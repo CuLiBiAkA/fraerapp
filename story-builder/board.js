@@ -321,7 +321,7 @@ function createVariableCards() {
       id,
       title: id,
       subtitle: `${text("variableKind")} · ${variable.type}`,
-      meta: [pill(variable.type), pill(String(variable.value))],
+      meta: [pill(variable.type), pill(String(variable.value)), variable.showInStats ? pill("stats") : null].filter(Boolean),
       href: `/index.html#variable:${encodeURIComponent(id)}`,
     });
     placeCard(card, entityKey("variable", id));
@@ -689,7 +689,7 @@ function addScene() {
 
 function addVariable() {
   const name = uniqueId("variable", draft.variables.map((variable) => variable.name));
-  draft.variables.push({ name, type: "number", value: 0 });
+  draft.variables.push({ name, type: "number", value: 0, showInStats: false });
   addDraftEntityPosition("variable", name);
 }
 

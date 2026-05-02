@@ -34,10 +34,23 @@ class JsonSupport {
 		Map<String, Object> values = new LinkedHashMap<>();
 		if (variables != null) {
 			for (Map.Entry<String, JsonNode> entry : variables.entrySet()) {
-				values.put(entry.getKey(), mapper.convertValue(entry.getValue(), Object.class));
+				values.put(entry.getKey(), mapper.convertValue(variableValue(entry.getValue()), Object.class));
 			}
 		}
 		return write(values);
+	}
+
+	String writeStatsVariables(Map<String, JsonNode> variables) {
+		List<String> names = new ArrayList<>();
+		if (variables != null) {
+			for (Map.Entry<String, JsonNode> entry : variables.entrySet()) {
+				JsonNode node = entry.getValue();
+				if (node != null && node.isObject() && node.path("showInStats").asBoolean(false)) {
+					names.add(entry.getKey());
+				}
+			}
+		}
+		return write(names);
 	}
 
 	String writeObject(JsonNode node) {
@@ -78,6 +91,21 @@ class JsonSupport {
 		}
 	}
 
+	List<String> readStringList(String json) {
+		try {
+			if (json == null || json.isBlank()) {
+				return List.of();
+			}
+			List<JsonNode> nodes = mapper.readValue(json, NODE_LIST_TYPE);
+			return nodes.stream()
+					.filter(JsonNode::isTextual)
+					.map(JsonNode::asText)
+					.toList();
+		} catch (Exception ex) {
+			throw new IllegalArgumentException("Cannot read JSON string list", ex);
+		}
+	}
+
 	Object readObject(String json) {
 		try {
 			if (json == null || json.isBlank() || "{}".equals(json)) {
@@ -100,5 +128,12 @@ class JsonSupport {
 
 	JsonNode nullNode() {
 		return JsonNodeFactory.instance.nullNode();
+	}
+
+	private JsonNode variableValue(JsonNode node) {
+		if (node != null && node.isObject() && node.has("value")) {
+			return node.get("value");
+		}
+		return node;
 	}
 }

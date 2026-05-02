@@ -179,6 +179,37 @@ h2 {
   justify-content: flex-start;
 }
 
+.story-picker-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid #d8e0e2;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f8fafb;
+}
+
+.story-picker-item strong,
+.story-picker-item span {
+  display: block;
+}
+
+.story-picker-item span {
+  margin-top: 4px;
+  color: #657478;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.story-picker-item .actions {
+  margin-bottom: 0;
+}
+
+.story-picker-item button {
+  width: auto !important;
+}
+
 .preview {
   position: sticky;
   top: 16px;

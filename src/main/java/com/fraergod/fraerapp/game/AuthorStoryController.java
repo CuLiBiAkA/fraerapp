@@ -36,6 +36,11 @@ class AuthorStoryController {
 		return product.authoredStory(playerId, storyId);
 	}
 
+	@GetMapping("/stories/{storyId}/document")
+	Map<String, Object> storyDocument(@RequestHeader("X-Player-Id") String playerId, @PathVariable String storyId) {
+		return product.authoredStoryDocument(playerId, storyId);
+	}
+
 	@GetMapping("/stories/{storyId}/analytics")
 	StoryProductService.StoryAnalytics analytics(@RequestHeader("X-Player-Id") String playerId, @PathVariable String storyId) {
 		return product.analytics(playerId, storyId);

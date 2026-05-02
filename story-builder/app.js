@@ -94,6 +94,7 @@ const translations = {
     nameLabel: "Имя",
     typeLabel: "Тип",
     valueLabel: "Значение",
+    showInStatsLabel: "Показывать в статах игры",
     idLabel: "Id",
     urlLabel: "URL",
     metadataJsonLabel: "JSON метаданных",
@@ -214,6 +215,7 @@ const translations = {
     nameLabel: "Name",
     typeLabel: "Type",
     valueLabel: "Value",
+    showInStatsLabel: "Show in game stats",
     idLabel: "Id",
     urlLabel: "URL",
     metadataJsonLabel: "Metadata JSON",
@@ -289,7 +291,7 @@ function emptyDraft() {
     description: "",
     version: 1,
     startSceneId: "start",
-    variables: [{ name: "score", type: "number", value: 0 }],
+    variables: [{ name: "score", type: "number", value: 0, showInStats: false }],
     assets: [{ id: "start_bg", type: "image", url: "/assets/platform.svg", metadata: "" }],
     scenes: [
       {
@@ -318,8 +320,8 @@ function exampleDraft() {
     version: 1,
     startSceneId: "start",
     variables: [
-      { name: "score", type: "number", value: 0 },
-      { name: "hasKey", type: "boolean", value: false },
+      { name: "score", type: "number", value: 0, showInStats: true },
+      { name: "hasKey", type: "boolean", value: false, showInStats: true },
     ],
     assets: [
       { id: "start_bg", type: "image", url: "/assets/platform.svg", metadata: "" },
@@ -481,6 +483,7 @@ function renderVariables() {
         render();
       }),
       typedValueField(variable, (value) => (variable.value = value)),
+      checkboxField(t("showInStatsLabel"), Boolean(variable.showInStats), (checked) => (variable.showInStats = checked)),
     );
     els.variables.append(item);
   });
@@ -678,7 +681,7 @@ function toStoryJson() {
     description: draft.description,
     version: Number(draft.version || 1),
     startSceneId: draft.startSceneId,
-    variables: Object.fromEntries(draft.variables.filter((variable) => variable.name).map((variable) => [variable.name, coerceValue(variable.type, variable.value)])),
+    variables: Object.fromEntries(draft.variables.filter((variable) => variable.name).map((variable) => [variable.name, serializeVariable(variable)])),
     assets: draft.assets.filter((asset) => asset.id).map((asset) => {
       const result = { id: asset.id, type: asset.type, url: asset.url };
       const metadata = parseMetadata(asset.metadata);
@@ -705,6 +708,11 @@ function toStoryJson() {
       })),
     })),
   };
+}
+
+function serializeVariable(variable) {
+  const value = coerceValue(variable.type, variable.value);
+  return variable.showInStats ? { value, showInStats: true } : value;
 }
 
 function serializeConditions(conditions) {
@@ -761,7 +769,15 @@ function fromStoryJson(story) {
     description: story.description || "",
     version: story.version || 1,
     startSceneId: story.startSceneId || "",
-    variables: Object.entries(story.variables || {}).map(([name, value]) => ({ name, type: detectType(value), value })),
+    variables: Object.entries(story.variables || {}).map(([name, definition]) => {
+      const value = variableValue(definition);
+      return {
+        name,
+        type: detectType(value),
+        value,
+        showInStats: Boolean(definition && typeof definition === "object" && definition.showInStats),
+      };
+    }),
     assets: (story.assets || []).map((asset) => ({ id: asset.id, type: asset.type || "image", url: asset.url || "", metadata: asset.metadata ? JSON.stringify(asset.metadata, null, 2) : "" })),
     scenes: (story.scenes || []).map((scene) => ({
       id: scene.id,
@@ -924,6 +940,20 @@ function selectField(labelText, options, selected, onChange) {
     render();
   };
   return field(labelText, select);
+}
+
+function checkboxField(labelText, checked, onChange) {
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = checked;
+  checkbox.onchange = () => {
+    onChange(checkbox.checked);
+    renderPreview();
+    saveDraft();
+  };
+  const label = document.createElement("label");
+  label.append(checkbox, labelText);
+  return label;
 }
 
 function typedValueField(variable, onChange) {
@@ -1115,9 +1145,16 @@ function coerceValue(type, value) {
 }
 
 function detectType(value) {
+  if (value && typeof value === "object" && "value" in value) {
+    return detectType(value.value);
+  }
   if (typeof value === "number") return "number";
   if (typeof value === "boolean") return "boolean";
   return "string";
+}
+
+function variableValue(value) {
+  return value && typeof value === "object" && "value" in value ? value.value : value;
 }
 
 function parseMetadata(value) {
@@ -1244,6 +1281,11 @@ function renderAuthorWorkspace(home = null) {
     ? `Автор: ${authorName}`
     : "Автор не вошел. Для product workflow войдите как автор.";
   els.authorStories.replaceChildren();
+  if (authorSession?.playerId) {
+    const topActions = div("actions tight");
+    topActions.append(button("New story", createNewAuthorStory, "secondary small"));
+    els.authorStories.append(topActions);
+  }
   if (!home?.stories?.length) {
     els.authorAnalytics.textContent = authorSession?.playerId
       ? "У автора пока нет сценариев. Импортируйте текущий draft."
@@ -1254,22 +1296,59 @@ function renderAuthorWorkspace(home = null) {
     ? JSON.stringify(home.stats, null, 2)
     : "";
   for (const story of home.stories) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "secondary";
-    button.textContent = `${story.title} [${story.status}]`;
-    button.onclick = async () => {
-      lastImportedStoryId = story.storyId;
-      localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
-      const analytics = await authorFetch(`/api/author/stories/${story.storyId}/analytics`);
-      els.authorAnalytics.textContent = JSON.stringify(analytics, null, 2);
-    };
-    els.authorStories.append(button);
+    const item = div("story-picker-item");
+    const summary = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = story.title;
+    const meta = document.createElement("span");
+    meta.textContent = `${story.key} - ${story.status} - ${story.totalRuns} runs`;
+    summary.append(title, meta);
+    const actions = div("actions tight");
+    actions.append(
+      button("Edit", () => {
+        openAuthorStory(story.storyId).catch((error) => {
+          els.authorAnalytics.textContent = error.message;
+        });
+      }, "secondary small"),
+      button("Stats", () => {
+        showAuthorAnalytics(story.storyId).catch((error) => {
+          els.authorAnalytics.textContent = error.message;
+        });
+      }, "secondary small"),
+    );
+    item.append(summary, actions);
+    els.authorStories.append(item);
   }
 }
 
+function createNewAuthorStory() {
+  lastImportedStoryId = null;
+  localStorage.removeItem("fraerapp.storyBuilderLastStoryId");
+  draft = emptyDraft();
+  saveDraft();
+  render();
+  els.apiResult.textContent = "New draft is ready. Import it to save.";
+}
+
+async function openAuthorStory(storyId) {
+  const story = await authorFetch(`/api/author/stories/${storyId}/document`);
+  lastImportedStoryId = storyId;
+  localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
+  fromStoryJson(story);
+  saveDraft();
+  els.apiResult.textContent = `Opened: ${story.title}`;
+  await showAuthorAnalytics(storyId);
+}
+
+async function showAuthorAnalytics(storyId) {
+  lastImportedStoryId = storyId;
+  localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
+  const analytics = await authorFetch(`/api/author/stories/${storyId}/analytics`);
+  els.authorAnalytics.textContent = JSON.stringify(analytics, null, 2);
+}
+
 document.querySelector("#add-variable").onclick = () => {
-  draft.variables.push({ name: `${t("variablePrefix")}_${draft.variables.length + 1}`, type: "string", value: "" });
+  draft.variables.push({ name: `${t("variablePrefix")}_${draft.variables.length + 1}`, type: "string", value: "", showInStats: false });
   render();
 };
 

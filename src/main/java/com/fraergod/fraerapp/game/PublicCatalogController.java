@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -18,8 +19,8 @@ class PublicCatalogController {
 	}
 
 	@GetMapping
-	List<StoryProductService.PublishedStorySummary> stories() {
-		return product.publishedCatalog();
+	List<StoryProductService.PublishedStorySummary> stories(@RequestHeader(name = "X-Player-Id", required = false) String playerId) {
+		return product.publishedCatalog(playerId);
 	}
 
 	@GetMapping("/{slug}")

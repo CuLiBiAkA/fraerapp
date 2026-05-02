@@ -43,6 +43,10 @@ class Story {
 	@Column(nullable = false)
 	private String variablesJson = "{}";
 
+	@Lob
+	@Column(nullable = false)
+	private String statsVariablesJson = "[]";
+
 	@Column(length = 36)
 	private String ownerPlayerId;
 
@@ -133,6 +137,14 @@ class Story {
 		this.variablesJson = variablesJson;
 	}
 
+	String getStatsVariablesJson() {
+		return statsVariablesJson;
+	}
+
+	void setStatsVariablesJson(String statsVariablesJson) {
+		this.statsVariablesJson = statsVariablesJson;
+	}
+
 	String getOwnerPlayerId() {
 		return ownerPlayerId;
 	}
@@ -155,5 +167,9 @@ class Story {
 
 	void setPublishedAt(Instant publishedAt) {
 		this.publishedAt = publishedAt;
+	}
+
+	Instant getUpdatedAt() {
+		return updatedAt;
 	}
 }

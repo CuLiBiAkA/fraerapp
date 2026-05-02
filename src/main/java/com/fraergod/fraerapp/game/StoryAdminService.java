@@ -57,6 +57,7 @@ class StoryAdminService {
 		story.setVersion(document.version() <= 0 ? 1 : document.version());
 		story.setStartSceneId(document.startSceneId());
 		story.setVariablesJson(json.writeVariables(document.variables()));
+		story.setStatsVariablesJson(json.writeStatsVariables(document.variables()));
 		story.setStatus(story.getStatus() == null ? StoryStatus.DRAFT : story.getStatus());
 		if (story.getOwnerPlayerId() == null && ownerPlayerId != null && !ownerPlayerId.isBlank()) {
 			story.setOwnerPlayerId(ownerPlayerId);

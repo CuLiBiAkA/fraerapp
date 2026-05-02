@@ -153,7 +153,18 @@ class GameService {
 				new RuntimeStory(story.getKey(), story.getTitle()),
 				runtimeScene,
 				variables,
+				statsVariables(story, variables),
 				session.getStatus().name().toLowerCase());
+	}
+
+	private Map<String, Object> statsVariables(Story story, Map<String, Object> variables) {
+		Map<String, Object> visible = new java.util.LinkedHashMap<>();
+		for (String name : json.readStringList(story.getStatsVariablesJson())) {
+			if (variables.containsKey(name)) {
+				visible.put(name, variables.get(name));
+			}
+		}
+		return visible;
 	}
 
 	private List<Choice> visibleChoices(Scene scene, Map<String, Object> variables) {
@@ -262,6 +273,7 @@ class GameService {
 			List<RuntimeChoice> choices) {
 	}
 
-	record SessionState(String sessionId, RuntimeStory story, RuntimeScene scene, Map<String, Object> variables, String status) {
+	record SessionState(String sessionId, RuntimeStory story, RuntimeScene scene, Map<String, Object> variables,
+			Map<String, Object> statsVariables, String status) {
 	}
 }
