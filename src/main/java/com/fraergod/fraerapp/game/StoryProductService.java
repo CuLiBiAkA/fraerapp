@@ -4,10 +4,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -21,9 +23,11 @@ class StoryProductService {
 	private final GameSessionRepository sessions;
 	private final JsonSupport json;
 	private final StoryAdminService admin;
+	private final StoryAssetStorageService assetStorage;
 
 	StoryProductService(PlayerRepository players, StoryRepository stories, SceneRepository scenes, ChoiceRepository choices,
-			StoryAssetRepository assets, GameSessionRepository sessions, JsonSupport json, StoryAdminService admin) {
+			StoryAssetRepository assets, GameSessionRepository sessions, JsonSupport json, StoryAdminService admin,
+			StoryAssetStorageService assetStorage) {
 		this.players = players;
 		this.stories = stories;
 		this.scenes = scenes;
@@ -32,6 +36,7 @@ class StoryProductService {
 		this.sessions = sessions;
 		this.json = json;
 		this.admin = admin;
+		this.assetStorage = assetStorage;
 	}
 
 	@Transactional(readOnly = true)
@@ -163,6 +168,27 @@ class StoryProductService {
 		return admin.validateStory(storyId);
 	}
 
+	@Transactional
+	UploadedAsset uploadAssetForAuthor(String playerId, String storyId, MultipartFile file, String assetKey, String type) {
+		Story story = ownedStory(playerId, storyId);
+		StoryAssetStorageService.StoredAsset stored = assetStorage.store(story.getId(), file);
+		String resolvedType = normalizeAssetType(type, stored.contentType());
+		String resolvedKey = uniqueAssetKey(story.getId(), assetKey, file.getOriginalFilename(), resolvedType);
+		Map<String, Object> metadata = new java.util.LinkedHashMap<>();
+		metadata.put("filename", file.getOriginalFilename() == null ? stored.filename() : file.getOriginalFilename());
+		metadata.put("contentType", stored.contentType());
+		metadata.put("size", stored.size());
+		metadata.put("uploadedAt", Instant.now().toString());
+
+		StoryAsset asset = assets.findByStoryIdAndAssetKey(story.getId(), resolvedKey)
+				.orElseGet(() -> new StoryAsset(story.getId(), resolvedKey, resolvedType, stored.url(), "{}"));
+		asset.update(resolvedType, stored.url(), json.write(metadata));
+		assets.save(asset);
+		story.touch();
+		stories.save(story);
+		return new UploadedAsset(resolvedKey, resolvedType, stored.url(), metadata);
+	}
+
 	@Transactional(readOnly = true)
 	List<PublishedStorySummary> publishedCatalog(String playerId) {
 		Map<String, GameSession> lastSessionByStoryId = lastSessionByStoryId(playerId);
@@ -276,6 +302,46 @@ class StoryProductService {
 		return players.findById(playerId).orElseThrow(PlayerNotFoundException::new);
 	}
 
+	private String normalizeAssetType(String requestedType, String contentType) {
+		if (requestedType != null && List.of("image", "music", "sound", "sprite").contains(requestedType)) {
+			return requestedType;
+		}
+		return contentType.startsWith("audio/") ? "music" : "image";
+	}
+
+	private String uniqueAssetKey(String storyId, String requestedKey, String filename, String type) {
+		String base = slugifyAssetKey(requestedKey);
+		if (base.isBlank()) {
+			base = slugifyAssetKey(filename);
+		} else {
+			return base;
+		}
+		if (base.isBlank()) {
+			base = type == null || type.isBlank() ? "asset" : type;
+		}
+		Set<String> existing = assets.findByStoryId(storyId).stream()
+				.map(StoryAsset::getAssetKey)
+				.collect(Collectors.toSet());
+		if (!existing.contains(base)) {
+			return base;
+		}
+		int suffix = 2;
+		String candidate = base + "_" + suffix;
+		while (existing.contains(candidate)) {
+			candidate = base + "_" + ++suffix;
+		}
+		return candidate;
+	}
+
+	private String slugifyAssetKey(String value) {
+		String clean = value == null ? "" : value.replaceFirst("\\.[^.]+$", "");
+		return java.text.Normalizer.normalize(clean, java.text.Normalizer.Form.NFD)
+				.replaceAll("\\p{M}+", "")
+				.toLowerCase(java.util.Locale.ROOT)
+				.replaceAll("[^a-z0-9_]+", "_")
+				.replaceAll("(^_+|_+$)", "");
+	}
+
 	private Story ownedStory(String playerId, String storyId) {
 		player(playerId);
 		Story story = admin.story(storyId);
@@ -359,5 +425,8 @@ class StoryProductService {
 			long finishedRuns,
 			Instant publishedAt,
 			Instant updatedAt) {
+	}
+
+	record UploadedAsset(String id, String type, String url, Map<String, Object> metadata) {
 	}
 }

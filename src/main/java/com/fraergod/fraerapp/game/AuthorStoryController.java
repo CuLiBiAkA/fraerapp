@@ -8,8 +8,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/author")
@@ -49,6 +51,15 @@ class AuthorStoryController {
 	@PostMapping("/stories/{storyId}/validate")
 	StoryValidationResult validate(@RequestHeader("X-Player-Id") String playerId, @PathVariable String storyId) {
 		return product.validateForAuthor(playerId, storyId);
+	}
+
+	@PostMapping("/stories/{storyId}/assets")
+	StoryProductService.UploadedAsset uploadAsset(@RequestHeader("X-Player-Id") String playerId,
+			@PathVariable String storyId,
+			@RequestParam("file") MultipartFile file,
+			@RequestParam(name = "assetKey", required = false) String assetKey,
+			@RequestParam(name = "type", required = false) String type) {
+		return product.uploadAssetForAuthor(playerId, storyId, file, assetKey, type);
 	}
 
 	@PostMapping("/stories/import")

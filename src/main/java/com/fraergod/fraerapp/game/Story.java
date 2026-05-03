@@ -172,4 +172,8 @@ class Story {
 	Instant getUpdatedAt() {
 		return updatedAt;
 	}
+
+	void touch() {
+		this.updatedAt = Instant.now();
+	}
 }

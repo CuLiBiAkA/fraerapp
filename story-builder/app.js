@@ -97,6 +97,9 @@ const translations = {
     showInStatsLabel: "Показывать в статах игры",
     idLabel: "Id",
     urlLabel: "URL",
+    uploadAsset: "Загрузить файл",
+    uploadAssetFirst: "Сначала импортируйте draft, чтобы появился storyId.",
+    uploadAssetDone: "Ассет загружен: {id}",
     metadataJsonLabel: "JSON метаданных",
     textLabel: "Текст",
     backgroundLabel: "Фон",
@@ -218,6 +221,9 @@ const translations = {
     showInStatsLabel: "Show in game stats",
     idLabel: "Id",
     urlLabel: "URL",
+    uploadAsset: "Upload file",
+    uploadAssetFirst: "Import the draft first so it has a storyId.",
+    uploadAssetDone: "Asset uploaded: {id}",
     metadataJsonLabel: "Metadata JSON",
     textLabel: "Text",
     backgroundLabel: "Background",
@@ -508,6 +514,7 @@ function renderAssets() {
       field(t("idLabel"), input(asset.id, (value) => (asset.id = value))),
       selectField(t("typeLabel"), ["image", "music", "sound", "video", "sprite"], asset.type, (value) => (asset.type = value)),
       field(t("urlLabel"), input(asset.url, (value) => (asset.url = value))),
+      assetUploadField(asset),
       field(t("metadataJsonLabel"), textarea(asset.metadata || "", (value) => (asset.metadata = value), 3)),
     );
     els.assets.append(item);
@@ -956,6 +963,25 @@ function checkboxField(labelText, checked, onChange) {
   return label;
 }
 
+function assetUploadField(asset) {
+  const picker = document.createElement("input");
+  picker.type = "file";
+  picker.accept = "image/*,audio/*";
+  picker.onchange = async () => {
+    const file = picker.files?.[0];
+    if (!file) return;
+    try {
+      await uploadAssetFile(asset, file);
+      render();
+    } catch (error) {
+      els.apiResult.textContent = error.message;
+    } finally {
+      picker.value = "";
+    }
+  };
+  return field(t("uploadAsset"), picker);
+}
+
 function typedValueField(variable, onChange) {
   if (variable.type === "boolean") {
     return selectField(t("valueLabel"), ["false", "true"], String(Boolean(variable.value)), (value) => onChange(value === "true"));
@@ -1248,6 +1274,48 @@ async function authorFetch(path, options = {}) {
   if (!response.ok) {
     throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
   }
+  return payload;
+}
+
+async function uploadAssetFile(asset, file) {
+  if (!authorSession?.playerId) {
+    throw new Error(t("uploadAssetFirst"));
+  }
+  if (!lastImportedStoryId) {
+    await runtimeCall("import");
+  }
+  if (!lastImportedStoryId) {
+    throw new Error(t("uploadAssetFirst"));
+  }
+  const form = new FormData();
+  form.append("file", file);
+  if (asset.id) {
+    form.append("assetKey", asset.id);
+  }
+  if (asset.type) {
+    form.append("type", asset.type);
+  }
+  const base = els.runtimeUrl.value.replace(/\/$/, "");
+  const response = await fetch(`${base}/api/author/stories/${lastImportedStoryId}/assets`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      ...authorHeaders(false),
+    },
+    body: form,
+  });
+  const text = await response.text();
+  const payload = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
+  }
+  asset.id = payload.id;
+  asset.type = payload.type;
+  asset.url = payload.url;
+  asset.metadata = payload.metadata ? JSON.stringify(payload.metadata, null, 2) : "";
+  renderPreview();
+  saveDraft();
+  els.apiResult.textContent = t("uploadAssetDone", { id: payload.id });
   return payload;
 }
 

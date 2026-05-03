@@ -6,6 +6,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -22,7 +24,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT, properties = {
 		"spring.datasource.url=jdbc:h2:mem:author-workflow;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DB_CLOSE_DELAY=-1",
 		"spring.jpa.hibernate.ddl-auto=validate",
-		"app.admin-token=test-token"
+		"app.admin-token=test-token",
+		"app.assets.storage-path=build/test-uploads/author-workflow"
 })
 class AuthorWorkflowTests {
 
@@ -77,6 +80,30 @@ class AuthorWorkflowTests {
 		assertThat(details.body()).containsEntry("authorName", home.body().get("username"));
 	}
 
+	@Test
+	void authorCanUploadAssetIntoOwnedStory() {
+		String authorId = login("asset-author-" + UUID.randomUUID());
+		String storyKey = "asset_story_" + UUID.randomUUID().toString().replace("-", "");
+		ApiResponse imported = request("POST", "/api/author/stories/import", validStory(storyKey), authorId, null);
+		String storyId = imported.body().get("storyId").toString();
+
+		ApiResponse uploaded = multipart("/api/author/stories/" + storyId + "/assets", authorId, Map.of(
+				"assetKey", "cover",
+				"type", "image"), "cover.svg", "image/svg+xml", "<svg xmlns=\"http://www.w3.org/2000/svg\"/>");
+
+		assertThat(uploaded.status()).isEqualTo(HttpStatus.OK.value());
+		assertThat(uploaded.body()).containsEntry("id", "cover");
+		assertThat(uploaded.body()).containsEntry("type", "image");
+		assertThat(uploaded.body().get("url").toString()).startsWith("/uploads/" + storyId + "/");
+
+		ApiResponse document = request("GET", "/api/author/stories/" + storyId + "/document", null, authorId, null);
+		List<Map<String, Object>> assets = castList(document.body().get("assets"));
+		assertThat(assets).anySatisfy(asset -> {
+			assertThat(asset).containsEntry("id", "cover");
+			assertThat(asset.get("url").toString()).startsWith("/uploads/" + storyId + "/");
+		});
+	}
+
 	private String login(String username) {
 		ApiResponse response = request("POST", "/api/auth/login", "{\"username\":\"" + username + "\"}", null, null);
 		assertThat(response.status()).isEqualTo(HttpStatus.OK.value());
@@ -105,6 +132,45 @@ class AuthorWorkflowTests {
 		} catch (Exception ex) {
 			throw new IllegalStateException("Request failed: " + method + " " + path, ex);
 		}
+	}
+
+	private ApiResponse multipart(String path, String playerId, Map<String, String> fields,
+			String filename, String contentType, String fileBody) {
+		try {
+			String boundary = "----fraerapp-" + UUID.randomUUID();
+			HttpRequest.BodyPublisher body = multipartBody(boundary, fields, filename, contentType, fileBody);
+			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+					.header("Accept", "application/json")
+					.header("X-Player-Id", playerId)
+					.header("Content-Type", "multipart/form-data; boundary=" + boundary)
+					.POST(body)
+					.build();
+			HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+			Map<String, Object> parsed = response.body().isBlank() ? Map.of() : readMap(response.body());
+			return new ApiResponse(response.statusCode(), parsed, response.body());
+		} catch (Exception ex) {
+			throw new IllegalStateException("Multipart request failed: " + path, ex);
+		}
+	}
+
+	private HttpRequest.BodyPublisher multipartBody(String boundary, Map<String, String> fields,
+			String filename, String contentType, String fileBody) {
+		List<byte[]> parts = new ArrayList<>();
+		fields.forEach((name, value) -> parts.add(("""
+				--%s\r
+				Content-Disposition: form-data; name="%s"\r
+				\r
+				%s\r
+				""").formatted(boundary, name, value).getBytes(StandardCharsets.UTF_8)));
+		parts.add(("""
+				--%s\r
+				Content-Disposition: form-data; name="file"; filename="%s"\r
+				Content-Type: %s\r
+				\r
+				%s\r
+				--%s--\r
+				""").formatted(boundary, filename, contentType, fileBody, boundary).getBytes(StandardCharsets.UTF_8));
+		return HttpRequest.BodyPublishers.ofByteArrays(parts);
 	}
 
 	private Map<String, Object> readMap(String body) {

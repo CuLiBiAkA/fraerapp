@@ -58,4 +58,10 @@ class StoryAsset {
 	String getMetadataJson() {
 		return metadataJson;
 	}
+
+	void update(String type, String url, String metadataJson) {
+		this.type = type;
+		this.url = url;
+		this.metadataJson = metadataJson;
+	}
 }

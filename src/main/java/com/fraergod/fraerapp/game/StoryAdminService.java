@@ -21,15 +21,17 @@ class StoryAdminService {
 	private final SceneRepository scenes;
 	private final ChoiceRepository choices;
 	private final StoryAssetRepository assets;
+	private final StoryAssetStorageService assetStorage;
 	private final JdbcTemplate jdbc;
 	private final JsonSupport json;
 
 	StoryAdminService(StoryRepository stories, SceneRepository scenes, ChoiceRepository choices,
-			StoryAssetRepository assets, JdbcTemplate jdbc, JsonSupport json) {
+			StoryAssetRepository assets, StoryAssetStorageService assetStorage, JdbcTemplate jdbc, JsonSupport json) {
 		this.stories = stories;
 		this.scenes = scenes;
 		this.choices = choices;
 		this.assets = assets;
+		this.assetStorage = assetStorage;
 		this.jdbc = jdbc;
 		this.json = json;
 	}
@@ -69,6 +71,7 @@ class StoryAdminService {
 				assets.save(new StoryAsset(story.getId(), asset.id(), asset.type(), asset.url(), json.writeObject(asset.metadata())));
 			}
 		}
+		assetStorage.deleteUnreferencedStoryFiles(story.getId(), referencedAssetUrls(document));
 
 		if (document.scenes() != null) {
 			int sceneIndex = 0;
@@ -204,6 +207,16 @@ class StoryAdminService {
 		jdbc.update("delete from choices where scene_id in (select id from scenes where story_id = ?)", storyId);
 		jdbc.update("delete from scenes where story_id = ?", storyId);
 		jdbc.update("delete from assets where story_id = ?", storyId);
+	}
+
+	private Set<String> referencedAssetUrls(StoryDocument document) {
+		if (document.assets() == null) {
+			return Set.of();
+		}
+		return document.assets().stream()
+				.map(StoryDocument.AssetDocument::url)
+				.filter(url -> url != null && !url.isBlank())
+				.collect(Collectors.toSet());
 	}
 
 	Story story(String storyId) {
