@@ -24,6 +24,8 @@ record StoryDocument(
 			String text,
 			String background,
 			String music,
+			Map<String, JsonNode> variables,
+			List<AssetDocument> assets,
 			JsonNode animation,
 			List<JsonNode> effects,
 			JsonNode ending,
@@ -34,6 +36,7 @@ record StoryDocument(
 			String id,
 			String label,
 			String target,
+			String fallbackTarget,
 			List<JsonNode> conditions,
 			List<JsonNode> effects) {
 	}

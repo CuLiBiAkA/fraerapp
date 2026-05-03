@@ -87,6 +87,8 @@ const translations = {
     conditionItem: "Условие {index}",
     effectItem: "Эффект {index}",
     sceneEffects: "Эффекты сцены",
+    sceneLocalVariables: "Локальные переменные сцены",
+    sceneLocalAssets: "Локальные ассеты сцены",
     choiceEffects: "Эффекты выбора",
     choicesTitle: "Выборы",
     conditionsTitle: "Условия",
@@ -113,6 +115,7 @@ const translations = {
     animationDurationLabel: "Длительность анимации, мс",
     labelLabel: "Подпись",
     targetSceneLabel: "Целевая сцена",
+    fallbackTargetSceneLabel: "Сцена если условия не выполнены",
     variableLabel: "Переменная",
     operatorLabel: "Оператор",
     kindLabel: "Тип",
@@ -157,7 +160,7 @@ const translations = {
     moveUp: "\u0412\u044b\u0448\u0435",
     moveDown: "\u041d\u0438\u0436\u0435",
     openBlock: "\u041e\u0442\u043a\u0440\u044b\u0442\u044c",
-    conditionRuntimeHint: "\u0420\u0430\u043d\u0442\u0430\u0439\u043c \u043f\u043e\u043a\u0430\u0436\u0435\u0442 \u044d\u0442\u043e\u0442 \u0432\u044b\u0431\u043e\u0440 \u0442\u043e\u043b\u044c\u043a\u043e \u0435\u0441\u043b\u0438 \u0432\u0441\u0435 \u0443\u0441\u043b\u043e\u0432\u0438\u044f \u0438\u0441\u0442\u0438\u043d\u043d\u044b.",
+    conditionRuntimeHint: "\u0420\u0430\u043d\u0442\u0430\u0439\u043c \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u0442 \u0443\u0441\u043b\u043e\u0432\u0438\u044f: \u0435\u0441\u043b\u0438 \u043e\u043d\u0438 \u0438\u0441\u0442\u0438\u043d\u043d\u044b, \u043f\u0435\u0440\u0435\u0439\u0434\u0435\u0442 \u0432 \u0446\u0435\u043b\u0435\u0432\u0443\u044e \u0441\u0446\u0435\u043d\u0443; \u0438\u043d\u0430\u0447\u0435 - \u0432 fallback-\u0441\u0446\u0435\u043d\u0443, \u0435\u0441\u043b\u0438 \u043e\u043d\u0430 \u0437\u0430\u0434\u0430\u043d\u0430.",
     authorStoryPicker: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0430\u0432\u0442\u043e\u0440\u0430",
     authorStoryPickerEmpty: "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0438\u0441\u0442\u043e\u0440\u0438\u044e",
     uploadSceneAsset: "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0430\u0441\u0441\u0435\u0442 \u0432 \u0441\u0446\u0435\u043d\u0443",
@@ -224,6 +227,8 @@ const translations = {
     conditionItem: "Condition {index}",
     effectItem: "Effect {index}",
     sceneEffects: "Scene effects",
+    sceneLocalVariables: "Scene local variables",
+    sceneLocalAssets: "Scene local assets",
     choiceEffects: "Choice effects",
     choicesTitle: "Choices",
     conditionsTitle: "Conditions",
@@ -250,6 +255,7 @@ const translations = {
     animationDurationLabel: "Animation duration ms",
     labelLabel: "Label",
     targetSceneLabel: "Target scene",
+    fallbackTargetSceneLabel: "Scene if conditions fail",
     variableLabel: "Variable",
     operatorLabel: "Operator",
     kindLabel: "Kind",
@@ -294,7 +300,7 @@ const translations = {
     moveUp: "Up",
     moveDown: "Down",
     openBlock: "Open",
-    conditionRuntimeHint: "Runtime shows this choice only when every condition is true.",
+    conditionRuntimeHint: "Runtime checks the conditions: if they pass it goes to the target scene; otherwise it goes to the fallback scene when one is set.",
     authorStoryPicker: "Author story",
     authorStoryPickerEmpty: "Choose a story",
     uploadSceneAsset: "Upload asset to scene",
@@ -348,6 +354,8 @@ function emptyDraft() {
         text: t("defaultSceneText"),
         background: "start_bg",
         music: "",
+        variables: [],
+        assets: [],
         animationType: "fade-in",
         animationDurationMs: 800,
         effects: [],
@@ -383,6 +391,8 @@ function exampleDraft() {
         text: t("exampleStartText"),
         background: "start_bg",
         music: "",
+        variables: [{ name: "doorHint", type: "string", value: "locked" }],
+        assets: [],
         animationType: "fade-in",
         animationDurationMs: 800,
         effects: [],
@@ -415,6 +425,8 @@ function exampleDraft() {
         text: t("doorText"),
         background: "door_bg",
         music: "",
+        variables: [],
+        assets: [],
         animationType: "fade-in",
         animationDurationMs: 600,
         effects: [],
@@ -426,6 +438,7 @@ function exampleDraft() {
             id: "open_door",
             label: t("openDoor"),
             target: "good_end",
+            fallbackTarget: "bad_end",
             conditions: [{ variable: "hasKey", op: "==", value: true }],
             effects: [{ kind: "inc", variable: "score", value: 5 }],
           },
@@ -571,12 +584,14 @@ function renderAssets() {
 
 function renderScenes() {
   els.scenes.replaceChildren();
-  const assetIds = draft.assets.map((asset) => asset.id);
   appendCollectionToolbar(
     els.scenes,
     draft.scenes.map((scene, index) => collapseKey("scene", scene.id || index)),
   );
   draft.scenes.forEach((scene, sceneIndex) => {
+    scene.variables ||= [];
+    scene.assets ||= [];
+    const assetIds = assetOptions(scene);
     const item = collapsibleItem({
       title: t("sceneItem", { index: sceneIndex + 1, name: scene.id || t("newSceneFallback") }),
       subtitle: `${scene.title || t("sceneDefaultTitle")} · ${t(scene.endingEnabled ? "sceneSummaryEnding" : "sceneSummary", {
@@ -593,13 +608,15 @@ function renderScenes() {
       field(t("idLabel"), input(scene.id, (value) => (scene.id = value))),
       field(t("titleLabel"), input(scene.title, (value) => (scene.title = value))),
       field(t("textLabel"), textarea(scene.text, (value) => (scene.text = value), 4)),
+      localVariablesEditor(scene),
+      localAssetsEditor(scene),
       selectField(t("backgroundLabel"), ["", ...assetIds], scene.background || "", (value) => (scene.background = value)),
       sceneAssetUploadField(scene, "background"),
       selectField(t("musicLabel"), ["", ...assetIds], scene.music || "", (value) => (scene.music = value)),
       sceneAssetUploadField(scene, "music"),
       selectField(t("animationLabel"), ["none", "fade-in"], scene.animationType || "none", (value) => (scene.animationType = value)),
       field(t("animationDurationLabel"), input(scene.animationDurationMs || 600, (value) => (scene.animationDurationMs = Number(value || 0)), "number")),
-      effectsEditor(scene.effects, t("sceneEffects")),
+      effectsEditor(scene.effects, t("sceneEffects"), scene),
       endingEditor(scene),
       choicesEditor(scene),
     );
@@ -614,6 +631,7 @@ function choicesEditor(scene) {
       id: `${t("choicePrefix")}_${scene.choices.length + 1}`,
       label: t("choiceDefaultLabel"),
       target: scene.id,
+      fallbackTarget: "",
       conditions: [],
       effects: [],
     });
@@ -627,51 +645,54 @@ function choicesEditor(scene) {
       field(t("idLabel"), input(choice.id, (value) => (choice.id = value))),
       field(t("labelLabel"), input(choice.label, (value) => (choice.label = value))),
       selectField(t("targetSceneLabel"), draft.scenes.map((candidate) => candidate.id), choice.target, (value) => (choice.target = value)),
-      conditionsEditor(choice.conditions),
-      effectsEditor(choice.effects, t("choiceEffects")),
+      selectField(t("fallbackTargetSceneLabel"), ["", ...draft.scenes.map((candidate) => candidate.id)], choice.fallbackTarget || "", (value) => (choice.fallbackTarget = value)),
+      conditionsEditor(choice.conditions, scene),
+      effectsEditor(choice.effects, t("choiceEffects"), scene),
     );
     wrap.append(item);
   });
   return wrap;
 }
 
-function conditionsEditor(conditions) {
+function conditionsEditor(conditions, scene) {
   const wrap = div("nested");
   const hint = document.createElement("p");
   hint.className = "summary-subtitle";
   hint.textContent = t("conditionRuntimeHint");
   wrap.append(rowTitle(t("conditionsTitle"), button(t("addCondition"), () => {
-    conditions.push({ variable: firstVariable(), op: "==", value: defaultValue(variableType(firstVariable())) });
+    const variable = firstVariable(scene);
+    conditions.push({ variable, op: "==", value: defaultValue(variableType(variable, scene)) });
     render({ preserveScroll: true });
   })));
   wrap.append(hint);
   conditions.forEach((condition, index) => {
-    const variableNames = draft.variables.map((variable) => variable.name);
+    const variableNames = variableOptions(scene);
     const item = div("item");
     item.append(
       rowHead(t("conditionItem", { index: index + 1 }), () => removeAt(conditions, index)),
       selectField(t("variableLabel"), variableNames, condition.variable, (value) => {
         condition.variable = value;
-        condition.value = defaultValue(variableType(value));
+        condition.value = defaultValue(variableType(value, scene));
         render();
       }),
       selectField(t("operatorLabel"), ["==", "!=", ">=", "<=", ">", "<"], condition.op, (value) => (condition.op = value)),
-      typedValueField({ type: variableType(condition.variable), value: condition.value }, (value) => (condition.value = value)),
+      typedValueField({ type: variableType(condition.variable, scene), value: condition.value }, (value) => (condition.value = value)),
     );
     wrap.append(item);
   });
   return wrap;
 }
 
-function effectsEditor(effects, title) {
+function effectsEditor(effects, title, scene = null) {
   const wrap = div("nested");
   wrap.append(rowTitle(title, button(t("addEffect"), () => {
-    effects.push({ kind: "set", variable: firstVariable(), value: defaultValue(variableType(firstVariable())) });
+    const variable = firstVariable(scene);
+    effects.push({ kind: "set", variable, value: defaultValue(variableType(variable, scene)) });
     render({ preserveScroll: true });
   })));
   effects.forEach((effect, index) => {
-    const variableNames = draft.variables.map((variable) => variable.name);
-    const type = variableType(effect.variable);
+    const variableNames = variableOptions(scene);
+    const type = variableType(effect.variable, scene);
     const item = div("item");
     item.append(
       rowHead(t("effectItem", { index: index + 1 }), () => removeAt(effects, index)),
@@ -684,7 +705,7 @@ function effectsEditor(effects, title) {
       }),
       selectField(t("variableLabel"), variableNames, effect.variable, (value) => {
         effect.variable = value;
-        effect.value = effect.kind === "inc" ? 1 : defaultValue(variableType(value));
+        effect.value = effect.kind === "inc" ? 1 : defaultValue(variableType(value, scene));
         render();
       }),
       effect.kind === "inc"
@@ -756,20 +777,76 @@ function toStoryJson() {
       id: scene.id,
       title: scene.title,
       text: scene.text,
+      variables: Object.fromEntries((scene.variables || []).filter((variable) => variable.name).map((variable) => [variable.name, serializeVariable(variable)])),
+      assets: (scene.assets || []).filter((asset) => asset.id).map((asset) => {
+        const result = { id: asset.id, type: asset.type, url: asset.url };
+        const metadata = parseMetadata(asset.metadata);
+        if (metadata) {
+          result.metadata = metadata;
+        }
+        return result;
+      }),
       background: scene.background || null,
       music: scene.music || null,
       animation: scene.animationType === "fade-in" ? { type: "fade-in", durationMs: Number(scene.animationDurationMs || 600) } : {},
-      effects: serializeEffects(scene.effects),
+      effects: serializeEffects(scene.effects, scene),
       ...(scene.endingEnabled ? { ending: { type: scene.endingType || "ending", title: scene.endingTitle || scene.title } } : {}),
       choices: scene.choices.map((choice) => ({
         id: choice.id,
         label: choice.label,
         target: choice.target,
-        conditions: serializeConditions(choice.conditions),
-        effects: serializeEffects(choice.effects),
+        fallbackTarget: choice.fallbackTarget || null,
+        conditions: serializeConditions(choice.conditions, scene),
+        effects: serializeEffects(choice.effects, scene),
       })),
     })),
   };
+}
+
+function localVariablesEditor(scene) {
+  const wrap = div("nested");
+  wrap.append(rowTitle(t("sceneLocalVariables"), button(t("addVariable"), () => {
+    scene.variables ||= [];
+    scene.variables.push({ name: `${scene.id || t("scenePrefix")}_${t("variablePrefix")}_${scene.variables.length + 1}`, type: "string", value: "", showInStats: false });
+    render({ preserveScroll: true });
+  })));
+  (scene.variables || []).forEach((variable, index) => {
+    const item = div("item");
+    item.append(
+      rowHead(t("variableItem", { index: index + 1 }), () => removeAt(scene.variables, index)),
+      field(t("nameLabel"), input(variable.name, (value) => (variable.name = value))),
+      selectField(t("typeLabel"), ["string", "number", "boolean"], variable.type, (value) => {
+        variable.type = value;
+        variable.value = defaultValue(value);
+        render({ preserveScroll: true });
+      }),
+      typedValueField(variable, (value) => (variable.value = value)),
+    );
+    wrap.append(item);
+  });
+  return wrap;
+}
+
+function localAssetsEditor(scene) {
+  const wrap = div("nested");
+  wrap.append(rowTitle(t("sceneLocalAssets"), button(t("addAsset"), () => {
+    scene.assets ||= [];
+    scene.assets.push({ id: `${scene.id || t("scenePrefix")}_${t("assetPrefix")}_${scene.assets.length + 1}`, type: "image", url: "", metadata: "" });
+    render({ preserveScroll: true });
+  })));
+  (scene.assets || []).forEach((asset, index) => {
+    const item = div("item");
+    item.append(
+      rowHead(t("assetItem", { index: index + 1 }), () => removeAt(scene.assets, index)),
+      field(t("idLabel"), input(asset.id, (value) => (asset.id = value))),
+      selectField(t("typeLabel"), ["image", "music", "sound", "video", "sprite"], asset.type, (value) => (asset.type = value)),
+      field(t("urlLabel"), input(asset.url, (value) => (asset.url = value))),
+      assetUploadField(asset, scene),
+      field(t("metadataJsonLabel"), textarea(asset.metadata || "", (value) => (asset.metadata = value), 3)),
+    );
+    wrap.append(item);
+  });
+  return wrap;
 }
 
 function serializeVariable(variable) {
@@ -777,35 +854,38 @@ function serializeVariable(variable) {
   return variable.showInStats ? { value, showInStats: true } : value;
 }
 
-function serializeConditions(conditions) {
+function serializeConditions(conditions, scene = null) {
   return conditions.map((condition) => ({
     var: condition.variable,
     op: condition.op,
-    value: coerceValue(variableType(condition.variable), condition.value),
+    value: coerceValue(variableType(condition.variable, scene), condition.value),
   }));
 }
 
-function serializeEffects(effects) {
+function serializeEffects(effects, scene = null) {
   return effects.map((effect) => effect.kind === "inc"
     ? { inc: effect.variable, value: Number(effect.value || 0) }
-    : { set: effect.variable, value: coerceValue(variableType(effect.variable), effect.value) });
+    : { set: effect.variable, value: coerceValue(variableType(effect.variable, scene), effect.value) });
 }
 
 function validateStory(story) {
   const errors = [];
   const sceneIds = story.scenes.map((scene) => scene.id);
   const assetIds = story.assets.map((asset) => asset.id);
-  const variableNames = Object.keys(story.variables);
+  const globalVariableNames = Object.keys(story.variables);
   if (!story.key) errors.push(t("keyRequired"));
   if (!story.title) errors.push(t("titleRequired"));
   if (!story.startSceneId || !sceneIds.includes(story.startSceneId)) errors.push(t("startSceneMissing"));
   duplicates(sceneIds).forEach((id) => errors.push(t("duplicateSceneId", { id })));
   story.scenes.forEach((scene) => {
-    if (scene.background && !assetIds.includes(scene.background)) errors.push(t("missingBackground", { scene: scene.id, asset: scene.background }));
-    if (scene.music && !assetIds.includes(scene.music)) errors.push(t("missingMusic", { scene: scene.id, asset: scene.music }));
+    const sceneAssetIds = [...assetIds, ...(scene.assets || []).map((asset) => asset.id)];
+    const variableNames = [...globalVariableNames, ...Object.keys(scene.variables || {})];
+    if (scene.background && !sceneAssetIds.includes(scene.background)) errors.push(t("missingBackground", { scene: scene.id, asset: scene.background }));
+    if (scene.music && !sceneAssetIds.includes(scene.music)) errors.push(t("missingMusic", { scene: scene.id, asset: scene.music }));
     duplicates(scene.choices.map((choice) => choice.id)).forEach((id) => errors.push(t("duplicateChoiceId", { scene: scene.id, id })));
     scene.choices.forEach((choice) => {
       if (!sceneIds.includes(choice.target)) errors.push(t("missingTarget", { choice: choice.id, scene: scene.id, target: choice.target }));
+      if (choice.fallbackTarget && !sceneIds.includes(choice.fallbackTarget)) errors.push(t("missingTarget", { choice: choice.id, scene: scene.id, target: choice.fallbackTarget }));
       choice.conditions.forEach((condition) => {
         if (!variableNames.includes(condition.var)) errors.push(t("missingConditionVariable", { choice: choice.id, variable: condition.var }));
       });
@@ -845,6 +925,16 @@ function fromStoryJson(story) {
       id: scene.id,
       title: scene.title || "",
       text: scene.text || "",
+      variables: Object.entries(scene.variables || {}).map(([name, definition]) => {
+        const value = variableValue(definition);
+        return {
+          name,
+          type: detectType(value),
+          value,
+          showInStats: false,
+        };
+      }),
+      assets: (scene.assets || []).map((asset) => ({ id: asset.id, type: asset.type || "image", url: asset.url || "", metadata: asset.metadata ? JSON.stringify(asset.metadata, null, 2) : "" })),
       background: scene.background || "",
       music: scene.music || "",
       animationType: scene.animation?.type || "none",
@@ -857,6 +947,7 @@ function fromStoryJson(story) {
         id: choice.id,
         label: choice.label || "",
         target: choice.target || "",
+        fallbackTarget: choice.fallbackTarget || "",
         conditions: (choice.conditions || []).map((condition) => ({ variable: condition.var, op: condition.op, value: condition.value })),
         effects: parseEffects(choice.effects || []),
       })),
@@ -1018,7 +1109,7 @@ function checkboxField(labelText, checked, onChange) {
   return label;
 }
 
-function assetUploadField(asset) {
+function assetUploadField(asset, scene = null) {
   const picker = document.createElement("input");
   picker.type = "file";
   picker.accept = "image/*,audio/*";
@@ -1027,6 +1118,9 @@ function assetUploadField(asset) {
     if (!file) return;
     try {
       await uploadAssetFile(asset, file);
+      if (scene && !scene.assets.includes(asset)) {
+        scene.assets.push(asset);
+      }
       render();
     } catch (error) {
       els.apiResult.textContent = error.message;
@@ -1045,18 +1139,19 @@ function sceneAssetUploadField(scene, targetField) {
     const file = picker.files?.[0];
     if (!file) return;
     const asset = {
-      id: uniqueDraftAssetId(`${scene.id || t("scenePrefix")}_${targetField}`),
+      id: uniqueDraftAssetId(`${scene.id || t("scenePrefix")}_${targetField}`, scene),
       type: targetField === "music" ? "music" : "image",
       url: "",
       metadata: "",
     };
-    draft.assets.push(asset);
+    scene.assets ||= [];
+    scene.assets.push(asset);
     try {
       await uploadAssetFile(asset, file);
       scene[targetField] = asset.id;
       render({ preserveScroll: true });
     } catch (error) {
-      draft.assets = draft.assets.filter((candidate) => candidate !== asset);
+      scene.assets = scene.assets.filter((candidate) => candidate !== asset);
       els.apiResult.textContent = error.message;
       render({ preserveScroll: true });
     } finally {
@@ -1066,12 +1161,15 @@ function sceneAssetUploadField(scene, targetField) {
   return field(t("uploadSceneAsset"), picker);
 }
 
-function uniqueDraftAssetId(base) {
+function uniqueDraftAssetId(base, scene = null) {
   const normalized = String(base || t("assetPrefix"))
     .toLowerCase()
     .replace(/[^a-z0-9_]+/g, "_")
     .replace(/^_+|_+$/g, "") || t("assetPrefix");
-  const existing = new Set(draft.assets.map((asset) => asset.id));
+  const existing = new Set([
+    ...draft.assets.map((asset) => asset.id),
+    ...((scene?.assets || []).map((asset) => asset.id)),
+  ]);
   if (!existing.has(normalized)) return normalized;
   let index = 2;
   while (existing.has(`${normalized}_${index}`)) index += 1;
@@ -1246,12 +1344,28 @@ function removeAt(list, index) {
   render();
 }
 
-function firstVariable() {
-  return draft.variables[0]?.name || "";
+function firstVariable(scene = null) {
+  return variableOptions(scene)[0] || "";
 }
 
-function variableType(name) {
-  return draft.variables.find((variable) => variable.name === name)?.type || "string";
+function variableType(name, scene = null) {
+  return (scene?.variables || []).find((variable) => variable.name === name)?.type
+    || draft.variables.find((variable) => variable.name === name)?.type
+    || "string";
+}
+
+function variableOptions(scene = null) {
+  return [
+    ...draft.variables.map((variable) => variable.name),
+    ...((scene?.variables || []).map((variable) => variable.name)),
+  ].filter(Boolean);
+}
+
+function assetOptions(scene = null) {
+  return [
+    ...draft.assets.map((asset) => asset.id),
+    ...((scene?.assets || []).map((asset) => asset.id)),
+  ].filter(Boolean);
 }
 
 function defaultValue(type) {
@@ -1544,6 +1658,8 @@ function addSceneAndFocus() {
     text: "",
     background: draft.assets[0]?.id || "",
     music: "",
+    variables: [],
+    assets: [],
     animationType: "fade-in",
     animationDurationMs: 600,
     effects: [],

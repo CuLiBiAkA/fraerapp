@@ -676,6 +676,8 @@ function addScene() {
     text: "",
     background: draft.assets[0]?.id || "",
     music: "",
+    variables: [],
+    assets: [],
     animationType: "fade-in",
     animationDurationMs: 700,
     effects: [],

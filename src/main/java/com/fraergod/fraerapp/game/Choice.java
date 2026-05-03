@@ -27,6 +27,9 @@ class Choice {
 	@Column(nullable = false, length = 120)
 	private String targetSceneKey;
 
+	@Column(length = 120)
+	private String fallbackTargetSceneKey;
+
 	@Lob
 	@Column(nullable = false)
 	private String conditionsJson = "[]";
@@ -47,6 +50,7 @@ class Choice {
 		this.choiceKey = choice.id();
 		this.label = choice.label();
 		this.targetSceneKey = choice.target();
+		this.fallbackTargetSceneKey = choice.fallbackTarget();
 		this.conditionsJson = json.writeArray(choice.conditions());
 		this.effectsJson = json.writeArray(choice.effects());
 		this.orderIndex = orderIndex;
@@ -62,6 +66,10 @@ class Choice {
 
 	String getTargetSceneKey() {
 		return targetSceneKey;
+	}
+
+	String getFallbackTargetSceneKey() {
+		return fallbackTargetSceneKey;
 	}
 
 	String getConditionsJson() {

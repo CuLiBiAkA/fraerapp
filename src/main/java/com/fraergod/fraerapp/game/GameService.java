@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -57,7 +58,7 @@ class GameService {
 		GameSession session = sessions.save(new GameSession(player.getId(), story));
 		Scene start = scene(story, story.getStartSceneId());
 		Map<String, Object> variables = json.readMap(session.getVariablesJson());
-		applyEffects(variables, start.getEffectsJson());
+		applySceneEffects(variables, start);
 		session.setVariablesJson(json.write(variables));
 		if (json.readObject(start.getEndingJson()) != null) {
 			session.finish(start.getSceneKey());
@@ -81,14 +82,22 @@ class GameService {
 		Story story = story(session.getStoryId());
 		Scene current = scene(story, session.getCurrentSceneKey());
 		Map<String, Object> variables = json.readMap(session.getVariablesJson());
-		Choice selected = visibleChoices(current, variables).stream()
+		Map<String, Object> sceneVariables = sceneVariables(current, variables);
+		Choice selected = availableChoices(current, sceneVariables).stream()
 				.filter(choice -> choice.getChoiceKey().equals(choiceId))
 				.findFirst()
 				.orElseThrow(InvalidChoiceException::new);
 
-		applyEffects(variables, selected.getEffectsJson());
-		Scene next = scene(story, selected.getTargetSceneKey());
-		applyEffects(variables, next.getEffectsJson());
+		boolean conditionsPassed = conditionsPass(sceneVariables, selected.getConditionsJson());
+		if (conditionsPassed) {
+			applyEffects(sceneVariables, selected.getEffectsJson());
+			persistGlobalVariables(variables, sceneVariables, current);
+		}
+		String targetSceneKey = conditionsPassed || blank(selected.getFallbackTargetSceneKey())
+				? selected.getTargetSceneKey()
+				: selected.getFallbackTargetSceneKey();
+		Scene next = scene(story, targetSceneKey);
+		applySceneEffects(variables, next);
 		session.setVariablesJson(json.write(variables));
 		session.setCurrentSceneKey(next.getSceneKey());
 		if (json.readObject(next.getEndingJson()) != null) {
@@ -104,7 +113,7 @@ class GameService {
 		session.reset(story);
 		Scene start = scene(story, story.getStartSceneId());
 		Map<String, Object> variables = json.readMap(session.getVariablesJson());
-		applyEffects(variables, start.getEffectsJson());
+		applySceneEffects(variables, start);
 		session.setVariablesJson(json.write(variables));
 		return state(session, story, start);
 	}
@@ -139,9 +148,13 @@ class GameService {
 		Map<String, Object> variables = json.readMap(session.getVariablesJson());
 		Map<String, StoryAsset> assetByKey = assets.findByStoryId(story.getId()).stream()
 				.collect(java.util.stream.Collectors.toMap(StoryAsset::getAssetKey, asset -> asset));
-		List<RuntimeChoice> runtimeChoices = visibleChoices(scene, variables).stream()
+		Map<String, String> localAssetUrls = localAssetUrls(scene);
+		Map<String, Object> sceneVariables = sceneVariables(scene, variables);
+		List<RuntimeChoice> runtimeChoices = availableChoices(scene, sceneVariables).stream()
 				.sorted(Comparator.comparing(Choice::getChoiceKey))
-				.map(choice -> new RuntimeChoice(choice.getChoiceKey(), choice.getLabel()))
+				.map(choice -> new RuntimeChoice(choice.getChoiceKey(), choice.getLabel(),
+						conditionsPass(sceneVariables, choice.getConditionsJson()),
+						blank(choice.getFallbackTargetSceneKey()) ? null : choice.getFallbackTargetSceneKey()))
 				.toList();
 		StoryAsset background = assetByKey.get(scene.getBackgroundAssetId());
 		StoryAsset music = assetByKey.get(scene.getMusicAssetId());
@@ -149,8 +162,8 @@ class GameService {
 				scene.getSceneKey(),
 				scene.getTitle(),
 				scene.getText(),
-				background == null ? null : background.getUrl(),
-				music == null ? null : music.getUrl(),
+				background == null ? localAssetUrls.get(scene.getBackgroundAssetId()) : background.getUrl(),
+				music == null ? localAssetUrls.get(scene.getMusicAssetId()) : music.getUrl(),
 				json.readObject(scene.getAnimationJson()),
 				json.readObject(scene.getEndingJson()),
 				runtimeChoices);
@@ -173,14 +186,45 @@ class GameService {
 		return visible;
 	}
 
-	private List<Choice> visibleChoices(Scene scene, Map<String, Object> variables) {
+	private List<Choice> availableChoices(Scene scene, Map<String, Object> variables) {
 		List<Choice> result = new ArrayList<>();
 		for (Choice choice : choices.findBySceneIdOrderByOrderIndexAsc(scene.getId())) {
-			if (conditionsPass(variables, choice.getConditionsJson())) {
+			if (conditionsPass(variables, choice.getConditionsJson()) || !blank(choice.getFallbackTargetSceneKey())) {
 				result.add(choice);
 			}
 		}
 		return result;
+	}
+
+	private Map<String, Object> sceneVariables(Scene scene, Map<String, Object> globalVariables) {
+		Map<String, Object> context = new java.util.LinkedHashMap<>(globalVariables);
+		context.putAll(json.readMap(scene.getLocalVariablesJson()));
+		return context;
+	}
+
+	private void persistGlobalVariables(Map<String, Object> globalVariables, Map<String, Object> sceneVariables, Scene scene) {
+		Set<String> localNames = json.readMap(scene.getLocalVariablesJson()).keySet();
+		for (Map.Entry<String, Object> entry : sceneVariables.entrySet()) {
+			if (!localNames.contains(entry.getKey())) {
+				globalVariables.put(entry.getKey(), entry.getValue());
+			}
+		}
+	}
+
+	private void applySceneEffects(Map<String, Object> globalVariables, Scene scene) {
+		Map<String, Object> context = sceneVariables(scene, globalVariables);
+		applyEffects(context, scene.getEffectsJson());
+		persistGlobalVariables(globalVariables, context, scene);
+	}
+
+	private Map<String, String> localAssetUrls(Scene scene) {
+		Map<String, String> urls = new java.util.LinkedHashMap<>();
+		for (JsonNode asset : json.readNodeList(scene.getLocalAssetsJson())) {
+			if (asset.hasNonNull("id") && asset.hasNonNull("url")) {
+				urls.put(asset.get("id").asText(), asset.get("url").asText());
+			}
+		}
+		return urls;
 	}
 
 	private boolean conditionsPass(Map<String, Object> variables, String conditionsJson) {
@@ -259,6 +303,10 @@ class GameService {
 		return node.hasNonNull(field) ? node.get(field).asText() : "";
 	}
 
+	private boolean blank(String value) {
+		return value == null || value.isBlank();
+	}
+
 	private String playerName(String playerId) {
 		if (playerId == null || playerId.isBlank()) {
 			return "System";
@@ -272,7 +320,7 @@ class GameService {
 	record RuntimeStory(String key, String title, String authorName) {
 	}
 
-	record RuntimeChoice(String id, String label) {
+	record RuntimeChoice(String id, String label, boolean conditionsPassed, String fallbackTarget) {
 	}
 
 	record RuntimeScene(

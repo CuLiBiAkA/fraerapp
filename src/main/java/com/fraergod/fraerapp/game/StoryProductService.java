@@ -115,6 +115,8 @@ class StoryProductService {
 					item.put("text", scene.getText());
 					item.put("background", scene.getBackgroundAssetId());
 					item.put("music", scene.getMusicAssetId());
+					item.put("variables", exportSceneVariables(scene));
+					item.put("assets", json.readNodeList(scene.getLocalAssetsJson()));
 					item.put("animation", emptyMapIfNull(json.readObject(scene.getAnimationJson())));
 					item.put("effects", json.readNodeList(scene.getEffectsJson()));
 					Object ending = json.readObject(scene.getEndingJson());
@@ -127,6 +129,7 @@ class StoryProductService {
 								choiceItem.put("id", choice.getChoiceKey());
 								choiceItem.put("label", choice.getLabel());
 								choiceItem.put("target", choice.getTargetSceneKey());
+								choiceItem.put("fallbackTarget", choice.getFallbackTargetSceneKey());
 								choiceItem.put("conditions", json.readNodeList(choice.getConditionsJson()));
 								choiceItem.put("effects", json.readNodeList(choice.getEffectsJson()));
 								return choiceItem;
@@ -272,6 +275,14 @@ class StoryProductService {
 			} else {
 				variables.put(entry.getKey(), entry.getValue());
 			}
+		}
+		return variables;
+	}
+
+	private Map<String, Object> exportSceneVariables(Scene scene) {
+		Map<String, Object> variables = new java.util.LinkedHashMap<>();
+		for (Map.Entry<String, Object> entry : json.readMap(scene.getLocalVariablesJson()).entrySet()) {
+			variables.put(entry.getKey(), entry.getValue());
 		}
 		return variables;
 	}

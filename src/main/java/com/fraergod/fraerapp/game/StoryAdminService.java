@@ -105,10 +105,16 @@ class StoryAdminService {
 		}
 
 		for (Scene scene : storyScenes) {
-			if (scene.getBackgroundAssetId() != null && !scene.getBackgroundAssetId().isBlank() && !assetKeys.contains(scene.getBackgroundAssetId())) {
+			Set<String> sceneAssetKeys = new HashSet<>(assetKeys);
+			for (com.fasterxml.jackson.databind.JsonNode asset : json.readNodeList(scene.getLocalAssetsJson())) {
+				if (asset.hasNonNull("id")) {
+					sceneAssetKeys.add(asset.get("id").asText());
+				}
+			}
+			if (scene.getBackgroundAssetId() != null && !scene.getBackgroundAssetId().isBlank() && !sceneAssetKeys.contains(scene.getBackgroundAssetId())) {
 				errors.add("Scene " + scene.getSceneKey() + " references missing background asset " + scene.getBackgroundAssetId());
 			}
-			if (scene.getMusicAssetId() != null && !scene.getMusicAssetId().isBlank() && !assetKeys.contains(scene.getMusicAssetId())) {
+			if (scene.getMusicAssetId() != null && !scene.getMusicAssetId().isBlank() && !sceneAssetKeys.contains(scene.getMusicAssetId())) {
 				errors.add("Scene " + scene.getSceneKey() + " references missing music asset " + scene.getMusicAssetId());
 			}
 			Set<String> choiceKeys = new HashSet<>();
@@ -119,6 +125,10 @@ class StoryAdminService {
 				if (!sceneKeys.contains(choice.getTargetSceneKey())) {
 					errors.add("Scene " + scene.getSceneKey() + " has choice " + choice.getChoiceKey()
 							+ " pointing to missing target " + choice.getTargetSceneKey());
+				}
+				if (!blank(choice.getFallbackTargetSceneKey()) && !sceneKeys.contains(choice.getFallbackTargetSceneKey())) {
+					errors.add("Scene " + scene.getSceneKey() + " has choice " + choice.getChoiceKey()
+							+ " pointing to missing fallback target " + choice.getFallbackTargetSceneKey());
 				}
 			}
 		}
@@ -179,10 +189,17 @@ class StoryAdminService {
 			errors.add("startSceneId points to missing scene " + document.startSceneId());
 		}
 		for (StoryDocument.SceneDocument scene : document.scenes()) {
-			if (!blank(scene.background()) && !assetKeys.contains(scene.background())) {
+			Set<String> sceneAssetKeys = new HashSet<>(assetKeys);
+			if (scene.assets() != null) {
+				scene.assets().stream()
+						.map(StoryDocument.AssetDocument::id)
+						.filter(id -> id != null && !id.isBlank())
+						.forEach(sceneAssetKeys::add);
+			}
+			if (!blank(scene.background()) && !sceneAssetKeys.contains(scene.background())) {
 				errors.add("Scene " + scene.id() + " references missing background asset " + scene.background());
 			}
-			if (!blank(scene.music()) && !assetKeys.contains(scene.music())) {
+			if (!blank(scene.music()) && !sceneAssetKeys.contains(scene.music())) {
 				errors.add("Scene " + scene.id() + " references missing music asset " + scene.music());
 			}
 			Set<String> choiceKeys = new HashSet<>();
@@ -197,6 +214,10 @@ class StoryAdminService {
 						errors.add("Scene " + scene.id() + " has choice " + choice.id()
 								+ " pointing to missing target " + choice.target());
 					}
+					if (!blank(choice.fallbackTarget()) && !sceneKeys.contains(choice.fallbackTarget())) {
+						errors.add("Scene " + scene.id() + " has choice " + choice.id()
+								+ " pointing to missing fallback target " + choice.fallbackTarget());
+					}
 				}
 			}
 		}
@@ -210,13 +231,24 @@ class StoryAdminService {
 	}
 
 	private Set<String> referencedAssetUrls(StoryDocument document) {
-		if (document.assets() == null) {
-			return Set.of();
-		}
-		return document.assets().stream()
+		Set<String> urls = new HashSet<>();
+		if (document.assets() != null) {
+			urls.addAll(document.assets().stream()
 				.map(StoryDocument.AssetDocument::url)
 				.filter(url -> url != null && !url.isBlank())
-				.collect(Collectors.toSet());
+				.collect(Collectors.toSet()));
+		}
+		if (document.scenes() != null) {
+			for (StoryDocument.SceneDocument scene : document.scenes()) {
+				if (scene.assets() != null) {
+					scene.assets().stream()
+							.map(StoryDocument.AssetDocument::url)
+							.filter(url -> url != null && !url.isBlank())
+							.forEach(urls::add);
+				}
+			}
+		}
+		return urls;
 	}
 
 	Story story(String storyId) {

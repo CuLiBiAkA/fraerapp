@@ -44,6 +44,14 @@ class Scene {
 
 	@Lob
 	@Column(nullable = false)
+	private String localVariablesJson = "{}";
+
+	@Lob
+	@Column(nullable = false)
+	private String localAssetsJson = "[]";
+
+	@Lob
+	@Column(nullable = false)
 	private String endingJson = "{}";
 
 	@Column(nullable = false)
@@ -62,6 +70,8 @@ class Scene {
 		this.musicAssetId = scene.music();
 		this.animationJson = json.writeObject(scene.animation());
 		this.effectsJson = json.writeArray(scene.effects());
+		this.localVariablesJson = json.writeVariables(scene.variables());
+		this.localAssetsJson = json.write(scene.assets() == null ? java.util.List.of() : scene.assets());
 		this.endingJson = json.writeObject(scene.ending());
 		this.orderIndex = orderIndex;
 	}
@@ -96,6 +106,14 @@ class Scene {
 
 	String getEffectsJson() {
 		return effectsJson;
+	}
+
+	String getLocalVariablesJson() {
+		return localVariablesJson;
+	}
+
+	String getLocalAssetsJson() {
+		return localAssetsJson;
 	}
 
 	String getEndingJson() {
