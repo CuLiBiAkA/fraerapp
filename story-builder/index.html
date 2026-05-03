@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FraerApp Story Builder</title>
-    <link rel="stylesheet" href="/styles.css?v=builder-7">
+    <link rel="stylesheet" href="/styles.css?v=builder-8">
   </head>
   <body>
     <main class="builder">
@@ -51,6 +51,24 @@
       </section>
 
       <section class="layout">
+        <aside class="project-panel">
+          <section class="band">
+            <h2 data-i18n="projectStructureTitle">Структура</h2>
+            <div class="project-group">
+              <strong data-i18n="globalVariablesTitle">Глобальные переменные</strong>
+              <div id="variable-outline" class="outline-list"></div>
+            </div>
+            <div class="project-group">
+              <strong data-i18n="globalAssetsTitle">Глобальные ассеты</strong>
+              <div id="asset-outline" class="outline-list"></div>
+            </div>
+            <div class="project-group">
+              <strong data-i18n="scenePackagesTitle">Пакеты сцен</strong>
+              <div id="scene-outline" class="outline-list"></div>
+            </div>
+          </section>
+        </aside>
+
         <div class="editor">
           <section class="band">
             <h2 data-i18n="storyMetadata">Метаданные истории</h2>
@@ -95,6 +113,10 @@
             <div class="actions tight">
               <button id="refresh-author" type="button" class="secondary">Обновить</button>
             </div>
+            <label class="author-story-picker">
+              <span data-i18n="authorStoryPicker">История автора</span>
+              <select id="author-story-select"></select>
+            </label>
             <div id="author-stories"></div>
             <pre id="author-analytics"></pre>
           </section>
@@ -133,6 +155,10 @@
       </form>
     </dialog>
 
-    <script src="/app.js?v=builder-7" type="module"></script>
+    <div class="floating-tools" aria-label="Quick builder actions">
+      <button id="quick-add-scene" type="button" title="Добавить сцену">+ Сцена</button>
+    </div>
+
+    <script src="/app.js?v=builder-8" type="module"></script>
   </body>
 </html>

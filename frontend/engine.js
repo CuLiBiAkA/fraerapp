@@ -52,7 +52,7 @@ const translations = {
     storyScreenTitle: "Выберите историю",
     storyScreenSubtitle: "Каждая история запускается через единый backend-движок.",
     storySearchLabel: "Поиск историй",
-    storySearchPlaceholder: "Название, ключ или автор",
+    storySearchPlaceholder: "Название или автор",
     storySortLabel: "Сортировка",
     sortLastPlayed: "Последний вход",
     sortCompletion: "Процент прохождения",
@@ -72,7 +72,7 @@ const translations = {
     statEnabled: "Да",
     statDisabled: "Нет",
     storyRuns: "Запуски: {runs}",
-    finishedRuns: "Финалы: {runs}",
+    finishedRuns: "Завершенные истории: {runs}",
     completionPercent: "{percent}% пройдено",
     publishedDate: "Опубликовано: {date}",
     updatedDate: "Обновлено: {date}",
@@ -110,7 +110,7 @@ const translations = {
     storyScreenTitle: "Choose a story",
     storyScreenSubtitle: "Every story runs through the same backend engine.",
     storySearchLabel: "Search stories",
-    storySearchPlaceholder: "Title, key or author",
+    storySearchPlaceholder: "Title or author",
     storySortLabel: "Sort",
     sortLastPlayed: "Last played",
     sortCompletion: "Completion",
@@ -339,7 +339,7 @@ function renderStories(stories) {
     button.type = "button";
     const author = story.authorName ? ` • ${story.authorName}` : "";
     const runs = typeof story.totalRuns === "number" ? ` • ${story.totalRuns}` : "";
-    button.textContent = `${story.title} (${story.key})${author}${runs}`;
+    button.textContent = `${story.title}${author}${runs}`;
     button.addEventListener("click", () => startStory(story.key));
     storiesList.append(button);
   }
@@ -370,7 +370,8 @@ function renderGameStats(state) {
   profileStories.replaceChildren();
   const variables = Object.entries(state.statsVariables || {});
   const sceneCard = statCard(state.story.title, state.scene.title, "scene");
-  const statusCard = statCard(state.status, `${state.story.key} / ${state.scene.id}`, "status");
+  const storyByline = state.story.authorName ? `${state.story.title} / ${state.story.authorName}` : state.story.title;
+  const statusCard = statCard(state.status, `${storyByline} / ${state.scene.id}`, "status");
   profileSummary.append(sceneCard, statusCard);
 
   if (variables.length === 0) {
@@ -474,7 +475,7 @@ function renderStoryPage() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "story-card";
-    const author = story.authorName ? ` • ${story.authorName}` : "";
+    const author = story.authorName ? story.authorName : "";
     const progress = Math.round(story.completionRate ?? 0);
     const titleRow = document.createElement("div");
     titleRow.className = "story-title-row";
@@ -482,7 +483,7 @@ function renderStoryPage() {
     title.textContent = story.title;
     const key = document.createElement("span");
     key.className = "story-key";
-    key.textContent = `${story.key}${author}`;
+    key.textContent = author;
     titleRow.append(title, key);
 
     const meta = document.createElement("div");
@@ -576,7 +577,7 @@ function storyMatchesQuery(story, query) {
   if (!query) {
     return true;
   }
-  return [story.title, story.key, story.description, story.authorName]
+  return [story.title, story.description, story.authorName]
     .filter(Boolean)
     .some((value) => String(value).toLowerCase().includes(query));
 }
@@ -586,7 +587,7 @@ function render(state) {
   const scene = state.scene;
   showOnly(sceneScreen);
   playerName.textContent = storage.username || "";
-  sceneNode.textContent = `${state.story.key} / ${scene.id}`;
+  sceneNode.textContent = state.story.authorName ? state.story.authorName : state.story.title;
   sceneTitle.textContent = scene.title;
   sceneText.textContent = scene.text;
   sceneImage.src = scene.backgroundUrl || "/assets/platform.svg";

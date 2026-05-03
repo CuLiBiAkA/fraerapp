@@ -56,6 +56,9 @@ class GameService {
 				.orElseThrow(StoryNotFoundException::new);
 		GameSession session = sessions.save(new GameSession(player.getId(), story));
 		Scene start = scene(story, story.getStartSceneId());
+		Map<String, Object> variables = json.readMap(session.getVariablesJson());
+		applyEffects(variables, start.getEffectsJson());
+		session.setVariablesJson(json.write(variables));
 		if (json.readObject(start.getEndingJson()) != null) {
 			session.finish(start.getSceneKey());
 		}
@@ -100,6 +103,9 @@ class GameService {
 		Story story = story(session.getStoryId());
 		session.reset(story);
 		Scene start = scene(story, story.getStartSceneId());
+		Map<String, Object> variables = json.readMap(session.getVariablesJson());
+		applyEffects(variables, start.getEffectsJson());
+		session.setVariablesJson(json.write(variables));
 		return state(session, story, start);
 	}
 
@@ -150,7 +156,7 @@ class GameService {
 				runtimeChoices);
 		return new SessionState(
 				session.getId(),
-				new RuntimeStory(story.getKey(), story.getTitle()),
+				new RuntimeStory(story.getKey(), story.getTitle(), playerName(story.getOwnerPlayerId())),
 				runtimeScene,
 				variables,
 				statsVariables(story, variables),
@@ -253,10 +259,17 @@ class GameService {
 		return node.hasNonNull(field) ? node.get(field).asText() : "";
 	}
 
+	private String playerName(String playerId) {
+		if (playerId == null || playerId.isBlank()) {
+			return "System";
+		}
+		return players.findById(playerId).map(Player::getUsername).orElse("Unknown");
+	}
+
 	record StorySummary(String key, String title, String description) {
 	}
 
-	record RuntimeStory(String key, String title) {
+	record RuntimeStory(String key, String title, String authorName) {
 	}
 
 	record RuntimeChoice(String id, String label) {

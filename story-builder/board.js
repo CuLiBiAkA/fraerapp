@@ -213,7 +213,7 @@ function applyLanguage() {
   els.filterNotes.textContent = text("notes");
   els.autoLayout.textContent = text("autoLayout");
   els.openBuilder.textContent = text("openBuilder");
-  els.backBuilder.textContent = text("backBuilder");
+  if (els.backBuilder) els.backBuilder.textContent = text("backBuilder");
   els.addScene.textContent = text("addScene");
   els.addVariable.textContent = text("addVariable");
   els.addAsset.textContent = text("addAsset");
@@ -1011,7 +1011,7 @@ els.addScene.onclick = addScene;
 els.addVariable.onclick = addVariable;
 els.addAsset.onclick = addAsset;
 els.addNote.onclick = addNote;
-els.backBuilder.addEventListener("click", autoSaveLayout);
+els.backBuilder?.addEventListener("click", autoSaveLayout);
 els.openBuilder.addEventListener("click", autoSaveLayout);
 els.connectMode.onclick = () => {
   connectState.enabled = !connectState.enabled;

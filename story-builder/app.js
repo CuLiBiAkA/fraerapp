@@ -5,6 +5,9 @@ const els = {
   variables: document.querySelector("#variables"),
   assets: document.querySelector("#assets"),
   scenes: document.querySelector("#scenes"),
+  variableOutline: document.querySelector("#variable-outline"),
+  assetOutline: document.querySelector("#asset-outline"),
+  sceneOutline: document.querySelector("#scene-outline"),
   jsonPreview: document.querySelector("#json-preview"),
   validation: document.querySelector("#validation"),
   apiResult: document.querySelector("#api-result"),
@@ -15,10 +18,12 @@ const els = {
   authorLogout: document.querySelector("#author-logout"),
   refreshAuthor: document.querySelector("#refresh-author"),
   authorState: document.querySelector("#author-state"),
+  authorStorySelect: document.querySelector("#author-story-select"),
   authorStories: document.querySelector("#author-stories"),
   authorAnalytics: document.querySelector("#author-analytics"),
   langRu: document.querySelector("#lang-ru"),
   langEn: document.querySelector("#lang-en"),
+  quickAddScene: document.querySelector("#quick-add-scene"),
 };
 
 const translations = {
@@ -145,6 +150,19 @@ const translations = {
     assetSummary: "\u0442\u0438\u043f: {type}",
     variableSummary: "\u0442\u0438\u043f: {type}",
     boardView: "\u041a\u0430\u0440\u0442\u0430 \u0441\u0446\u0435\u043d\u0430\u0440\u0438\u044f",
+    projectStructureTitle: "\u0421\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u0430",
+    globalVariablesTitle: "\u0413\u043b\u043e\u0431\u0430\u043b\u044c\u043d\u044b\u0435 \u043f\u0435\u0440\u0435\u043c\u0435\u043d\u043d\u044b\u0435",
+    globalAssetsTitle: "\u0413\u043b\u043e\u0431\u0430\u043b\u044c\u043d\u044b\u0435 \u0430\u0441\u0441\u0435\u0442\u044b",
+    scenePackagesTitle: "\u041f\u0430\u043a\u0435\u0442\u044b \u0441\u0446\u0435\u043d",
+    moveUp: "\u0412\u044b\u0448\u0435",
+    moveDown: "\u041d\u0438\u0436\u0435",
+    openBlock: "\u041e\u0442\u043a\u0440\u044b\u0442\u044c",
+    conditionRuntimeHint: "\u0420\u0430\u043d\u0442\u0430\u0439\u043c \u043f\u043e\u043a\u0430\u0436\u0435\u0442 \u044d\u0442\u043e\u0442 \u0432\u044b\u0431\u043e\u0440 \u0442\u043e\u043b\u044c\u043a\u043e \u0435\u0441\u043b\u0438 \u0432\u0441\u0435 \u0443\u0441\u043b\u043e\u0432\u0438\u044f \u0438\u0441\u0442\u0438\u043d\u043d\u044b.",
+    authorStoryPicker: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0430\u0432\u0442\u043e\u0440\u0430",
+    authorStoryPickerEmpty: "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0438\u0441\u0442\u043e\u0440\u0438\u044e",
+    uploadSceneAsset: "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0430\u0441\u0441\u0435\u0442 \u0432 \u0441\u0446\u0435\u043d\u0443",
+    authorLoggedIn: "\u0410\u0432\u0442\u043e\u0440: {name}. \u041c\u043e\u0436\u043d\u043e \u0440\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0438 \u043f\u0443\u0431\u043b\u0438\u043a\u043e\u0432\u0430\u0442\u044c.",
+    authorLoggedOut: "\u0410\u0432\u0442\u043e\u0440 \u043d\u0435 \u0432\u043e\u0448\u0435\u043b. \u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0438\u043c\u044f \u0438 \u0432\u043e\u0439\u0434\u0438\u0442\u0435, \u0447\u0442\u043e\u0431\u044b \u0432\u0438\u0434\u0435\u0442\u044c \u0441\u0432\u043e\u0438 \u0438\u0441\u0442\u043e\u0440\u0438\u0438.",
   },
   en: {
     pageTitle: "FraerApp - Story Builder",
@@ -269,6 +287,19 @@ const translations = {
     assetSummary: "type: {type}",
     variableSummary: "type: {type}",
     boardView: "Scenario map",
+    projectStructureTitle: "Structure",
+    globalVariablesTitle: "Global variables",
+    globalAssetsTitle: "Global assets",
+    scenePackagesTitle: "Scene packages",
+    moveUp: "Up",
+    moveDown: "Down",
+    openBlock: "Open",
+    conditionRuntimeHint: "Runtime shows this choice only when every condition is true.",
+    authorStoryPicker: "Author story",
+    authorStoryPickerEmpty: "Choose a story",
+    uploadSceneAsset: "Upload asset to scene",
+    authorLoggedIn: "Author: {name}. Editing and publishing are available.",
+    authorLoggedOut: "Author is not logged in. Enter a name and log in to see your stories.",
   },
 };
 
@@ -276,6 +307,8 @@ const storageKey = "fraerapp.storyBuilderDraft";
 const languageKey = "fraerapp.storyBuilderLanguage";
 const authorStorageKey = "fraerapp.storyBuilderAuthor";
 const collapseStateKey = "fraerapp.storyBuilderCollapseState";
+const runtimeUrlStorageKey = "fraerapp.storyBuilderRuntimeUrl";
+const adminTokenStorageKey = "fraerapp.storyBuilderAdminToken";
 let lastImportedStoryId = localStorage.getItem("fraerapp.storyBuilderLastStoryId");
 let currentLanguage = localStorage.getItem(languageKey) || "ru";
 let collapseState = loadCollapseState();
@@ -289,6 +322,15 @@ function t(key, params = {}) {
 let draft = loadDraft() || emptyDraft();
 draft = localizeDraftDefaults(draft);
 let authorSession = loadAuthorSession();
+
+els.runtimeUrl.value = localStorage.getItem(runtimeUrlStorageKey) || els.runtimeUrl.value;
+els.adminToken.value = localStorage.getItem(adminTokenStorageKey) || els.adminToken.value;
+els.runtimeUrl.addEventListener("input", () => {
+  localStorage.setItem(runtimeUrlStorageKey, els.runtimeUrl.value);
+});
+els.adminToken.addEventListener("input", () => {
+  localStorage.setItem(adminTokenStorageKey, els.adminToken.value);
+});
 
 function emptyDraft() {
   return {
@@ -437,15 +479,21 @@ function setLanguage(language) {
   render();
 }
 
-function render() {
+function render(options = {}) {
+  const scrollY = options.preserveScroll ? window.scrollY : null;
   applyTranslations();
   renderMeta();
   renderVariables();
   renderAssets();
   renderScenes();
+  renderProjectOutline();
   renderPreview();
   saveDraft();
   applyHashFocus();
+  updateAuthorGate();
+  if (scrollY !== null) {
+    requestAnimationFrame(() => window.scrollTo({ top: scrollY }));
+  }
 }
 
 function renderMeta() {
@@ -540,12 +588,15 @@ function renderScenes() {
       entityKind: "scene",
       entityId: scene.id || `${sceneIndex}`,
     });
+    item.append(sceneOrderControls(sceneIndex));
     item.append(
       field(t("idLabel"), input(scene.id, (value) => (scene.id = value))),
       field(t("titleLabel"), input(scene.title, (value) => (scene.title = value))),
       field(t("textLabel"), textarea(scene.text, (value) => (scene.text = value), 4)),
       selectField(t("backgroundLabel"), ["", ...assetIds], scene.background || "", (value) => (scene.background = value)),
+      sceneAssetUploadField(scene, "background"),
       selectField(t("musicLabel"), ["", ...assetIds], scene.music || "", (value) => (scene.music = value)),
+      sceneAssetUploadField(scene, "music"),
       selectField(t("animationLabel"), ["none", "fade-in"], scene.animationType || "none", (value) => (scene.animationType = value)),
       field(t("animationDurationLabel"), input(scene.animationDurationMs || 600, (value) => (scene.animationDurationMs = Number(value || 0)), "number")),
       effectsEditor(scene.effects, t("sceneEffects")),
@@ -566,7 +617,7 @@ function choicesEditor(scene) {
       conditions: [],
       effects: [],
     });
-    render();
+    render({ preserveScroll: true });
   });
   wrap.append(rowTitle(t("choicesTitle"), add));
   scene.choices.forEach((choice, index) => {
@@ -586,10 +637,14 @@ function choicesEditor(scene) {
 
 function conditionsEditor(conditions) {
   const wrap = div("nested");
+  const hint = document.createElement("p");
+  hint.className = "summary-subtitle";
+  hint.textContent = t("conditionRuntimeHint");
   wrap.append(rowTitle(t("conditionsTitle"), button(t("addCondition"), () => {
     conditions.push({ variable: firstVariable(), op: "==", value: defaultValue(variableType(firstVariable())) });
-    render();
+    render({ preserveScroll: true });
   })));
+  wrap.append(hint);
   conditions.forEach((condition, index) => {
     const variableNames = draft.variables.map((variable) => variable.name);
     const item = div("item");
@@ -612,7 +667,7 @@ function effectsEditor(effects, title) {
   const wrap = div("nested");
   wrap.append(rowTitle(title, button(t("addEffect"), () => {
     effects.push({ kind: "set", variable: firstVariable(), value: defaultValue(variableType(firstVariable())) });
-    render();
+    render({ preserveScroll: true });
   })));
   effects.forEach((effect, index) => {
     const variableNames = draft.variables.map((variable) => variable.name);
@@ -982,6 +1037,47 @@ function assetUploadField(asset) {
   return field(t("uploadAsset"), picker);
 }
 
+function sceneAssetUploadField(scene, targetField) {
+  const picker = document.createElement("input");
+  picker.type = "file";
+  picker.accept = targetField === "music" ? "audio/*" : "image/*";
+  picker.onchange = async () => {
+    const file = picker.files?.[0];
+    if (!file) return;
+    const asset = {
+      id: uniqueDraftAssetId(`${scene.id || t("scenePrefix")}_${targetField}`),
+      type: targetField === "music" ? "music" : "image",
+      url: "",
+      metadata: "",
+    };
+    draft.assets.push(asset);
+    try {
+      await uploadAssetFile(asset, file);
+      scene[targetField] = asset.id;
+      render({ preserveScroll: true });
+    } catch (error) {
+      draft.assets = draft.assets.filter((candidate) => candidate !== asset);
+      els.apiResult.textContent = error.message;
+      render({ preserveScroll: true });
+    } finally {
+      picker.value = "";
+    }
+  };
+  return field(t("uploadSceneAsset"), picker);
+}
+
+function uniqueDraftAssetId(base) {
+  const normalized = String(base || t("assetPrefix"))
+    .toLowerCase()
+    .replace(/[^a-z0-9_]+/g, "_")
+    .replace(/^_+|_+$/g, "") || t("assetPrefix");
+  const existing = new Set(draft.assets.map((asset) => asset.id));
+  if (!existing.has(normalized)) return normalized;
+  let index = 2;
+  while (existing.has(`${normalized}_${index}`)) index += 1;
+  return `${normalized}_${index}`;
+}
+
 function typedValueField(variable, onChange) {
   if (variable.type === "boolean") {
     return selectField(t("valueLabel"), ["false", "true"], String(Boolean(variable.value)), (value) => onChange(value === "true"));
@@ -1223,6 +1319,7 @@ function saveAuthorSession(session) {
     localStorage.removeItem(authorStorageKey);
   }
   renderAuthorWorkspace();
+  updateAuthorGate();
 }
 
 function loadAuthorSession() {
@@ -1346,8 +1443,14 @@ async function loadAuthorHome() {
 function renderAuthorWorkspace(home = null) {
   const authorName = authorSession?.username || "не выбран";
   els.authorState.textContent = authorSession?.playerId
-    ? `Автор: ${authorName}`
-    : "Автор не вошел. Для product workflow войдите как автор.";
+    ? t("authorLoggedIn", { name: authorName })
+    : t("authorLoggedOut");
+  els.authorStorySelect.replaceChildren();
+  els.authorStorySelect.disabled = !authorSession?.playerId || !home?.stories?.length;
+  const emptyOption = document.createElement("option");
+  emptyOption.value = "";
+  emptyOption.textContent = t("authorStoryPickerEmpty");
+  els.authorStorySelect.append(emptyOption);
   els.authorStories.replaceChildren();
   if (authorSession?.playerId) {
     const topActions = div("actions tight");
@@ -1358,12 +1461,18 @@ function renderAuthorWorkspace(home = null) {
     els.authorAnalytics.textContent = authorSession?.playerId
       ? "У автора пока нет сценариев. Импортируйте текущий draft."
       : "";
+    updateAuthorGate();
     return;
   }
   els.authorAnalytics.textContent = home.stats
     ? JSON.stringify(home.stats, null, 2)
     : "";
   for (const story of home.stories) {
+    const option = document.createElement("option");
+    option.value = story.storyId;
+    option.textContent = `${story.title} (${story.status})`;
+    option.selected = story.storyId === lastImportedStoryId;
+    els.authorStorySelect.append(option);
     const item = div("story-picker-item");
     const summary = document.createElement("div");
     const title = document.createElement("strong");
@@ -1387,6 +1496,36 @@ function renderAuthorWorkspace(home = null) {
     item.append(summary, actions);
     els.authorStories.append(item);
   }
+  updateAuthorGate();
+}
+
+function updateAuthorGate() {
+  const loggedIn = Boolean(authorSession?.playerId);
+  document.body.classList.toggle("builder-locked", !loggedIn);
+  els.authorLogin.hidden = loggedIn;
+  els.authorLogout.hidden = !loggedIn;
+  els.authorName.disabled = loggedIn;
+  document.querySelectorAll("main button, main input, main select, main textarea").forEach((control) => {
+    const allowed = control === els.authorLogin || control === els.authorName;
+    if (control === els.authorLogout) {
+      control.disabled = !loggedIn;
+      return;
+    }
+    if (allowed) {
+      control.disabled = false;
+      return;
+    }
+    control.disabled = !loggedIn;
+  });
+  document.querySelectorAll("a.nav-link").forEach((link) => {
+    link.classList.toggle("is-disabled", !loggedIn);
+    link.setAttribute("aria-disabled", String(!loggedIn));
+    link.tabIndex = loggedIn ? 0 : -1;
+  });
+  document.querySelectorAll(".file-button").forEach((label) => {
+    const input = label.querySelector("input");
+    label.classList.toggle("is-disabled", Boolean(input?.disabled));
+  });
 }
 
 function createNewAuthorStory() {
@@ -1396,6 +1535,96 @@ function createNewAuthorStory() {
   saveDraft();
   render();
   els.apiResult.textContent = "New draft is ready. Import it to save.";
+}
+
+function addSceneAndFocus() {
+  const scene = {
+    id: `${t("scenePrefix")}_${draft.scenes.length + 1}`,
+    title: t("sceneDefaultTitle"),
+    text: "",
+    background: draft.assets[0]?.id || "",
+    music: "",
+    animationType: "fade-in",
+    animationDurationMs: 600,
+    effects: [],
+    endingEnabled: false,
+    endingType: "",
+    endingTitle: "",
+    choices: [],
+  };
+  draft.scenes.push(scene);
+  collapseState[collapseKey("scene", scene.id)] = false;
+  saveCollapseState();
+  render();
+  requestAnimationFrame(() => {
+    document.querySelector(`[data-entity-kind="scene"][data-entity-id="${cssEscape(scene.id)}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+function renderProjectOutline() {
+  renderSimpleOutline(els.variableOutline, draft.variables, (variable, index) => ({
+    label: variable.name || `${t("variablePrefix")}_${index + 1}`,
+    kind: "variable",
+    id: variable.name || `${index}`,
+  }));
+  renderSimpleOutline(els.assetOutline, draft.assets, (asset, index) => ({
+    label: asset.id || `${t("assetPrefix")}_${index + 1}`,
+    kind: "asset",
+    id: asset.id || `${index}`,
+  }));
+  els.sceneOutline.replaceChildren();
+  draft.scenes.forEach((scene, index) => {
+    const item = div("outline-item");
+    const link = button(`${index + 1}. ${scene.title || scene.id || t("sceneDefaultTitle")}`, () => focusEntity("scene", scene.id || `${index}`), "secondary small outline-link");
+    const up = button("↑", () => moveScene(index, -1), "secondary small outline-move");
+    const down = button("↓", () => moveScene(index, 1), "secondary small outline-move");
+    up.title = t("moveUp");
+    down.title = t("moveDown");
+    up.disabled = index === 0;
+    down.disabled = index === draft.scenes.length - 1;
+    item.append(link, up, down);
+    els.sceneOutline.append(item);
+  });
+}
+
+function renderSimpleOutline(container, items, mapper) {
+  container.replaceChildren();
+  items.forEach((itemValue, index) => {
+    const item = div("outline-item");
+    const mapped = mapper(itemValue, index);
+    const link = button(mapped.label, () => focusEntity(mapped.kind, mapped.id), "secondary small outline-link");
+    link.title = t("openBlock");
+    item.append(link);
+    container.append(item);
+  });
+}
+
+function sceneOrderControls(sceneIndex) {
+  const row = div("actions tight scene-order");
+  const up = button("↑ " + t("moveUp"), () => moveScene(sceneIndex, -1), "secondary small");
+  const down = button("↓ " + t("moveDown"), () => moveScene(sceneIndex, 1), "secondary small");
+  up.disabled = sceneIndex === 0;
+  down.disabled = sceneIndex === draft.scenes.length - 1;
+  row.append(up, down);
+  return row;
+}
+
+function moveScene(index, direction) {
+  const nextIndex = index + direction;
+  if (nextIndex < 0 || nextIndex >= draft.scenes.length) return;
+  const [scene] = draft.scenes.splice(index, 1);
+  draft.scenes.splice(nextIndex, 0, scene);
+  render({ preserveScroll: true });
+}
+
+function focusEntity(kind, id) {
+  const target = document.querySelector(`[data-entity-kind="${cssEscape(kind)}"][data-entity-id="${cssEscape(id)}"]`);
+  if (!target) return;
+  if (target.tagName === "DETAILS") {
+    target.open = true;
+  }
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 async function openAuthorStory(storyId) {
@@ -1425,23 +1654,8 @@ document.querySelector("#add-asset").onclick = () => {
   render();
 };
 
-document.querySelector("#add-scene").onclick = () => {
-  draft.scenes.push({
-    id: `${t("scenePrefix")}_${draft.scenes.length + 1}`,
-    title: t("sceneDefaultTitle"),
-    text: "",
-    background: draft.assets[0]?.id || "",
-    music: "",
-    animationType: "fade-in",
-    animationDurationMs: 600,
-    effects: [],
-    endingEnabled: false,
-    endingType: "",
-    endingTitle: "",
-    choices: [],
-  });
-  render();
-};
+document.querySelector("#add-scene").onclick = addSceneAndFocus;
+els.quickAddScene.onclick = addSceneAndFocus;
 
 document.querySelector("#load-example").onclick = () => {
   draft = exampleDraft();
@@ -1558,6 +1772,12 @@ els.authorLogin.onclick = () => loginAuthor().catch((error) => {
 els.authorLogout.onclick = () => {
   saveAuthorSession(null);
   els.authorAnalytics.textContent = "";
+};
+els.authorStorySelect.onchange = () => {
+  if (!els.authorStorySelect.value) return;
+  openAuthorStory(els.authorStorySelect.value).catch((error) => {
+    els.authorAnalytics.textContent = error.message;
+  });
 };
 els.refreshAuthor.onclick = () => {
   loadAuthorHome().catch((error) => {
