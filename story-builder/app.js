@@ -697,15 +697,21 @@ function effectsEditor(effects, title, scene = null) {
     item.append(
       rowHead(t("effectItem", { index: index + 1 }), () => removeAt(effects, index)),
       selectField(t("kindLabel"), ["set", "inc"], effect.kind, (value) => {
+        const previousValue = effect.value;
         effect.kind = value;
         if (value === "inc") {
-          effect.value = Number(effect.value || 1);
+          effect.value = toNumberOrDefault(previousValue, 1);
+        } else {
+          effect.value = coerceValue(variableType(effect.variable, scene), previousValue);
         }
         render();
       }),
       selectField(t("variableLabel"), variableNames, effect.variable, (value) => {
+        const previousType = variableType(effect.variable, scene);
+        const previousValue = effect.value;
         effect.variable = value;
-        effect.value = effect.kind === "inc" ? 1 : defaultValue(variableType(value, scene));
+        const nextType = variableType(value, scene);
+        effect.value = preserveValueForType(previousValue, previousType, nextType, effect.kind);
         render();
       }),
       effect.kind === "inc"
@@ -758,14 +764,16 @@ function renderPreview() {
 }
 
 function toStoryJson() {
+  const localAssetIds = new Set(draft.scenes.flatMap((scene) => (scene.assets || []).map((asset) => asset.id)).filter(Boolean));
+  const localVariableNames = new Set(draft.scenes.flatMap((scene) => (scene.variables || []).map((variable) => variable.name)).filter(Boolean));
   return {
     key: draft.key,
     title: draft.title,
     description: draft.description,
     version: Number(draft.version || 1),
     startSceneId: draft.startSceneId,
-    variables: Object.fromEntries(draft.variables.filter((variable) => variable.name).map((variable) => [variable.name, serializeVariable(variable)])),
-    assets: draft.assets.filter((asset) => asset.id).map((asset) => {
+    variables: Object.fromEntries(draft.variables.filter((variable) => variable.name && !localVariableNames.has(variable.name)).map((variable) => [variable.name, serializeVariable(variable)])),
+    assets: draft.assets.filter((asset) => asset.id && !localAssetIds.has(asset.id)).map((asset) => {
       const result = { id: asset.id, type: asset.type, url: asset.url };
       const metadata = parseMetadata(asset.metadata);
       if (metadata) {
@@ -892,26 +900,32 @@ function validateStory(story) {
       choice.effects.forEach((effect) => {
         const name = effect.inc || effect.set;
         if (!variableNames.includes(name)) errors.push(t("missingEffectVariableChoice", { choice: choice.id, variable: name }));
-        if (effect.inc && variableType(effect.inc) !== "number") errors.push(t("invalidIncChoice", { choice: choice.id, variable: effect.inc }));
+        if (effect.inc && variableType(effect.inc, draft.scenes.find((candidate) => candidate.id === scene.id)) !== "number") errors.push(t("invalidIncChoice", { choice: choice.id, variable: effect.inc }));
       });
     });
     scene.effects.forEach((effect) => {
       const name = effect.inc || effect.set;
       if (!variableNames.includes(name)) errors.push(t("missingEffectVariableScene", { scene: scene.id, variable: name }));
-      if (effect.inc && variableType(effect.inc) !== "number") errors.push(t("invalidIncScene", { scene: scene.id, variable: effect.inc }));
+      if (effect.inc && variableType(effect.inc, draft.scenes.find((candidate) => candidate.id === scene.id)) !== "number") errors.push(t("invalidIncScene", { scene: scene.id, variable: effect.inc }));
     });
   });
   return errors;
 }
 
 function fromStoryJson(story) {
+  const localAssetIds = new Set((story.scenes || [])
+    .flatMap((scene) => (scene.assets || []).map((asset) => asset.id))
+    .filter(Boolean));
+  const localVariableNames = new Set((story.scenes || [])
+    .flatMap((scene) => Object.keys(scene.variables || {}))
+    .filter(Boolean));
   draft = {
     key: story.key || t("newStoryKey"),
     title: story.title || t("newStoryTitle"),
     description: story.description || "",
     version: story.version || 1,
     startSceneId: story.startSceneId || "",
-    variables: Object.entries(story.variables || {}).map(([name, definition]) => {
+    variables: Object.entries(story.variables || {}).filter(([name]) => !localVariableNames.has(name)).map(([name, definition]) => {
       const value = variableValue(definition);
       return {
         name,
@@ -920,7 +934,9 @@ function fromStoryJson(story) {
         showInStats: Boolean(definition && typeof definition === "object" && definition.showInStats),
       };
     }),
-    assets: (story.assets || []).map((asset) => ({ id: asset.id, type: asset.type || "image", url: asset.url || "", metadata: asset.metadata ? JSON.stringify(asset.metadata, null, 2) : "" })),
+    assets: (story.assets || [])
+      .filter((asset) => asset.id && !localAssetIds.has(asset.id))
+      .map((asset) => ({ id: asset.id, type: asset.type || "image", url: asset.url || "", metadata: asset.metadata ? JSON.stringify(asset.metadata, null, 2) : "" })),
     scenes: (story.scenes || []).map((scene) => ({
       id: scene.id,
       title: scene.title || "",
@@ -1117,10 +1133,7 @@ function assetUploadField(asset, scene = null) {
     const file = picker.files?.[0];
     if (!file) return;
     try {
-      await uploadAssetFile(asset, file);
-      if (scene && !scene.assets.includes(asset)) {
-        scene.assets.push(asset);
-      }
+      await uploadAssetFile(asset, file, scene ? "local" : "global");
       render();
     } catch (error) {
       els.apiResult.textContent = error.message;
@@ -1147,7 +1160,7 @@ function sceneAssetUploadField(scene, targetField) {
     scene.assets ||= [];
     scene.assets.push(asset);
     try {
-      await uploadAssetFile(asset, file);
+      await uploadAssetFile(asset, file, "local");
       scene[targetField] = asset.id;
       render({ preserveScroll: true });
     } catch (error) {
@@ -1178,9 +1191,40 @@ function uniqueDraftAssetId(base, scene = null) {
 
 function typedValueField(variable, onChange) {
   if (variable.type === "boolean") {
-    return selectField(t("valueLabel"), ["false", "true"], String(Boolean(variable.value)), (value) => onChange(value === "true"));
+    return selectField(t("valueLabel"), ["false", "true"], String(toBoolean(variable.value)), (value) => onChange(value === "true"));
   }
   return field(t("valueLabel"), input(variable.value ?? "", (value) => onChange(coerceValue(variable.type, value)), variable.type === "number" ? "number" : "text"));
+}
+
+function preserveValueForType(value, previousType, nextType, effectKind = "set") {
+  if (effectKind === "inc") {
+    return toNumberOrDefault(value, 1);
+  }
+  if (previousType === nextType) {
+    return coerceValue(nextType, value);
+  }
+  if (nextType === "number") {
+    return toNumberOrDefault(value, 0);
+  }
+  if (nextType === "boolean") {
+    return toBoolean(value);
+  }
+  return value == null ? "" : String(value);
+}
+
+function toNumberOrDefault(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function toBoolean(value) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "string") {
+    return value.toLowerCase() === "true";
+  }
+  return Boolean(value);
 }
 
 function fillSelect(select, options, includeEmpty) {
@@ -1488,7 +1532,7 @@ async function authorFetch(path, options = {}) {
   return payload;
 }
 
-async function uploadAssetFile(asset, file) {
+async function uploadAssetFile(asset, file, scope = "global") {
   if (!authorSession?.playerId) {
     throw new Error(t("uploadAssetFirst"));
   }
@@ -1505,6 +1549,9 @@ async function uploadAssetFile(asset, file) {
   }
   if (asset.type) {
     form.append("type", asset.type);
+  }
+  if (scope === "local") {
+    form.append("scope", "local");
   }
   const base = els.runtimeUrl.value.replace(/\/$/, "");
   const response = await fetch(`${base}/api/author/stories/${lastImportedStoryId}/assets`, {

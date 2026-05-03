@@ -12,6 +12,8 @@
 body {
   margin: 0;
   min-width: 320px;
+  height: 100vh;
+  overflow: hidden;
 }
 
 button,
@@ -106,8 +108,12 @@ h2 {
 
 .builder {
   width: min(1760px, calc(100% - 32px));
+  height: 100vh;
   margin: 0 auto;
-  padding: 24px 0;
+  padding: 24px 0 16px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .topbar {
@@ -165,6 +171,9 @@ h2 {
   grid-template-areas: "project editor preview";
   gap: 16px;
   align-items: start;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .project-panel {
@@ -183,7 +192,39 @@ h2 {
 .preview,
 .project-panel {
   display: grid;
+  align-content: start;
   gap: 16px;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  scrollbar-gutter: stable;
+}
+
+.editor::-webkit-scrollbar,
+.preview::-webkit-scrollbar,
+.project-panel::-webkit-scrollbar,
+pre::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.editor::-webkit-scrollbar-thumb,
+.preview::-webkit-scrollbar-thumb,
+.project-panel::-webkit-scrollbar-thumb,
+pre::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: #a7b6ba;
+  background-clip: padding-box;
+}
+
+.editor::-webkit-scrollbar-track,
+.preview::-webkit-scrollbar-track,
+.project-panel::-webkit-scrollbar-track,
+pre::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 #author-stories {
@@ -238,8 +279,7 @@ h2 {
 
 .preview,
 .project-panel {
-  position: sticky;
-  top: 16px;
+  position: static;
 }
 
 .project-group {
@@ -380,7 +420,7 @@ h2 {
 }
 
 pre {
-  max-height: 42vh;
+  max-height: 36vh;
   overflow: auto;
   margin: 0;
   border-radius: 8px;
@@ -429,8 +469,10 @@ dialog {
       "preview editor";
   }
 
-  .preview {
-    position: static;
+  .project-panel,
+  .preview,
+  .editor {
+    max-height: 100%;
   }
 
   .preview pre {
@@ -439,6 +481,16 @@ dialog {
 }
 
 @media (max-width: 860px) {
+  body {
+    height: auto;
+    overflow: auto;
+  }
+
+  .builder {
+    height: auto;
+    min-height: 100vh;
+  }
+
   .topbar,
   .layout,
   .runtime-settings,
@@ -451,14 +503,15 @@ dialog {
       "project"
       "editor"
       "preview";
+    overflow: visible;
   }
 
+  .project-panel,
+  .editor,
   .preview {
-    position: static;
-  }
-
-  .project-panel {
-    position: static;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
   }
 
   .floating-tools {

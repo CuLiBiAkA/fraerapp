@@ -172,7 +172,7 @@ class StoryProductService {
 	}
 
 	@Transactional
-	UploadedAsset uploadAssetForAuthor(String playerId, String storyId, MultipartFile file, String assetKey, String type) {
+	UploadedAsset uploadAssetForAuthor(String playerId, String storyId, MultipartFile file, String assetKey, String type, String scope) {
 		Story story = ownedStory(playerId, storyId);
 		StoryAssetStorageService.StoredAsset stored = assetStorage.store(story.getId(), file);
 		String resolvedType = normalizeAssetType(type, stored.contentType());
@@ -182,6 +182,10 @@ class StoryProductService {
 		metadata.put("contentType", stored.contentType());
 		metadata.put("size", stored.size());
 		metadata.put("uploadedAt", Instant.now().toString());
+		if ("local".equalsIgnoreCase(scope)) {
+			metadata.put("scope", "local");
+			return new UploadedAsset(resolvedKey, resolvedType, stored.url(), metadata);
+		}
 
 		StoryAsset asset = assets.findByStoryIdAndAssetKey(story.getId(), resolvedKey)
 				.orElseGet(() -> new StoryAsset(story.getId(), resolvedKey, resolvedType, stored.url(), "{}"));

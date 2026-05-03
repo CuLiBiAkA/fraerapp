@@ -58,8 +58,9 @@ class AuthorStoryController {
 			@PathVariable String storyId,
 			@RequestParam("file") MultipartFile file,
 			@RequestParam(name = "assetKey", required = false) String assetKey,
-			@RequestParam(name = "type", required = false) String type) {
-		return product.uploadAssetForAuthor(playerId, storyId, file, assetKey, type);
+			@RequestParam(name = "type", required = false) String type,
+			@RequestParam(name = "scope", required = false) String scope) {
+		return product.uploadAssetForAuthor(playerId, storyId, file, assetKey, type, scope);
 	}
 
 	@PostMapping("/stories/import")
