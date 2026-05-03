@@ -116,9 +116,9 @@ class StoryProductService {
 					item.put("background", scene.getBackgroundAssetId());
 					item.put("music", scene.getMusicAssetId());
 					item.put("variables", exportSceneVariables(scene));
-					item.put("assets", json.readNodeList(scene.getLocalAssetsJson()));
+					item.put("assets", json.readObjectList(scene.getLocalAssetsJson()));
 					item.put("animation", emptyMapIfNull(json.readObject(scene.getAnimationJson())));
-					item.put("effects", json.readNodeList(scene.getEffectsJson()));
+					item.put("effects", json.readObjectList(scene.getEffectsJson()));
 					Object ending = json.readObject(scene.getEndingJson());
 					if (ending != null) {
 						item.put("ending", ending);
@@ -130,8 +130,8 @@ class StoryProductService {
 								choiceItem.put("label", choice.getLabel());
 								choiceItem.put("target", choice.getTargetSceneKey());
 								choiceItem.put("fallbackTarget", choice.getFallbackTargetSceneKey());
-								choiceItem.put("conditions", json.readNodeList(choice.getConditionsJson()));
-								choiceItem.put("effects", json.readNodeList(choice.getEffectsJson()));
+								choiceItem.put("conditions", json.readObjectList(choice.getConditionsJson()));
+								choiceItem.put("effects", json.readObjectList(choice.getEffectsJson()));
 								return choiceItem;
 							})
 							.toList());

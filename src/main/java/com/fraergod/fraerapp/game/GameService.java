@@ -16,6 +16,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 @Service
 class GameService {
 
+	private static final String LOCAL_VARIABLES_KEY = "__sceneVariables";
+
 	private final PlayerRepository players;
 	private final StoryRepository stories;
 	private final SceneRepository scenes;
@@ -88,11 +90,9 @@ class GameService {
 				.findFirst()
 				.orElseThrow(InvalidChoiceException::new);
 
+		applyEffects(sceneVariables, selected.getEffectsJson());
+		persistGlobalVariables(variables, sceneVariables, current);
 		boolean conditionsPassed = conditionsPass(sceneVariables, selected.getConditionsJson());
-		if (conditionsPassed) {
-			applyEffects(sceneVariables, selected.getEffectsJson());
-			persistGlobalVariables(variables, sceneVariables, current);
-		}
 		String targetSceneKey = conditionsPassed || blank(selected.getFallbackTargetSceneKey())
 				? selected.getTargetSceneKey()
 				: selected.getFallbackTargetSceneKey();
@@ -171,9 +171,15 @@ class GameService {
 				session.getId(),
 				new RuntimeStory(story.getKey(), story.getTitle(), playerName(story.getOwnerPlayerId())),
 				runtimeScene,
-				variables,
+				publicVariables(variables),
 				statsVariables(story, variables),
 				session.getStatus().name().toLowerCase());
+	}
+
+	private Map<String, Object> publicVariables(Map<String, Object> variables) {
+		Map<String, Object> visible = new java.util.LinkedHashMap<>(variables);
+		visible.remove(LOCAL_VARIABLES_KEY);
+		return visible;
 	}
 
 	private Map<String, Object> statsVariables(Story story, Map<String, Object> variables) {
@@ -198,16 +204,61 @@ class GameService {
 
 	private Map<String, Object> sceneVariables(Scene scene, Map<String, Object> globalVariables) {
 		Map<String, Object> context = new java.util.LinkedHashMap<>(globalVariables);
-		context.putAll(json.readMap(scene.getLocalVariablesJson()));
+		context.remove(LOCAL_VARIABLES_KEY);
+		Map<String, Object> localDefaults = json.readMap(scene.getLocalVariablesJson());
+		context.putAll(localDefaults);
+		context.putAll(savedLocalVariables(globalVariables, scene.getSceneKey(), localDefaults.keySet()));
 		return context;
 	}
 
 	private void persistGlobalVariables(Map<String, Object> globalVariables, Map<String, Object> sceneVariables, Scene scene) {
 		Set<String> localNames = json.readMap(scene.getLocalVariablesJson()).keySet();
+		Map<String, Object> locals = savedLocalVariables(globalVariables, scene.getSceneKey(), localNames);
 		for (Map.Entry<String, Object> entry : sceneVariables.entrySet()) {
-			if (!localNames.contains(entry.getKey())) {
+			if (localNames.contains(entry.getKey())) {
+				locals.put(entry.getKey(), entry.getValue());
+			} else if (!LOCAL_VARIABLES_KEY.equals(entry.getKey())) {
 				globalVariables.put(entry.getKey(), entry.getValue());
 			}
+		}
+		storeLocalVariables(globalVariables, scene.getSceneKey(), locals);
+	}
+
+	@SuppressWarnings("unchecked")
+	private Map<String, Object> savedLocalVariables(Map<String, Object> globalVariables, String sceneKey, Set<String> localNames) {
+		Object allLocals = globalVariables.get(LOCAL_VARIABLES_KEY);
+		if (!(allLocals instanceof Map<?, ?> localByScene)) {
+			return new java.util.LinkedHashMap<>();
+		}
+		Object sceneLocals = localByScene.get(sceneKey);
+		if (!(sceneLocals instanceof Map<?, ?> rawLocals)) {
+			return new java.util.LinkedHashMap<>();
+		}
+		Map<String, Object> locals = new java.util.LinkedHashMap<>();
+		rawLocals.forEach((key, value) -> {
+			String name = String.valueOf(key);
+			if (localNames.contains(name)) {
+				locals.put(name, value);
+			}
+		});
+		return locals;
+	}
+
+	@SuppressWarnings("unchecked")
+	private void storeLocalVariables(Map<String, Object> globalVariables, String sceneKey, Map<String, Object> locals) {
+		Object allLocals = globalVariables.get(LOCAL_VARIABLES_KEY);
+		Map<String, Object> localByScene = allLocals instanceof Map<?, ?> raw
+				? new java.util.LinkedHashMap<>((Map<String, Object>) raw)
+				: new java.util.LinkedHashMap<>();
+		if (locals.isEmpty()) {
+			localByScene.remove(sceneKey);
+		} else {
+			localByScene.put(sceneKey, new java.util.LinkedHashMap<>(locals));
+		}
+		if (localByScene.isEmpty()) {
+			globalVariables.remove(LOCAL_VARIABLES_KEY);
+		} else {
+			globalVariables.put(LOCAL_VARIABLES_KEY, localByScene);
 		}
 	}
 

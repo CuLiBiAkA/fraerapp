@@ -12,8 +12,7 @@
 body {
   margin: 0;
   min-width: 320px;
-  height: 100vh;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 button,
@@ -108,12 +107,8 @@ h2 {
 
 .builder {
   width: min(1760px, calc(100% - 32px));
-  height: 100vh;
   margin: 0 auto;
-  padding: 24px 0 16px;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+  padding: 24px 0;
 }
 
 .topbar {
@@ -171,9 +166,6 @@ h2 {
   grid-template-areas: "project editor preview";
   gap: 16px;
   align-items: start;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
 }
 
 .project-panel {
@@ -194,10 +186,9 @@ h2 {
   display: grid;
   align-content: start;
   gap: 16px;
-  min-height: 0;
-  max-height: 100%;
+  max-height: calc(100vh - 32px);
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: auto;
   padding-right: 6px;
   scrollbar-gutter: stable;
 }
@@ -469,28 +460,12 @@ dialog {
       "preview editor";
   }
 
-  .project-panel,
-  .preview,
-  .editor {
-    max-height: 100%;
-  }
-
   .preview pre {
     max-height: 32vh;
   }
 }
 
 @media (max-width: 860px) {
-  body {
-    height: auto;
-    overflow: auto;
-  }
-
-  .builder {
-    height: auto;
-    min-height: 100vh;
-  }
-
   .topbar,
   .layout,
   .runtime-settings,

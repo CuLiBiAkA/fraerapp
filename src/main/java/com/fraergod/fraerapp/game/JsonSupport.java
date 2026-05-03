@@ -91,6 +91,12 @@ class JsonSupport {
 		}
 	}
 
+	List<Object> readObjectList(String json) {
+		return readNodeList(json).stream()
+				.map(node -> mapper.convertValue(node, Object.class))
+				.toList();
+	}
+
 	List<String> readStringList(String json) {
 		try {
 			if (json == null || json.isBlank()) {

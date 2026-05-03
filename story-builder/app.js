@@ -543,10 +543,12 @@ function renderVariables() {
       entityId: variable.name || `${index}`,
     });
     item.append(
-      field(t("nameLabel"), input(variable.name, (value) => (variable.name = value))),
+      field(t("nameLabel"), input(variable.name, (value) => renameVariable(variable, value))),
       selectField(t("typeLabel"), ["string", "number", "boolean"], variable.type, (value) => {
+        const previousType = variable.type || "string";
+        const previousValue = variable.value;
         variable.type = value;
-        variable.value = defaultValue(value);
+        variable.value = preserveValueForType(previousValue, previousType, value);
         render();
       }),
       typedValueField(variable, (value) => (variable.value = value)),
@@ -667,15 +669,18 @@ function conditionsEditor(conditions, scene) {
   wrap.append(hint);
   conditions.forEach((condition, index) => {
     const variableNames = variableOptions(scene);
+    condition.op ||= "==";
     const item = div("item");
     item.append(
       rowHead(t("conditionItem", { index: index + 1 }), () => removeAt(conditions, index)),
       selectField(t("variableLabel"), variableNames, condition.variable, (value) => {
+        const previousType = variableType(condition.variable, scene);
+        const previousValue = condition.value;
         condition.variable = value;
-        condition.value = defaultValue(variableType(value, scene));
+        condition.value = preserveValueForType(previousValue, previousType, variableType(value, scene));
         render();
       }),
-      selectField(t("operatorLabel"), ["==", "!=", ">=", "<=", ">", "<"], condition.op, (value) => (condition.op = value)),
+      selectField(t("operatorLabel"), ["==", "!=", ">=", "<=", ">", "<"], condition.op || "==", (value) => (condition.op = value || "==")),
       typedValueField({ type: variableType(condition.variable, scene), value: condition.value }, (value) => (condition.value = value)),
     );
     wrap.append(item);
@@ -822,10 +827,12 @@ function localVariablesEditor(scene) {
     const item = div("item");
     item.append(
       rowHead(t("variableItem", { index: index + 1 }), () => removeAt(scene.variables, index)),
-      field(t("nameLabel"), input(variable.name, (value) => (variable.name = value))),
+      field(t("nameLabel"), input(variable.name, (value) => renameVariable(variable, value, scene))),
       selectField(t("typeLabel"), ["string", "number", "boolean"], variable.type, (value) => {
+        const previousType = variable.type || "string";
+        const previousValue = variable.value;
         variable.type = value;
-        variable.value = defaultValue(value);
+        variable.value = preserveValueForType(previousValue, previousType, value);
         render({ preserveScroll: true });
       }),
       typedValueField(variable, (value) => (variable.value = value)),
@@ -964,7 +971,7 @@ function fromStoryJson(story) {
         label: choice.label || "",
         target: choice.target || "",
         fallbackTarget: choice.fallbackTarget || "",
-        conditions: (choice.conditions || []).map((condition) => ({ variable: condition.var, op: condition.op, value: condition.value })),
+        conditions: (choice.conditions || []).map(parseCondition),
         effects: parseEffects(choice.effects || []),
       })),
     })),
@@ -972,10 +979,28 @@ function fromStoryJson(story) {
   render();
 }
 
+function parseCondition(condition) {
+  return {
+    variable: condition.var ?? condition.variable ?? condition.name ?? "",
+    op: condition.op ?? condition.operator ?? "==",
+    value: condition.value ?? defaultValue(variableType(condition.var ?? condition.variable ?? condition.name ?? "")),
+  };
+}
+
 function parseEffects(effects) {
-  return effects.map((effect) => effect.inc
-    ? { kind: "inc", variable: effect.inc, value: effect.value ?? 1 }
-    : { kind: "set", variable: effect.set, value: effect.value });
+  return effects.map((effect) => {
+    if (effect.kind) {
+      return {
+        kind: effect.kind === "inc" ? "inc" : "set",
+        variable: effect.variable ?? effect.set ?? effect.inc ?? effect.name ?? "",
+        value: effect.value ?? (effect.kind === "inc" ? 1 : ""),
+      };
+    }
+    if (Object.hasOwn(effect, "inc")) {
+      return { kind: "inc", variable: effect.inc ?? effect.variable ?? effect.name ?? "", value: effect.value ?? 1 };
+    }
+    return { kind: "set", variable: effect.set ?? effect.variable ?? effect.name ?? "", value: effect.value };
+  });
 }
 
 function localizeDraftDefaults(sourceDraft) {
@@ -1102,13 +1127,21 @@ function textarea(value, onChange, rows = 3) {
 
 function selectField(labelText, options, selected, onChange) {
   const select = document.createElement("select");
-  fillSelect(select, options, false);
+  fillSelect(select, keepSelectedOption(options, selected), false);
   select.value = selected ?? "";
   select.onchange = () => {
     onChange(select.value);
     render();
   };
   return field(labelText, select);
+}
+
+function keepSelectedOption(options, selected) {
+  const value = selected ?? "";
+  if (!value || options.includes(value)) {
+    return options;
+  }
+  return [value, ...options];
 }
 
 function checkboxField(labelText, checked, onChange) {
@@ -1386,6 +1419,56 @@ function cssEscape(value) {
 function removeAt(list, index) {
   list.splice(index, 1);
   render();
+}
+
+function renameVariable(variable, nextName, scene = null) {
+  const oldName = variable.name || variable._lastName || "";
+  variable.name = nextName;
+  if (nextName) {
+    rememberVariableName(variable, nextName);
+  }
+  if (!oldName || !nextName || oldName === nextName) {
+    return;
+  }
+  if (scene) {
+    renameVariableReferencesInScene(scene, oldName, nextName);
+    return;
+  }
+  draft.scenes.forEach((candidate) => {
+    if ((candidate.variables || []).some((localVariable) => localVariable.name === oldName)) {
+      return;
+    }
+    renameVariableReferencesInScene(candidate, oldName, nextName);
+  });
+}
+
+function rememberVariableName(variable, name) {
+  Object.defineProperty(variable, "_lastName", {
+    value: name,
+    writable: true,
+    configurable: true,
+    enumerable: false,
+  });
+}
+
+function renameVariableReferencesInScene(scene, oldName, nextName) {
+  renameVariableReferences(scene.effects || [], oldName, nextName);
+  (scene.choices || []).forEach((choice) => {
+    (choice.conditions || []).forEach((condition) => {
+      if (condition.variable === oldName) {
+        condition.variable = nextName;
+      }
+    });
+    renameVariableReferences(choice.effects || [], oldName, nextName);
+  });
+}
+
+function renameVariableReferences(effects, oldName, nextName) {
+  effects.forEach((effect) => {
+    if (effect.variable === oldName) {
+      effect.variable = nextName;
+    }
+  });
 }
 
 function firstVariable(scene = null) {
