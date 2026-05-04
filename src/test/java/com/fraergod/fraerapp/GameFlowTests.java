@@ -108,6 +108,37 @@ class GameFlowTests {
 	}
 
 	@Test
+	void playerCanListAndContinueSavedRuns() {
+		String playerId = login("saves-" + UUID.randomUUID());
+		String firstSessionId = createSession(playerId, "night_train").body().get("sessionId").toString();
+		request("POST", "/api/sessions/" + firstSessionId + "/choice", "{\"choiceId\":\"inspect_ticket\"}", playerId, null);
+		String secondSessionId = createSession(playerId, "night_train").body().get("sessionId").toString();
+
+		ApiResponse saves = request("GET", "/api/sessions", null, playerId, null);
+		assertThat(saves.status()).isEqualTo(HttpStatus.OK.value());
+		List<Map<String, Object>> runs = readList(saves.rawBody());
+		assertThat(runs).hasSizeGreaterThanOrEqualTo(2);
+		assertThat(runs).anySatisfy(save -> {
+			assertThat(save).containsEntry("sessionId", firstSessionId);
+			assertThat(save).containsEntry("storyKey", "night_train");
+			assertThat(save).containsEntry("sceneId", "ticket");
+			assertThat(save.get("saveName").toString()).startsWith("Save ");
+		});
+		assertThat(runs).anySatisfy(save -> assertThat(save).containsEntry("sessionId", secondSessionId));
+
+		ApiResponse continued = request("GET", "/api/sessions/" + firstSessionId + "/state", null, playerId, null);
+		assertThat(castMap(continued.body().get("scene"))).containsEntry("id", "ticket");
+
+		ApiResponse catalog = request("GET", "/api/catalog/stories", null, playerId, null);
+		Map<String, Object> nightTrain = readList(catalog.rawBody()).stream()
+				.filter(story -> "night_train".equals(story.get("key")))
+				.findFirst()
+				.orElseThrow();
+		assertThat(nightTrain.get("lastSessionId")).isNotNull();
+		assertThat(nightTrain.get("lastSaveName")).isNotNull();
+	}
+
+	@Test
 	void endingFinishesSession() {
 		String playerId = login("ending-" + UUID.randomUUID());
 		String sessionId = createSession(playerId, "night_train").body().get("sessionId").toString();
@@ -138,6 +169,11 @@ class GameFlowTests {
 		Map<String, Object> scene = (Map<String, Object>) body.get("scene");
 		List<Map<String, Object>> choices = (List<Map<String, Object>>) scene.get("choices");
 		return choices.stream().map(choice -> choice.get("id").toString()).toList();
+	}
+
+	@SuppressWarnings("unchecked")
+	private Map<String, Object> castMap(Object value) {
+		return (Map<String, Object>) value;
 	}
 
 	private ApiResponse request(String method, String path, String body, String playerId, String adminToken) {

@@ -204,6 +204,7 @@ class StoryProductService {
 					long totalRuns = sessions.countByStoryId(story.getId());
 					long finishedRuns = sessions.countByStoryIdAndStatus(story.getId(), SessionStatus.FINISHED);
 					GameSession lastSession = lastSessionByStoryId.get(story.getId());
+					Scene lastScene = lastSession == null ? null : scenes.findByStoryIdAndSceneKey(story.getId(), lastSession.getCurrentSceneKey()).orElse(null);
 					return new PublishedStorySummary(
 						story.getPublishedSlug(),
 						story.getKey(),
@@ -215,7 +216,11 @@ class StoryProductService {
 						storyProgress(story.getId(), lastSession),
 						story.getPublishedAt(),
 						story.getUpdatedAt(),
-						lastSession == null ? null : lastSession.getUpdatedAt());
+						lastSession == null ? null : lastSession.getUpdatedAt(),
+						lastSession == null ? null : lastSession.getId(),
+						lastSession == null ? null : lastSession.getSaveName(),
+						lastSession == null ? null : lastSession.getStatus().name().toLowerCase(),
+						lastScene == null ? null : lastScene.getTitle());
 				})
 				.toList();
 	}
@@ -427,7 +432,11 @@ class StoryProductService {
 			double completionRate,
 			Instant publishedAt,
 			Instant updatedAt,
-			Instant lastPlayedAt) {
+			Instant lastPlayedAt,
+			String lastSessionId,
+			String lastSaveName,
+			String lastSessionStatus,
+			String lastSceneTitle) {
 	}
 
 	record PublishedStoryDetails(

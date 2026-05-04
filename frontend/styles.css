@@ -201,10 +201,31 @@ button.secondary {
   transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
 }
 
+.story-list article.story-card {
+  min-height: 58px;
+}
+
 .story-list .story-card:hover {
   border-color: rgba(114, 194, 173, 0.65);
   background: rgba(244, 241, 232, 0.105);
   transform: translateY(-1px);
+}
+
+.section-title {
+  margin: 26px 0 12px;
+  color: #f4f1e8;
+  font-size: 1rem;
+}
+
+.story-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.story-actions button {
+  min-height: 42px;
+  text-align: center;
 }
 
 .story-title-row {

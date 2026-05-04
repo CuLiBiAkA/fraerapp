@@ -5,6 +5,7 @@ const sceneScreen = document.querySelector("#scene-screen");
 const loginForm = document.querySelector("#login-form");
 const usernameInput = document.querySelector("#username");
 const storiesList = document.querySelector("#stories");
+const savesList = document.querySelector("#saves");
 const storySearch = document.querySelector("#story-search");
 const storySort = document.querySelector("#story-sort");
 const storyPagination = document.querySelector("#story-pagination");
@@ -62,6 +63,12 @@ const translations = {
     nextPage: "Вперед",
     pageLabel: "Страница {page} из {pages}",
     noSearchResults: "По этому поиску историй нет.",
+    savedRunsTitle: "Сохранения",
+    noSavedRuns: "Сохранений пока нет.",
+    continueButton: "Продолжить",
+    startButton: "Начать",
+    newRunButton: "Новая игра",
+    saveScene: "Сцена: {scene}",
     menuButton: "Истории",
     profileButton: "Статы",
     profileEyebrow: "Механика истории",
@@ -120,6 +127,12 @@ const translations = {
     nextPage: "Next",
     pageLabel: "Page {page} of {pages}",
     noSearchResults: "No stories match this search.",
+    savedRunsTitle: "Saved runs",
+    noSavedRuns: "No saved runs yet.",
+    continueButton: "Continue",
+    startButton: "Start",
+    newRunButton: "New game",
+    saveScene: "Scene: {scene}",
     menuButton: "Stories",
     profileButton: "Stats",
     profileEyebrow: "Story mechanics",
@@ -189,10 +202,12 @@ const storage = {
 };
 
 let sound = null;
+let soundRequested = false;
 let lastImportedStoryId = null;
 let currentLanguage = storage.language;
 let currentState = null;
 let catalogStories = [];
+let playerSaves = [];
 let catalogPage = 1;
 
 const storiesPerPage = 5;
@@ -203,6 +218,9 @@ const api = {
   },
   stories() {
     return request("/api/catalog/stories");
+  },
+  saves() {
+    return request("/api/sessions");
   },
   createSession(storyKey) {
     return request("/api/sessions", { method: "POST", body: { storyKey } });
@@ -249,15 +267,12 @@ function setLanguage(language) {
   currentLanguage = language === "en" ? "en" : "ru";
   storage.setLanguage(currentLanguage);
   applyTranslations();
-  if (soundToggle.dataset.soundState === "on") {
-    soundToggle.textContent = t("soundOn");
-  } else {
-    soundToggle.textContent = t("soundOff");
-  }
+  updateSoundLabel();
   if (currentState) {
     render(currentState);
   } else if (!storyScreen.classList.contains("hidden") && catalogStories.length > 0) {
     renderStoryPage();
+    renderSaves();
   } else {
     setStatus(t("loading"));
   }
@@ -319,42 +334,38 @@ async function afterLogin() {
     }
   }
 
-  const stories = await api.stories();
-  renderStories(stories);
+  const [stories, saves] = await Promise.all([api.stories(), api.saves()]);
+  renderStories(stories, saves);
 }
 
-function renderStories(stories) {
+function renderStories(stories, saves = playerSaves) {
   catalogStories = Array.isArray(stories) ? stories : [];
+  playerSaves = Array.isArray(saves) ? saves : [];
   catalogPage = 1;
   renderStoryPage();
-  return;
-  showOnly(storyScreen);
-  storiesList.replaceChildren();
-  if (stories.length === 0) {
-    storiesList.textContent = t("noStories");
-    return;
-  }
-  for (const story of stories) {
-    const button = document.createElement("button");
-    button.type = "button";
-    const author = story.authorName ? ` • ${story.authorName}` : "";
-    const runs = typeof story.totalRuns === "number" ? ` • ${story.totalRuns}` : "";
-    button.textContent = `${story.title}${author}${runs}`;
-    button.addEventListener("click", () => startStory(story.key));
-    storiesList.append(button);
-  }
+  renderSaves();
 }
 
 async function startStory(storyKey) {
+  stopSound({ resetPreference: true });
   const session = await api.createSession(storyKey);
   storage.setGame(session);
   render(session);
 }
 
+async function continueStory(sessionId) {
+  stopSound({ resetPreference: true });
+  const state = await api.state(sessionId);
+  storage.setGame(state);
+  render(state);
+}
+
 async function openStoryMenu() {
+  stopSound({ resetPreference: true });
   storage.clearGame();
   currentState = null;
-  renderStories(await api.stories());
+  const [stories, saves] = await Promise.all([api.stories(), api.saves()]);
+  renderStories(stories, saves);
 }
 
 async function openProfile() {
@@ -472,9 +483,8 @@ function renderStoryPage() {
   catalogPage = Math.min(Math.max(catalogPage, 1), pageCount);
   const pageStories = filtered.slice((catalogPage - 1) * storiesPerPage, catalogPage * storiesPerPage);
   for (const story of pageStories) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "story-card";
+    const card = document.createElement("article");
+    card.className = "story-card";
     const author = story.authorName ? story.authorName : "";
     const progress = Math.round(story.completionRate ?? 0);
     const titleRow = document.createElement("div");
@@ -511,14 +521,73 @@ function renderStoryPage() {
     track.style.setProperty("--completion-color", completionColor(story.completionRate));
     track.style.setProperty("--completion-width", `${progress}%`);
     progressRow.append(completion, track);
-    button.append(titleRow, meta, progressRow);
-    button.addEventListener("click", () => startStory(story.key));
-    storiesList.append(button);
+    const actions = document.createElement("div");
+    actions.className = "story-actions";
+    if (story.lastSessionId) {
+      actions.append(actionButton(t("continueButton"), () => continueStory(story.lastSessionId)));
+      actions.append(actionButton(t("newRunButton"), () => startStory(story.key), "secondary"));
+    } else {
+      actions.append(actionButton(t("startButton"), () => startStory(story.key)));
+    }
+    card.append(titleRow, meta, progressRow, actions);
+    storiesList.append(card);
   }
   storyPagination.classList.toggle("hidden", pageCount <= 1);
   storiesPage.textContent = t("pageLabel", { page: catalogPage, pages: pageCount });
   storiesPrev.disabled = catalogPage <= 1;
   storiesNext.disabled = catalogPage >= pageCount;
+}
+
+function renderSaves() {
+  savesList.replaceChildren();
+  if (!playerSaves.length) {
+    savesList.textContent = t("noSavedRuns");
+    return;
+  }
+  for (const save of playerSaves) {
+    const card = document.createElement("article");
+    card.className = "story-card save-card";
+    const titleRow = document.createElement("div");
+    titleRow.className = "story-title-row";
+    const title = document.createElement("strong");
+    title.textContent = save.storyTitle;
+    const slot = document.createElement("span");
+    slot.className = "story-key";
+    slot.textContent = save.saveName;
+    titleRow.append(title, slot);
+
+    const meta = document.createElement("div");
+    meta.className = "story-meta";
+    for (const text of [
+      t("saveScene", { scene: save.sceneTitle || save.sceneId }),
+      t("completionPercent", { percent: Math.round(save.completionRate ?? 0) }),
+      t("lastPlayedDate", { date: formatDate(save.updatedAt) }),
+      save.status === "finished" ? t("sessionFinished") : t("progressSaved"),
+    ]) {
+      const item = document.createElement("span");
+      item.textContent = text;
+      meta.append(item);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "story-actions";
+    actions.append(actionButton(t("continueButton"), () => continueStory(save.sessionId)));
+    card.append(titleRow, meta, actions);
+    savesList.append(card);
+  }
+}
+
+function actionButton(label, action, variant = "") {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = label;
+  if (variant) {
+    button.className = variant;
+  }
+  button.addEventListener("click", () => {
+    action().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
+  });
+  return button;
 }
 
 function sortStories(stories) {
@@ -577,7 +646,7 @@ function storyMatchesQuery(story, query) {
   if (!query) {
     return true;
   }
-  return [story.title, story.description, story.authorName]
+  return [story.title, story.key, story.description, story.authorName]
     .filter(Boolean)
     .some((value) => String(value).toLowerCase().includes(query));
 }
@@ -612,13 +681,15 @@ function render(state) {
     button.type = "button";
     button.textContent = choice.label;
     button.addEventListener("click", () => withBusy(button, async () => {
-      ensureSound();
       render(await api.choice(state.sessionId, choice.id));
     }));
     choices.append(button);
   }
 
   setStatus(state.status === "finished" ? t("sessionFinished") : t("progressSaved"));
+  if (state.status === "finished") {
+    stopSound({ resetPreference: true });
+  }
   if (!profileScreen.classList.contains("hidden")) {
     renderGameStats(state);
   }
@@ -636,10 +707,20 @@ async function withBusy(button, action) {
   }
 }
 
-function ensureSound() {
-  if (sound) {
-    sound.start();
+function updateSoundLabel() {
+  const state = soundRequested ? "on" : "off";
+  soundToggle.dataset.soundState = state;
+  soundToggle.textContent = t(soundRequested ? "soundOn" : "soundOff");
+}
+
+function stopSound({ resetPreference = false } = {}) {
+  if (resetPreference) {
+    soundRequested = false;
   }
+  if (sound) {
+    sound.stop();
+  }
+  updateSoundLabel();
 }
 
 function createSound() {
@@ -672,24 +753,21 @@ function createSound() {
         return osc;
       });
       enabled = true;
-      soundToggle.dataset.soundState = "on";
-      soundToggle.textContent = t("soundOn");
     },
     stop() {
       for (const osc of oscillators) {
-        osc.stop();
+        try {
+          osc.stop();
+        } catch (error) {
+          // Oscillators can only be stopped once; repeated stops are harmless.
+        }
       }
       oscillators = [];
-      enabled = false;
-      soundToggle.dataset.soundState = "off";
-      soundToggle.textContent = t("soundOff");
-    },
-    toggle() {
-      if (enabled) {
-        this.stop();
-      } else {
-        this.start();
+      if (gain) {
+        gain.disconnect();
+        gain = null;
       }
+      enabled = false;
     },
   };
 }
@@ -702,7 +780,6 @@ loginForm.addEventListener("submit", async (event) => {
   }
   try {
     storage.setSession(await api.login(username));
-    ensureSound();
     await afterLogin();
   } catch (error) {
     alert(t("loginFailed", { message: error.message }));
@@ -730,12 +807,13 @@ backToGameButton.addEventListener("click", () => {
 });
 
 logoutButton.addEventListener("click", () => {
+  stopSound({ resetPreference: true });
   storage.clear();
   currentState = null;
   showOnly(loginScreen);
 });
 
-soundToggle.addEventListener("click", () => {
+soundToggle.addEventListener("click", async () => {
   if (!sound) {
     sound = createSound();
   }
@@ -743,7 +821,18 @@ soundToggle.addEventListener("click", () => {
     setStatus(t("webAudioUnsupported"));
     return;
   }
-  sound.toggle();
+  if (soundRequested) {
+    stopSound({ resetPreference: true });
+    return;
+  }
+  try {
+    soundRequested = true;
+    await sound.start();
+    updateSoundLabel();
+  } catch (error) {
+    stopSound({ resetPreference: true });
+    setStatus(t("errorPrefix", { message: error.message }));
+  }
 });
 
 importStory.addEventListener("click", async () => {
@@ -794,8 +883,7 @@ storiesNext.addEventListener("click", () => {
 
 sound = createSound();
 applyTranslations();
-soundToggle.dataset.soundState = "off";
-soundToggle.textContent = t("soundOff");
+updateSoundLabel();
 setStatus(t("loading"));
 if (storage.playerId) {
   afterLogin().catch(() => {

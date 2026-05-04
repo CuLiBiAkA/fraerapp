@@ -1,5 +1,6 @@
 package com.fraergod.fraerapp.game;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -53,11 +54,19 @@ class GameService {
 
 	@Transactional
 	SessionState createSession(String playerId, String storyKey) {
+		return createSession(playerId, storyKey, null);
+	}
+
+	@Transactional
+	SessionState createSession(String playerId, String storyKey, String saveName) {
 		Player player = player(playerId);
 		Story story = stories.findByKey(storyKey)
 				.filter(candidate -> candidate.getStatus() == StoryStatus.PUBLISHED)
 				.orElseThrow(StoryNotFoundException::new);
-		GameSession session = sessions.save(new GameSession(player.getId(), story));
+		String resolvedSaveName = blank(saveName)
+				? "Save " + (sessions.countByPlayerIdAndStoryId(player.getId(), story.getId()) + 1)
+				: saveName;
+		GameSession session = sessions.save(new GameSession(player.getId(), story, resolvedSaveName));
 		Scene start = scene(story, story.getStartSceneId());
 		Map<String, Object> variables = json.readMap(session.getVariablesJson());
 		applySceneEffects(variables, start);
@@ -66,6 +75,32 @@ class GameService {
 			session.finish(start.getSceneKey());
 		}
 		return state(session, story, start);
+	}
+
+	@Transactional(readOnly = true)
+	List<SaveSummary> sessionSaves(String playerId) {
+		Player player = player(playerId);
+		return sessions.findByPlayerIdOrderByUpdatedAtDesc(player.getId()).stream()
+				.map(this::saveSummary)
+				.toList();
+	}
+
+	@Transactional(readOnly = true)
+	List<SaveSummary> storySaves(String playerId, String storyKey) {
+		Player player = player(playerId);
+		Story story = stories.findByKey(storyKey)
+				.filter(candidate -> candidate.getStatus() == StoryStatus.PUBLISHED)
+				.orElseThrow(StoryNotFoundException::new);
+		return sessions.findByPlayerIdAndStoryIdOrderByUpdatedAtDesc(player.getId(), story.getId()).stream()
+				.map(session -> saveSummary(session, story))
+				.toList();
+	}
+
+	@Transactional
+	SaveSummary renameSave(String playerId, String sessionId, String saveName) {
+		GameSession session = session(playerId, sessionId);
+		session.rename(saveName);
+		return saveSummary(session);
 	}
 
 	@Transactional(readOnly = true)
@@ -174,6 +209,42 @@ class GameService {
 				publicVariables(variables),
 				statsVariables(story, variables),
 				session.getStatus().name().toLowerCase());
+	}
+
+	private SaveSummary saveSummary(GameSession session) {
+		return saveSummary(session, story(session.getStoryId()));
+	}
+
+	private SaveSummary saveSummary(GameSession session, Story story) {
+		Scene current = scene(story, session.getCurrentSceneKey());
+		return new SaveSummary(
+				session.getId(),
+				session.getSaveName(),
+				story.getKey(),
+				story.getTitle(),
+				playerName(story.getOwnerPlayerId()),
+				current.getSceneKey(),
+				current.getTitle(),
+				progress(story.getId(), session),
+				session.getStatus().name().toLowerCase(),
+				session.getCreatedAt(),
+				session.getUpdatedAt());
+	}
+
+	private double progress(String storyId, GameSession session) {
+		if (session.getStatus() == SessionStatus.FINISHED) {
+			return 100.0;
+		}
+		List<Scene> storyScenes = scenes.findByStoryIdOrderByOrderIndexAsc(storyId);
+		if (storyScenes.isEmpty()) {
+			return 0.0;
+		}
+		for (int index = 0; index < storyScenes.size(); index++) {
+			if (storyScenes.get(index).getSceneKey().equals(session.getCurrentSceneKey())) {
+				return ((index + 1) * 100.0) / storyScenes.size();
+			}
+		}
+		return 0.0;
 	}
 
 	private Map<String, Object> publicVariables(Map<String, Object> variables) {
@@ -387,5 +458,19 @@ class GameService {
 
 	record SessionState(String sessionId, RuntimeStory story, RuntimeScene scene, Map<String, Object> variables,
 			Map<String, Object> statsVariables, String status) {
+	}
+
+	record SaveSummary(
+			String sessionId,
+			String saveName,
+			String storyKey,
+			String storyTitle,
+			String authorName,
+			String sceneId,
+			String sceneTitle,
+			double completionRate,
+			String status,
+			Instant createdAt,
+			Instant updatedAt) {
 	}
 }

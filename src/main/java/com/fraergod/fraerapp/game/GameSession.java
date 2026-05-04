@@ -29,6 +29,9 @@ class GameSession {
 	@Column(nullable = false, length = 120)
 	private String currentSceneKey;
 
+	@Column(nullable = false, length = 120)
+	private String saveName;
+
 	@Lob
 	@Column(nullable = false)
 	private String variablesJson;
@@ -54,7 +57,13 @@ class GameSession {
 		this.playerId = playerId;
 		this.storyId = story.getId();
 		this.currentSceneKey = story.getStartSceneId();
+		this.saveName = "Autosave";
 		this.variablesJson = story.getVariablesJson();
+	}
+
+	GameSession(String playerId, Story story, String saveName) {
+		this(playerId, story);
+		rename(saveName);
 	}
 
 	@PrePersist
@@ -89,6 +98,15 @@ class GameSession {
 		this.currentSceneKey = currentSceneKey;
 	}
 
+	String getSaveName() {
+		return saveName;
+	}
+
+	void rename(String saveName) {
+		String normalized = saveName == null ? "" : saveName.trim();
+		this.saveName = normalized.isEmpty() ? "Autosave" : normalized;
+	}
+
 	String getVariablesJson() {
 		return variablesJson;
 	}
@@ -107,6 +125,10 @@ class GameSession {
 
 	Instant getUpdatedAt() {
 		return updatedAt;
+	}
+
+	Instant getCreatedAt() {
+		return createdAt;
 	}
 
 	void finish(String endingSceneKey) {

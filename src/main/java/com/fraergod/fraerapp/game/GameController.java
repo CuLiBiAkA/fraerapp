@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fraergod.fraerapp.game.GameService.SessionState;
+import com.fraergod.fraerapp.game.GameService.SaveSummary;
 import com.fraergod.fraerapp.game.GameService.StorySummary;
 
 import jakarta.validation.Valid;
@@ -32,7 +33,17 @@ class GameController {
 
 	@PostMapping("/api/sessions")
 	SessionState createSession(@RequestHeader("X-Player-Id") String playerId, @Valid @RequestBody CreateSessionRequest request) {
-		return game.createSession(playerId, request.storyKey());
+		return game.createSession(playerId, request.storyKey(), request.saveName());
+	}
+
+	@GetMapping("/api/sessions")
+	List<SaveSummary> sessions(@RequestHeader("X-Player-Id") String playerId) {
+		return game.sessionSaves(playerId);
+	}
+
+	@GetMapping("/api/stories/{storyKey}/sessions")
+	List<SaveSummary> storySessions(@RequestHeader("X-Player-Id") String playerId, @PathVariable String storyKey) {
+		return game.storySaves(playerId, storyKey);
 	}
 
 	@GetMapping("/api/sessions/{sessionId}/state")
@@ -51,9 +62,18 @@ class GameController {
 		return game.reset(playerId, sessionId);
 	}
 
-	record CreateSessionRequest(@NotBlank String storyKey) {
+	@PostMapping("/api/sessions/{sessionId}/save-name")
+	SaveSummary renameSave(@RequestHeader("X-Player-Id") String playerId, @PathVariable String sessionId,
+			@Valid @RequestBody RenameSaveRequest request) {
+		return game.renameSave(playerId, sessionId, request.saveName());
+	}
+
+	record CreateSessionRequest(@NotBlank String storyKey, String saveName) {
 	}
 
 	record ChoiceRequest(@NotBlank String choiceId) {
+	}
+
+	record RenameSaveRequest(@NotBlank String saveName) {
 	}
 }
