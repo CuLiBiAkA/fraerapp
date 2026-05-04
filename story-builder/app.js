@@ -620,18 +620,26 @@ function renderScenes() {
       entityId: scene.id || `${sceneIndex}`,
     });
     item.append(sceneOrderControls(sceneIndex));
-    item.append(
+    const identityFields = div("form-panel scene-identity");
+    identityFields.append(
       field(t("idLabel"), input(scene.id, (value) => (scene.id = value))),
       field(t("titleLabel"), input(scene.title, (value) => (scene.title = value))),
-      field(t("textLabel"), textarea(scene.text, (value) => (scene.text = value), 4)),
-      localVariablesEditor(scene),
-      localAssetsEditor(scene),
+      field(t("textLabel"), textarea(scene.text, (value) => (scene.text = value), 4), "field-wide"),
+    );
+    const mediaFields = div("form-panel form-grid two");
+    mediaFields.append(
       selectField(t("backgroundLabel"), ["", ...assetIds], scene.background || "", (value) => (scene.background = value)),
       sceneAssetUploadField(scene, "background"),
       selectField(t("musicLabel"), ["", ...assetIds], scene.music || "", (value) => (scene.music = value)),
       sceneAssetUploadField(scene, "music"),
       selectField(t("animationLabel"), ["none", "fade-in"], scene.animationType || "none", (value) => (scene.animationType = value)),
       field(t("animationDurationLabel"), input(scene.animationDurationMs || 600, (value) => (scene.animationDurationMs = Number(value || 0)), "number")),
+    );
+    item.append(
+      identityFields,
+      localVariablesEditor(scene),
+      localAssetsEditor(scene),
+      mediaFields,
       effectsEditor(scene.effects, t("sceneEffects"), scene),
       endingEditor(scene),
       choicesEditor(scene),
@@ -641,7 +649,7 @@ function renderScenes() {
 }
 
 function choicesEditor(scene) {
-  const wrap = div("nested");
+  const wrap = div("nested nested-panel");
   const add = button(t("addChoice"), () => {
     scene.choices.push({
       id: `${t("choicePrefix")}_${scene.choices.length + 1}`,
@@ -655,7 +663,7 @@ function choicesEditor(scene) {
   });
   wrap.append(rowTitle(t("choicesTitle"), add));
   scene.choices.forEach((choice, index) => {
-    const item = div("item");
+    const item = div("item subitem");
     item.append(
       rowHead(t("choiceItem", { index: index + 1 }), () => removeAt(scene.choices, index)),
       field(t("idLabel"), input(choice.id, (value) => (choice.id = value))),
@@ -671,7 +679,7 @@ function choicesEditor(scene) {
 }
 
 function conditionsEditor(conditions, scene) {
-  const wrap = div("nested");
+  const wrap = div("nested nested-panel compact-panel");
   const hint = document.createElement("p");
   hint.className = "summary-subtitle";
   hint.textContent = t("conditionRuntimeHint");
@@ -684,7 +692,7 @@ function conditionsEditor(conditions, scene) {
   conditions.forEach((condition, index) => {
     const variableNames = variableOptions(scene);
     condition.op ||= "==";
-    const item = div("item");
+    const item = div("item subitem");
     item.append(
       rowHead(t("conditionItem", { index: index + 1 }), () => removeAt(conditions, index)),
       selectField(t("variableLabel"), variableNames, condition.variable, (value) => {
@@ -703,7 +711,7 @@ function conditionsEditor(conditions, scene) {
 }
 
 function effectsEditor(effects, title, scene = null) {
-  const wrap = div("nested");
+  const wrap = div("nested nested-panel compact-panel");
   wrap.append(rowTitle(title, button(t("addEffect"), () => {
     const variable = firstVariable(scene);
     effects.push({ kind: "set", variable, value: defaultValue(variableType(variable, scene)) });
@@ -743,7 +751,7 @@ function effectsEditor(effects, title, scene = null) {
 }
 
 function endingEditor(scene) {
-  const wrap = div("nested");
+  const wrap = div("nested nested-panel compact-panel");
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.checked = Boolean(scene.endingEnabled);
@@ -751,8 +759,7 @@ function endingEditor(scene) {
     scene.endingEnabled = checkbox.checked;
     render();
   };
-  const label = document.createElement("label");
-  label.append(t("endingEnabled"), checkbox);
+  const label = switchLabel(t("endingEnabled"), checkbox);
   wrap.append(rowTitle(t("endingTitle")), label);
   if (scene.endingEnabled) {
     wrap.append(
@@ -831,14 +838,14 @@ function toStoryJson() {
 }
 
 function localVariablesEditor(scene) {
-  const wrap = div("nested");
+  const wrap = div("nested nested-panel");
   wrap.append(rowTitle(t("sceneLocalVariables"), button(t("addVariable"), () => {
     scene.variables ||= [];
     scene.variables.push({ name: `${scene.id || t("scenePrefix")}_${t("variablePrefix")}_${scene.variables.length + 1}`, type: "string", value: "", showInStats: false });
     render({ preserveScroll: true });
   })));
   (scene.variables || []).forEach((variable, index) => {
-    const item = div("item");
+    const item = div("item subitem");
     item.append(
       rowHead(t("variableItem", { index: index + 1 }), () => removeAt(scene.variables, index)),
       field(t("nameLabel"), input(variable.name, (value) => renameVariable(variable, value, scene))),
@@ -857,14 +864,14 @@ function localVariablesEditor(scene) {
 }
 
 function localAssetsEditor(scene) {
-  const wrap = div("nested");
+  const wrap = div("nested nested-panel");
   wrap.append(rowTitle(t("sceneLocalAssets"), button(t("addAsset"), () => {
     scene.assets ||= [];
     scene.assets.push({ id: `${scene.id || t("scenePrefix")}_${t("assetPrefix")}_${scene.assets.length + 1}`, type: "image", url: "", metadata: "" });
     render({ preserveScroll: true });
   })));
   (scene.assets || []).forEach((asset, index) => {
-    const item = div("item");
+    const item = div("item subitem");
     item.append(
       rowHead(t("assetItem", { index: index + 1 }), () => removeAt(scene.assets, index)),
       field(t("idLabel"), input(asset.id, (value) => (asset.id = value))),
@@ -1109,9 +1116,13 @@ function localizeDraftDefaults(sourceDraft) {
   return draftCopy;
 }
 
-function field(labelText, control) {
+function field(labelText, control, className = "") {
   const label = document.createElement("label");
-  label.append(labelText, control);
+  if (className) label.className = className;
+  const text = document.createElement("span");
+  text.className = "field-label";
+  text.textContent = labelText;
+  label.append(text, control);
   return label;
 }
 
@@ -1167,8 +1178,18 @@ function checkboxField(labelText, checked, onChange) {
     renderPreview();
     saveDraft();
   };
+  return switchLabel(labelText, checkbox);
+}
+
+function switchLabel(labelText, checkbox) {
   const label = document.createElement("label");
-  label.append(checkbox, labelText);
+  label.className = "switch-field";
+  const visual = document.createElement("span");
+  visual.className = "switch-control";
+  const text = document.createElement("span");
+  text.className = "switch-text";
+  text.textContent = labelText;
+  label.append(checkbox, visual, text);
   return label;
 }
 
