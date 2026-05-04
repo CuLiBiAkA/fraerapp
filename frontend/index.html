@@ -4,13 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FraerApp Story</title>
-    <link rel="stylesheet" href="/styles.css?v=game-9">
+    <link rel="stylesheet" href="/styles.css?v=game-10">
   </head>
   <body>
     <main class="game">
       <div class="top-actions" aria-label="Game actions">
         <button id="menu-button" type="button" class="secondary hidden" data-i18n="menuButton">Stories</button>
-        <button id="profile-button" type="button" class="secondary hidden" data-i18n="profileButton">Stats</button>
         <button id="sound-toggle" type="button" class="secondary hidden" data-i18n="soundOff">&#1047;&#1074;&#1091;&#1082;</button>
         <button id="logout" type="button" class="secondary hidden" data-i18n="logoutButton">&#1042;&#1099;&#1081;&#1090;&#1080;</button>
         <button id="lang-ru" type="button" class="secondary">RU</button>
@@ -82,17 +81,6 @@
         </section>
       </section>
 
-      <section id="profile-screen" class="login-screen hidden" aria-label="Story stats">
-        <div>
-          <p class="eyebrow" data-i18n="profileEyebrow">Story mechanics</p>
-          <h1 data-i18n="profileTitle">Stats</h1>
-          <p data-i18n="profileSubtitle">Current variables and inventory states.</p>
-        </div>
-        <button id="back-to-game" type="button" class="secondary" data-i18n="backToGameButton">Back to game</button>
-        <div id="profile-summary" class="profile-summary"></div>
-        <div id="profile-stories" class="story-list"></div>
-      </section>
-
       <section id="scene-screen" class="scene-screen hidden" aria-label="Scene">
         <img id="scene-image" class="scene-image" alt="">
         <div class="shade"></div>
@@ -106,14 +94,18 @@
           <p id="status" class="status" role="status">&#1047;&#1072;&#1075;&#1088;&#1091;&#1079;&#1082;&#1072;...</p>
           <h2 id="scene-title"></h2>
           <p id="scene-text"></p>
+          <details id="scene-stats" class="scene-stats">
+            <summary>
+              <span data-i18n="sceneStatsTitle">Stats</span>
+              <strong id="scene-stats-count"></strong>
+            </summary>
+            <div id="scene-stats-list" class="scene-stats-list"></div>
+          </details>
           <div id="choices" class="choices"></div>
-          <div class="controls">
-            <button id="reset" type="button" class="secondary" data-i18n="resetButton">Start over</button>
-          </div>
         </article>
       </section>
     </main>
 
-    <script src="/engine.js?v=engine-8" type="module"></script>
+    <script src="/engine.js?v=engine-9" type="module"></script>
   </body>
 </html>

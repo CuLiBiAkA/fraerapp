@@ -1,6 +1,5 @@
 const loginScreen = document.querySelector("#login-screen");
 const storyScreen = document.querySelector("#story-screen");
-const profileScreen = document.querySelector("#profile-screen");
 const sceneScreen = document.querySelector("#scene-screen");
 const loginForm = document.querySelector("#login-form");
 const usernameInput = document.querySelector("#username");
@@ -11,19 +10,16 @@ const storyPagination = document.querySelector("#story-pagination");
 const storiesPrev = document.querySelector("#stories-prev");
 const storiesNext = document.querySelector("#stories-next");
 const storiesPage = document.querySelector("#stories-page");
-const profileSummary = document.querySelector("#profile-summary");
-const profileStories = document.querySelector("#profile-stories");
-const backToGameButton = document.querySelector("#back-to-game");
 const sceneImage = document.querySelector("#scene-image");
 const sceneTitle = document.querySelector("#scene-title");
 const sceneText = document.querySelector("#scene-text");
+const sceneStatsCount = document.querySelector("#scene-stats-count");
+const sceneStatsList = document.querySelector("#scene-stats-list");
 const choices = document.querySelector("#choices");
 const status = document.querySelector("#status");
 const playerName = document.querySelector("#player-name");
 const sceneNode = document.querySelector("#scene-node");
-const resetButton = document.querySelector("#reset");
 const menuButton = document.querySelector("#menu-button");
-const profileButton = document.querySelector("#profile-button");
 const logoutButton = document.querySelector("#logout");
 const soundToggle = document.querySelector("#sound-toggle");
 const adminToken = document.querySelector("#admin-token");
@@ -67,11 +63,8 @@ const translations = {
     newRunButton: "Новая игра",
     saveScene: "Сцена: {scene}",
     menuButton: "Истории",
-    profileButton: "Статы",
-    profileEyebrow: "Механика истории",
-    profileTitle: "Статы",
-    profileSubtitle: "Текущие переменные, предметы и флаги этой истории.",
-    backToGameButton: "Назад к игре",
+    sceneStatsTitle: "Статы",
+    sceneStatsCount: "{count} шт.",
     statsEmpty: "Автор истории пока не выбрал переменные для статов.",
     statEnabled: "Да",
     statDisabled: "Нет",
@@ -84,7 +77,6 @@ const translations = {
     noDate: "нет данных",
     soundOn: "Звук: включен",
     soundOff: "Звук: выключен",
-    resetButton: "Начать заново",
     logoutButton: "Выйти",
     noStories: "Опубликованных историй пока нет.",
     endingLabel: "Финал: {title}",
@@ -129,11 +121,8 @@ const translations = {
     newRunButton: "New game",
     saveScene: "Scene: {scene}",
     menuButton: "Stories",
-    profileButton: "Stats",
-    profileEyebrow: "Story mechanics",
-    profileTitle: "Stats",
-    profileSubtitle: "Current variables, items and flags for this story.",
-    backToGameButton: "Back to game",
+    sceneStatsTitle: "Stats",
+    sceneStatsCount: "{count}",
     statsEmpty: "The story author has not selected any stats yet.",
     statEnabled: "Yes",
     statDisabled: "No",
@@ -146,7 +135,6 @@ const translations = {
     noDate: "no data",
     soundOn: "Sound: on",
     soundOff: "Sound: off",
-    resetButton: "Start over",
     logoutButton: "Log out",
     noStories: "No published stories yet.",
     endingLabel: "Ending: {title}",
@@ -222,9 +210,6 @@ const api = {
   choice(sessionId, choiceId) {
     return request(`/api/sessions/${sessionId}/choice`, { method: "POST", body: { choiceId } });
   },
-  reset(sessionId) {
-    return request(`/api/sessions/${sessionId}/reset`, { method: "POST" });
-  },
   importStory(rawJson, token) {
     return request("/api/admin/stories/import", { method: "POST", rawBody: rawJson, adminToken: token });
   },
@@ -296,7 +281,6 @@ async function request(path, options = {}) {
 function showOnly(screen) {
   loginScreen.classList.toggle("hidden", screen !== loginScreen);
   storyScreen.classList.toggle("hidden", screen !== storyScreen);
-  profileScreen.classList.toggle("hidden", screen !== profileScreen);
   sceneScreen.classList.toggle("hidden", screen !== sceneScreen);
   updateTopActions(screen);
 }
@@ -305,7 +289,6 @@ function updateTopActions(screen) {
   const loggedIn = Boolean(storage.playerId);
   const inScene = screen === sceneScreen;
   menuButton.classList.toggle("hidden", !loggedIn || screen === storyScreen);
-  profileButton.classList.toggle("hidden", !currentState || screen === profileScreen);
   soundToggle.classList.toggle("hidden", !inScene);
   logoutButton.classList.toggle("hidden", !loggedIn);
 }
@@ -354,30 +337,26 @@ async function openStoryMenu() {
   renderStories(await api.stories());
 }
 
-async function openProfile() {
-  if (!currentState) {
-    return;
-  }
-  showOnly(profileScreen);
-  renderGameStats(currentState);
-}
-
 function renderGameStats(state) {
-  profileSummary.replaceChildren();
-  profileStories.replaceChildren();
+  sceneStatsList.replaceChildren();
   const variables = Object.entries(state.statsVariables || {});
-  const sceneCard = statCard(state.story.title, state.scene.title, "scene");
+  sceneStatsCount.textContent = t("sceneStatsCount", { count: variables.length });
+  const sceneCard = statCard(state.scene.title, state.story.title, "scene");
   const storyByline = state.story.authorName ? `${state.story.title} / ${state.story.authorName}` : state.story.title;
-  const statusCard = statCard(state.status, `${storyByline} / ${state.scene.id}`, "status");
-  profileSummary.append(sceneCard, statusCard);
+  const statusLabel = state.status === "finished" ? t("sessionFinished") : t("progressSaved");
+  const statusCard = statCard(statusLabel, `${storyByline} / ${state.scene.id}`, "status");
+  sceneStatsList.append(sceneCard, statusCard);
 
   if (variables.length === 0) {
-    profileStories.textContent = t("statsEmpty");
+    const empty = document.createElement("p");
+    empty.className = "stats-empty";
+    empty.textContent = t("statsEmpty");
+    sceneStatsList.append(empty);
     return;
   }
 
   for (const [name, value] of variables) {
-    profileStories.append(variableCard(name, value));
+    sceneStatsList.append(variableCard(name, value));
   }
 }
 
@@ -624,6 +603,7 @@ function render(state) {
   sceneNode.textContent = state.story.authorName ? state.story.authorName : state.story.title;
   sceneTitle.textContent = scene.title;
   sceneText.textContent = scene.text;
+  renderGameStats(state);
   sceneImage.src = scene.backgroundUrl || "/assets/platform.svg";
   sceneImage.alt = scene.title;
   sceneImage.classList.remove("fade-in");
@@ -654,9 +634,6 @@ function render(state) {
   setStatus(state.status === "finished" ? t("sessionFinished") : t("progressSaved"));
   if (state.status === "finished") {
     stopSound({ resetPreference: true });
-  }
-  if (!profileScreen.classList.contains("hidden")) {
-    renderGameStats(state);
   }
 }
 
@@ -751,24 +728,8 @@ loginForm.addEventListener("submit", async (event) => {
   }
 });
 
-resetButton.addEventListener("click", async () => {
-  if (storage.sessionId) {
-    render(await api.reset(storage.sessionId));
-  }
-});
-
 menuButton.addEventListener("click", () => {
   openStoryMenu().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
-});
-
-profileButton.addEventListener("click", () => {
-  openProfile();
-});
-
-backToGameButton.addEventListener("click", () => {
-  if (currentState) {
-    showOnly(sceneScreen);
-  }
 });
 
 logoutButton.addEventListener("click", () => {
