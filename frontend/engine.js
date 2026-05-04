@@ -5,7 +5,6 @@ const sceneScreen = document.querySelector("#scene-screen");
 const loginForm = document.querySelector("#login-form");
 const usernameInput = document.querySelector("#username");
 const storiesList = document.querySelector("#stories");
-const savesList = document.querySelector("#saves");
 const storySearch = document.querySelector("#story-search");
 const storySort = document.querySelector("#story-sort");
 const storyPagination = document.querySelector("#story-pagination");
@@ -63,8 +62,6 @@ const translations = {
     nextPage: "Вперед",
     pageLabel: "Страница {page} из {pages}",
     noSearchResults: "По этому поиску историй нет.",
-    savedRunsTitle: "Сохранения",
-    noSavedRuns: "Сохранений пока нет.",
     continueButton: "Продолжить",
     startButton: "Начать",
     newRunButton: "Новая игра",
@@ -127,8 +124,6 @@ const translations = {
     nextPage: "Next",
     pageLabel: "Page {page} of {pages}",
     noSearchResults: "No stories match this search.",
-    savedRunsTitle: "Saved runs",
-    noSavedRuns: "No saved runs yet.",
     continueButton: "Continue",
     startButton: "Start",
     newRunButton: "New game",
@@ -207,10 +202,9 @@ let lastImportedStoryId = null;
 let currentLanguage = storage.language;
 let currentState = null;
 let catalogStories = [];
-let playerSaves = [];
 let catalogPage = 1;
 
-const storiesPerPage = 5;
+const storiesPerPage = 4;
 
 const api = {
   login(username) {
@@ -218,9 +212,6 @@ const api = {
   },
   stories() {
     return request("/api/catalog/stories");
-  },
-  saves() {
-    return request("/api/sessions");
   },
   createSession(storyKey) {
     return request("/api/sessions", { method: "POST", body: { storyKey } });
@@ -272,7 +263,6 @@ function setLanguage(language) {
     render(currentState);
   } else if (!storyScreen.classList.contains("hidden") && catalogStories.length > 0) {
     renderStoryPage();
-    renderSaves();
   } else {
     setStatus(t("loading"));
   }
@@ -334,16 +324,13 @@ async function afterLogin() {
     }
   }
 
-  const [stories, saves] = await Promise.all([api.stories(), api.saves()]);
-  renderStories(stories, saves);
+  renderStories(await api.stories());
 }
 
-function renderStories(stories, saves = playerSaves) {
+function renderStories(stories) {
   catalogStories = Array.isArray(stories) ? stories : [];
-  playerSaves = Array.isArray(saves) ? saves : [];
   catalogPage = 1;
   renderStoryPage();
-  renderSaves();
 }
 
 async function startStory(storyKey) {
@@ -364,8 +351,7 @@ async function openStoryMenu() {
   stopSound({ resetPreference: true });
   storage.clearGame();
   currentState = null;
-  const [stories, saves] = await Promise.all([api.stories(), api.saves()]);
-  renderStories(stories, saves);
+  renderStories(await api.stories());
 }
 
 async function openProfile() {
@@ -496,31 +482,38 @@ function renderStoryPage() {
     key.textContent = author;
     titleRow.append(title, key);
 
+    const description = document.createElement("p");
+    description.className = "story-description";
+    description.textContent = story.description || story.key;
+
     const meta = document.createElement("div");
     meta.className = "story-meta";
-    for (const text of [
-      t("storyRuns", { runs: story.totalRuns ?? 0 }),
-      t("finishedRuns", { runs: story.finishedRuns ?? 0 }),
-      t("publishedDate", { date: formatDate(story.publishedAt) }),
-      t("updatedDate", { date: formatDate(story.updatedAt) }),
-      t("lastPlayedDate", { date: formatDate(story.lastPlayedAt) }),
-    ]) {
-      const item = document.createElement("span");
-      item.textContent = text;
-      meta.append(item);
-    }
+    meta.append(
+      metric(t("storyRuns", { runs: "" }).replace(":", "").trim(), story.totalRuns ?? 0),
+      metric(t("finishedRuns", { runs: "" }).replace(":", "").trim(), story.finishedRuns ?? 0),
+      metric(t("updatedDate", { date: "" }).replace(":", "").trim(), formatDate(story.updatedAt)),
+    );
+
+    const saveContext = document.createElement("p");
+    saveContext.className = "save-context";
+    saveContext.textContent = story.lastSessionId
+      ? `${t("saveScene", { scene: story.lastSceneTitle || story.lastSaveName || story.key })} · ${t("lastPlayedDate", { date: formatDate(story.lastPlayedAt) })}`
+      : t("publishedDate", { date: formatDate(story.publishedAt) });
 
     const progressRow = document.createElement("div");
     progressRow.className = "progress-row";
-    const completion = document.createElement("span");
-    completion.className = "completion-rate";
-    completion.style.setProperty("--completion-color", completionColor(story.completionRate));
-    completion.textContent = t("completionPercent", { percent: progress });
+    const progressLabel = document.createElement("div");
+    progressLabel.className = "progress-label";
+    const progressText = document.createElement("span");
+    progressText.textContent = t("completionPercent", { percent: progress });
+    const slotText = document.createElement("strong");
+    slotText.textContent = story.lastSaveName || "";
+    progressLabel.append(progressText, slotText);
     const track = document.createElement("span");
     track.className = "progress-track";
     track.style.setProperty("--completion-color", completionColor(story.completionRate));
     track.style.setProperty("--completion-width", `${progress}%`);
-    progressRow.append(completion, track);
+    progressRow.append(progressLabel, track);
     const actions = document.createElement("div");
     actions.className = "story-actions";
     if (story.lastSessionId) {
@@ -529,7 +522,7 @@ function renderStoryPage() {
     } else {
       actions.append(actionButton(t("startButton"), () => startStory(story.key)));
     }
-    card.append(titleRow, meta, progressRow, actions);
+    card.append(titleRow, description, meta, saveContext, progressRow, actions);
     storiesList.append(card);
   }
   storyPagination.classList.toggle("hidden", pageCount <= 1);
@@ -538,43 +531,15 @@ function renderStoryPage() {
   storiesNext.disabled = catalogPage >= pageCount;
 }
 
-function renderSaves() {
-  savesList.replaceChildren();
-  if (!playerSaves.length) {
-    savesList.textContent = t("noSavedRuns");
-    return;
-  }
-  for (const save of playerSaves) {
-    const card = document.createElement("article");
-    card.className = "story-card save-card";
-    const titleRow = document.createElement("div");
-    titleRow.className = "story-title-row";
-    const title = document.createElement("strong");
-    title.textContent = save.storyTitle;
-    const slot = document.createElement("span");
-    slot.className = "story-key";
-    slot.textContent = save.saveName;
-    titleRow.append(title, slot);
-
-    const meta = document.createElement("div");
-    meta.className = "story-meta";
-    for (const text of [
-      t("saveScene", { scene: save.sceneTitle || save.sceneId }),
-      t("completionPercent", { percent: Math.round(save.completionRate ?? 0) }),
-      t("lastPlayedDate", { date: formatDate(save.updatedAt) }),
-      save.status === "finished" ? t("sessionFinished") : t("progressSaved"),
-    ]) {
-      const item = document.createElement("span");
-      item.textContent = text;
-      meta.append(item);
-    }
-
-    const actions = document.createElement("div");
-    actions.className = "story-actions";
-    actions.append(actionButton(t("continueButton"), () => continueStory(save.sessionId)));
-    card.append(titleRow, meta, actions);
-    savesList.append(card);
-  }
+function metric(label, value) {
+  const item = document.createElement("div");
+  item.className = "story-metric";
+  const labelNode = document.createElement("span");
+  labelNode.textContent = label;
+  const valueNode = document.createElement("strong");
+  valueNode.textContent = String(value);
+  item.append(labelNode, valueNode);
+  return item;
 }
 
 function actionButton(label, action, variant = "") {

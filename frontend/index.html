@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FraerApp Story</title>
-    <link rel="stylesheet" href="/styles.css?v=game-7">
+    <link rel="stylesheet" href="/styles.css?v=game-9">
   </head>
   <body>
     <main class="game">
@@ -48,35 +48,38 @@
         </section>
       </section>
 
-      <section id="story-screen" class="login-screen hidden" aria-label="Stories">
-        <div>
-          <p class="eyebrow" data-i18n="storyScreenEyebrow">Story Engine</p>
-          <h1 data-i18n="storyScreenTitle">Choose a story</h1>
-          <p data-i18n="storyScreenSubtitle">Every story runs through the same backend engine.</p>
-        </div>
-        <div class="catalog-tools">
+      <section id="story-screen" class="catalog-screen hidden" aria-label="Stories">
+        <header class="catalog-header">
           <div>
-            <label for="story-search" data-i18n="storySearchLabel">Search stories</label>
-            <input id="story-search" type="search" data-i18n-placeholder="storySearchPlaceholder" placeholder="Title, key or author">
+            <p class="eyebrow" data-i18n="storyScreenEyebrow">Story Engine</p>
+            <h1 data-i18n="storyScreenTitle">Choose a story</h1>
+            <p data-i18n="storyScreenSubtitle">Every story runs through the same backend engine.</p>
           </div>
-          <div>
-            <label for="story-sort" data-i18n="storySortLabel">Sort</label>
-            <select id="story-sort">
-              <option value="lastPlayed" data-i18n="sortLastPlayed">Last played</option>
-              <option value="completion" data-i18n="sortCompletion">Completion</option>
-              <option value="publishedAt" data-i18n="sortPublishedAt">Published</option>
-              <option value="updatedAt" data-i18n="sortUpdatedAt">Updated</option>
-            </select>
+          <div class="catalog-tools">
+            <div>
+              <label for="story-search" data-i18n="storySearchLabel">Search stories</label>
+              <input id="story-search" type="search" data-i18n-placeholder="storySearchPlaceholder" placeholder="Title, key or author">
+            </div>
+            <div>
+              <label for="story-sort" data-i18n="storySortLabel">Sort</label>
+              <select id="story-sort">
+                <option value="lastPlayed" data-i18n="sortLastPlayed">Last played</option>
+                <option value="completion" data-i18n="sortCompletion">Completion</option>
+                <option value="publishedAt" data-i18n="sortPublishedAt">Published</option>
+                <option value="updatedAt" data-i18n="sortUpdatedAt">Updated</option>
+              </select>
+            </div>
           </div>
-        </div>
-        <div id="stories" class="story-list"></div>
-        <div id="story-pagination" class="pagination hidden" aria-label="Story pages">
-          <button id="stories-prev" type="button" class="secondary" data-i18n="prevPage">Prev</button>
-          <span id="stories-page"></span>
-          <button id="stories-next" type="button" class="secondary" data-i18n="nextPage">Next</button>
-        </div>
-        <h2 class="section-title" data-i18n="savedRunsTitle">Saved runs</h2>
-        <div id="saves" class="story-list saves-list"></div>
+        </header>
+
+        <section class="catalog-main" aria-label="Story catalog">
+          <div id="stories" class="story-list"></div>
+          <div id="story-pagination" class="pagination hidden" aria-label="Story pages">
+            <button id="stories-prev" type="button" class="secondary" data-i18n="prevPage">Prev</button>
+            <span id="stories-page"></span>
+            <button id="stories-next" type="button" class="secondary" data-i18n="nextPage">Next</button>
+          </div>
+        </section>
       </section>
 
       <section id="profile-screen" class="login-screen hidden" aria-label="Story stats">
@@ -111,6 +114,6 @@
       </section>
     </main>
 
-    <script src="/engine.js?v=engine-6" type="module"></script>
+    <script src="/engine.js?v=engine-8" type="module"></script>
   </body>
 </html>
