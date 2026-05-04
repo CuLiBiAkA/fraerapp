@@ -1,0 +1,475 @@
+{
+  "key": "full_feature_showcase_30",
+  "title": "Протокол Последнего Вагона",
+  "description": "Большой тестовый сценарий на 30 сцен: глобальные и локальные переменные, ассеты, условия, fallback, эффекты выбора, эффекты сцен и две концовки.",
+  "version": 1,
+  "startSceneId": "intro",
+  "variables": {
+    "evidence": { "value": 0, "showInStats": true },
+    "trust": { "value": 0, "showInStats": true },
+    "wrong_steps": { "value": 0, "showInStats": true },
+    "gas_checks": { "value": 0, "showInStats": true },
+    "has_keycard": false,
+    "knows_code": false,
+    "sample_secured": false,
+    "valve_closed": false,
+    "alarm_disabled": false,
+    "partner_saved": false,
+    "proof_uploaded": false
+  },
+  "assets": [
+    { "id": "bg_train", "type": "image", "url": "/assets/platform.svg", "metadata": { "note": "global intro background" } },
+    { "id": "bg_door", "type": "image", "url": "/assets/door.svg" },
+    { "id": "bg_escape", "type": "image", "url": "/assets/departure.svg" },
+    { "id": "music_tension", "type": "music", "url": "/assets/silence.mp3" },
+    { "id": "sfx_unlock", "type": "sound", "url": "/assets/unlock.mp3" }
+  ],
+  "scenes": [
+    {
+      "id": "intro",
+      "title": "Сигнал в последнем вагоне",
+      "text": "Ночной поезд останавливается в тоннеле. На служебном планшете горит чужой протокол: найти источник газа и вывести пассажиров.",
+      "variables": {},
+      "assets": [{ "id": "intro_note", "type": "image", "url": "/assets/platform.svg", "metadata": { "local": true } }],
+      "background": "bg_train",
+      "music": "music_tension",
+      "animation": { "type": "fade-in", "durationMs": 700 },
+      "effects": [],
+      "choices": [
+        { "id": "start_calm", "label": "Собраться и открыть маршрут", "target": "corridor", "conditions": [], "effects": [{ "inc": "trust", "value": 1 }] },
+        { "id": "start_panic", "label": "Побежать наугад", "target": "paranoia", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "corridor",
+      "title": "Сервисный коридор",
+      "text": "За стенкой щелкает реле. На полу лежит бейдж техника, а впереди два прохода: к шкафчикам и к терминалу.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_door",
+      "music": "music_tension",
+      "animation": { "type": "fade-in", "durationMs": 500 },
+      "effects": [],
+      "choices": [
+        { "id": "take_badge", "label": "Взять бейдж техника", "target": "locker", "conditions": [], "effects": [{ "set": "has_keycard", "value": true }, { "inc": "evidence", "value": 1 }] },
+        { "id": "ignore_badge", "label": "Не трогать улики", "target": "terminal", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "locker",
+      "title": "Шкафчик техника",
+      "text": "Замок просит короткую проверку бейджа. Внутри может быть запасной ключ и журнал обхода.",
+      "variables": { "locker_attempts": 0 },
+      "assets": [],
+      "background": "bg_door",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "open_locker", "label": "Открыть по бейджу", "target": "terminal", "fallbackTarget": "paranoia", "conditions": [{ "var": "has_keycard", "op": "==", "value": true }], "effects": [{ "inc": "locker_attempts", "value": 1 }, { "inc": "evidence", "value": 1 }] },
+        { "id": "force_locker", "label": "Вскрыть отверткой", "target": "terminal", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }, { "inc": "locker_attempts", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "terminal",
+      "title": "Служебный терминал",
+      "text": "Экран показывает последние входы: архив, лаборатория, серверная. Код доступа спрятан в журнале.",
+      "variables": { "terminal_reads": 0 },
+      "assets": [],
+      "background": "bg_train",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "read_logs", "label": "Прочитать журнал доступа", "target": "lab_entry", "conditions": [], "effects": [{ "set": "knows_code", "value": true }, { "inc": "terminal_reads", "value": 1 }, { "inc": "evidence", "value": 1 }] },
+        { "id": "skip_logs", "label": "Сразу идти в лабораторию", "target": "lab_entry", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "lab_entry",
+      "title": "Вход в лабораторию",
+      "text": "Дверь принимает код. Если код неизвестен, система пустит через аварийный маршрут, но отметит нарушение.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_door",
+      "music": "music_tension",
+      "animation": { "type": "fade-in", "durationMs": 400 },
+      "effects": [],
+      "choices": [
+        { "id": "enter_code", "label": "Ввести код из журнала", "target": "sample_room", "fallbackTarget": "paranoia", "conditions": [{ "var": "knows_code", "op": "==", "value": true }], "effects": [{ "inc": "trust", "value": 1 }] },
+        { "id": "force_entry", "label": "Запустить аварийный обход", "target": "sample_room", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "sample_room",
+      "title": "Комната проб",
+      "text": "На столе три контейнера. Правильная проба пахнет озоном и подписана утренней сменой.",
+      "variables": { "sample_checks": 0 },
+      "assets": [{ "id": "sample_label", "type": "image", "url": "/assets/door.svg" }],
+      "background": "sample_label",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "take_right_sample", "label": "Взять пробу утренней смены", "target": "security_hub", "conditions": [], "effects": [{ "set": "sample_secured", "value": true }, { "inc": "sample_checks", "value": 1 }, { "inc": "evidence", "value": 1 }] },
+        { "id": "take_random_sample", "label": "Взять ближайшую пробу", "target": "security_hub", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }, { "inc": "sample_checks", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "security_hub",
+      "title": "Пост безопасности",
+      "text": "Камеры видят лабораторию, архив и шахту вентиляции. Система просит выбрать, что зациклить.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_train",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "loop_cameras", "label": "Зациклить камеры лаборатории", "target": "camera_loop", "conditions": [], "effects": [{ "inc": "trust", "value": 1 }] },
+        { "id": "erase_records", "label": "Стереть все записи", "target": "paranoia", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 2 }] }
+      ]
+    },
+    {
+      "id": "camera_loop",
+      "title": "Цикл камер",
+      "text": "Петля длится 90 секунд. Этого хватит, если не задерживаться.",
+      "variables": { "loop_seconds": 90 },
+      "assets": [],
+      "background": "bg_train",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [{ "inc": "evidence", "value": 1 }],
+      "choices": [
+        { "id": "go_archive", "label": "Идти в архив", "target": "archive", "conditions": [], "effects": [] },
+        { "id": "wait_loop", "label": "Подождать у монитора", "target": "archive", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "archive",
+      "title": "Архив смен",
+      "text": "Папка с пометкой «Газ-7» лежит между отчетами о ложных тревогах.",
+      "variables": { "files_opened": 0 },
+      "assets": [],
+      "background": "bg_door",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "read_gas7", "label": "Сверить папку «Газ-7»", "target": "server_room", "conditions": [], "effects": [{ "inc": "files_opened", "value": 1 }, { "inc": "evidence", "value": 1 }] },
+        { "id": "take_all_files", "label": "Забрать все папки", "target": "server_room", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }, { "inc": "files_opened", "value": 3 }] }
+      ]
+    },
+    {
+      "id": "server_room",
+      "title": "Серверная",
+      "text": "Сервер хранит архив телеметрии. Доступ зависит от бейджа и доверия системы.",
+      "variables": { "server_pings": 0 },
+      "assets": [],
+      "background": "bg_train",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "export_logs", "label": "Экспортировать телеметрию", "target": "ventilation", "fallbackTarget": "paranoia", "conditions": [{ "var": "has_keycard", "op": "==", "value": true }, { "var": "trust", "op": ">=", "value": 2 }], "effects": [{ "inc": "server_pings", "value": 1 }, { "inc": "evidence", "value": 1 }] },
+        { "id": "pull_drive", "label": "Выдернуть диск", "target": "ventilation", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "ventilation",
+      "title": "Шахта вентиляции",
+      "text": "Поток воздуха несет сладкий запах. Датчик разрешает ручную проверку.",
+      "variables": { "vent_checks": 0 },
+      "assets": [],
+      "background": "bg_door",
+      "music": "music_tension",
+      "animation": { "type": "fade-in", "durationMs": 500 },
+      "effects": [],
+      "choices": [
+        { "id": "measure_air", "label": "Снять показания датчика", "target": "gas_valve", "conditions": [], "effects": [{ "inc": "vent_checks", "value": 1 }, { "inc": "gas_checks", "value": 1 }, { "inc": "evidence", "value": 1 }] },
+        { "id": "crawl_fast", "label": "Ползти быстрее", "target": "gas_valve", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "gas_valve",
+      "title": "Газовый вентиль",
+      "text": "Маховик закис. Нужно закрыть подачу, но слишком резкое движение сорвет пломбу.",
+      "variables": { "valve_turns": 0 },
+      "assets": [],
+      "background": "bg_door",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "slow_turn", "label": "Закрыть вентиль плавно", "target": "medbay", "conditions": [], "effects": [{ "inc": "valve_turns", "value": 1 }, { "set": "valve_closed", "value": true }, { "inc": "trust", "value": 1 }] },
+        { "id": "hard_turn", "label": "Рвануть маховик", "target": "medbay", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 2 }, { "inc": "valve_turns", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "medbay",
+      "title": "Медотсек",
+      "text": "Пассажир без сознания. Аптечный шкаф открыт, но время уходит.",
+      "variables": { "med_checks": 0 },
+      "assets": [],
+      "background": "bg_train",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "help_passenger", "label": "Стабилизировать пассажира", "target": "partner_call", "conditions": [], "effects": [{ "inc": "med_checks", "value": 1 }, { "inc": "trust", "value": 1 }] },
+        { "id": "leave_passenger", "label": "Идти дальше без помощи", "target": "partner_call", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "partner_call",
+      "title": "Связь с напарником",
+      "text": "Напарник застрял у шлюза. Он просит не открывать дверь, пока давление не выровнено.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_train",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "save_partner", "label": "Выровнять давление и вывести напарника", "target": "maintenance", "fallbackTarget": "paranoia", "conditions": [{ "var": "valve_closed", "op": "==", "value": true }], "effects": [{ "set": "partner_saved", "value": true }, { "inc": "trust", "value": 1 }] },
+        { "id": "open_fast", "label": "Открыть шлюз сразу", "target": "maintenance", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 2 }] }
+      ]
+    },
+    {
+      "id": "maintenance",
+      "title": "Технический отсек",
+      "text": "Рядом с реле висит схема питания. Неверный рубильник поднимет тревогу.",
+      "variables": { "relay_checks": 0 },
+      "assets": [],
+      "background": "bg_door",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "disable_alarm", "label": "Отключить тревогу по схеме", "target": "reactor_door", "conditions": [], "effects": [{ "set": "alarm_disabled", "value": true }, { "inc": "relay_checks", "value": 1 }, { "inc": "evidence", "value": 1 }] },
+        { "id": "flip_random", "label": "Дернуть случайный рубильник", "target": "reactor_door", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }, { "inc": "relay_checks", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "reactor_door",
+      "title": "Дверь реакторного блока",
+      "text": "Дверь откроется только при отключенной тревоге и собранных базовых уликах.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_door",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "open_reactor", "label": "Открыть дверь штатно", "target": "coolant_puzzle", "fallbackTarget": "paranoia", "conditions": [{ "var": "alarm_disabled", "op": "==", "value": true }, { "var": "evidence", "op": ">=", "value": 6 }], "effects": [{ "inc": "trust", "value": 1 }] },
+        { "id": "manual_override", "label": "Войти аварийным ключом", "target": "coolant_puzzle", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "coolant_puzzle",
+      "title": "Контур охлаждения",
+      "text": "Три клапана подписаны цветами. Правильная последовательность указана в телеметрии.",
+      "variables": { "coolant_steps": 0 },
+      "assets": [],
+      "background": "bg_train",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "coolant_correct", "label": "Синий, белый, красный", "target": "elevator", "conditions": [], "effects": [{ "inc": "coolant_steps", "value": 3 }, { "inc": "evidence", "value": 1 }] },
+        { "id": "coolant_wrong", "label": "Красный, белый, синий", "target": "elevator", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }, { "inc": "coolant_steps", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "elevator",
+      "title": "Грузовой лифт",
+      "text": "Лифт поднимается к обзорной капсуле. На панели мигает предупреждение о ручном управлении.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_train",
+      "music": "music_tension",
+      "animation": { "type": "fade-in", "durationMs": 600 },
+      "effects": [],
+      "choices": [
+        { "id": "ride_safe", "label": "Подняться в штатном режиме", "target": "observation", "conditions": [], "effects": [{ "inc": "trust", "value": 1 }] },
+        { "id": "ride_fast", "label": "Ускорить лифт вручную", "target": "observation", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "observation",
+      "title": "Обзорная капсула",
+      "text": "Сверху видно, что утечка идет не из поезда, а из прикрепленного дрона снабжения.",
+      "variables": { "scan_count": 0 },
+      "assets": [],
+      "background": "bg_escape",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "scan_drone", "label": "Просканировать дрон", "target": "director_office", "conditions": [], "effects": [{ "inc": "scan_count", "value": 1 }, { "inc": "evidence", "value": 1 }] },
+        { "id": "ignore_drone", "label": "Списать всё на поезд", "target": "director_office", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "director_office",
+      "title": "Кабинет директора состава",
+      "text": "В сейфе может быть приказ о перевозке. На столе лежит подсказка: «не верь первому номеру».",
+      "variables": {},
+      "assets": [],
+      "background": "bg_door",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "inspect_hint", "label": "Изучить подсказку", "target": "safe", "conditions": [], "effects": [{ "inc": "evidence", "value": 1 }] },
+        { "id": "rush_safe", "label": "Сразу крутить сейф", "target": "safe", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "safe",
+      "title": "Сейф",
+      "text": "Код составлен из номеров вагонов, но первый номер ложный.",
+      "variables": { "safe_attempts": 0 },
+      "assets": [],
+      "background": "bg_door",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "safe_correct", "label": "Ввести код без первого номера", "target": "roof_access", "conditions": [], "effects": [{ "inc": "safe_attempts", "value": 1 }, { "inc": "evidence", "value": 1 }] },
+        { "id": "safe_wrong", "label": "Ввести все номера подряд", "target": "roof_access", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }, { "inc": "safe_attempts", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "roof_access",
+      "title": "Выход на крышу",
+      "text": "Люк на крышу открыт. Ветер несет запах газа от дроновой платформы.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_escape",
+      "music": "music_tension",
+      "animation": { "type": "fade-in", "durationMs": 500 },
+      "effects": [],
+      "choices": [
+        { "id": "secure_rope", "label": "Закрепить страховку", "target": "drone_bay", "conditions": [], "effects": [{ "inc": "trust", "value": 1 }] },
+        { "id": "jump_roof", "label": "Прыгнуть без страховки", "target": "drone_bay", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "drone_bay",
+      "title": "Дрон снабжения",
+      "text": "Внутри дрона закреплен серый баллон. Маркировка совпадает с папкой «Газ-7».",
+      "variables": { "drone_latches": 0 },
+      "assets": [{ "id": "drone_photo", "type": "image", "url": "/assets/departure.svg", "metadata": { "local": true } }],
+      "background": "drone_photo",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "photograph_cylinder", "label": "Сфотографировать баллон", "target": "escape_route", "conditions": [], "effects": [{ "inc": "drone_latches", "value": 1 }, { "inc": "evidence", "value": 1 }] },
+        { "id": "throw_cylinder", "label": "Сбросить баллон с крыши", "target": "escape_route", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 2 }] }
+      ]
+    },
+    {
+      "id": "escape_route",
+      "title": "Маршрут эвакуации",
+      "text": "Пассажиров можно вывести через хвостовой шлюз. Но без доказательств диспетчер не откроет тоннель.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_escape",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "guide_people", "label": "Вывести людей организованно", "target": "final_gate", "conditions": [], "effects": [{ "inc": "trust", "value": 1 }] },
+        { "id": "run_alone", "label": "Бежать одному", "target": "final_gate", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 2 }] }
+      ]
+    },
+    {
+      "id": "final_gate",
+      "title": "Последний шлюз",
+      "text": "Шлюз требует финальную проверку: достаточно ли доказательств, закрыт ли вентиль и спасен ли напарник.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_door",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "request_open", "label": "Запросить открытие шлюза", "target": "proof_upload", "fallbackTarget": "bad_end", "conditions": [{ "var": "evidence", "op": ">=", "value": 10 }, { "var": "valve_closed", "op": "==", "value": true }, { "var": "partner_saved", "op": "==", "value": true }, { "var": "wrong_steps", "op": "<=", "value": 2 }], "effects": [] },
+        { "id": "break_gate", "label": "Взломать шлюз", "target": "bad_end", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 3 }] }
+      ]
+    },
+    {
+      "id": "proof_upload",
+      "title": "Передача доказательств",
+      "text": "Канал диспетчера открыт. Нужно отправить полный пакет: телеметрия, фото баллона, журнал смены и проба.",
+      "variables": { "upload_chunks": 0 },
+      "assets": [],
+      "background": "bg_train",
+      "music": "music_tension",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "upload_all", "label": "Отправить полный пакет", "target": "extraction", "fallbackTarget": "bad_end", "conditions": [{ "var": "sample_secured", "op": "==", "value": true }, { "var": "evidence", "op": ">=", "value": 11 }], "effects": [{ "inc": "upload_chunks", "value": 4 }, { "set": "proof_uploaded", "value": true }] },
+        { "id": "upload_partial", "label": "Отправить только фото", "target": "bad_end", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "extraction",
+      "title": "Эвакуационный тоннель",
+      "text": "Свет в тоннеле меняется на зеленый. Осталась последняя проверка протокола.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_escape",
+      "music": "music_tension",
+      "animation": { "type": "fade-in", "durationMs": 700 },
+      "effects": [],
+      "choices": [
+        { "id": "finish_good", "label": "Завершить протокол правильно", "target": "good_end", "fallbackTarget": "bad_end", "conditions": [{ "var": "proof_uploaded", "op": "==", "value": true }, { "var": "trust", "op": ">=", "value": 8 }, { "var": "wrong_steps", "op": "<=", "value": 2 }], "effects": [] },
+        { "id": "hide_proof", "label": "Скрыть часть доказательств", "target": "bad_end", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 2 }] }
+      ]
+    },
+    {
+      "id": "good_end",
+      "title": "Хорошая концовка: Последний вагон спасен",
+      "text": "Диспетчер принимает пакет доказательств. Пассажиров выводят, напарник жив, а источник газа найден до катастрофы.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_escape",
+      "music": null,
+      "animation": { "type": "fade-in", "durationMs": 900 },
+      "effects": [],
+      "ending": { "type": "good", "title": "Вы прошли протокол правильно" },
+      "choices": []
+    },
+    {
+      "id": "bad_end",
+      "title": "Плохая концовка: Протокол сорван",
+      "text": "Ошибок слишком много или доказательств недостаточно. Шлюз закрывается, а поезд остается в карантине.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_door",
+      "music": null,
+      "animation": { "type": "fade-in", "durationMs": 900 },
+      "effects": [],
+      "ending": { "type": "bad", "title": "Вы сорвали расследование" },
+      "choices": []
+    },
+    {
+      "id": "paranoia",
+      "title": "Паника и ложный след",
+      "text": "Вы теряете время на неверную гипотезу. Можно вернуться к маршруту, но протокол отмечает ошибку.",
+      "variables": { "panic_ticks": 0 },
+      "assets": [],
+      "background": "bg_door",
+      "music": "music_tension",
+      "animation": { "type": "fade-in", "durationMs": 350 },
+      "effects": [{ "inc": "panic_ticks", "value": 1 }],
+      "choices": [
+        { "id": "recover_route", "label": "Вернуться к маршруту", "target": "corridor", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 1 }] },
+        { "id": "give_up", "label": "Остановить расследование", "target": "bad_end", "conditions": [], "effects": [{ "inc": "wrong_steps", "value": 3 }] }
+      ]
+    }
+  ]
+}
