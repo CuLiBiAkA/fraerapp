@@ -3,6 +3,7 @@ package com.fraergod.fraerapp.game;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -46,6 +47,12 @@ class AuthorStoryController {
 	@GetMapping("/stories/{storyId}/analytics")
 	StoryProductService.StoryAnalytics analytics(@RequestHeader("X-Player-Id") String playerId, @PathVariable String storyId) {
 		return product.analytics(playerId, storyId);
+	}
+
+	@DeleteMapping("/stories/{storyId}")
+	Map<String, Object> deleteStory(@RequestHeader("X-Player-Id") String playerId, @PathVariable String storyId) {
+		product.deleteForAuthor(playerId, storyId);
+		return Map.of("deleted", true, "storyId", storyId);
 	}
 
 	@PostMapping("/stories/{storyId}/validate")

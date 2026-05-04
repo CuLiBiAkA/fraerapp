@@ -166,6 +166,13 @@ const translations = {
     uploadSceneAsset: "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0430\u0441\u0441\u0435\u0442 \u0432 \u0441\u0446\u0435\u043d\u0443",
     authorLoggedIn: "\u0410\u0432\u0442\u043e\u0440: {name}. \u041c\u043e\u0436\u043d\u043e \u0440\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0438 \u043f\u0443\u0431\u043b\u0438\u043a\u043e\u0432\u0430\u0442\u044c.",
     authorLoggedOut: "\u0410\u0432\u0442\u043e\u0440 \u043d\u0435 \u0432\u043e\u0448\u0435\u043b. \u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0438\u043c\u044f \u0438 \u0432\u043e\u0439\u0434\u0438\u0442\u0435, \u0447\u0442\u043e\u0431\u044b \u0432\u0438\u0434\u0435\u0442\u044c \u0441\u0432\u043e\u0438 \u0438\u0441\u0442\u043e\u0440\u0438\u0438.",
+    newAuthorStory: "\u041d\u043e\u0432\u0430\u044f \u0438\u0441\u0442\u043e\u0440\u0438\u044f",
+    editStoryButton: "\u041f\u0440\u0430\u0432\u0438\u0442\u044c",
+    storyStatsButton: "\u0421\u0442\u0430\u0442\u044b",
+    deleteStoryButton: "\u0423\u0434\u0430\u043b\u0438\u0442\u044c",
+    deleteStoryConfirm: "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0438\u0441\u0442\u043e\u0440\u0438\u044e \"{title}\"? \u042d\u0442\u043e \u0443\u0431\u0435\u0440\u0435\u0442 \u043f\u0443\u0431\u043b\u0438\u043a\u0430\u0446\u0438\u044e, \u0441\u0446\u0435\u043d\u044b, \u0430\u0441\u0441\u0435\u0442\u044b \u0438 \u0432\u0441\u0435 \u043f\u0440\u043e\u0445\u043e\u0436\u0434\u0435\u043d\u0438\u044f.",
+    deleteStoryDone: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0443\u0434\u0430\u043b\u0435\u043d\u0430: {title}",
+    deleteStoryCurrentDraft: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0443\u0434\u0430\u043b\u0435\u043d\u0430. \u0422\u0435\u043a\u0443\u0449\u0438\u0439 draft \u043e\u0441\u0442\u0430\u043b\u0441\u044f \u0432 \u0440\u0435\u0434\u0430\u043a\u0442\u043e\u0440\u0435.",
   },
   en: {
     pageTitle: "FraerApp - Story Builder",
@@ -306,6 +313,13 @@ const translations = {
     uploadSceneAsset: "Upload asset to scene",
     authorLoggedIn: "Author: {name}. Editing and publishing are available.",
     authorLoggedOut: "Author is not logged in. Enter a name and log in to see your stories.",
+    newAuthorStory: "New story",
+    editStoryButton: "Edit",
+    storyStatsButton: "Stats",
+    deleteStoryButton: "Delete",
+    deleteStoryConfirm: "Delete \"{title}\"? This removes the publication, scenes, assets, and all runs.",
+    deleteStoryDone: "Story deleted: {title}",
+    deleteStoryCurrentDraft: "Story deleted. The current draft stayed in the editor.",
   },
 };
 
@@ -1698,7 +1712,7 @@ function renderAuthorWorkspace(home = null) {
   els.authorStories.replaceChildren();
   if (authorSession?.playerId) {
     const topActions = div("actions tight");
-    topActions.append(button("New story", createNewAuthorStory, "secondary small"));
+    topActions.append(button(t("newAuthorStory"), createNewAuthorStory, "secondary small"));
     els.authorStories.append(topActions);
   }
   if (!home?.stories?.length) {
@@ -1726,16 +1740,21 @@ function renderAuthorWorkspace(home = null) {
     summary.append(title, meta);
     const actions = div("actions tight");
     actions.append(
-      button("Edit", () => {
+      button(t("editStoryButton"), () => {
         openAuthorStory(story.storyId).catch((error) => {
           els.authorAnalytics.textContent = error.message;
         });
       }, "secondary small"),
-      button("Stats", () => {
+      button(t("storyStatsButton"), () => {
         showAuthorAnalytics(story.storyId).catch((error) => {
           els.authorAnalytics.textContent = error.message;
         });
       }, "secondary small"),
+      button(t("deleteStoryButton"), () => {
+        deleteAuthorStory(story).catch((error) => {
+          els.authorAnalytics.textContent = error.message;
+        });
+      }, "danger small"),
     );
     item.append(summary, actions);
     els.authorStories.append(item);
@@ -1779,6 +1798,23 @@ function createNewAuthorStory() {
   saveDraft();
   render();
   els.apiResult.textContent = "New draft is ready. Import it to save.";
+}
+
+async function deleteAuthorStory(story) {
+  const title = story.title || story.key || story.storyId;
+  if (!confirm(t("deleteStoryConfirm", { title }))) {
+    return;
+  }
+  await authorFetch(`/api/author/stories/${story.storyId}`, { method: "DELETE" });
+  if (lastImportedStoryId === story.storyId) {
+    lastImportedStoryId = null;
+    localStorage.removeItem("fraerapp.storyBuilderLastStoryId");
+    els.apiResult.textContent = t("deleteStoryCurrentDraft");
+  } else {
+    els.apiResult.textContent = t("deleteStoryDone", { title });
+  }
+  els.authorAnalytics.textContent = t("deleteStoryDone", { title });
+  await loadAuthorHome();
 }
 
 function addSceneAndFocus() {

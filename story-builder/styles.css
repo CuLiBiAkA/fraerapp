@@ -261,11 +261,16 @@ pre::-webkit-scrollbar-track {
 }
 
 .story-picker-item .actions {
+  justify-content: flex-end;
   margin-bottom: 0;
 }
 
 .story-picker-item button {
   width: auto !important;
+}
+
+.story-picker-item button.danger {
+  background: #c83f32;
 }
 
 .preview,

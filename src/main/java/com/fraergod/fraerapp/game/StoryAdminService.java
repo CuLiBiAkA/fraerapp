@@ -157,6 +157,16 @@ class StoryAdminService {
 		return new ImportResponse(story.getId(), story.getKey(), story.getTitle(), story.getStatus().name().toLowerCase());
 	}
 
+	@Transactional
+	void deleteStory(String storyId, String ownerPlayerId) {
+		Story story = story(storyId);
+		requireOwnerAccess(story, ownerPlayerId);
+		jdbc.update("delete from game_sessions where story_id = ?", story.getId());
+		deleteChildren(story.getId());
+		stories.delete(story);
+		assetStorage.deleteStoryFiles(story.getId());
+	}
+
 	private StoryValidationResult validate(StoryDocument document) {
 		List<String> errors = new ArrayList<>();
 		if (blank(document.key())) {

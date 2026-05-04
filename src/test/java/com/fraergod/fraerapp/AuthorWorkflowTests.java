@@ -104,6 +104,42 @@ class AuthorWorkflowTests {
 		});
 	}
 
+	@Test
+	void authorCanDeleteOwnedStory() {
+		String authorId = login("delete-author-" + UUID.randomUUID());
+		String storyKey = "delete_story_" + UUID.randomUUID().toString().replace("-", "");
+		ApiResponse imported = request("POST", "/api/author/stories/import", validStory(storyKey), authorId, null);
+		String storyId = imported.body().get("storyId").toString();
+		request("POST", "/api/author/stories/" + storyId + "/publish", null, authorId, null);
+
+		ApiResponse deleted = request("DELETE", "/api/author/stories/" + storyId, null, authorId, null);
+		assertThat(deleted.status()).isEqualTo(HttpStatus.OK.value());
+		assertThat(deleted.body()).containsEntry("deleted", true);
+
+		ApiResponse home = request("GET", "/api/author/home", null, authorId, null);
+		List<Map<String, Object>> stories = castList(home.body().get("stories"));
+		assertThat(stories).noneSatisfy(story -> assertThat(story).containsEntry("storyId", storyId));
+
+		ApiResponse document = request("GET", "/api/author/stories/" + storyId + "/document", null, authorId, null);
+		assertThat(document.status()).isEqualTo(HttpStatus.NOT_FOUND.value());
+	}
+
+	@Test
+	void authorCannotDeleteAnotherAuthorsStory() {
+		String ownerId = login("delete-owner-" + UUID.randomUUID());
+		String otherId = login("delete-other-" + UUID.randomUUID());
+		String storyKey = "foreign_delete_story_" + UUID.randomUUID().toString().replace("-", "");
+		ApiResponse imported = request("POST", "/api/author/stories/import", validStory(storyKey), ownerId, null);
+		String storyId = imported.body().get("storyId").toString();
+
+		ApiResponse forbidden = request("DELETE", "/api/author/stories/" + storyId, null, otherId, null);
+		assertThat(forbidden.status()).isEqualTo(HttpStatus.FORBIDDEN.value());
+
+		ApiResponse home = request("GET", "/api/author/home", null, ownerId, null);
+		List<Map<String, Object>> stories = castList(home.body().get("stories"));
+		assertThat(stories).anySatisfy(story -> assertThat(story).containsEntry("storyId", storyId));
+	}
+
 	private String login(String username) {
 		ApiResponse response = request("POST", "/api/auth/login", "{\"username\":\"" + username + "\"}", null, null);
 		assertThat(response.status()).isEqualTo(HttpStatus.OK.value());

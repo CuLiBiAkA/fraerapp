@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.Normalizer;
+import java.util.Comparator;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -74,6 +75,18 @@ public class StoryAssetStorageService {
 		try (Stream<Path> files = Files.list(directory)) {
 			files.filter(Files::isRegularFile)
 					.filter(file -> !referencedUrls.contains(publicUrl(storyId, file.getFileName().toString())))
+					.forEach(this::deleteQuietly);
+		} catch (IOException ignored) {
+		}
+	}
+
+	void deleteStoryFiles(String storyId) {
+		Path directory = storyDirectory(storyId);
+		if (!Files.isDirectory(directory)) {
+			return;
+		}
+		try (Stream<Path> files = Files.walk(directory)) {
+			files.sorted(Comparator.reverseOrder())
 					.forEach(this::deleteQuietly);
 		} catch (IOException ignored) {
 		}

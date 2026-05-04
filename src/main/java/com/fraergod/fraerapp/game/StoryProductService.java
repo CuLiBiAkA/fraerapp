@@ -69,6 +69,13 @@ class StoryProductService {
 		return admin.publish(story.getId(), playerId);
 	}
 
+	@Transactional
+	void deleteForAuthor(String playerId, String storyId) {
+		player(playerId);
+		Story story = ownedStory(playerId, storyId);
+		admin.deleteStory(story.getId(), playerId);
+	}
+
 	@Transactional(readOnly = true)
 	AuthorStoryDetails authoredStory(String playerId, String storyId) {
 		Story story = ownedStory(playerId, storyId);
