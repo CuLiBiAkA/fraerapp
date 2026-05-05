@@ -16,7 +16,10 @@ class CorsConfig implements WebMvcConfigurer {
 
 	CorsConfig(StoryAssetStorageService assetStorage, @Value("${app.cors.allowed-origins}") String allowedOrigins) {
 		this.assetStorage = assetStorage;
-		this.allowedOrigins = allowedOrigins.split(",");
+		this.allowedOrigins = java.util.Arrays.stream(allowedOrigins.split(","))
+				.map(String::trim)
+				.filter(origin -> !origin.isBlank())
+				.toArray(String[]::new);
 	}
 
 	@Override

@@ -41,6 +41,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -97,7 +98,7 @@ class AuthController {
 	@Value("${auth.dev-mode:true}")
 	private boolean devMode;
 
-	@Value("${auth.public-base-url:http://localhost:8088}")
+	@Value("${auth.public-base-url:}")
 	private String publicBaseUrl;
 
 	@Value("${auth.bootstrap-admin-email:}")
@@ -110,7 +111,7 @@ class AuthController {
 	}
 
 	@PostMapping("/login-link")
-	Map<String, Object> loginLink(@Valid @RequestBody LoginLinkRequest request) {
+	Map<String, Object> loginLink(@Valid @RequestBody LoginLinkRequest request, HttpServletRequest servletRequest) {
 		String email = AuthServiceApplication.normalizeEmail(request.email());
 		checkRate("login:" + email, devMode ? 200 : 5, Duration.ofMinutes(15));
 		String token = UUID.randomUUID() + "." + UUID.randomUUID();
@@ -118,7 +119,7 @@ class AuthController {
 		Instant expiresAt = Instant.now().plusSeconds(magicLinkTtl);
 		store.createMagicLink(email, sha256(token), redirect, expiresAt);
 		String separator = redirect.contains("?") ? "&" : "?";
-		String link = publicBaseUrl + redirect + separator + "auth_token=" + token + "&redirect=" + url64(redirect.getBytes(StandardCharsets.UTF_8));
+		String link = requestBaseUrl(servletRequest) + redirect + separator + "auth_token=" + token + "&redirect=" + url64(redirect.getBytes(StandardCharsets.UTF_8));
 		store.audit(null, email, "login_link_requested", "{}");
 		if (devMode) {
 			devLinks.put(email, List.of(new DevLink(email, link, expiresAt)));
@@ -144,6 +145,9 @@ class AuthController {
 			store.grantRole(user.id(), "author");
 			user = store.userById(user.id()).orElseThrow();
 		}
+		if (user.blockedAt() != null) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is blocked");
+		}
 		store.consumeMagicLink(link.id());
 		TokenPair pair = issue(user);
 		addCookies(response, pair);
@@ -163,6 +167,10 @@ class AuthController {
 			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expired");
 		}
 		User user = store.userBySession(token.sessionId()).orElseThrow();
+		if (user.blockedAt() != null) {
+			store.revokeSession(token.sessionId());
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is blocked");
+		}
 		store.revokeRefresh(token.id());
 		TokenPair pair = issue(user);
 		store.replaceRefresh(token.id(), pair.refreshId());
@@ -227,6 +235,40 @@ class AuthController {
 		return userView(store.user(user.email(), true).orElseThrow());
 	}
 
+	@GetMapping("/admin/users")
+	AdminUserPage users(@RequestHeader(name = "Authorization", required = false) String authorization,
+			@CookieValue(name = "fraer_access", required = false) String accessToken,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "20") int size,
+			@RequestParam(defaultValue = "") String query) {
+		User admin = currentUser(authorization, accessToken);
+		if (!admin.roles().contains("admin")) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
+		}
+		return store.adminUsers(page, size, query);
+	}
+
+	@PostMapping("/admin/users/block")
+	Map<String, Object> blockUser(@RequestHeader(name = "Authorization", required = false) String authorization,
+			@CookieValue(name = "fraer_access", required = false) String accessToken,
+			@Valid @RequestBody BlockRequest request) {
+		User admin = currentUser(authorization, accessToken);
+		if (!admin.roles().contains("admin")) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
+		}
+		User user = store.user(AuthServiceApplication.normalizeEmail(request.email()), false)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+		if (request.blocked()) {
+			store.blockUser(user.id());
+			store.audit(admin.id(), admin.email(), "user_blocked", "{\"target\":\"" + user.email() + "\"}");
+		}
+		else {
+			store.unblockUser(user.id());
+			store.audit(admin.id(), admin.email(), "user_unblocked", "{\"target\":\"" + user.email() + "\"}");
+		}
+		return userView(store.userById(user.id()).orElseThrow());
+	}
+
 	@GetMapping("/jwks")
 	Map<String, Object> jwks() {
 		return jwt.jwks();
@@ -243,7 +285,7 @@ class AuthController {
 				  <title>FraerApp права</title>
 				  <style>
 				    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, sans-serif; background: #f6f3ef; color: #202124; }
-				    main { max-width: 760px; margin: 0 auto; padding: 32px 18px 48px; }
+				    main { max-width: 1280px; margin: 0 auto; padding: 32px 18px 48px; }
 				    h1 { margin: 0 0 8px; font-size: 32px; }
 				    section { background: #fff; border: 1px solid #d8d3ca; border-radius: 8px; padding: 18px; margin-top: 16px; }
 				    label { display: block; font-weight: 650; margin: 12px 0 6px; }
@@ -253,11 +295,41 @@ class AuthController {
 				    button.secondary { background: #51483f; }
 				    button.danger { background: #8f2f25; }
 				    pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #161411; color: #f8f3e8; padding: 12px; border-radius: 6px; }
+				    pre:empty { display: none; }
 				    .row { display: grid; grid-template-columns: 1fr 160px 120px; gap: 12px; align-items: end; }
+				    .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+				    .toolbar label { min-width: 160px; margin-top: 0; }
+				    .pager { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+				    .table-wrap { overflow-x: auto; margin-top: 14px; border: 1px solid #e4ded4; border-radius: 8px; }
+				    table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 980px; }
+				    .users-table { min-width: 1120px; }
+				    .stories-table { min-width: 1080px; }
+				    th, td { border-bottom: 1px solid #e4ded4; padding: 10px 8px; text-align: left; vertical-align: top; }
+				    th { font-size: 13px; color: #6f665d; }
+				    th, td { overflow-wrap: anywhere; word-break: break-word; }
+				    tbody tr:last-child td { border-bottom: 0; }
+				    .cell-email { font-weight: 600; }
+				    .cell-key, .cell-muted { color: #51483f; font-size: 13px; }
+				    .cell-metric { white-space: pre-line; font-size: 13px; line-height: 1.35; }
+				    .cell-date { font-size: 13px; white-space: normal; }
+				    .users-table td:nth-child(1), .stories-table td:nth-child(1) { font-weight: 600; }
+				    .users-table td:nth-child(4), .users-table td:nth-child(5), .users-table td:nth-child(6),
+				    .stories-table td:nth-child(2), .stories-table td:nth-child(4), .stories-table td:nth-child(6) {
+				      color: #51483f; font-size: 13px; line-height: 1.35;
+				    }
+				    td.actions { white-space: normal; }
+				    .action-stack { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+				    td.actions button { display: block; width: 100%; margin: 0 0 6px; padding: 7px 9px; }
+				    .badge { display: inline-block; padding: 3px 7px; border-radius: 999px; background: #e8e0d4; font-size: 12px; }
 				    .hidden { display: none; }
 				    .muted { color: #6f665d; }
 				    a { color: #1f5f46; }
-				    @media (max-width: 680px) { .row { grid-template-columns: 1fr; } }
+				    @media (max-width: 680px) {
+				      main { padding-inline: 10px; }
+				      section { padding: 14px; }
+				      .row { grid-template-columns: 1fr; }
+				      .pager { flex-wrap: wrap; }
+				    }
 				  </style>
 				</head>
 				<body>
@@ -309,15 +381,127 @@ class AuthController {
 				      </form>
 				      <pre id="role-result"></pre>
 				    </section>
+
+				    <section id="users-section" class="hidden">
+				      <h2>Пользователи</h2>
+				      <div class="toolbar">
+				        <label>Поиск email
+				          <input id="user-query" type="search" placeholder="email">
+				        </label>
+				        <label>На странице
+				          <select id="user-size">
+				            <option value="10">10</option>
+				            <option value="20" selected>20</option>
+				            <option value="50">50</option>
+				          </select>
+				        </label>
+				        <button id="refresh-users" type="button" class="secondary">Обновить</button>
+				      </div>
+				      <div class="table-wrap">
+				        <table class="users-table">
+				          <colgroup>
+				            <col style="width: 18%">
+				            <col style="width: 11%">
+				            <col style="width: 9%">
+				            <col style="width: 12%">
+				            <col style="width: 16%">
+				            <col style="width: 15%">
+				            <col style="width: 10%">
+				            <col style="width: 9%">
+				          </colgroup>
+				          <thead>
+				            <tr>
+				              <th>Email</th>
+				              <th>Роли</th>
+				              <th>Блок</th>
+				              <th>Auth</th>
+				              <th>Игра</th>
+				              <th>Авторство</th>
+				              <th>Создан</th>
+				              <th>Действия</th>
+				            </tr>
+				          </thead>
+				          <tbody id="users-body"></tbody>
+				        </table>
+				      </div>
+				      <div class="pager">
+				        <button id="users-prev" type="button" class="secondary">Назад</button>
+				        <span id="users-page"></span>
+				        <button id="users-next" type="button" class="secondary">Вперед</button>
+				      </div>
+				      <pre id="users-result"></pre>
+				    </section>
+
+				    <section id="stories-section" class="hidden">
+				      <h2>Истории</h2>
+				      <div class="toolbar">
+				        <label>Статус
+				          <select id="story-status">
+				            <option value="all">Все</option>
+				            <option value="draft">draft</option>
+				            <option value="review">review</option>
+				            <option value="published">published</option>
+				            <option value="archived">archived</option>
+				          </select>
+				        </label>
+				        <label>На странице
+				          <select id="story-size">
+				            <option value="10">10</option>
+				            <option value="20" selected>20</option>
+				            <option value="50">50</option>
+				          </select>
+				        </label>
+				        <button id="refresh-stories" type="button" class="secondary">Обновить</button>
+				      </div>
+				      <div class="table-wrap">
+				        <table class="stories-table">
+				          <colgroup>
+				            <col style="width: 22%">
+				            <col style="width: 22%">
+				            <col style="width: 9%">
+				            <col style="width: 16%">
+				            <col style="width: 7%">
+				            <col style="width: 10%">
+				            <col style="width: 14%">
+				          </colgroup>
+				          <thead>
+				            <tr>
+				              <th>Название</th>
+				              <th>Ключ</th>
+				              <th>Статус</th>
+				              <th>Автор</th>
+				              <th>Запуски</th>
+				              <th>Обновлено</th>
+				              <th>Действия</th>
+				            </tr>
+				          </thead>
+				          <tbody id="stories-body"></tbody>
+				        </table>
+				      </div>
+				      <div class="pager">
+				        <button id="stories-prev" type="button" class="secondary">Назад</button>
+				        <span id="stories-page"></span>
+				        <button id="stories-next" type="button" class="secondary">Вперед</button>
+				      </div>
+				      <pre id="stories-result"></pre>
+				    </section>
 				  </main>
 
 				  <script>
 				    const loginSection = document.querySelector("#login-section");
 				    const meSection = document.querySelector("#me-section");
 				    const rolesSection = document.querySelector("#roles-section");
+				    const usersSection = document.querySelector("#users-section");
+				    const storiesSection = document.querySelector("#stories-section");
 				    const loginResult = document.querySelector("#login-result");
 				    const roleResult = document.querySelector("#role-result");
+				    const usersResult = document.querySelector("#users-result");
+				    const storiesResult = document.querySelector("#stories-result");
 				    const meLine = document.querySelector("#me-line");
+				    let userPage = 0;
+				    let userTotalPages = 0;
+				    let storyPage = 0;
+				    let storyTotalPages = 0;
 
 				    async function json(path, options = {}) {
 				      const response = await fetch(path, {
@@ -340,15 +524,192 @@ class AuthController {
 				        loginSection.classList.add("hidden");
 				        if (me.roles.includes("admin")) {
 				          rolesSection.classList.remove("hidden");
+				          usersSection.classList.remove("hidden");
+				          storiesSection.classList.remove("hidden");
+				          loadUsers();
+				          loadStories();
 				        } else {
 				          rolesSection.classList.add("hidden");
+				          usersSection.classList.add("hidden");
+				          storiesSection.classList.add("hidden");
 				          roleResult.textContent = "Нужна роль admin. Проверь AUTH_BOOTSTRAP_ADMIN_EMAIL или выдайте admin в dev.";
 				        }
 				      } catch {
 				        loginSection.classList.remove("hidden");
 				        meSection.classList.add("hidden");
 				        rolesSection.classList.add("hidden");
+				        usersSection.classList.add("hidden");
+				        storiesSection.classList.add("hidden");
 				      }
+				    }
+
+				    async function loadUsers() {
+				      const size = document.querySelector("#user-size").value;
+				      const query = document.querySelector("#user-query").value.trim();
+				      const page = await json(`/auth/admin/users?page=${userPage}&size=${size}&query=${encodeURIComponent(query)}`);
+				      const runtime = await runtimeStats(page.items || []);
+				      userPage = page.page;
+				      userTotalPages = page.totalPages;
+				      renderUsers(page.items || [], runtime);
+				      document.querySelector("#users-page").textContent =
+				        `Страница ${page.totalPages === 0 ? 0 : page.page + 1} из ${page.totalPages}, всего ${page.totalElements}`;
+				      document.querySelector("#users-prev").disabled = page.page <= 0;
+				      document.querySelector("#users-next").disabled = page.page + 1 >= page.totalPages;
+				    }
+
+				    async function runtimeStats(users) {
+				      const ids = users.map((user) => user.id).filter(Boolean);
+				      if (!ids.length) return new Map();
+				      try {
+				        const stats = await json(`/api/admin/users/runtime-stats?${ids.map((id) => "userIds=" + encodeURIComponent(id)).join("&")}`);
+				        return new Map(stats.map((item) => [item.userId, item]));
+				      } catch (error) {
+				        usersResult.textContent = "Runtime stats: " + error.message;
+				        return new Map();
+				      }
+				    }
+
+				    function renderUsers(items, runtimeByUserId) {
+				      const body = document.querySelector("#users-body");
+				      body.replaceChildren();
+				      if (!items.length) {
+				        const row = document.createElement("tr");
+				        const cell = document.createElement("td");
+				        cell.colSpan = 8;
+				        cell.textContent = "Пользователей нет.";
+				        row.append(cell);
+				        body.append(row);
+				        return;
+				      }
+				      for (const user of items) {
+				        const runtime = runtimeByUserId.get(user.id) || {};
+				        const row = document.createElement("tr");
+				        row.append(
+				          td(user.email || ""),
+				          td((user.roles || []).join(", ")),
+				          td(user.blocked ? "заблокирован" : ""),
+				          td(`sessions: ${user.sessions || 0}, active: ${user.activeSessions || 0}, audit: ${user.auditEvents || 0}`),
+				          td(`player: ${runtime.username || ""}\\nsaves: ${runtime.sessions || 0}, active: ${runtime.activeSessions || 0}, finished: ${runtime.finishedSessions || 0}`),
+				          td(`stories: ${runtime.authoredStories || 0}\\ndraft/review/pub/archive: ${runtime.draftStories || 0}/${runtime.reviewStories || 0}/${runtime.publishedStories || 0}/${runtime.archivedStories || 0}\\nruns: ${runtime.authoredRuns || 0}`),
+				          td(formatDate(user.createdAt)),
+				          userActionCell(user)
+				        );
+				        body.append(row);
+				      }
+				    }
+
+				    function userActionCell(user) {
+				      const cell = document.createElement("td");
+				      cell.className = "actions";
+				      const block = document.createElement("button");
+				      block.type = "button";
+				      block.className = user.blocked ? "secondary" : "danger";
+				      block.textContent = user.blocked ? "Разблокировать" : "Блокировать";
+				      block.addEventListener("click", () => blockUser(user, !user.blocked));
+				      cell.append(block);
+				      return cell;
+				    }
+
+				    async function blockUser(user, blocked) {
+				      if (blocked && !confirm(`Заблокировать ${user.email}? Активные сессии будут отозваны.`)) {
+				        return;
+				      }
+				      const result = await json("/auth/admin/users/block", { method: "POST", body: { email: user.email, blocked } });
+				      usersResult.textContent = JSON.stringify(result, null, 2);
+				      await loadUsers();
+				    }
+
+				    async function loadStories() {
+				      const status = document.querySelector("#story-status").value;
+				      const size = document.querySelector("#story-size").value;
+				      const page = await json(`/api/admin/stories?page=${storyPage}&size=${size}&status=${encodeURIComponent(status)}`);
+				      storyPage = page.page;
+				      storyTotalPages = page.totalPages;
+				      renderStories(page.items || []);
+				      document.querySelector("#stories-page").textContent =
+				        `Страница ${page.totalPages === 0 ? 0 : page.page + 1} из ${page.totalPages}, всего ${page.totalElements}`;
+				      document.querySelector("#stories-prev").disabled = page.page <= 0;
+				      document.querySelector("#stories-next").disabled = page.page + 1 >= page.totalPages;
+				    }
+
+				    function renderStories(items) {
+				      const body = document.querySelector("#stories-body");
+				      body.replaceChildren();
+				      if (!items.length) {
+				        const row = document.createElement("tr");
+				        const cell = document.createElement("td");
+				        cell.colSpan = 7;
+				        cell.textContent = "Историй нет.";
+				        row.append(cell);
+				        body.append(row);
+				        return;
+				      }
+				      for (const story of items) {
+				        const row = document.createElement("tr");
+				        row.append(
+				          td(story.title || ""),
+				          td(story.key || ""),
+				          tdBadge(story.status || ""),
+				          td(story.ownerName || ""),
+				          td(String(story.totalRuns ?? 0)),
+				          td(formatDate(story.updatedAt)),
+				          actionCell(story)
+				        );
+				        body.append(row);
+				      }
+				    }
+
+				    function td(text) {
+				      const cell = document.createElement("td");
+				      cell.textContent = text;
+				      return cell;
+				    }
+
+				    function tdBadge(text) {
+				      const cell = document.createElement("td");
+				      const badge = document.createElement("span");
+				      badge.className = "badge";
+				      badge.textContent = text;
+				      cell.append(badge);
+				      return cell;
+				    }
+
+				    function actionCell(story) {
+				      const cell = document.createElement("td");
+				      cell.className = "actions";
+				      cell.append(
+				        actionButton("Опубликовать", "publish", story),
+				        actionButton("В архив", "archive", story),
+				        actionButton("Удалить", "delete", story, "danger")
+				      );
+				      return cell;
+				    }
+
+				    function actionButton(label, action, story, className = "secondary") {
+				      const button = document.createElement("button");
+				      button.type = "button";
+				      button.className = className;
+				      button.textContent = label;
+				      button.addEventListener("click", () => runStoryAction(story, action));
+				      return button;
+				    }
+
+				    async function runStoryAction(story, action) {
+				      if (action === "delete" && !confirm(`Удалить историю "${story.title}"? Это удалит сессии, сцены, версии и ассеты.`)) {
+				        return;
+				      }
+				      const method = action === "delete" ? "DELETE" : "POST";
+				      const path = action === "delete"
+				        ? `/api/admin/stories/${story.storyId}`
+				        : `/api/admin/stories/${story.storyId}/${action}`;
+				      const result = await json(path, { method });
+				      storiesResult.textContent = JSON.stringify(result, null, 2);
+				      await loadStories();
+				    }
+
+				    function formatDate(value) {
+				      if (!value) return "";
+				      return new Date(value).toLocaleString("ru-RU");
 				    }
 
 				    async function verifyFromUrl() {
@@ -387,6 +748,47 @@ class AuthController {
 				      };
 				      const result = await json("/auth/admin/roles", { method: "POST", body: payload });
 				      roleResult.textContent = JSON.stringify(result, null, 2);
+				      await loadUsers();
+				    });
+
+				    document.querySelector("#user-query").addEventListener("input", () => {
+				      userPage = 0;
+				      loadUsers().catch((error) => { usersResult.textContent = error.message; });
+				    });
+				    document.querySelector("#user-size").addEventListener("change", () => {
+				      userPage = 0;
+				      loadUsers().catch((error) => { usersResult.textContent = error.message; });
+				    });
+				    document.querySelector("#refresh-users").addEventListener("click", () => {
+				      loadUsers().catch((error) => { usersResult.textContent = error.message; });
+				    });
+				    document.querySelector("#users-prev").addEventListener("click", () => {
+				      if (userPage > 0) userPage -= 1;
+				      loadUsers().catch((error) => { usersResult.textContent = error.message; });
+				    });
+				    document.querySelector("#users-next").addEventListener("click", () => {
+				      if (userPage + 1 < userTotalPages) userPage += 1;
+				      loadUsers().catch((error) => { usersResult.textContent = error.message; });
+				    });
+
+				    document.querySelector("#story-status").addEventListener("change", () => {
+				      storyPage = 0;
+				      loadStories().catch((error) => { storiesResult.textContent = error.message; });
+				    });
+				    document.querySelector("#story-size").addEventListener("change", () => {
+				      storyPage = 0;
+				      loadStories().catch((error) => { storiesResult.textContent = error.message; });
+				    });
+				    document.querySelector("#refresh-stories").addEventListener("click", () => {
+				      loadStories().catch((error) => { storiesResult.textContent = error.message; });
+				    });
+				    document.querySelector("#stories-prev").addEventListener("click", () => {
+				      if (storyPage > 0) storyPage -= 1;
+				      loadStories().catch((error) => { storiesResult.textContent = error.message; });
+				    });
+				    document.querySelector("#stories-next").addEventListener("click", () => {
+				      if (storyPage + 1 < storyTotalPages) storyPage += 1;
+				      loadStories().catch((error) => { storiesResult.textContent = error.message; });
 				    });
 
 				    document.querySelector("#logout").addEventListener("click", async () => {
@@ -454,7 +856,11 @@ class AuthController {
 			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing access token");
 		}
 		JwtClaims claims = jwt.decode(token);
-		return store.userById(claims.userId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+		User user = store.userById(claims.userId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+		if (user.blockedAt() != null) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is blocked");
+		}
+		return user;
 	}
 
 	private void addCookies(HttpServletResponse response, TokenPair pair) {
@@ -478,7 +884,7 @@ class AuthController {
 	}
 
 	private Map<String, Object> userView(User user) {
-		return Map.of("id", user.id(), "email", user.email(), "roles", user.roles());
+		return Map.of("id", user.id(), "email", user.email(), "roles", user.roles(), "blocked", user.blockedAt() != null);
 	}
 
 	private void sendMail(String email, String link) {
@@ -502,6 +908,44 @@ class AuthController {
 			return "/";
 		}
 		return redirect.length() > 500 ? "/" : redirect;
+	}
+
+	private String requestBaseUrl(HttpServletRequest request) {
+		if (publicBaseUrl != null && !publicBaseUrl.isBlank()) {
+			return stripTrailingSlash(publicBaseUrl.trim());
+		}
+		String proto = firstHeader(request, "X-Forwarded-Proto");
+		String host = firstHeader(request, "X-Forwarded-Host");
+		if (proto == null || proto.isBlank()) {
+			proto = request.getScheme();
+		}
+		if (host == null || host.isBlank()) {
+			host = request.getHeader(HttpHeaders.HOST);
+		}
+		if (host == null || host.isBlank()) {
+			host = request.getServerName();
+			int port = request.getServerPort();
+			if (port > 0 && port != 80 && port != 443) {
+				host = host + ":" + port;
+			}
+		}
+		return stripTrailingSlash(proto + "://" + host);
+	}
+
+	private String firstHeader(HttpServletRequest request, String name) {
+		String value = request.getHeader(name);
+		if (value == null || value.isBlank()) {
+			return null;
+		}
+		int comma = value.indexOf(',');
+		return (comma >= 0 ? value.substring(0, comma) : value).trim();
+	}
+
+	private String stripTrailingSlash(String value) {
+		while (value.endsWith("/")) {
+			value = value.substring(0, value.length() - 1);
+		}
+		return value;
 	}
 
 	private void checkRate(String key, int limit, Duration duration) {
@@ -547,6 +991,9 @@ class AuthController {
 	record RoleRequest(@Email @NotBlank String email, @NotBlank String role, boolean grant) {
 	}
 
+	record BlockRequest(@Email @NotBlank String email, boolean blocked) {
+	}
+
 	record TokenPair(String accessToken, String refreshToken, String refreshId) {
 	}
 
@@ -554,6 +1001,22 @@ class AuthController {
 	}
 
 	record Window(int count, Instant resetAt) {
+	}
+
+	record AdminUserPage(int page, int size, long totalElements, int totalPages, List<AdminUserSummary> items) {
+	}
+
+	record AdminUserSummary(
+			String id,
+			String email,
+			List<String> roles,
+			boolean blocked,
+			Instant blockedAt,
+			Instant createdAt,
+			Instant updatedAt,
+			long sessions,
+			long activeSessions,
+			long auditEvents) {
 	}
 }
 
@@ -652,22 +1115,49 @@ class AuthStore {
 	}
 
 	Optional<User> userByEmail(String email) {
-		List<User> users = jdbc.query("select id, email from users where email = ?", (rs, row) -> userRow(rs.getString(1), rs.getString(2)), email);
+		List<User> users = jdbc.query("select id, email, blocked_at, created_at, updated_at from users where email = ?",
+				(rs, row) -> userRow(rs.getString(1), rs.getString(2), instant(rs.getTimestamp(3)), rs.getTimestamp(4).toInstant(),
+						rs.getTimestamp(5).toInstant()), email);
 		return users.stream().findFirst();
 	}
 
 	Optional<User> userById(String id) {
-		List<User> users = jdbc.query("select id, email from users where id = ?", (rs, row) -> userRow(rs.getString(1), rs.getString(2)), id);
+		List<User> users = jdbc.query("select id, email, blocked_at, created_at, updated_at from users where id = ?",
+				(rs, row) -> userRow(rs.getString(1), rs.getString(2), instant(rs.getTimestamp(3)), rs.getTimestamp(4).toInstant(),
+						rs.getTimestamp(5).toInstant()), id);
 		return users.stream().findFirst();
 	}
 
 	Optional<User> userBySession(String sessionId) {
 		List<User> users = jdbc.query("""
-				select u.id, u.email from users u
+				select u.id, u.email, u.blocked_at, u.created_at, u.updated_at from users u
 				join sessions s on s.user_id = u.id
 				where s.id = ? and s.revoked_at is null and s.expires_at > ?
-				""", (rs, row) -> userRow(rs.getString(1), rs.getString(2)), sessionId, Instant.now());
+				""", (rs, row) -> userRow(rs.getString(1), rs.getString(2), instant(rs.getTimestamp(3)), rs.getTimestamp(4).toInstant(),
+				rs.getTimestamp(5).toInstant()), sessionId, Instant.now());
 		return users.stream().findFirst();
+	}
+
+	AuthController.AdminUserPage adminUsers(int page, int size, String query) {
+		int safePage = Math.max(0, page);
+		int safeSize = Math.min(100, Math.max(1, size));
+		String search = query == null ? "" : query.trim().toLowerCase();
+		String like = "%" + search + "%";
+		long total = jdbc.queryForObject("select count(*) from users where lower(email) like ?", Long.class, like);
+		List<AuthController.AdminUserSummary> items = jdbc.query("""
+				select id, email, blocked_at, created_at, updated_at
+				from users
+				where lower(email) like ?
+				order by created_at desc
+				limit ? offset ?
+				""", (rs, row) -> adminUserRow(
+				rs.getString(1),
+				rs.getString(2),
+				instant(rs.getTimestamp(3)),
+				rs.getTimestamp(4).toInstant(),
+				rs.getTimestamp(5).toInstant()), like, safeSize, safePage * safeSize);
+		int totalPages = total == 0 ? 0 : (int) Math.ceil((double) total / safeSize);
+		return new AuthController.AdminUserPage(safePage, safeSize, total, totalPages, items);
 	}
 
 	void createMagicLink(String email, String tokenHash, String redirectPath, Instant expiresAt) {
@@ -723,6 +1213,19 @@ class AuthStore {
 
 	void revokeAllSessions(String userId) {
 		jdbc.update("update sessions set revoked_at = ? where user_id = ? and revoked_at is null", Instant.now(), userId);
+		jdbc.update("""
+				update refresh_tokens set revoked_at = ?
+				where session_id in (select id from sessions where user_id = ?) and revoked_at is null
+				""", Instant.now(), userId);
+	}
+
+	void blockUser(String userId) {
+		jdbc.update("update users set blocked_at = ?, updated_at = ? where id = ?", Instant.now(), Instant.now(), userId);
+		revokeAllSessions(userId);
+	}
+
+	void unblockUser(String userId) {
+		jdbc.update("update users set blocked_at = null, updated_at = ? where id = ?", Instant.now(), userId);
 	}
 
 	void grantRole(String userId, String role) {
@@ -750,13 +1253,27 @@ class AuthStore {
 				""", UUID.randomUUID().toString(), userId, email, eventType, metadata, Instant.now());
 	}
 
-	private User userRow(String id, String email) {
+	private User userRow(String id, String email, Instant blockedAt, Instant createdAt, Instant updatedAt) {
 		List<String> roles = jdbc.queryForList("select role_name from user_roles where user_id = ? order by role_name", String.class, id);
-		return new User(id, email, roles);
+		return new User(id, email, roles, blockedAt, createdAt, updatedAt);
+	}
+
+	private AuthController.AdminUserSummary adminUserRow(String id, String email, Instant blockedAt, Instant createdAt, Instant updatedAt) {
+		List<String> roles = jdbc.queryForList("select role_name from user_roles where user_id = ? order by role_name", String.class, id);
+		long sessionsCount = jdbc.queryForObject("select count(*) from sessions where user_id = ?", Long.class, id);
+		long activeSessions = jdbc.queryForObject("select count(*) from sessions where user_id = ? and revoked_at is null and expires_at > ?",
+				Long.class, id, Instant.now());
+		long auditEvents = jdbc.queryForObject("select count(*) from auth_audit_events where user_id = ? or email = ?", Long.class, id, email);
+		return new AuthController.AdminUserSummary(id, email, roles, blockedAt != null, blockedAt, createdAt, updatedAt,
+				sessionsCount, activeSessions, auditEvents);
+	}
+
+	private Instant instant(java.sql.Timestamp timestamp) {
+		return timestamp == null ? null : timestamp.toInstant();
 	}
 }
 
-record User(String id, String email, List<String> roles) {
+record User(String id, String email, List<String> roles, Instant blockedAt, Instant createdAt, Instant updatedAt) {
 }
 
 record MagicLink(String id, String email, String redirectPath, Instant expiresAt, Instant usedAt) {
@@ -774,7 +1291,10 @@ class AuthCorsConfig implements WebMvcConfigurer {
 	private final String[] allowedOrigins;
 
 	AuthCorsConfig(@Value("${auth.cors.allowed-origins}") String allowedOrigins) {
-		this.allowedOrigins = allowedOrigins.split(",");
+		this.allowedOrigins = java.util.Arrays.stream(allowedOrigins.split(","))
+				.map(String::trim)
+				.filter(origin -> !origin.isBlank())
+				.toArray(String[]::new);
 	}
 
 	@Override

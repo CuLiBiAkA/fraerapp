@@ -4,10 +4,14 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -23,17 +27,19 @@ class StoryAdminService {
 	private final ChoiceRepository choices;
 	private final StoryAssetRepository assets;
 	private final StoryAssetStorageService assetStorage;
+	private final PlayerRepository players;
 	private final JdbcTemplate jdbc;
 	private final JsonSupport json;
 
 	StoryAdminService(StoryRepository stories, StoryVersionRepository versions, SceneRepository scenes, ChoiceRepository choices,
-			StoryAssetRepository assets, StoryAssetStorageService assetStorage, JdbcTemplate jdbc, JsonSupport json) {
+			StoryAssetRepository assets, StoryAssetStorageService assetStorage, PlayerRepository players, JdbcTemplate jdbc, JsonSupport json) {
 		this.stories = stories;
 		this.versions = versions;
 		this.scenes = scenes;
 		this.choices = choices;
 		this.assets = assets;
 		this.assetStorage = assetStorage;
+		this.players = players;
 		this.jdbc = jdbc;
 		this.json = json;
 	}
@@ -60,6 +66,73 @@ class StoryAdminService {
 		assetStorage.deleteUnreferencedStoryFiles(story.getId(), referencedAssetUrls(document));
 		StoryVersion version = saveVersion(story, "import");
 		return response(story, version);
+	}
+
+	@Transactional(readOnly = true)
+	List<AdminUserRuntimeStats> userRuntimeStats(List<String> userIds) {
+		if (userIds == null || userIds.isEmpty()) {
+			return List.of();
+		}
+		return userIds.stream()
+				.distinct()
+				.limit(100)
+				.map(this::userRuntimeStats)
+				.toList();
+	}
+
+	private AdminUserRuntimeStats userRuntimeStats(String userId) {
+		return players.findByUserId(userId)
+				.map(player -> {
+					long sessionsCount = jdbc.queryForObject("select count(*) from game_sessions where player_id = ?", Long.class, player.getId());
+					long finishedSessions = jdbc.queryForObject("select count(*) from game_sessions where player_id = ? and status = ?", Long.class,
+							player.getId(), SessionStatus.FINISHED.name());
+					long activeSessions = jdbc.queryForObject("select count(*) from game_sessions where player_id = ? and status = ?", Long.class,
+							player.getId(), SessionStatus.ACTIVE.name());
+					long authoredStories = jdbc.queryForObject("select count(*) from stories where owner_player_id = ?", Long.class, player.getId());
+					long draftStories = jdbc.queryForObject("select count(*) from stories where owner_player_id = ? and status = ?", Long.class,
+							player.getId(), StoryStatus.DRAFT.name());
+					long reviewStories = jdbc.queryForObject("select count(*) from stories where owner_player_id = ? and status = ?", Long.class,
+							player.getId(), StoryStatus.REVIEW.name());
+					long publishedStories = jdbc.queryForObject("select count(*) from stories where owner_player_id = ? and status = ?", Long.class,
+							player.getId(), StoryStatus.PUBLISHED.name());
+					long archivedStories = jdbc.queryForObject("select count(*) from stories where owner_player_id = ? and status = ?", Long.class,
+							player.getId(), StoryStatus.ARCHIVED.name());
+					Long authoredRuns = jdbc.queryForObject("""
+							select count(gs.id) from game_sessions gs
+							join stories st on st.id = gs.story_id
+							where st.owner_player_id = ?
+							""", Long.class, player.getId());
+					return new AdminUserRuntimeStats(
+							userId,
+							player.getId(),
+							player.getUsername(),
+							sessionsCount,
+							activeSessions,
+							finishedSessions,
+							authoredStories,
+							draftStories,
+							reviewStories,
+							publishedStories,
+							archivedStories,
+							authoredRuns == null ? 0 : authoredRuns);
+				})
+				.orElse(new AdminUserRuntimeStats(userId, null, null, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+	}
+
+	@Transactional(readOnly = true)
+	AdminStoryPage adminStories(int page, int size, String status) {
+		int safePage = Math.max(0, page);
+		int safeSize = Math.min(100, Math.max(1, size));
+		PageRequest request = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "updatedAt"));
+		Page<Story> result = parseStatus(status)
+				.map(storyStatus -> stories.findByStatus(storyStatus, request))
+				.orElseGet(() -> stories.findAll(request));
+		return new AdminStoryPage(
+				result.getNumber(),
+				result.getSize(),
+				result.getTotalElements(),
+				result.getTotalPages(),
+				result.getContent().stream().map(this::adminSummary).toList());
 	}
 
 	@Transactional(readOnly = true)
@@ -200,6 +273,38 @@ class StoryAdminService {
 		deleteChildren(story.getId());
 		stories.delete(story);
 		assetStorage.deleteStoryFiles(story.getId());
+	}
+
+	private Optional<StoryStatus> parseStatus(String status) {
+		if (status == null || status.isBlank() || "all".equalsIgnoreCase(status)) {
+			return Optional.empty();
+		}
+		try {
+			return Optional.of(StoryStatus.valueOf(status.trim().toUpperCase()));
+		}
+		catch (IllegalArgumentException ex) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown story status: " + status);
+		}
+	}
+
+	private AdminStorySummary adminSummary(Story story) {
+		long runs = jdbc.queryForObject("select count(*) from game_sessions where story_id = ?", Long.class, story.getId());
+		long versionsCount = jdbc.queryForObject("select count(*) from story_versions where story_id = ?", Long.class, story.getId());
+		String ownerName = story.getOwnerPlayerId() == null
+				? null
+				: players.findById(story.getOwnerPlayerId()).map(Player::getUsername).orElse(null);
+		return new AdminStorySummary(
+				story.getId(),
+				story.getKey(),
+				story.getTitle(),
+				story.getStatus().name().toLowerCase(),
+				story.getPublishedSlug(),
+				ownerName,
+				runs,
+				versionsCount,
+				story.getPublishedAt(),
+				story.getArchivedAt(),
+				story.getUpdatedAt());
 	}
 
 	Map<String, Object> exportStoryDocument(Story story) {
@@ -478,5 +583,37 @@ class StoryAdminService {
 	}
 
 	record StoryVersionSummary(int versionNumber, String status, String note, java.time.Instant createdAt) {
+	}
+
+	record AdminStoryPage(int page, int size, long totalElements, int totalPages, List<AdminStorySummary> items) {
+	}
+
+	record AdminStorySummary(
+			String storyId,
+			String key,
+			String title,
+			String status,
+			String publishedSlug,
+			String ownerName,
+			long totalRuns,
+			long versions,
+			java.time.Instant publishedAt,
+			java.time.Instant archivedAt,
+			java.time.Instant updatedAt) {
+	}
+
+	record AdminUserRuntimeStats(
+			String userId,
+			String playerId,
+			String username,
+			long sessions,
+			long activeSessions,
+			long finishedSessions,
+			long authoredStories,
+			long draftStories,
+			long reviewStories,
+			long publishedStories,
+			long archivedStories,
+			long authoredRuns) {
 	}
 }
