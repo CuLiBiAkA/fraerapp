@@ -105,6 +105,70 @@ class AuthorWorkflowTests {
 	}
 
 	@Test
+	void authorCanReviewPreviewRollbackAndArchiveStory() {
+		String authorId = login("workflow-author-" + UUID.randomUUID());
+		String storyKey = "workflow_story_" + UUID.randomUUID().toString().replace("-", "");
+
+		ApiResponse imported = request("POST", "/api/author/stories/import", validStory(storyKey), authorId, null);
+		assertThat(imported.status()).isEqualTo(HttpStatus.OK.value());
+		assertThat(imported.body()).containsEntry("status", "draft");
+		String storyId = imported.body().get("storyId").toString();
+
+		ApiResponse review = request("POST", "/api/author/stories/" + storyId + "/review", null, authorId, null);
+		assertThat(review.status()).isEqualTo(HttpStatus.OK.value());
+		assertThat(review.body()).containsEntry("status", "review");
+
+		ApiResponse published = request("POST", "/api/author/stories/" + storyId + "/publish", null, authorId, null);
+		assertThat(published.status()).isEqualTo(HttpStatus.OK.value());
+		assertThat(published.body()).containsEntry("status", "published");
+
+		ApiResponse home = request("GET", "/api/author/home", null, authorId, null);
+		String slug = castList(home.body().get("stories")).stream()
+				.filter(story -> storyId.equals(story.get("storyId")))
+				.findFirst()
+				.orElseThrow()
+				.get("publishedSlug").toString();
+		assertThat(readList(request("GET", "/api/catalog/stories", null, null, null).rawBody()))
+				.anySatisfy(story -> assertThat(story).containsEntry("slug", slug));
+
+		ApiResponse draftUpdate = request("POST", "/api/author/stories/import",
+				validStory(storyKey).replace("Author runtime test", "Changed unpublished title"), authorId, null);
+		assertThat(draftUpdate.status()).isEqualTo(HttpStatus.OK.value());
+		assertThat(draftUpdate.body()).containsEntry("status", "draft");
+		assertThat(readList(request("GET", "/api/catalog/stories", null, null, null).rawBody()))
+				.noneSatisfy(story -> assertThat(story).containsEntry("slug", slug));
+
+		ApiResponse preview = request("GET", "/api/author/stories/" + storyId + "/preview", null, authorId, null);
+		assertThat(preview.status()).isEqualTo(HttpStatus.OK.value());
+		assertThat(preview.body()).containsEntry("status", "draft");
+		assertThat(castMap(preview.body().get("document"))).containsEntry("title", "Changed unpublished title");
+
+		ApiResponse versions = request("GET", "/api/author/stories/" + storyId + "/versions", null, authorId, null);
+		assertThat(versions.status()).isEqualTo(HttpStatus.OK.value());
+		List<Map<String, Object>> versionList = readList(versions.rawBody());
+		assertThat(versionList).hasSizeGreaterThanOrEqualTo(4);
+		int publishedVersion = ((Number) versionList.stream()
+				.filter(version -> "publish".equals(version.get("note")))
+				.findFirst()
+				.orElseThrow()
+				.get("versionNumber")).intValue();
+
+		ApiResponse rollback = request("POST", "/api/author/stories/" + storyId + "/versions/" + publishedVersion + "/rollback", null, authorId, null);
+		assertThat(rollback.status()).isEqualTo(HttpStatus.OK.value());
+		assertThat(rollback.body()).containsEntry("status", "published");
+		assertThat(request("GET", "/api/author/stories/" + storyId + "/document", null, authorId, null).body())
+				.containsEntry("title", "Author runtime test");
+		assertThat(readList(request("GET", "/api/catalog/stories", null, null, null).rawBody()))
+				.anySatisfy(story -> assertThat(story).containsEntry("slug", slug));
+
+		ApiResponse archived = request("POST", "/api/author/stories/" + storyId + "/archive", null, authorId, null);
+		assertThat(archived.status()).isEqualTo(HttpStatus.OK.value());
+		assertThat(archived.body()).containsEntry("status", "archived");
+		assertThat(readList(request("GET", "/api/catalog/stories", null, null, null).rawBody()))
+				.noneSatisfy(story -> assertThat(story).containsEntry("slug", slug));
+	}
+
+	@Test
 	void authorCanDeleteOwnedStory() {
 		String authorId = login("delete-author-" + UUID.randomUUID());
 		String storyKey = "delete_story_" + UUID.randomUUID().toString().replace("-", "");
@@ -141,9 +205,7 @@ class AuthorWorkflowTests {
 	}
 
 	private String login(String username) {
-		ApiResponse response = request("POST", "/api/auth/login", "{\"username\":\"" + username + "\"}", null, null);
-		assertThat(response.status()).isEqualTo(HttpStatus.OK.value());
-		return response.body().get("playerId").toString();
+		return TestJwtFactory.author(username + "@example.test");
 	}
 
 	private ApiResponse request(String method, String path, String body, String playerId, String adminToken) {
@@ -151,10 +213,10 @@ class AuthorWorkflowTests {
 			HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
 					.header("Accept", "application/json");
 			if (playerId != null) {
-				builder.header("X-Player-Id", playerId);
+				builder.header("Authorization", "Bearer " + playerId);
 			}
 			if (adminToken != null) {
-				builder.header("X-Admin-Token", adminToken);
+				builder.header("Authorization", "Bearer " + adminToken);
 			}
 			if (body == null) {
 				builder.method(method, HttpRequest.BodyPublishers.noBody());
@@ -177,7 +239,7 @@ class AuthorWorkflowTests {
 			HttpRequest.BodyPublisher body = multipartBody(boundary, fields, filename, contentType, fileBody);
 			HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
 					.header("Accept", "application/json")
-					.header("X-Player-Id", playerId)
+					.header("Authorization", "Bearer " + playerId)
 					.header("Content-Type", "multipart/form-data; boundary=" + boundary)
 					.POST(body)
 					.build();
@@ -228,6 +290,11 @@ class AuthorWorkflowTests {
 	@SuppressWarnings("unchecked")
 	private List<Map<String, Object>> castList(Object value) {
 		return (List<Map<String, Object>>) value;
+	}
+
+	@SuppressWarnings("unchecked")
+	private Map<String, Object> castMap(Object value) {
+		return (Map<String, Object>) value;
 	}
 
 	private String validStory(String key) {

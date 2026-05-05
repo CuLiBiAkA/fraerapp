@@ -33,13 +33,14 @@ const langEnButton = document.querySelector("#lang-en");
 const translations = {
   ru: {
     loginEyebrow: "Поезд 404",
-    loginTitle: "Назови себя",
-    loginSubtitle: "Ночной вокзал уже знает маршрут. Ему осталось узнать, кто держит билет.",
-    usernameLabel: "Имя игрока",
-    usernamePlaceholder: "Например: Алекс",
-    loginButton: "Войти",
+    loginTitle: "Войдите по email",
+    loginSubtitle: "Мы отправим одноразовую ссылку для входа. Пароль не нужен.",
+    usernameLabel: "Email",
+    usernamePlaceholder: "you@example.com",
+    loginButton: "Отправить ссылку",
+    loginLinkSent: "Письмо отправлено. Откройте ссылку из email, чтобы войти.",
     adminSummary: "Админка истории",
-    adminTokenLabel: "Токен администратора",
+    adminTokenLabel: "Админ-действия требуют роль admin",
     storyJsonLabel: "Story JSON",
     storyJsonPlaceholder: "Вставьте сюда Story JSON",
     importButton: "Импортировать",
@@ -91,13 +92,14 @@ const translations = {
   },
   en: {
     loginEyebrow: "Train 404",
-    loginTitle: "Name yourself",
-    loginSubtitle: "The night station already knows the route. It only needs to know who holds the ticket.",
-    usernameLabel: "Player name",
-    usernamePlaceholder: "For example: Alex",
-    loginButton: "Log in",
+    loginTitle: "Sign in by email",
+    loginSubtitle: "We will send a one-time sign-in link. No password required.",
+    usernameLabel: "Email",
+    usernamePlaceholder: "you@example.com",
+    loginButton: "Send link",
+    loginLinkSent: "Email sent. Open the link from your mailbox to sign in.",
     adminSummary: "Story admin",
-    adminTokenLabel: "Admin token",
+    adminTokenLabel: "Admin actions require the admin role",
     storyJsonLabel: "Story JSON",
     storyJsonPlaceholder: "Paste Story JSON here",
     importButton: "Import",
@@ -150,11 +152,8 @@ const translations = {
 };
 
 const storage = {
-  get playerId() {
-    return localStorage.getItem("fraerapp.playerId");
-  },
-  get username() {
-    return localStorage.getItem("fraerapp.username");
+  get email() {
+    return localStorage.getItem("fraerapp.email");
   },
   get sessionId() {
     return localStorage.getItem("fraerapp.sessionId");
@@ -162,9 +161,8 @@ const storage = {
   get language() {
     return localStorage.getItem("fraerapp.language") || "ru";
   },
-  setSession(player) {
-    localStorage.setItem("fraerapp.playerId", player.playerId);
-    localStorage.setItem("fraerapp.username", player.username);
+  setUser(user) {
+    localStorage.setItem("fraerapp.email", user.email);
   },
   setGame(session) {
     localStorage.setItem("fraerapp.sessionId", session.sessionId);
@@ -179,8 +177,7 @@ const storage = {
   },
   clear() {
     this.clearGame();
-    localStorage.removeItem("fraerapp.playerId");
-    localStorage.removeItem("fraerapp.username");
+    localStorage.removeItem("fraerapp.email");
   },
 };
 
@@ -195,8 +192,17 @@ let catalogPage = 1;
 const storiesPerPage = 4;
 
 const api = {
-  login(username) {
-    return request("/api/auth/login", { method: "POST", body: { username } });
+  loginLink(email) {
+    return request("/auth/login-link", { method: "POST", body: { email, redirectPath: "/" } });
+  },
+  verify(token) {
+    return request("/auth/verify", { method: "POST", body: { token } });
+  },
+  me() {
+    return request("/auth/me");
+  },
+  logout() {
+    return request("/auth/logout", { method: "POST" });
   },
   stories() {
     return request("/api/catalog/stories");
@@ -210,11 +216,11 @@ const api = {
   choice(sessionId, choiceId) {
     return request(`/api/sessions/${sessionId}/choice`, { method: "POST", body: { choiceId } });
   },
-  importStory(rawJson, token) {
-    return request("/api/admin/stories/import", { method: "POST", rawBody: rawJson, adminToken: token });
+  importStory(rawJson) {
+    return request("/api/admin/stories/import", { method: "POST", rawBody: rawJson });
   },
-  publishStory(storyId, token) {
-    return request(`/api/admin/stories/${storyId}/publish`, { method: "POST", adminToken: token });
+  publishStory(storyId) {
+    return request(`/api/admin/stories/${storyId}/publish`, { method: "POST" });
   },
 };
 
@@ -258,16 +264,11 @@ async function request(path, options = {}) {
   if (options.body || options.rawBody) {
     headers["Content-Type"] = "application/json";
   }
-  if (storage.playerId) {
-    headers["X-Player-Id"] = storage.playerId;
-  }
-  if (options.adminToken) {
-    headers["X-Admin-Token"] = options.adminToken;
-  }
 
   const response = await fetch(path, {
     method: options.method || "GET",
     headers,
+    credentials: "include",
     body: options.rawBody || (options.body ? JSON.stringify(options.body) : undefined),
   });
   const text = await response.text();
@@ -286,7 +287,7 @@ function showOnly(screen) {
 }
 
 function updateTopActions(screen) {
-  const loggedIn = Boolean(storage.playerId);
+  const loggedIn = Boolean(storage.email);
   const inScene = screen === sceneScreen;
   menuButton.classList.toggle("hidden", !loggedIn || screen === storyScreen);
   soundToggle.classList.toggle("hidden", !inScene);
@@ -599,7 +600,7 @@ function render(state) {
   currentState = state;
   const scene = state.scene;
   showOnly(sceneScreen);
-  playerName.textContent = storage.username || "";
+  playerName.textContent = storage.email || "";
   sceneNode.textContent = state.story.authorName ? state.story.authorName : state.story.title;
   sceneTitle.textContent = scene.title;
   sceneText.textContent = scene.text;
@@ -716,13 +717,13 @@ function createSound() {
 
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const username = usernameInput.value.trim();
-  if (!username) {
+  const email = usernameInput.value.trim();
+  if (!email) {
     return;
   }
   try {
-    storage.setSession(await api.login(username));
-    await afterLogin();
+    await api.loginLink(email);
+    alert(t("loginLinkSent"));
   } catch (error) {
     alert(t("loginFailed", { message: error.message }));
   }
@@ -732,8 +733,13 @@ menuButton.addEventListener("click", () => {
   openStoryMenu().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
 });
 
-logoutButton.addEventListener("click", () => {
+logoutButton.addEventListener("click", async () => {
   stopSound({ resetPreference: true });
+  try {
+    await api.logout();
+  } catch (error) {
+    setStatus(t("errorPrefix", { message: error.message }));
+  }
   storage.clear();
   currentState = null;
   showOnly(loginScreen);
@@ -763,7 +769,7 @@ soundToggle.addEventListener("click", async () => {
 
 importStory.addEventListener("click", async () => {
   try {
-    const result = await api.importStory(storyJson.value, adminToken.value || "dev-admin-token");
+    const result = await api.importStory(storyJson.value);
     lastImportedStoryId = result.storyId;
     adminOutput.textContent = JSON.stringify(result, null, 2);
   } catch (error) {
@@ -777,7 +783,7 @@ publishStory.addEventListener("click", async () => {
     return;
   }
   try {
-    const result = await api.publishStory(lastImportedStoryId, adminToken.value || "dev-admin-token");
+    const result = await api.publishStory(lastImportedStoryId);
     adminOutput.textContent = JSON.stringify(result, null, 2);
   } catch (error) {
     adminOutput.textContent = error.message;
@@ -811,12 +817,29 @@ sound = createSound();
 applyTranslations();
 updateSoundLabel();
 setStatus(t("loading"));
-if (storage.playerId) {
-  afterLogin().catch(() => {
-    storage.clear();
-    currentState = null;
-    showOnly(loginScreen);
-  });
+const authToken = new URLSearchParams(window.location.search).get("auth_token");
+if (authToken) {
+  api.verify(authToken)
+    .then((result) => {
+      storage.setUser(result.user);
+      window.history.replaceState({}, document.title, result.redirectPath || "/");
+      return afterLogin();
+    })
+    .catch((error) => {
+      storage.clear();
+      currentState = null;
+      showOnly(loginScreen);
+      alert(t("loginFailed", { message: error.message }));
+    });
 } else {
-  showOnly(loginScreen);
+  api.me()
+    .then((user) => {
+      storage.setUser(user);
+      return afterLogin();
+    })
+    .catch(() => {
+      storage.clear();
+      currentState = null;
+      showOnly(loginScreen);
+    });
 }

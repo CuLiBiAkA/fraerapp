@@ -24,9 +24,9 @@
         </div>
 
         <form id="login-form" class="login-form">
-          <label for="username" data-i18n="usernameLabel">&#1048;&#1084;&#1103; &#1080;&#1075;&#1088;&#1086;&#1082;&#1072;</label>
+          <label for="username" data-i18n="usernameLabel">Email</label>
           <div class="form-row">
-            <input id="username" name="username" maxlength="80" required autocomplete="username" data-i18n-placeholder="usernamePlaceholder" placeholder="&#1053;&#1072;&#1087;&#1088;&#1080;&#1084;&#1077;&#1088;: &#1040;&#1083;&#1077;&#1082;&#1089;">
+            <input id="username" name="email" type="email" maxlength="320" required autocomplete="email" data-i18n-placeholder="usernamePlaceholder" placeholder="you@example.com">
             <button type="submit" data-i18n="loginButton">&#1042;&#1086;&#1081;&#1090;&#1080;</button>
           </div>
         </form>
@@ -34,8 +34,7 @@
         <section id="admin-panel" class="admin-panel" aria-label="Admin">
           <details>
             <summary data-i18n="adminSummary">Story admin</summary>
-            <label for="admin-token" data-i18n="adminTokenLabel">Admin token</label>
-            <input id="admin-token" placeholder="dev-admin-token">
+            <input id="admin-token" type="hidden">
             <label for="story-json" data-i18n="storyJsonLabel">Story JSON</label>
             <textarea id="story-json" rows="10" data-i18n-placeholder="storyJsonPlaceholder" placeholder="Paste Story JSON here"></textarea>
             <div class="controls">

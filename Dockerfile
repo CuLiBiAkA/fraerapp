@@ -2,8 +2,9 @@ FROM eclipse-temurin:17-jdk AS build
 WORKDIR /workspace
 COPY gradlew gradlew.bat build.gradle settings.gradle ./
 COPY gradle ./gradle
+COPY auth-service ./auth-service
 COPY src ./src
-RUN ./gradlew bootJar --no-daemon
+RUN ./gradlew :bootJar --no-daemon
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app

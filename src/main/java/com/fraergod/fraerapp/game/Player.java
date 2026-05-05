@@ -20,6 +20,9 @@ public class Player {
 	@Column(nullable = false, unique = true, length = 80)
 	private String username;
 
+	@Column(name = "user_id", unique = true, length = 36)
+	private String userId;
+
 	@Column(nullable = false, length = 80)
 	private String currentNodeId;
 
@@ -36,6 +39,11 @@ public class Player {
 		this.id = UUID.randomUUID().toString();
 		this.username = username;
 		this.currentNodeId = currentNodeId;
+	}
+
+	public Player(String username, String currentNodeId, String userId) {
+		this(username, currentNodeId);
+		this.userId = userId;
 	}
 
 	@PrePersist
@@ -56,6 +64,14 @@ public class Player {
 
 	public String getUsername() {
 		return username;
+	}
+
+	public String getUserId() {
+		return userId;
+	}
+
+	public void setUserId(String userId) {
+		this.userId = userId;
 	}
 
 	public String getCurrentNodeId() {

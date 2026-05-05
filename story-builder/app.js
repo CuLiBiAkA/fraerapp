@@ -31,7 +31,7 @@ const translations = {
     pageTitle: "FraerApp - Конструктор историй",
     builderTitle: "Конструктор историй",
     runtimeApiLabel: "API рантайма",
-    adminTokenLabel: "Токен администратора",
+    adminTokenLabel: "Админ-действия требуют роль admin",
     loadExample: "Загрузить пример",
     copyJson: "Копировать JSON",
     downloadJson: "Скачать JSON",
@@ -165,10 +165,23 @@ const translations = {
     authorStoryPickerEmpty: "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0438\u0441\u0442\u043e\u0440\u0438\u044e",
     uploadSceneAsset: "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0430\u0441\u0441\u0435\u0442 \u0432 \u0441\u0446\u0435\u043d\u0443",
     authorLoggedIn: "\u0410\u0432\u0442\u043e\u0440: {name}. \u041c\u043e\u0436\u043d\u043e \u0440\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0438 \u043f\u0443\u0431\u043b\u0438\u043a\u043e\u0432\u0430\u0442\u044c.",
-    authorLoggedOut: "\u0410\u0432\u0442\u043e\u0440 \u043d\u0435 \u0432\u043e\u0448\u0435\u043b. \u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0438\u043c\u044f \u0438 \u0432\u043e\u0439\u0434\u0438\u0442\u0435, \u0447\u0442\u043e\u0431\u044b \u0432\u0438\u0434\u0435\u0442\u044c \u0441\u0432\u043e\u0438 \u0438\u0441\u0442\u043e\u0440\u0438\u0438.",
+    authorLoggedOut: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 email. \u041c\u044b \u043e\u0442\u043f\u0440\u0430\u0432\u0438\u043c \u0441\u0441\u044b\u043b\u043a\u0443 \u0434\u043b\u044f \u0432\u0445\u043e\u0434\u0430.",
+    authorLinkSent: "\u0421\u0441\u044b\u043b\u043a\u0430 \u0434\u043b\u044f \u0432\u0445\u043e\u0434\u0430 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0430.",
+    authorRoleMissing: "\u0412\u0445\u043e\u0434 \u0435\u0441\u0442\u044c, \u043d\u043e \u043d\u0443\u0436\u043d\u0430 \u0440\u043e\u043b\u044c author.",
     newAuthorStory: "\u041d\u043e\u0432\u0430\u044f \u0438\u0441\u0442\u043e\u0440\u0438\u044f",
     editStoryButton: "\u041f\u0440\u0430\u0432\u0438\u0442\u044c",
     storyStatsButton: "\u0421\u0442\u0430\u0442\u044b",
+    submitReviewButton: "\u041d\u0430 review",
+    publishStoryButton: "\u041e\u043f\u0443\u0431\u043b.",
+    archiveStoryButton: "\u0412 \u0430\u0440\u0445\u0438\u0432",
+    previewStoryButton: "\u041f\u0440\u0435\u0432\u044c\u044e",
+    versionsButton: "\u0412\u0435\u0440\u0441\u0438\u0438",
+    rollbackPrompt: "\u041d\u043e\u043c\u0435\u0440 \u0432\u0435\u0440\u0441\u0438\u0438 \u0434\u043b\u044f \u043e\u0442\u043a\u0430\u0442\u0430:",
+    rollbackDone: "\u041e\u0442\u043a\u0430\u0442 \u0432\u044b\u043f\u043e\u043b\u043d\u0435\u043d \u043a \u0432\u0435\u0440\u0441\u0438\u0438 {version}.",
+    statusDraft: "\u0427\u0435\u0440\u043d\u043e\u0432\u0438\u043a",
+    statusReview: "\u041d\u0430 review",
+    statusPublished: "\u041e\u043f\u0443\u0431\u043b.",
+    statusArchived: "\u0410\u0440\u0445\u0438\u0432",
     deleteStoryButton: "\u0423\u0434\u0430\u043b\u0438\u0442\u044c",
     deleteStoryConfirm: "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0438\u0441\u0442\u043e\u0440\u0438\u044e \"{title}\"? \u042d\u0442\u043e \u0443\u0431\u0435\u0440\u0435\u0442 \u043f\u0443\u0431\u043b\u0438\u043a\u0430\u0446\u0438\u044e, \u0441\u0446\u0435\u043d\u044b, \u0430\u0441\u0441\u0435\u0442\u044b \u0438 \u0432\u0441\u0435 \u043f\u0440\u043e\u0445\u043e\u0436\u0434\u0435\u043d\u0438\u044f.",
     deleteStoryDone: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0443\u0434\u0430\u043b\u0435\u043d\u0430: {title}",
@@ -178,7 +191,7 @@ const translations = {
     pageTitle: "FraerApp - Story Builder",
     builderTitle: "Story Builder",
     runtimeApiLabel: "Runtime API",
-    adminTokenLabel: "Admin token",
+    adminTokenLabel: "Admin actions require the admin role",
     loadExample: "Load Example",
     copyJson: "Copy JSON",
     downloadJson: "Download JSON",
@@ -312,10 +325,23 @@ const translations = {
     authorStoryPickerEmpty: "Choose a story",
     uploadSceneAsset: "Upload asset to scene",
     authorLoggedIn: "Author: {name}. Editing and publishing are available.",
-    authorLoggedOut: "Author is not logged in. Enter a name and log in to see your stories.",
+    authorLoggedOut: "Enter your email. We will send a sign-in link.",
+    authorLinkSent: "Sign-in link sent.",
+    authorRoleMissing: "You are signed in, but the author role is required.",
     newAuthorStory: "New story",
     editStoryButton: "Edit",
     storyStatsButton: "Stats",
+    submitReviewButton: "To review",
+    publishStoryButton: "Publish",
+    archiveStoryButton: "Archive",
+    previewStoryButton: "Preview",
+    versionsButton: "Versions",
+    rollbackPrompt: "Version number to roll back to:",
+    rollbackDone: "Rolled back to version {version}.",
+    statusDraft: "Draft",
+    statusReview: "Review",
+    statusPublished: "Published",
+    statusArchived: "Archived",
     deleteStoryButton: "Delete",
     deleteStoryConfirm: "Delete \"{title}\"? This removes the publication, scenes, assets, and all runs.",
     deleteStoryDone: "Story deleted: {title}",
@@ -328,7 +354,6 @@ const languageKey = "fraerapp.storyBuilderLanguage";
 const authorStorageKey = "fraerapp.storyBuilderAuthor";
 const collapseStateKey = "fraerapp.storyBuilderCollapseState";
 const runtimeUrlStorageKey = "fraerapp.storyBuilderRuntimeUrl";
-const adminTokenStorageKey = "fraerapp.storyBuilderAdminToken";
 let lastImportedStoryId = localStorage.getItem("fraerapp.storyBuilderLastStoryId");
 let currentLanguage = localStorage.getItem(languageKey) || "ru";
 let collapseState = loadCollapseState();
@@ -344,12 +369,8 @@ draft = localizeDraftDefaults(draft);
 let authorSession = loadAuthorSession();
 
 els.runtimeUrl.value = localStorage.getItem(runtimeUrlStorageKey) || els.runtimeUrl.value;
-els.adminToken.value = localStorage.getItem(adminTokenStorageKey) || els.adminToken.value;
 els.runtimeUrl.addEventListener("input", () => {
   localStorage.setItem(runtimeUrlStorageKey, els.runtimeUrl.value);
-});
-els.adminToken.addEventListener("input", () => {
-  localStorage.setItem(adminTokenStorageKey, els.adminToken.value);
 });
 
 function emptyDraft() {
@@ -1622,9 +1643,6 @@ function loadCollapseState() {
 
 function authorHeaders(contentType = false) {
   const headers = {};
-  if (authorSession?.playerId) {
-    headers["X-Player-Id"] = authorSession.playerId;
-  }
   if (contentType) {
     headers["Content-Type"] = "application/json";
   }
@@ -1640,6 +1658,7 @@ async function authorFetch(path, options = {}) {
       ...authorHeaders(Boolean(options.body)),
       ...(options.headers || {}),
     },
+    credentials: "include",
     body: options.body,
   });
   const text = await response.text();
@@ -1651,7 +1670,7 @@ async function authorFetch(path, options = {}) {
 }
 
 async function uploadAssetFile(asset, file, scope = "global") {
-  if (!authorSession?.playerId) {
+  if (!hasRole("author")) {
     throw new Error(t("uploadAssetFirst"));
   }
   if (!lastImportedStoryId) {
@@ -1678,6 +1697,7 @@ async function uploadAssetFile(asset, file, scope = "global") {
       Accept: "application/json",
       ...authorHeaders(false),
     },
+    credentials: "include",
     body: form,
   });
   const text = await response.text();
@@ -1696,21 +1716,25 @@ async function uploadAssetFile(asset, file, scope = "global") {
 }
 
 async function loginAuthor() {
-  const username = els.authorName.value.trim();
-  if (!username) {
-    els.authorState.textContent = "Введите имя автора.";
+  const email = els.authorName.value.trim();
+  if (!email) {
+    els.authorState.textContent = "Введите email.";
     return;
   }
-  const session = await authorFetch("/api/auth/login", {
+  await authorFetch("/auth/login-link", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username }),
+    body: JSON.stringify({ email, redirectPath: "/" }),
   });
-  saveAuthorSession(session);
+  els.authorState.textContent = t("authorLinkSent");
 }
 
 async function loadAuthorHome() {
-  if (!authorSession?.playerId) {
+  if (!authorSession) {
+    renderAuthorWorkspace();
+    return null;
+  }
+  if (!hasRole("author")) {
     renderAuthorWorkspace();
     return null;
   }
@@ -1720,24 +1744,24 @@ async function loadAuthorHome() {
 }
 
 function renderAuthorWorkspace(home = null) {
-  const authorName = authorSession?.username || "не выбран";
-  els.authorState.textContent = authorSession?.playerId
+  const authorName = authorSession?.email || "не выбран";
+  els.authorState.textContent = hasRole("author")
     ? t("authorLoggedIn", { name: authorName })
-    : t("authorLoggedOut");
+    : (authorSession ? t("authorRoleMissing") : t("authorLoggedOut"));
   els.authorStorySelect.replaceChildren();
-  els.authorStorySelect.disabled = !authorSession?.playerId || !home?.stories?.length;
+  els.authorStorySelect.disabled = !hasRole("author") || !home?.stories?.length;
   const emptyOption = document.createElement("option");
   emptyOption.value = "";
   emptyOption.textContent = t("authorStoryPickerEmpty");
   els.authorStorySelect.append(emptyOption);
   els.authorStories.replaceChildren();
-  if (authorSession?.playerId) {
+  if (hasRole("author")) {
     const topActions = div("actions tight");
     topActions.append(button(t("newAuthorStory"), createNewAuthorStory, "secondary small"));
     els.authorStories.append(topActions);
   }
   if (!home?.stories?.length) {
-    els.authorAnalytics.textContent = authorSession?.playerId
+    els.authorAnalytics.textContent = hasRole("author")
       ? "У автора пока нет сценариев. Импортируйте текущий draft."
       : "";
     updateAuthorGate();
@@ -1757,12 +1781,40 @@ function renderAuthorWorkspace(home = null) {
     const title = document.createElement("strong");
     title.textContent = story.title;
     const meta = document.createElement("span");
-    meta.textContent = `${story.key} - ${story.status} - ${story.totalRuns} runs`;
-    summary.append(title, meta);
+    meta.textContent = `${story.key} - ${story.totalRuns} runs`;
+    const status = document.createElement("span");
+    status.className = `status-badge status-${story.status}`;
+    status.textContent = statusLabel(story.status);
+    summary.append(title, status, meta);
     const actions = div("actions tight");
     actions.append(
       button(t("editStoryButton"), () => {
         openAuthorStory(story.storyId).catch((error) => {
+          els.authorAnalytics.textContent = error.message;
+        });
+      }, "secondary small"),
+      button(t("submitReviewButton"), () => {
+        authorWorkflow(story.storyId, "review").catch((error) => {
+          els.authorAnalytics.textContent = error.message;
+        });
+      }, "secondary small"),
+      button(t("publishStoryButton"), () => {
+        authorWorkflow(story.storyId, "publish").catch((error) => {
+          els.authorAnalytics.textContent = error.message;
+        });
+      }, "secondary small"),
+      button(t("archiveStoryButton"), () => {
+        authorWorkflow(story.storyId, "archive").catch((error) => {
+          els.authorAnalytics.textContent = error.message;
+        });
+      }, "secondary small"),
+      button(t("previewStoryButton"), () => {
+        showAuthorPreview(story.storyId).catch((error) => {
+          els.authorAnalytics.textContent = error.message;
+        });
+      }, "secondary small"),
+      button(t("versionsButton"), () => {
+        showAuthorVersions(story.storyId).catch((error) => {
           els.authorAnalytics.textContent = error.message;
         });
       }, "secondary small"),
@@ -1783,8 +1835,13 @@ function renderAuthorWorkspace(home = null) {
   updateAuthorGate();
 }
 
+function statusLabel(status) {
+  const key = `status${String(status || "draft").replace(/^\w/, (char) => char.toUpperCase())}`;
+  return t(key);
+}
+
 function updateAuthorGate() {
-  const loggedIn = Boolean(authorSession?.playerId);
+  const loggedIn = hasRole("author");
   document.body.classList.toggle("builder-locked", !loggedIn);
   els.authorLogin.hidden = loggedIn;
   els.authorLogout.hidden = !loggedIn;
@@ -1947,6 +2004,37 @@ async function showAuthorAnalytics(storyId) {
   els.authorAnalytics.textContent = JSON.stringify(analytics, null, 2);
 }
 
+async function showAuthorPreview(storyId) {
+  lastImportedStoryId = storyId;
+  localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
+  const preview = await authorFetch(`/api/author/stories/${storyId}/preview`);
+  els.authorAnalytics.textContent = JSON.stringify(preview, null, 2);
+}
+
+async function showAuthorVersions(storyId) {
+  lastImportedStoryId = storyId;
+  localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
+  const versions = await authorFetch(`/api/author/stories/${storyId}/versions`);
+  els.authorAnalytics.textContent = JSON.stringify(versions, null, 2);
+  const value = prompt(t("rollbackPrompt"));
+  if (!value) return;
+  const versionNumber = Number(value);
+  if (!Number.isInteger(versionNumber) || versionNumber <= 0) return;
+  await authorWorkflow(storyId, `versions/${versionNumber}/rollback`);
+  els.authorAnalytics.textContent = t("rollbackDone", { version: versionNumber });
+}
+
+async function authorWorkflow(storyId, action) {
+  const payload = await authorFetch(`/api/author/stories/${storyId}/${action}`, { method: "POST" });
+  if (payload.storyId) {
+    lastImportedStoryId = payload.storyId;
+    localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
+  }
+  els.apiResult.textContent = JSON.stringify(payload, null, 2);
+  await loadAuthorHome();
+  return payload;
+}
+
 document.querySelector("#add-variable").onclick = () => {
   draft.variables.push({ name: `${t("variablePrefix")}_${draft.variables.length + 1}`, type: "string", value: "", showInStats: false });
   render();
@@ -2007,7 +2095,7 @@ document.querySelector("#publish-runtime").onclick = () => runtimeCall("publish"
 async function runtimeCall(action) {
   try {
     const base = els.runtimeUrl.value.replace(/\/$/, "");
-    if (authorSession?.playerId) {
+    if (hasRole("author")) {
       let path = `${base}/api/author/stories/import`;
       let options = {
         method: "POST",
@@ -2037,28 +2125,14 @@ async function runtimeCall(action) {
       await loadAuthorHome();
       return;
     }
-
-    const token = els.adminToken.value || "dev-admin-token";
-    let url = `${base}/api/admin/stories/import`;
-    let options = { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Token": token }, body: JSON.stringify(toStoryJson()) };
-    if (action === "validate" || action === "publish") {
-      if (!lastImportedStoryId) throw new Error(t("importFirst"));
-      url = `${base}/api/admin/stories/${lastImportedStoryId}/${action}`;
-      options = { method: "POST", headers: { "X-Admin-Token": token } };
-    }
-    const payload = await fetchJson(url, options);
-    if (payload.storyId) {
-      lastImportedStoryId = payload.storyId;
-      localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
-    }
-    els.apiResult.textContent = JSON.stringify(payload, null, 2);
+    throw new Error(t("authorRoleMissing"));
   } catch (error) {
     els.apiResult.textContent = error.message;
   }
 }
 
 async function fetchJson(url, options) {
-  const response = await fetch(url, options);
+  const response = await fetch(url, { credentials: "include", ...options });
   const text = await response.text();
   const payload = text ? JSON.parse(text) : {};
   if (!response.ok) {
@@ -2073,8 +2147,10 @@ els.authorLogin.onclick = () => loginAuthor().catch((error) => {
   els.authorState.textContent = error.message;
 });
 els.authorLogout.onclick = () => {
-  saveAuthorSession(null);
-  els.authorAnalytics.textContent = "";
+  authorFetch("/auth/logout", { method: "POST" }).catch(() => {}).finally(() => {
+    saveAuthorSession(null);
+    els.authorAnalytics.textContent = "";
+  });
 };
 els.authorStorySelect.onchange = () => {
   if (!els.authorStorySelect.value) return;
@@ -2087,8 +2163,8 @@ els.refreshAuthor.onclick = () => {
     els.authorState.textContent = error.message;
   });
 };
-if (authorSession?.username) {
-  els.authorName.value = authorSession.username;
+if (authorSession?.email) {
+  els.authorName.value = authorSession.email;
 }
 
 window.addEventListener("hashchange", () => {
@@ -2097,6 +2173,17 @@ window.addEventListener("hashchange", () => {
 });
 
 render();
-loadAuthorHome().catch(() => {
+bootstrapAuth().catch(() => {
+  saveAuthorSession(null);
   renderAuthorWorkspace();
 });
+
+function hasRole(role) {
+  return Array.isArray(authorSession?.roles) && authorSession.roles.includes(role);
+}
+
+async function bootstrapAuth() {
+  const user = await authorFetch("/auth/me");
+  saveAuthorSession(user);
+  await loadAuthorHome();
+}

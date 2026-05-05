@@ -55,6 +55,8 @@ class Story {
 
 	private Instant publishedAt;
 
+	private Instant archivedAt;
+
 	@Column(nullable = false, updatable = false)
 	private Instant createdAt;
 
@@ -167,6 +169,14 @@ class Story {
 
 	void setPublishedAt(Instant publishedAt) {
 		this.publishedAt = publishedAt;
+	}
+
+	Instant getArchivedAt() {
+		return archivedAt;
+	}
+
+	void setArchivedAt(Instant archivedAt) {
+		this.archivedAt = archivedAt;
 	}
 
 	Instant getUpdatedAt() {

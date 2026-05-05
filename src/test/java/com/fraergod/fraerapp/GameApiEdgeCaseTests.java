@@ -36,7 +36,7 @@ class GameApiEdgeCaseTests {
 
 	@Test
 	void publishRequiresAdminToken() {
-		ApiResponse imported = request("POST", "/api/admin/stories/import", validStory("runtime_" + UUID.randomUUID()), null, "test-token");
+		ApiResponse imported = request("POST", "/api/admin/stories/import", validStory("runtime_" + UUID.randomUUID()), null, TestJwtFactory.admin("admin@example.test"));
 		String storyId = imported.body().get("storyId").toString();
 
 		ApiResponse response = request("POST", "/api/admin/stories/" + storyId + "/publish", null, null, null);
@@ -47,7 +47,7 @@ class GameApiEdgeCaseTests {
 	@Test
 	void draftStoryIsNotPlayableBeforePublish() {
 		String storyKey = "draft_" + UUID.randomUUID();
-		request("POST", "/api/admin/stories/import", validStory(storyKey), null, "test-token");
+		request("POST", "/api/admin/stories/import", validStory(storyKey), null, TestJwtFactory.admin("admin@example.test"));
 		String playerId = login("draft-player-" + UUID.randomUUID());
 
 		ApiResponse response = request("POST", "/api/sessions", "{\"storyKey\":\"" + storyKey + "\"}", playerId, null);
@@ -76,16 +76,14 @@ class GameApiEdgeCaseTests {
 	}
 
 	@Test
-	void sessionEndpointsRequirePlayerHeader() {
+	void sessionEndpointsRequireAuth() {
 		ApiResponse response = request("POST", "/api/sessions", "{\"storyKey\":\"night_train\"}", null, null);
 
-		assertThat(response.status()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+		assertThat(response.status()).isEqualTo(HttpStatus.UNAUTHORIZED.value());
 	}
 
 	private String login(String username) {
-		ApiResponse response = request("POST", "/api/auth/login", "{\"username\":\"" + username + "\"}", null, null);
-		assertThat(response.status()).isEqualTo(HttpStatus.OK.value());
-		return response.body().get("playerId").toString();
+		return TestJwtFactory.player(username + "@example.test");
 	}
 
 	private ApiResponse createSession(String playerId, String storyKey) {
@@ -99,10 +97,10 @@ class GameApiEdgeCaseTests {
 			HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
 					.header("Accept", "application/json");
 			if (playerId != null) {
-				builder.header("X-Player-Id", playerId);
+				builder.header("Authorization", "Bearer " + playerId);
 			}
 			if (adminToken != null) {
-				builder.header("X-Admin-Token", adminToken);
+				builder.header("Authorization", "Bearer " + adminToken);
 			}
 			if (body == null) {
 				builder.method(method, HttpRequest.BodyPublishers.noBody());

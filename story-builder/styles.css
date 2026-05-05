@@ -288,6 +288,34 @@ pre::-webkit-scrollbar-track {
   font-weight: 700;
 }
 
+.status-badge {
+  display: inline-flex !important;
+  width: fit-content;
+  margin-top: 8px !important;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #e7edf0;
+  color: #253236 !important;
+  font-size: 0.76rem !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+}
+
+.status-review {
+  background: #fff1c7;
+  color: #6c4a00 !important;
+}
+
+.status-published {
+  background: #dff3ea;
+  color: #0e5b49 !important;
+}
+
+.status-archived {
+  background: #eceff1;
+  color: #657478 !important;
+}
+
 .story-picker-item .actions {
   justify-content: flex-start;
   gap: 6px;

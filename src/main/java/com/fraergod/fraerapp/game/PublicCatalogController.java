@@ -4,7 +4,6 @@ import java.util.List;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -13,14 +12,16 @@ import org.springframework.web.bind.annotation.RestController;
 class PublicCatalogController {
 
 	private final StoryProductService product;
+	private final CurrentUserService currentUser;
 
-	PublicCatalogController(StoryProductService product) {
+	PublicCatalogController(StoryProductService product, CurrentUserService currentUser) {
 		this.product = product;
+		this.currentUser = currentUser;
 	}
 
 	@GetMapping
-	List<StoryProductService.PublishedStorySummary> stories(@RequestHeader(name = "X-Player-Id", required = false) String playerId) {
-		return product.publishedCatalog(playerId);
+	List<StoryProductService.PublishedStorySummary> stories() {
+		return product.publishedCatalog(currentUser.optionalPlayerId());
 	}
 
 	@GetMapping("/{slug}")

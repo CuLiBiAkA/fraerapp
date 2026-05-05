@@ -18,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 class StoryAdminService {
 
 	private final StoryRepository stories;
+	private final StoryVersionRepository versions;
 	private final SceneRepository scenes;
 	private final ChoiceRepository choices;
 	private final StoryAssetRepository assets;
@@ -25,9 +26,10 @@ class StoryAdminService {
 	private final JdbcTemplate jdbc;
 	private final JsonSupport json;
 
-	StoryAdminService(StoryRepository stories, SceneRepository scenes, ChoiceRepository choices,
+	StoryAdminService(StoryRepository stories, StoryVersionRepository versions, SceneRepository scenes, ChoiceRepository choices,
 			StoryAssetRepository assets, StoryAssetStorageService assetStorage, JdbcTemplate jdbc, JsonSupport json) {
 		this.stories = stories;
+		this.versions = versions;
 		this.scenes = scenes;
 		this.choices = choices;
 		this.assets = assets;
@@ -51,42 +53,13 @@ class StoryAdminService {
 
 		Story story = stories.findByKey(document.key()).orElseGet(() -> new Story(document.key()));
 		requireOwnerAccess(story, ownerPlayerId);
-		if (story.getId() != null) {
-			deleteChildren(story.getId());
-		}
-		story.setTitle(document.title());
-		story.setDescription(document.description());
-		story.setVersion(document.version() <= 0 ? 1 : document.version());
-		story.setStartSceneId(document.startSceneId());
-		story.setVariablesJson(json.writeVariables(document.variables()));
-		story.setStatsVariablesJson(json.writeStatsVariables(document.variables()));
-		story.setStatus(story.getStatus() == null ? StoryStatus.DRAFT : story.getStatus());
 		if (story.getOwnerPlayerId() == null && ownerPlayerId != null && !ownerPlayerId.isBlank()) {
 			story.setOwnerPlayerId(ownerPlayerId);
 		}
-		story = stories.save(story);
-
-		if (document.assets() != null) {
-			for (StoryDocument.AssetDocument asset : document.assets()) {
-				assets.save(new StoryAsset(story.getId(), asset.id(), asset.type(), asset.url(), json.writeObject(asset.metadata())));
-			}
-		}
+		story = applyDocument(story, document, StoryStatus.DRAFT);
 		assetStorage.deleteUnreferencedStoryFiles(story.getId(), referencedAssetUrls(document));
-
-		if (document.scenes() != null) {
-			int sceneIndex = 0;
-			for (StoryDocument.SceneDocument sceneDocument : document.scenes()) {
-				Scene scene = scenes.save(new Scene(story.getId(), sceneDocument, json, sceneIndex++));
-				int choiceIndex = 0;
-				if (sceneDocument.choices() != null) {
-					for (StoryDocument.ChoiceDocument choice : sceneDocument.choices()) {
-						choices.save(new Choice(scene.getId(), choice, json, choiceIndex++));
-					}
-				}
-			}
-		}
-
-		return new ImportResponse(story.getId(), story.getKey(), story.getTitle(), story.getStatus().name().toLowerCase());
+		StoryVersion version = saveVersion(story, "import");
+		return response(story, version);
 	}
 
 	@Transactional(readOnly = true)
@@ -153,8 +126,69 @@ class StoryAdminService {
 			story.setPublishedSlug(uniqueSlug(story.getKey(), story.getTitle()));
 		}
 		story.setPublishedAt(java.time.Instant.now());
+		story.setArchivedAt(null);
 		stories.save(story);
-		return new ImportResponse(story.getId(), story.getKey(), story.getTitle(), story.getStatus().name().toLowerCase());
+		return response(story, saveVersion(story, "publish"));
+	}
+
+	@Transactional
+	ImportResponse submitForReview(String storyId, String ownerPlayerId) {
+		Story story = story(storyId);
+		requireOwnerAccess(story, ownerPlayerId);
+		StoryValidationResult validation = validateStory(storyId);
+		if (!validation.valid()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, String.join("; ", validation.errors()));
+		}
+		story.setStatus(StoryStatus.REVIEW);
+		stories.save(story);
+		return response(story, saveVersion(story, "submit_review"));
+	}
+
+	@Transactional
+	ImportResponse archive(String storyId, String ownerPlayerId) {
+		Story story = story(storyId);
+		requireOwnerAccess(story, ownerPlayerId);
+		story.setStatus(StoryStatus.ARCHIVED);
+		story.setArchivedAt(java.time.Instant.now());
+		stories.save(story);
+		return response(story, saveVersion(story, "archive"));
+	}
+
+	@Transactional(readOnly = true)
+	Map<String, Object> preview(String storyId, String ownerPlayerId) {
+		Story story = story(storyId);
+		requireOwnerAccess(story, ownerPlayerId);
+		Map<String, Object> result = new java.util.LinkedHashMap<>();
+		result.put("storyId", story.getId());
+		result.put("status", story.getStatus().name().toLowerCase());
+		result.put("publishedSlug", story.getPublishedSlug());
+		result.put("document", exportStoryDocument(story));
+		return result;
+	}
+
+	@Transactional(readOnly = true)
+	List<StoryVersionSummary> versions(String storyId, String ownerPlayerId) {
+		Story story = story(storyId);
+		requireOwnerAccess(story, ownerPlayerId);
+		return versions.findByStoryIdOrderByVersionNumberDesc(story.getId()).stream()
+				.map(version -> new StoryVersionSummary(
+						version.getVersionNumber(),
+						version.getStatus().name().toLowerCase(),
+						version.getNote(),
+						version.getCreatedAt()))
+				.toList();
+	}
+
+	@Transactional
+	ImportResponse rollback(String storyId, int versionNumber, String ownerPlayerId) {
+		Story story = story(storyId);
+		requireOwnerAccess(story, ownerPlayerId);
+		StoryVersion version = versions.findByStoryIdAndVersionNumber(story.getId(), versionNumber)
+				.orElseThrow(StoryNotFoundException::new);
+		StoryDocument document = json.readStory(version.getSnapshotJson());
+		story = applyDocument(story, document, version.getStatus());
+		StoryVersion rollbackVersion = saveVersion(story, "rollback_to_" + versionNumber);
+		return response(story, rollbackVersion);
 	}
 
 	@Transactional
@@ -162,9 +196,148 @@ class StoryAdminService {
 		Story story = story(storyId);
 		requireOwnerAccess(story, ownerPlayerId);
 		jdbc.update("delete from game_sessions where story_id = ?", story.getId());
+		jdbc.update("delete from story_versions where story_id = ?", story.getId());
 		deleteChildren(story.getId());
 		stories.delete(story);
 		assetStorage.deleteStoryFiles(story.getId());
+	}
+
+	Map<String, Object> exportStoryDocument(Story story) {
+		Map<String, Object> document = new java.util.LinkedHashMap<>();
+		document.put("key", story.getKey());
+		document.put("title", story.getTitle());
+		document.put("description", story.getDescription());
+		document.put("version", story.getVersion());
+		document.put("startSceneId", story.getStartSceneId());
+		document.put("variables", exportVariables(story));
+		document.put("assets", assets.findByStoryId(story.getId()).stream()
+				.map(asset -> {
+					Map<String, Object> item = new java.util.LinkedHashMap<>();
+					item.put("id", asset.getAssetKey());
+					item.put("type", asset.getType());
+					item.put("url", asset.getUrl());
+					Object metadata = json.readObject(asset.getMetadataJson());
+					if (metadata != null) {
+						item.put("metadata", metadata);
+					}
+					return item;
+				})
+				.toList());
+		document.put("scenes", scenes.findByStoryIdOrderByOrderIndexAsc(story.getId()).stream()
+				.map(scene -> {
+					Map<String, Object> item = new java.util.LinkedHashMap<>();
+					item.put("id", scene.getSceneKey());
+					item.put("title", scene.getTitle());
+					item.put("text", scene.getText());
+					item.put("background", scene.getBackgroundAssetId());
+					item.put("music", scene.getMusicAssetId());
+					item.put("variables", exportSceneVariables(scene));
+					item.put("assets", json.readObjectList(scene.getLocalAssetsJson()));
+					item.put("animation", emptyMapIfNull(json.readObject(scene.getAnimationJson())));
+					item.put("effects", json.readObjectList(scene.getEffectsJson()));
+					Object ending = json.readObject(scene.getEndingJson());
+					if (ending != null) {
+						item.put("ending", ending);
+					}
+					item.put("choices", choices.findBySceneIdOrderByOrderIndexAsc(scene.getId()).stream()
+							.map(choice -> {
+								Map<String, Object> choiceItem = new java.util.LinkedHashMap<>();
+								choiceItem.put("id", choice.getChoiceKey());
+								choiceItem.put("label", choice.getLabel());
+								choiceItem.put("target", choice.getTargetSceneKey());
+								choiceItem.put("fallbackTarget", choice.getFallbackTargetSceneKey());
+								choiceItem.put("conditions", json.readObjectList(choice.getConditionsJson()));
+								choiceItem.put("effects", json.readObjectList(choice.getEffectsJson()));
+								return choiceItem;
+							})
+							.toList());
+					return item;
+				})
+				.toList());
+		return document;
+	}
+
+	private Story applyDocument(Story story, StoryDocument document, StoryStatus status) {
+		if (story.getId() != null) {
+			deleteChildren(story.getId());
+		}
+		story.setTitle(document.title());
+		story.setDescription(document.description());
+		story.setVersion(document.version() <= 0 ? 1 : document.version());
+		story.setStartSceneId(document.startSceneId());
+		story.setVariablesJson(json.writeVariables(document.variables()));
+		story.setStatsVariablesJson(json.writeStatsVariables(document.variables()));
+		story.setStatus(status);
+		if (status != StoryStatus.ARCHIVED) {
+			story.setArchivedAt(null);
+		}
+		story = stories.save(story);
+
+		if (document.assets() != null) {
+			for (StoryDocument.AssetDocument asset : document.assets()) {
+				assets.save(new StoryAsset(story.getId(), asset.id(), asset.type(), asset.url(), json.writeObject(asset.metadata())));
+			}
+		}
+		if (document.scenes() != null) {
+			int sceneIndex = 0;
+			for (StoryDocument.SceneDocument sceneDocument : document.scenes()) {
+				Scene scene = scenes.save(new Scene(story.getId(), sceneDocument, json, sceneIndex++));
+				int choiceIndex = 0;
+				if (sceneDocument.choices() != null) {
+					for (StoryDocument.ChoiceDocument choice : sceneDocument.choices()) {
+						choices.save(new Choice(scene.getId(), choice, json, choiceIndex++));
+					}
+				}
+			}
+		}
+		return story;
+	}
+
+	private StoryVersion saveVersion(Story story, String note) {
+		StoryVersion version = new StoryVersion(
+				story.getId(),
+				versions.countByStoryId(story.getId()) + 1,
+				story.getStatus(),
+				json.write(exportStoryDocument(story)),
+				note);
+		return versions.save(version);
+	}
+
+	private ImportResponse response(Story story, StoryVersion version) {
+		return new ImportResponse(
+				story.getId(),
+				story.getKey(),
+				story.getTitle(),
+				story.getStatus().name().toLowerCase(),
+				version == null ? null : version.getVersionNumber());
+	}
+
+	private Map<String, Object> exportVariables(Story story) {
+		Set<String> statsVariables = Set.copyOf(json.readStringList(story.getStatsVariablesJson()));
+		Map<String, Object> variables = new java.util.LinkedHashMap<>();
+		for (Map.Entry<String, Object> entry : json.readMap(story.getVariablesJson()).entrySet()) {
+			if (statsVariables.contains(entry.getKey())) {
+				Map<String, Object> definition = new java.util.LinkedHashMap<>();
+				definition.put("value", entry.getValue());
+				definition.put("showInStats", true);
+				variables.put(entry.getKey(), definition);
+			} else {
+				variables.put(entry.getKey(), entry.getValue());
+			}
+		}
+		return variables;
+	}
+
+	private Map<String, Object> exportSceneVariables(Scene scene) {
+		Map<String, Object> variables = new java.util.LinkedHashMap<>();
+		for (Map.Entry<String, Object> entry : json.readMap(scene.getLocalVariablesJson()).entrySet()) {
+			variables.put(entry.getKey(), entry.getValue());
+		}
+		return variables;
+	}
+
+	private Object emptyMapIfNull(Object value) {
+		return value == null ? Map.of() : value;
 	}
 
 	private StoryValidationResult validate(StoryDocument document) {
@@ -301,6 +474,9 @@ class StoryAdminService {
 		return value == null || value.isBlank();
 	}
 
-	record ImportResponse(String storyId, String key, String title, String status) {
+	record ImportResponse(String storyId, String key, String title, String status, Integer versionNumber) {
+	}
+
+	record StoryVersionSummary(int versionNumber, String status, String note, java.time.Instant createdAt) {
 	}
 }

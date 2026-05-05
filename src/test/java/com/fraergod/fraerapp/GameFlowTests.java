@@ -47,22 +47,23 @@ class GameFlowTests {
 
 	@Test
 	void importValidateAndPublishStory() {
-		ApiResponse imported = request("POST", "/api/admin/stories/import", validStory("runtime_" + UUID.randomUUID()), null, "test-token");
+		String admin = TestJwtFactory.admin("admin@example.test");
+		ApiResponse imported = request("POST", "/api/admin/stories/import", validStory("runtime_" + UUID.randomUUID()), null, admin);
 		assertThat(imported.status()).isEqualTo(HttpStatus.OK.value());
 
 		String storyId = imported.body().get("storyId").toString();
-		ApiResponse validation = request("POST", "/api/admin/stories/" + storyId + "/validate", null, null, "test-token");
+		ApiResponse validation = request("POST", "/api/admin/stories/" + storyId + "/validate", null, null, admin);
 		assertThat(validation.status()).isEqualTo(HttpStatus.OK.value());
 		assertThat(validation.body()).containsEntry("valid", true);
 
-		ApiResponse published = request("POST", "/api/admin/stories/" + storyId + "/publish", null, null, "test-token");
+		ApiResponse published = request("POST", "/api/admin/stories/" + storyId + "/publish", null, null, admin);
 		assertThat(published.status()).isEqualTo(HttpStatus.OK.value());
 		assertThat(published.body()).containsEntry("status", "published");
 	}
 
 	@Test
 	void importRejectsInvalidStory() {
-		ApiResponse response = request("POST", "/api/admin/stories/import", invalidStory("broken_" + UUID.randomUUID()), null, "test-token");
+		ApiResponse response = request("POST", "/api/admin/stories/import", invalidStory("broken_" + UUID.randomUUID()), null, TestJwtFactory.admin("admin@example.test"));
 
 		assertThat(response.status()).isEqualTo(HttpStatus.BAD_REQUEST.value());
 	}
@@ -153,9 +154,7 @@ class GameFlowTests {
 	}
 
 	private String login(String username) {
-		ApiResponse response = request("POST", "/api/auth/login", "{\"username\":\"" + username + "\"}", null, null);
-		assertThat(response.status()).isEqualTo(HttpStatus.OK.value());
-		return response.body().get("playerId").toString();
+		return TestJwtFactory.player(username + "@example.test");
 	}
 
 	private ApiResponse createSession(String playerId, String storyKey) {
@@ -181,10 +180,10 @@ class GameFlowTests {
 			HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
 					.header("Accept", "application/json");
 			if (playerId != null) {
-				builder.header("X-Player-Id", playerId);
+				builder.header("Authorization", "Bearer " + playerId);
 			}
 			if (adminToken != null) {
-				builder.header("X-Admin-Token", adminToken);
+				builder.header("Authorization", "Bearer " + adminToken);
 			}
 			if (body == null) {
 				builder.method(method, HttpRequest.BodyPublishers.noBody());

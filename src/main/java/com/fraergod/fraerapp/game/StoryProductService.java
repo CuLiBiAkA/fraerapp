@@ -70,6 +70,27 @@ class StoryProductService {
 	}
 
 	@Transactional
+	StoryAdminService.ImportResponse submitForReview(String playerId, String storyId) {
+		player(playerId);
+		Story story = ownedStory(playerId, storyId);
+		return admin.submitForReview(story.getId(), playerId);
+	}
+
+	@Transactional
+	StoryAdminService.ImportResponse archiveForAuthor(String playerId, String storyId) {
+		player(playerId);
+		Story story = ownedStory(playerId, storyId);
+		return admin.archive(story.getId(), playerId);
+	}
+
+	@Transactional
+	StoryAdminService.ImportResponse rollbackForAuthor(String playerId, String storyId, int versionNumber) {
+		player(playerId);
+		Story story = ownedStory(playerId, storyId);
+		return admin.rollback(story.getId(), versionNumber, playerId);
+	}
+
+	@Transactional
 	void deleteForAuthor(String playerId, String storyId) {
 		player(playerId);
 		Story story = ownedStory(playerId, storyId);
@@ -94,58 +115,19 @@ class StoryProductService {
 	@Transactional(readOnly = true)
 	Map<String, Object> authoredStoryDocument(String playerId, String storyId) {
 		Story story = ownedStory(playerId, storyId);
-		Map<String, Object> document = new java.util.LinkedHashMap<>();
-		document.put("key", story.getKey());
-		document.put("title", story.getTitle());
-		document.put("description", story.getDescription());
-		document.put("version", story.getVersion());
-		document.put("startSceneId", story.getStartSceneId());
-		document.put("variables", exportVariables(story));
-		document.put("assets", assets.findByStoryId(story.getId()).stream()
-				.map(asset -> {
-					Map<String, Object> item = new java.util.LinkedHashMap<>();
-					item.put("id", asset.getAssetKey());
-					item.put("type", asset.getType());
-					item.put("url", asset.getUrl());
-					Object metadata = json.readObject(asset.getMetadataJson());
-					if (metadata != null) {
-						item.put("metadata", metadata);
-					}
-					return item;
-				})
-				.toList());
-		document.put("scenes", scenes.findByStoryIdOrderByOrderIndexAsc(story.getId()).stream()
-				.map(scene -> {
-					Map<String, Object> item = new java.util.LinkedHashMap<>();
-					item.put("id", scene.getSceneKey());
-					item.put("title", scene.getTitle());
-					item.put("text", scene.getText());
-					item.put("background", scene.getBackgroundAssetId());
-					item.put("music", scene.getMusicAssetId());
-					item.put("variables", exportSceneVariables(scene));
-					item.put("assets", json.readObjectList(scene.getLocalAssetsJson()));
-					item.put("animation", emptyMapIfNull(json.readObject(scene.getAnimationJson())));
-					item.put("effects", json.readObjectList(scene.getEffectsJson()));
-					Object ending = json.readObject(scene.getEndingJson());
-					if (ending != null) {
-						item.put("ending", ending);
-					}
-					item.put("choices", choices.findBySceneIdOrderByOrderIndexAsc(scene.getId()).stream()
-							.map(choice -> {
-								Map<String, Object> choiceItem = new java.util.LinkedHashMap<>();
-								choiceItem.put("id", choice.getChoiceKey());
-								choiceItem.put("label", choice.getLabel());
-								choiceItem.put("target", choice.getTargetSceneKey());
-								choiceItem.put("fallbackTarget", choice.getFallbackTargetSceneKey());
-								choiceItem.put("conditions", json.readObjectList(choice.getConditionsJson()));
-								choiceItem.put("effects", json.readObjectList(choice.getEffectsJson()));
-								return choiceItem;
-							})
-							.toList());
-					return item;
-				})
-				.toList());
-		return document;
+		return admin.exportStoryDocument(story);
+	}
+
+	@Transactional(readOnly = true)
+	Map<String, Object> previewForAuthor(String playerId, String storyId) {
+		ownedStory(playerId, storyId);
+		return admin.preview(storyId, playerId);
+	}
+
+	@Transactional(readOnly = true)
+	List<StoryAdminService.StoryVersionSummary> versionsForAuthor(String playerId, String storyId) {
+		ownedStory(playerId, storyId);
+		return admin.versions(storyId, playerId);
 	}
 
 	@Transactional(readOnly = true)
@@ -277,34 +259,6 @@ class StoryProductService {
 			}
 		}
 		return 0.0;
-	}
-
-	private Map<String, Object> exportVariables(Story story) {
-		Set<String> statsVariables = Set.copyOf(json.readStringList(story.getStatsVariablesJson()));
-		Map<String, Object> variables = new java.util.LinkedHashMap<>();
-		for (Map.Entry<String, Object> entry : json.readMap(story.getVariablesJson()).entrySet()) {
-			if (statsVariables.contains(entry.getKey())) {
-				Map<String, Object> definition = new java.util.LinkedHashMap<>();
-				definition.put("value", entry.getValue());
-				definition.put("showInStats", true);
-				variables.put(entry.getKey(), definition);
-			} else {
-				variables.put(entry.getKey(), entry.getValue());
-			}
-		}
-		return variables;
-	}
-
-	private Map<String, Object> exportSceneVariables(Scene scene) {
-		Map<String, Object> variables = new java.util.LinkedHashMap<>();
-		for (Map.Entry<String, Object> entry : json.readMap(scene.getLocalVariablesJson()).entrySet()) {
-			variables.put(entry.getKey(), entry.getValue());
-		}
-		return variables;
-	}
-
-	private Object emptyMapIfNull(Object value) {
-		return value == null ? Map.of() : value;
 	}
 
 	@Transactional(readOnly = true)

@@ -1,5 +1,34 @@
 # FraerApp Story
 
+## Passwordless auth service
+
+FraerApp now uses a separate `auth-service` container for users, email identity, sessions, refresh tokens, roles, and magic-link login. The player API no longer trusts client-supplied `X-Player-Id`, and admin APIs no longer use `dev-admin-token`.
+
+Local dev flow:
+
+1. Set `AUTH_JWT_SECRET` to the same long random value for `api` and `auth-service`.
+2. Set `AUTH_BOOTSTRAP_ADMIN_EMAIL` for the first admin account.
+3. Run `docker compose up -d --build`.
+4. Request a link through `POST /auth/login-link` or the frontend email form.
+5. In dev mode, read the link from auth-service logs or `GET /auth/dev/magic-links?email=you@example.com`.
+6. Open the link. Auth sets httpOnly `fraer_access` and `fraer_refresh` cookies.
+
+Roles:
+
+- `player` is granted automatically after the first verified email login.
+- `author` is required for `/api/author/**` and the story builder.
+- `admin` is required for `/api/admin/**` and role management.
+- The first admin is bootstrapped from `AUTH_BOOTSTRAP_ADMIN_EMAIL`.
+
+Important env:
+
+- `AUTH_JWT_SECRET` - shared JWT HMAC secret used by auth-service and the main API.
+- `AUTH_PUBLIC_BASE_URL` - public URL used in emailed magic links.
+- `AUTH_DEV_MODE` - when `true`, links are logged and available through the dev endpoint instead of SMTP.
+- `AUTH_COOKIE_SECURE` and `AUTH_COOKIE_SAME_SITE` - cookie policy.
+- `CORS_ALLOWED_ORIGINS` and `AUTH_CORS_ALLOWED_ORIGINS` - origins allowed to send credentialed requests.
+- `AUTH_BOOTSTRAP_ADMIN_EMAIL` - email that receives the initial `admin` role.
+
 ## Story Builder
 
 Story Builder is a separate static service for creating Story JSON in the browser with forms and buttons.

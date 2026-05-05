@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FraerApp Story Builder</title>
-    <link rel="stylesheet" href="/styles.css?v=builder-15">
+    <link rel="stylesheet" href="/styles.css?v=builder-16">
   </head>
   <body>
     <main class="builder">
@@ -15,8 +15,8 @@
         </div>
         <div class="runtime-settings">
           <label>
-            <span>Автор</span>
-            <input id="author-name" placeholder="alex">
+            <span>Email</span>
+            <input id="author-name" type="email" placeholder="you@example.com" autocomplete="email">
           </label>
           <div class="actions tight">
             <button id="author-login" type="button">Войти как автор</button>
@@ -26,10 +26,7 @@
             <span data-i18n="runtimeApiLabel">Runtime API</span>
             <input id="runtime-url" value="http://localhost:8088">
           </label>
-          <label>
-            <span data-i18n="adminTokenLabel">Токен администратора</span>
-            <input id="admin-token" value="dev-admin-token">
-          </label>
+          <input id="admin-token" type="hidden">
           <div class="language-switch" aria-label="Language switcher">
             <button id="lang-ru" type="button" class="secondary">RU</button>
             <button id="lang-en" type="button" class="secondary">EN</button>
@@ -159,6 +156,6 @@
       <button id="quick-add-scene" type="button" title="Добавить сцену">+ Сцена</button>
     </div>
 
-    <script src="/app.js?v=builder-15" type="module"></script>
+    <script src="/app.js?v=builder-16" type="module"></script>
   </body>
 </html>
