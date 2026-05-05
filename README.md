@@ -20,6 +20,13 @@ Roles:
 - `admin` is required for `/api/admin/**` and role management.
 - The first admin is bootstrapped from `AUTH_BOOTSTRAP_ADMIN_EMAIL`.
 
+Role admin UI:
+
+- Open `http://localhost:8088/auth/admin`.
+- Sign in with `culibiaka2012@yandex.ru` in local Docker unless `AUTH_BOOTSTRAP_ADMIN_EMAIL` was overridden.
+- In dev mode the page shows a direct magic-link shortcut after submitting the email.
+- Use the form to grant or remove `author` and `admin` roles for any email.
+
 Important env:
 
 - `AUTH_JWT_SECRET` - shared JWT HMAC secret used by auth-service and the main API.

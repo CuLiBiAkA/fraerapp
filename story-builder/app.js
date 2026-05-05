@@ -1670,7 +1670,7 @@ async function authorFetch(path, options = {}) {
 }
 
 async function uploadAssetFile(asset, file, scope = "global") {
-  if (!hasRole("author")) {
+  if (!canAuthor()) {
     throw new Error(t("uploadAssetFirst"));
   }
   if (!lastImportedStoryId) {
@@ -1734,7 +1734,7 @@ async function loadAuthorHome() {
     renderAuthorWorkspace();
     return null;
   }
-  if (!hasRole("author")) {
+  if (!canAuthor()) {
     renderAuthorWorkspace();
     return null;
   }
@@ -1745,23 +1745,23 @@ async function loadAuthorHome() {
 
 function renderAuthorWorkspace(home = null) {
   const authorName = authorSession?.email || "не выбран";
-  els.authorState.textContent = hasRole("author")
+  els.authorState.textContent = canAuthor()
     ? t("authorLoggedIn", { name: authorName })
     : (authorSession ? t("authorRoleMissing") : t("authorLoggedOut"));
   els.authorStorySelect.replaceChildren();
-  els.authorStorySelect.disabled = !hasRole("author") || !home?.stories?.length;
+  els.authorStorySelect.disabled = !canAuthor() || !home?.stories?.length;
   const emptyOption = document.createElement("option");
   emptyOption.value = "";
   emptyOption.textContent = t("authorStoryPickerEmpty");
   els.authorStorySelect.append(emptyOption);
   els.authorStories.replaceChildren();
-  if (hasRole("author")) {
+  if (canAuthor()) {
     const topActions = div("actions tight");
     topActions.append(button(t("newAuthorStory"), createNewAuthorStory, "secondary small"));
     els.authorStories.append(topActions);
   }
   if (!home?.stories?.length) {
-    els.authorAnalytics.textContent = hasRole("author")
+    els.authorAnalytics.textContent = canAuthor()
       ? "У автора пока нет сценариев. Импортируйте текущий draft."
       : "";
     updateAuthorGate();
@@ -1841,7 +1841,7 @@ function statusLabel(status) {
 }
 
 function updateAuthorGate() {
-  const loggedIn = hasRole("author");
+  const loggedIn = canAuthor();
   document.body.classList.toggle("builder-locked", !loggedIn);
   els.authorLogin.hidden = loggedIn;
   els.authorLogout.hidden = !loggedIn;
@@ -2095,7 +2095,7 @@ document.querySelector("#publish-runtime").onclick = () => runtimeCall("publish"
 async function runtimeCall(action) {
   try {
     const base = els.runtimeUrl.value.replace(/\/$/, "");
-    if (hasRole("author")) {
+    if (canAuthor()) {
       let path = `${base}/api/author/stories/import`;
       let options = {
         method: "POST",
@@ -2180,6 +2180,10 @@ bootstrapAuth().catch(() => {
 
 function hasRole(role) {
   return Array.isArray(authorSession?.roles) && authorSession.roles.includes(role);
+}
+
+function canAuthor() {
+  return hasRole("author") || hasRole("admin");
 }
 
 async function bootstrapAuth() {

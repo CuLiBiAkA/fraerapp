@@ -34,7 +34,10 @@ class CurrentUserService {
 	}
 
 	String requireAuthorPlayerId() {
-		AuthIdentity identity = requireRole("author");
+		AuthIdentity identity = requireIdentity();
+		if (!identity.hasRole("author") && !identity.hasRole("admin")) {
+			throw new ForbiddenRoleException();
+		}
 		return players.findByUserId(identity.userId())
 				.orElseGet(() -> players.save(new Player(displayName(identity), "legacy", identity.userId())))
 				.getId();

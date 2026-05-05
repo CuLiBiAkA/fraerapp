@@ -23,6 +23,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.SimpleMailMessage;
@@ -55,7 +56,10 @@ public class AuthServiceApplication {
 	ApplicationRunner bootstrap(AuthStore store, @Value("${auth.bootstrap-admin-email:}") String adminEmail) {
 		return args -> {
 			if (adminEmail != null && !adminEmail.isBlank()) {
-				store.user(normalizeEmail(adminEmail), true).ifPresent(user -> store.grantRole(user.id(), "admin"));
+				store.user(normalizeEmail(adminEmail), true).ifPresent(user -> {
+					store.grantRole(user.id(), "admin");
+					store.grantRole(user.id(), "author");
+				});
 			}
 		};
 	}
@@ -96,6 +100,9 @@ class AuthController {
 	@Value("${auth.public-base-url:http://localhost:8088}")
 	private String publicBaseUrl;
 
+	@Value("${auth.bootstrap-admin-email:}")
+	private String bootstrapAdminEmail;
+
 	AuthController(AuthStore store, JwtCodec jwt, Optional<JavaMailSender> mail) {
 		this.store = store;
 		this.jwt = jwt;
@@ -105,12 +112,13 @@ class AuthController {
 	@PostMapping("/login-link")
 	Map<String, Object> loginLink(@Valid @RequestBody LoginLinkRequest request) {
 		String email = AuthServiceApplication.normalizeEmail(request.email());
-		checkRate("login:" + email, 5, Duration.ofMinutes(15));
+		checkRate("login:" + email, devMode ? 200 : 5, Duration.ofMinutes(15));
 		String token = UUID.randomUUID() + "." + UUID.randomUUID();
 		String redirect = safeRedirect(request.redirectPath());
 		Instant expiresAt = Instant.now().plusSeconds(magicLinkTtl);
 		store.createMagicLink(email, sha256(token), redirect, expiresAt);
-		String link = publicBaseUrl + "/?auth_token=" + token + "&redirect=" + url64(redirect.getBytes(StandardCharsets.UTF_8));
+		String separator = redirect.contains("?") ? "&" : "?";
+		String link = publicBaseUrl + redirect + separator + "auth_token=" + token + "&redirect=" + url64(redirect.getBytes(StandardCharsets.UTF_8));
 		store.audit(null, email, "login_link_requested", "{}");
 		if (devMode) {
 			devLinks.put(email, List.of(new DevLink(email, link, expiresAt)));
@@ -124,13 +132,18 @@ class AuthController {
 
 	@PostMapping("/verify")
 	Map<String, Object> verify(@Valid @RequestBody VerifyRequest request, HttpServletResponse response) {
-		checkRate("verify", 20, Duration.ofMinutes(15));
+		checkRate("verify", devMode ? 200 : 20, Duration.ofMinutes(15));
 		MagicLink link = store.magicLink(sha256(request.token()))
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid login link"));
 		if (link.usedAt() != null || link.expiresAt().isBefore(Instant.now())) {
 			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Login link expired");
 		}
 		User user = store.user(link.email(), true).orElseThrow();
+		if (isBootstrapAdmin(user.email())) {
+			store.grantRole(user.id(), "admin");
+			store.grantRole(user.id(), "author");
+			user = store.userById(user.id()).orElseThrow();
+		}
 		store.consumeMagicLink(link.id());
 		TokenPair pair = issue(user);
 		addCookies(response, pair);
@@ -197,8 +210,14 @@ class AuthController {
 		if (!admin.roles().contains("admin")) {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
 		}
+		if (!List.of("player", "author", "admin").contains(request.role())) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only player/author/admin can be changed");
+		}
 		User user = store.user(AuthServiceApplication.normalizeEmail(request.email()), true).orElseThrow();
-		if (request.grant()) {
+		if ("player".equals(request.role()) && request.grant()) {
+			store.demoteToPlayer(user.id());
+		}
+		else if (request.grant()) {
 			store.grantRole(user.id(), request.role());
 		}
 		else {
@@ -211,6 +230,178 @@ class AuthController {
 	@GetMapping("/jwks")
 	Map<String, Object> jwks() {
 		return jwt.jwks();
+	}
+
+	@GetMapping(value = "/admin", produces = MediaType.TEXT_HTML_VALUE)
+	String adminPage() {
+		return """
+				<!doctype html>
+				<html lang="ru">
+				<head>
+				  <meta charset="utf-8">
+				  <meta name="viewport" content="width=device-width, initial-scale=1">
+				  <title>FraerApp права</title>
+				  <style>
+				    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, sans-serif; background: #f6f3ef; color: #202124; }
+				    main { max-width: 760px; margin: 0 auto; padding: 32px 18px 48px; }
+				    h1 { margin: 0 0 8px; font-size: 32px; }
+				    section { background: #fff; border: 1px solid #d8d3ca; border-radius: 8px; padding: 18px; margin-top: 16px; }
+				    label { display: block; font-weight: 650; margin: 12px 0 6px; }
+				    input, select, button { font: inherit; }
+				    input, select { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #c9c2b8; border-radius: 6px; background: #fff; }
+				    button { margin-top: 14px; padding: 10px 14px; border: 0; border-radius: 6px; background: #1f5f46; color: #fff; cursor: pointer; }
+				    button.secondary { background: #51483f; }
+				    button.danger { background: #8f2f25; }
+				    pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #161411; color: #f8f3e8; padding: 12px; border-radius: 6px; }
+				    .row { display: grid; grid-template-columns: 1fr 160px 120px; gap: 12px; align-items: end; }
+				    .hidden { display: none; }
+				    .muted { color: #6f665d; }
+				    a { color: #1f5f46; }
+				    @media (max-width: 680px) { .row { grid-template-columns: 1fr; } }
+				  </style>
+				</head>
+				<body>
+				  <main>
+				    <h1>FraerApp права</h1>
+				    <p class="muted">Вход только через email. Для этой панели нужна роль admin.</p>
+
+				    <section id="login-section">
+				      <h2>Вход администратора</h2>
+				      <form id="login-form">
+				        <label for="login-email">Email</label>
+				        <input id="login-email" type="email" value="culibiaka2012@yandex.ru" autocomplete="email" required>
+				        <button type="submit">Отправить ссылку</button>
+				      </form>
+				      <pre id="login-result"></pre>
+				    </section>
+
+				    <section id="me-section" class="hidden">
+				      <h2>Текущий вход</h2>
+				      <p id="me-line"></p>
+				      <button id="logout" type="button" class="secondary">Выйти</button>
+				    </section>
+
+				    <section id="roles-section" class="hidden">
+				      <h2>Выдать права</h2>
+				      <form id="role-form">
+				        <div class="row">
+				          <div>
+				            <label for="target-email">Email пользователя</label>
+				            <input id="target-email" type="email" placeholder="user@example.com" required>
+				          </div>
+				          <div>
+				            <label for="role">Роль</label>
+				            <select id="role">
+				              <option value="author">author</option>
+				              <option value="admin">admin</option>
+				              <option value="player">player only</option>
+				            </select>
+				          </div>
+				          <div>
+				            <label for="grant">Действие</label>
+				            <select id="grant">
+				              <option value="true">Выдать</option>
+				              <option value="false">Снять</option>
+				            </select>
+				          </div>
+				        </div>
+				        <button type="submit">Применить</button>
+				      </form>
+				      <pre id="role-result"></pre>
+				    </section>
+				  </main>
+
+				  <script>
+				    const loginSection = document.querySelector("#login-section");
+				    const meSection = document.querySelector("#me-section");
+				    const rolesSection = document.querySelector("#roles-section");
+				    const loginResult = document.querySelector("#login-result");
+				    const roleResult = document.querySelector("#role-result");
+				    const meLine = document.querySelector("#me-line");
+
+				    async function json(path, options = {}) {
+				      const response = await fetch(path, {
+				        method: options.method || "GET",
+				        credentials: "include",
+				        headers: { Accept: "application/json", ...(options.body ? { "Content-Type": "application/json" } : {}) },
+				        body: options.body ? JSON.stringify(options.body) : undefined,
+				      });
+				      const text = await response.text();
+				      const payload = text ? JSON.parse(text) : {};
+				      if (!response.ok) throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
+				      return payload;
+				    }
+
+				    async function loadMe() {
+				      try {
+				        const me = await json("/auth/me");
+				        meLine.textContent = `${me.email} / ${me.roles.join(", ")}`;
+				        meSection.classList.remove("hidden");
+				        loginSection.classList.add("hidden");
+				        if (me.roles.includes("admin")) {
+				          rolesSection.classList.remove("hidden");
+				        } else {
+				          rolesSection.classList.add("hidden");
+				          roleResult.textContent = "Нужна роль admin. Проверь AUTH_BOOTSTRAP_ADMIN_EMAIL или выдайте admin в dev.";
+				        }
+				      } catch {
+				        loginSection.classList.remove("hidden");
+				        meSection.classList.add("hidden");
+				        rolesSection.classList.add("hidden");
+				      }
+				    }
+
+				    async function verifyFromUrl() {
+				      const params = new URLSearchParams(location.search);
+				      const token = params.get("auth_token");
+				      if (!token) return;
+				      const result = await json("/auth/verify", { method: "POST", body: { token } });
+				      history.replaceState({}, document.title, "/auth/admin");
+				      loginResult.textContent = JSON.stringify(result, null, 2);
+				    }
+
+				    document.querySelector("#login-form").addEventListener("submit", async (event) => {
+				      event.preventDefault();
+				      const email = document.querySelector("#login-email").value.trim();
+				      await json("/auth/login-link", { method: "POST", body: { email, redirectPath: "/auth/admin" } });
+				      loginResult.textContent = "Ссылка отправлена. В dev можно открыть /auth/dev/magic-links?email=" + encodeURIComponent(email);
+				      try {
+				        const dev = await json("/auth/dev/magic-links?email=" + encodeURIComponent(email));
+				        const link = dev.links?.[0]?.link;
+				        if (link) {
+				          loginResult.innerHTML = "";
+				          const a = document.createElement("a");
+				          a.href = link;
+				          a.textContent = "Открыть dev-ссылку для входа";
+				          loginResult.append(a);
+				        }
+				      } catch {}
+				    });
+
+				    document.querySelector("#role-form").addEventListener("submit", async (event) => {
+				      event.preventDefault();
+				      const payload = {
+				        email: document.querySelector("#target-email").value.trim(),
+				        role: document.querySelector("#role").value,
+				        grant: document.querySelector("#grant").value === "true",
+				      };
+				      const result = await json("/auth/admin/roles", { method: "POST", body: payload });
+				      roleResult.textContent = JSON.stringify(result, null, 2);
+				    });
+
+				    document.querySelector("#logout").addEventListener("click", async () => {
+				      await json("/auth/logout", { method: "POST" });
+				      location.href = "/auth/admin";
+				    });
+
+				    verifyFromUrl().then(loadMe).catch((error) => {
+				      loginResult.textContent = error.message;
+				      loadMe();
+				    });
+				  </script>
+				</body>
+				</html>
+				""";
 	}
 
 	@GetMapping("/dev/magic-links")
@@ -226,11 +417,14 @@ class AuthController {
 		if (!devMode) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
 		}
-		if (!List.of("author", "admin").contains(request.role())) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only author/admin can be changed in dev");
+		if (!List.of("player", "author", "admin").contains(request.role())) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only player/author/admin can be changed in dev");
 		}
 		User user = store.user(AuthServiceApplication.normalizeEmail(request.email()), true).orElseThrow();
-		if (request.grant()) {
+		if ("player".equals(request.role()) && request.grant()) {
+			store.demoteToPlayer(user.id());
+		}
+		else if (request.grant()) {
 			store.grantRole(user.id(), request.role());
 		}
 		else {
@@ -296,6 +490,11 @@ class AuthController {
 		message.setSubject("FraerApp login link");
 		message.setText("Open this link to sign in to FraerApp:\n\n" + link);
 		mail.get().send(message);
+	}
+
+	private boolean isBootstrapAdmin(String email) {
+		return !AuthServiceApplication.normalizeEmail(bootstrapAdminEmail).isBlank()
+				&& AuthServiceApplication.normalizeEmail(bootstrapAdminEmail).equals(AuthServiceApplication.normalizeEmail(email));
 	}
 
 	private String safeRedirect(String redirect) {
@@ -537,6 +736,11 @@ class AuthStore {
 		if (!"player".equals(role)) {
 			jdbc.update("delete from user_roles where user_id = ? and role_name = ?", userId, role);
 		}
+	}
+
+	void demoteToPlayer(String userId) {
+		grantRole(userId, "player");
+		jdbc.update("delete from user_roles where user_id = ? and role_name in ('author', 'admin')", userId);
 	}
 
 	void audit(String userId, String email, String eventType, String metadata) {
