@@ -11,7 +11,7 @@ This project is a small story-game platform:
 
 ## Runtime Shape
 
-- Backend: Spring Boot 4, Java 17, JPA, Flyway, H2 file DB by default.
+- Backend: Spring Boot 4, Java 17, JPA, Flyway, PostgreSQL by default.
 - Edge: nginx serves `frontend/` and proxies `/api/*` to the Spring app.
 - Builder: separate Docker service on port `8090`.
 - Default compose URLs from `README.md`:
@@ -137,11 +137,11 @@ Builder serializes to the same structure expected by backend admin import.
 - `build.gradle`
   - Spring Boot 4.0.5
   - Java 17 toolchain
-  - actuator, JPA, Flyway, validation, H2 console, Web MVC, springdoc
+  - actuator, JPA, Flyway, validation, Web MVC, springdoc
 
 - `src/main/resources/application.properties`
   - default port `8080`
-  - H2 file DB under `/data/fraerapp`
+  - PostgreSQL datasource via `SPRING_DATASOURCE_*`
   - swagger at `/swagger-ui.html`
   - docs at `/api-docs`
   - admin token default: `dev-admin-token`
@@ -149,7 +149,8 @@ Builder serializes to the same structure expected by backend admin import.
 - `compose.yaml`
   - `edge` exposes runtime on `8088` by default
   - `story-builder` exposes `8090`
-  - `api` stores H2 DB in Docker volume `h2-data`
+  - `api` uses the `postgres` service with Docker volume `postgres-data`
+  - `auth-service` uses the `auth-postgres` service with Docker volume `auth-postgres-data`
 
 - `nginx/nginx.conf`
   - serves static frontend

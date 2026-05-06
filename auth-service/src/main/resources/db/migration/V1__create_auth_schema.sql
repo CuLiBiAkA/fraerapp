@@ -54,7 +54,7 @@ create table auth_audit_events (
 	user_id varchar(36),
 	email varchar(320),
 	event_type varchar(80) not null,
-	metadata clob not null,
+	metadata text not null,
 	created_at timestamp with time zone not null
 );
 

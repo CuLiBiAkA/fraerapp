@@ -30,11 +30,42 @@ Role admin UI:
 Important env:
 
 - `AUTH_JWT_SECRET` - shared JWT HMAC secret used by auth-service and the main API.
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` - PostgreSQL database credentials for the main API.
+- `AUTH_POSTGRES_DB`, `AUTH_POSTGRES_USER`, `AUTH_POSTGRES_PASSWORD` - PostgreSQL database credentials for auth-service.
 - `AUTH_PUBLIC_BASE_URL` - public URL used in emailed magic links.
 - `AUTH_DEV_MODE` - when `true`, links are logged and available through the dev endpoint instead of SMTP.
 - `AUTH_COOKIE_SECURE` and `AUTH_COOKIE_SAME_SITE` - cookie policy.
 - `CORS_ALLOWED_ORIGINS` and `AUTH_CORS_ALLOWED_ORIGINS` - origins allowed to send credentialed requests.
 - `AUTH_BOOTSTRAP_ADMIN_EMAIL` - email that receives the initial `admin` role.
+
+## PostgreSQL
+
+Runtime storage uses PostgreSQL for both the main API and `auth-service`. Flyway owns the schema, including catalog/session/story-author indexes and auth-session/token/audit indexes. H2 is kept only as an in-memory test dependency.
+
+Docker Compose creates two local PostgreSQL volumes:
+
+- `postgres-data` for story runtime data.
+- `auth-postgres-data` for users, roles, sessions, refresh tokens and auth audit events.
+
+Local backup examples:
+
+```powershell
+docker compose exec postgres pg_dump -U fraerapp -d fraerapp -Fc -f /tmp/fraerapp.dump
+docker compose cp postgres:/tmp/fraerapp.dump .\backups\fraerapp.dump
+docker compose exec auth-postgres pg_dump -U fraerapp_auth -d fraerapp_auth -Fc -f /tmp/fraerapp_auth.dump
+docker compose cp auth-postgres:/tmp/fraerapp_auth.dump .\backups\fraerapp_auth.dump
+```
+
+Local restore examples:
+
+```powershell
+docker compose cp .\backups\fraerapp.dump postgres:/tmp/fraerapp.dump
+docker compose exec postgres pg_restore -U fraerapp -d fraerapp --clean --if-exists /tmp/fraerapp.dump
+docker compose cp .\backups\fraerapp_auth.dump auth-postgres:/tmp/fraerapp_auth.dump
+docker compose exec auth-postgres pg_restore -U fraerapp_auth -d fraerapp_auth --clean --if-exists /tmp/fraerapp_auth.dump
+```
+
+For managed PostgreSQL, set `SPRING_DATASOURCE_URL`/`SPRING_DATASOURCE_USERNAME`/`SPRING_DATASOURCE_PASSWORD` for the API and `AUTH_DATASOURCE_URL`/`AUTH_DATASOURCE_USERNAME`/`AUTH_DATASOURCE_PASSWORD` for auth-service.
 
 ## Story Builder
 
@@ -967,7 +998,7 @@ Import and publish validate these rules:
 
 The database stores story metadata, scenes, choices, asset URLs, game sessions and session variables JSON.
 
-Binary files are not stored in H2. Images, music and sounds should be served from `frontend/assets`, an upload directory, object storage or another static file service.
+Binary files are not stored in PostgreSQL. Images, music and sounds should be served from `frontend/assets`, an upload directory, object storage or another static file service.
 
 Браузерная narrative game / visual novel с веб-интерфейсом на JavaScript, Java REST API, H2 и Nginx как edge proxy.
 

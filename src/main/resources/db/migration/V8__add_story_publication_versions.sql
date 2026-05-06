@@ -5,7 +5,7 @@ create table story_versions (
 	story_id varchar(36) not null,
 	version_number integer not null,
 	status varchar(24) not null,
-	snapshot_json clob not null,
+	snapshot_json text not null,
 	note varchar(120) not null,
 	created_at timestamp with time zone not null,
 	constraint fk_story_versions_story foreign key (story_id) references stories(id),

@@ -34,6 +34,9 @@ services:
     build:
       context: .
       dockerfile: auth-service/Dockerfile
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
     environment:
       AUTH_SERVER_PORT: 8081
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-dev-auth-secret-change-me-dev-auth-secret}
@@ -42,11 +45,9 @@ services:
       AUTH_DEV_MODE: ${AUTH_DEV_MODE:-true}
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
       AUTH_CORS_ALLOWED_ORIGINS: ${AUTH_CORS_ALLOWED_ORIGINS:-http://localhost:8088,http://localhost:8090,http://192.168.0.7:8088,http://192.168.0.7:8090}
-      AUTH_DATASOURCE_URL: jdbc:h2:file:/data/fraerapp-auth;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
-      AUTH_DATASOURCE_USERNAME: sa
-      AUTH_DATASOURCE_PASSWORD: ""
-    volumes:
-      - auth-h2-data:/data
+      AUTH_DATASOURCE_URL: jdbc:postgresql://auth-postgres:5432/${AUTH_POSTGRES_DB:-fraerapp_auth}
+      AUTH_DATASOURCE_USERNAME: ${AUTH_POSTGRES_USER:-fraerapp_auth}
+      AUTH_DATASOURCE_PASSWORD: ${AUTH_POSTGRES_PASSWORD:-fraerapp-auth-password}
     expose:
       - "8081"
     healthcheck:
@@ -60,15 +61,16 @@ services:
   api:
     build:
       context: .
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       SERVER_PORT: 8080
-      SPRING_DATASOURCE_URL: jdbc:h2:file:/data/fraerapp;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE
-      SPRING_DATASOURCE_USERNAME: sa
-      SPRING_DATASOURCE_PASSWORD: ""
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-fraerapp}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-fraerapp}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-fraerapp-password}
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-dev-auth-secret-change-me-dev-auth-secret}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8088,http://localhost:8090,http://192.168.0.7:8088,http://192.168.0.7:8090}
-    volumes:
-      - h2-data:/data
     expose:
       - "8080"
     healthcheck:
@@ -87,6 +89,38 @@ services:
         reservations:
           memory: 256M
 
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fraerapp}
+      POSTGRES_USER: ${POSTGRES_USER:-fraerapp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fraerapp-password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  auth-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${AUTH_POSTGRES_DB:-fraerapp_auth}
+      POSTGRES_USER: ${AUTH_POSTGRES_USER:-fraerapp_auth}
+      POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD:-fraerapp-auth-password}
+    volumes:
+      - auth-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
 volumes:
-  h2-data:
-  auth-h2-data:
+  postgres-data:
+  auth-postgres-data:

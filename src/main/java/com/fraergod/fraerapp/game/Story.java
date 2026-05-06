@@ -8,7 +8,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
-import jakarta.persistence.Lob;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -26,7 +25,7 @@ class Story {
 	@Column(nullable = false, length = 200)
 	private String title;
 
-	@Lob
+	@Column(columnDefinition = "text")
 	private String description;
 
 	@Column(nullable = false)
@@ -39,12 +38,10 @@ class Story {
 	@Column(nullable = false, length = 120)
 	private String startSceneId;
 
-	@Lob
-	@Column(nullable = false)
+	@Column(nullable = false, columnDefinition = "text")
 	private String variablesJson = "{}";
 
-	@Lob
-	@Column(nullable = false)
+	@Column(nullable = false, columnDefinition = "text")
 	private String statsVariablesJson = "[]";
 
 	@Column(length = 36)

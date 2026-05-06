@@ -1109,7 +1109,7 @@ class AuthStore {
 		String id = UUID.randomUUID().toString();
 		Instant now = Instant.now();
 		jdbc.update("insert into users(id, email, email_verified, created_at, updated_at) values (?, ?, ?, ?, ?)",
-				id, email, true, now, now);
+				id, email, true, timestamp(now), timestamp(now));
 		grantRole(id, "player");
 		return userByEmail(email);
 	}
@@ -1134,7 +1134,7 @@ class AuthStore {
 				join sessions s on s.user_id = u.id
 				where s.id = ? and s.revoked_at is null and s.expires_at > ?
 				""", (rs, row) -> userRow(rs.getString(1), rs.getString(2), instant(rs.getTimestamp(3)), rs.getTimestamp(4).toInstant(),
-				rs.getTimestamp(5).toInstant()), sessionId, Instant.now());
+				rs.getTimestamp(5).toInstant()), sessionId, timestamp(Instant.now()));
 		return users.stream().findFirst();
 	}
 
@@ -1164,7 +1164,7 @@ class AuthStore {
 		jdbc.update("""
 				insert into email_login_tokens(id, email, token_hash, redirect_path, expires_at, created_at)
 				values (?, ?, ?, ?, ?, ?)
-				""", UUID.randomUUID().toString(), email, tokenHash, redirectPath, expiresAt, Instant.now());
+				""", UUID.randomUUID().toString(), email, tokenHash, redirectPath, timestamp(expiresAt), timestamp(Instant.now()));
 	}
 
 	Optional<MagicLink> magicLink(String tokenHash) {
@@ -1176,18 +1176,19 @@ class AuthStore {
 	}
 
 	void consumeMagicLink(String id) {
-		jdbc.update("update email_login_tokens set used_at = ? where id = ? and used_at is null", Instant.now(), id);
+		jdbc.update("update email_login_tokens set used_at = ? where id = ? and used_at is null", timestamp(Instant.now()), id);
 	}
 
 	void createSession(String id, String userId, Instant expiresAt) {
-		jdbc.update("insert into sessions(id, user_id, created_at, expires_at) values (?, ?, ?, ?)", id, userId, Instant.now(), expiresAt);
+		jdbc.update("insert into sessions(id, user_id, created_at, expires_at) values (?, ?, ?, ?)", id, userId,
+				timestamp(Instant.now()), timestamp(expiresAt));
 	}
 
 	void createRefresh(String id, String sessionId, String tokenHash, Instant expiresAt) {
 		jdbc.update("""
 				insert into refresh_tokens(id, session_id, token_hash, created_at, expires_at)
 				values (?, ?, ?, ?, ?)
-				""", id, sessionId, tokenHash, Instant.now(), expiresAt);
+				""", id, sessionId, tokenHash, timestamp(Instant.now()), timestamp(expiresAt));
 	}
 
 	Optional<RefreshToken> refresh(String tokenHash) {
@@ -1199,7 +1200,7 @@ class AuthStore {
 	}
 
 	void revokeRefresh(String id) {
-		jdbc.update("update refresh_tokens set revoked_at = ? where id = ? and revoked_at is null", Instant.now(), id);
+		jdbc.update("update refresh_tokens set revoked_at = ? where id = ? and revoked_at is null", timestamp(Instant.now()), id);
 	}
 
 	void replaceRefresh(String oldId, String newId) {
@@ -1207,32 +1208,35 @@ class AuthStore {
 	}
 
 	void revokeSession(String id) {
-		jdbc.update("update sessions set revoked_at = ? where id = ? and revoked_at is null", Instant.now(), id);
-		jdbc.update("update refresh_tokens set revoked_at = ? where session_id = ? and revoked_at is null", Instant.now(), id);
+		Instant now = Instant.now();
+		jdbc.update("update sessions set revoked_at = ? where id = ? and revoked_at is null", timestamp(now), id);
+		jdbc.update("update refresh_tokens set revoked_at = ? where session_id = ? and revoked_at is null", timestamp(now), id);
 	}
 
 	void revokeAllSessions(String userId) {
-		jdbc.update("update sessions set revoked_at = ? where user_id = ? and revoked_at is null", Instant.now(), userId);
+		Instant now = Instant.now();
+		jdbc.update("update sessions set revoked_at = ? where user_id = ? and revoked_at is null", timestamp(now), userId);
 		jdbc.update("""
 				update refresh_tokens set revoked_at = ?
 				where session_id in (select id from sessions where user_id = ?) and revoked_at is null
-				""", Instant.now(), userId);
+				""", timestamp(now), userId);
 	}
 
 	void blockUser(String userId) {
-		jdbc.update("update users set blocked_at = ?, updated_at = ? where id = ?", Instant.now(), Instant.now(), userId);
+		Instant now = Instant.now();
+		jdbc.update("update users set blocked_at = ?, updated_at = ? where id = ?", timestamp(now), timestamp(now), userId);
 		revokeAllSessions(userId);
 	}
 
 	void unblockUser(String userId) {
-		jdbc.update("update users set blocked_at = null, updated_at = ? where id = ?", Instant.now(), userId);
+		jdbc.update("update users set blocked_at = null, updated_at = ? where id = ?", timestamp(Instant.now()), userId);
 	}
 
 	void grantRole(String userId, String role) {
 		jdbc.update("""
 				insert into user_roles(user_id, role_name, created_at)
 				select ?, ?, ? where not exists (select 1 from user_roles where user_id = ? and role_name = ?)
-				""", userId, role, Instant.now(), userId, role);
+				""", userId, role, timestamp(Instant.now()), userId, role);
 	}
 
 	void removeRole(String userId, String role) {
@@ -1250,7 +1254,7 @@ class AuthStore {
 		jdbc.update("""
 				insert into auth_audit_events(id, user_id, email, event_type, metadata, created_at)
 				values (?, ?, ?, ?, ?, ?)
-				""", UUID.randomUUID().toString(), userId, email, eventType, metadata, Instant.now());
+				""", UUID.randomUUID().toString(), userId, email, eventType, metadata, timestamp(Instant.now()));
 	}
 
 	private User userRow(String id, String email, Instant blockedAt, Instant createdAt, Instant updatedAt) {
@@ -1262,7 +1266,7 @@ class AuthStore {
 		List<String> roles = jdbc.queryForList("select role_name from user_roles where user_id = ? order by role_name", String.class, id);
 		long sessionsCount = jdbc.queryForObject("select count(*) from sessions where user_id = ?", Long.class, id);
 		long activeSessions = jdbc.queryForObject("select count(*) from sessions where user_id = ? and revoked_at is null and expires_at > ?",
-				Long.class, id, Instant.now());
+				Long.class, id, timestamp(Instant.now()));
 		long auditEvents = jdbc.queryForObject("select count(*) from auth_audit_events where user_id = ? or email = ?", Long.class, id, email);
 		return new AuthController.AdminUserSummary(id, email, roles, blockedAt != null, blockedAt, createdAt, updatedAt,
 				sessionsCount, activeSessions, auditEvents);
@@ -1270,6 +1274,10 @@ class AuthStore {
 
 	private Instant instant(java.sql.Timestamp timestamp) {
 		return timestamp == null ? null : timestamp.toInstant();
+	}
+
+	private java.sql.Timestamp timestamp(Instant instant) {
+		return java.sql.Timestamp.from(instant);
 	}
 }
 
