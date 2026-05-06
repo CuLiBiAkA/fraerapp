@@ -5,6 +5,7 @@ import {
   coerceValue,
   emptyDraft,
   exampleDraft,
+  extractTextVariables,
   localizeDraftDefaults,
   serializeConditions,
   serializeEffects,
@@ -109,6 +110,10 @@ test("serialize helpers preserve expected story-engine contract", () => {
   assert.equal(coerceValue("number", "3"), 3);
   assert.equal(coerceValue("boolean", "true"), true);
   assert.equal(coerceValue("string", "hi"), "hi");
+});
+
+test("extractTextVariables reads unique placeholders", () => {
+  assert.deepEqual(extractTextVariables("Score: {{score}}, again {{ score }} and {{hasKey}}"), ["score", "hasKey"]);
 });
 
 function toStoryJson(draft) {

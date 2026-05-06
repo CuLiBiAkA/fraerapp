@@ -554,6 +554,27 @@ pre::-webkit-scrollbar-track {
   grid-column: 1 / -1;
 }
 
+.variable-text-field {
+  display: grid;
+  gap: 8px;
+}
+
+.variable-insert-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.variable-insert-tools button {
+  min-height: 32px;
+  padding: 6px 9px;
+}
+
+.muted-hint {
+  color: #69787d;
+  font-size: 0.86rem;
+}
+
 .scene-order {
   justify-content: flex-end;
   margin-bottom: 0;

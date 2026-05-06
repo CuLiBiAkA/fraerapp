@@ -66,6 +66,7 @@ export const translations = {
     duplicateChoiceId: "Scene {scene} has duplicate choice id: {id}.",
     missingTarget: "Choice {choice} in scene {scene} points to missing target {target}.",
     missingConditionVariable: "Condition in choice {choice} references missing variable {variable}.",
+    missingTextVariable: "Scene {scene} text references missing variable {variable}.",
     missingEffectVariableChoice: "Effect in choice {choice} references missing variable {variable}.",
     invalidIncChoice: "inc effect in choice {choice} must target number variable {variable}.",
     missingEffectVariableScene: "Scene {scene} effect references missing variable {variable}.",
@@ -325,6 +326,7 @@ export function validateStory(story, language) {
   if (!story.startSceneId || !sceneIds.includes(story.startSceneId)) errors.push(translate(language, "startSceneMissing"));
   duplicates(sceneIds).forEach((id) => errors.push(translate(language, "duplicateSceneId", { id })));
   story.scenes.forEach((scene) => {
+    const sceneVariableNames = [...variableNames, ...Object.keys(scene.variables || {})];
     if (scene.background && !assetIds.includes(scene.background)) {
       errors.push(translate(language, "missingBackground", { scene: scene.id, asset: scene.background }));
     }
@@ -333,6 +335,11 @@ export function validateStory(story, language) {
     }
     duplicates(scene.choices.map((choice) => choice.id)).forEach((id) => {
       errors.push(translate(language, "duplicateChoiceId", { scene: scene.id, id }));
+    });
+    extractTextVariables(scene.text).forEach((variable) => {
+      if (!sceneVariableNames.includes(variable)) {
+        errors.push(translate(language, "missingTextVariable", { scene: scene.id, variable }));
+      }
     });
     scene.choices.forEach((choice) => {
       if (!sceneIds.includes(choice.target)) {
@@ -383,6 +390,10 @@ export function validateStory(story, language) {
     });
   });
   return errors;
+}
+
+export function extractTextVariables(text) {
+  return [...new Set([...String(text || "").matchAll(/\{\{\s*([^{}\s]+)\s*}}/g)].map((match) => match[1]))];
 }
 
 export function duplicates(values) {

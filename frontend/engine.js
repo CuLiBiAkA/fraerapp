@@ -183,6 +183,7 @@ const storage = {
 
 let sound = null;
 let soundRequested = false;
+let soundUnavailableReason = "";
 let lastImportedStoryId = null;
 let currentLanguage = storage.language;
 let currentState = null;
@@ -635,6 +636,8 @@ function render(state) {
   setStatus(state.status === "finished" ? t("sessionFinished") : t("progressSaved"));
   if (state.status === "finished") {
     stopSound({ resetPreference: true });
+  } else {
+    syncSoundToScene();
   }
 }
 
@@ -666,51 +669,46 @@ function stopSound({ resetPreference = false } = {}) {
   updateSoundLabel();
 }
 
+function syncSoundToScene() {
+  if (!soundRequested || !sound || !currentState) {
+    return;
+  }
+  sound.start(currentState.scene.musicUrl).catch((error) => {
+    stopSound({ resetPreference: true });
+    setStatus(t("errorPrefix", { message: error.message }));
+  });
+}
+
 function createSound() {
-  const AudioContext = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContext) {
+  if (typeof Audio === "undefined") {
+    soundUnavailableReason = t("webAudioUnsupported");
     return null;
   }
-  let context;
-  let gain;
-  let oscillators = [];
-  let enabled = false;
+  const audio = new Audio();
+  audio.loop = true;
+  audio.preload = "auto";
+  audio.volume = 0.45;
+  let currentUrl = "";
   return {
-    async start() {
-      if (enabled) {
+    async start(url) {
+      if (!url) {
+        audio.pause();
+        audio.removeAttribute("src");
+        currentUrl = "";
         return;
       }
-      if (!context) {
-        context = new AudioContext();
+      if (currentUrl !== url) {
+        audio.pause();
+        audio.src = url;
+        currentUrl = url;
       }
-      await context.resume();
-      gain = context.createGain();
-      gain.gain.value = 0.025;
-      gain.connect(context.destination);
-      oscillators = [146.83, 220, 293.66].map((frequency) => {
-        const osc = context.createOscillator();
-        osc.type = "sine";
-        osc.frequency.value = frequency;
-        osc.connect(gain);
-        osc.start();
-        return osc;
-      });
-      enabled = true;
+      if (!audio.paused) {
+        return;
+      }
+      await audio.play();
     },
     stop() {
-      for (const osc of oscillators) {
-        try {
-          osc.stop();
-        } catch (error) {
-          // Oscillators can only be stopped once; repeated stops are harmless.
-        }
-      }
-      oscillators = [];
-      if (gain) {
-        gain.disconnect();
-        gain = null;
-      }
-      enabled = false;
+      audio.pause();
     },
   };
 }
@@ -750,7 +748,7 @@ soundToggle.addEventListener("click", async () => {
     sound = createSound();
   }
   if (!sound) {
-    setStatus(t("webAudioUnsupported"));
+    setStatus(soundUnavailableReason || t("webAudioUnsupported"));
     return;
   }
   if (soundRequested) {
@@ -759,7 +757,7 @@ soundToggle.addEventListener("click", async () => {
   }
   try {
     soundRequested = true;
-    await sound.start();
+    await sound.start(currentState?.scene?.musicUrl);
     updateSoundLabel();
   } catch (error) {
     stopSound({ resetPreference: true });

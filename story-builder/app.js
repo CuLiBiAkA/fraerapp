@@ -151,6 +151,8 @@ const translations = {
     expandedHint: "\u0420\u0430\u0437\u0432\u0435\u0440\u043d\u0443\u0442\u043e",
     sceneSummary: "{choices} \u0432\u044b\u0431\u043e\u0440\u043e\u0432, {effects} \u044d\u0444\u0444\u0435\u043a\u0442\u043e\u0432",
     sceneSummaryEnding: "{choices} \u0432\u044b\u0431\u043e\u0440\u043e\u0432, {effects} \u044d\u0444\u0444\u0435\u043a\u0442\u043e\u0432, \u0444\u0438\u043d\u0430\u043b",
+    insertVariableIntoText: "\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u044c \u043f\u0435\u0440\u0435\u043c\u0435\u043d\u043d\u0443\u044e",
+    noGlobalVariables: "\u041d\u0435\u0442 \u0433\u043b\u043e\u0431\u0430\u043b\u044c\u043d\u044b\u0445 \u043f\u0435\u0440\u0435\u043c\u0435\u043d\u043d\u044b\u0445",
     assetSummary: "\u0442\u0438\u043f: {type}",
     variableSummary: "\u0442\u0438\u043f: {type}",
     boardView: "\u041a\u0430\u0440\u0442\u0430 \u0441\u0446\u0435\u043d\u0430\u0440\u0438\u044f",
@@ -293,6 +295,7 @@ const translations = {
     duplicateChoiceId: "Scene {scene} has duplicate choice id: {id}.",
     missingTarget: "Choice {choice} in scene {scene} points to missing target {target}.",
     missingConditionVariable: "Condition in choice {choice} references missing variable {variable}.",
+    missingTextVariable: "Scene {scene} text references missing variable {variable}.",
     missingEffectVariableChoice: "Effect in choice {choice} references missing variable {variable}.",
     invalidIncChoice: "inc effect in choice {choice} must target number variable {variable}.",
     missingEffectVariableScene: "Scene {scene} effect references missing variable {variable}.",
@@ -311,6 +314,8 @@ const translations = {
     expandedHint: "Expanded",
     sceneSummary: "{choices} choices, {effects} effects",
     sceneSummaryEnding: "{choices} choices, {effects} effects, ending",
+    insertVariableIntoText: "Insert variable",
+    noGlobalVariables: "No global variables",
     assetSummary: "type: {type}",
     variableSummary: "type: {type}",
     boardView: "Scenario map",
@@ -667,7 +672,7 @@ function renderScenes() {
     identityFields.append(
       field(t("idLabel"), input(scene.id, (value) => (scene.id = value))),
       field(t("titleLabel"), input(scene.title, (value) => (scene.title = value))),
-      field(t("textLabel"), textarea(scene.text, (value) => (scene.text = value), 4), "field-wide"),
+      sceneTextField(scene),
     );
     const mediaFields = div("form-panel form-grid two");
     mediaFields.append(
@@ -962,6 +967,9 @@ function validateStory(story) {
     if (scene.background && !sceneAssetIds.includes(scene.background)) errors.push(t("missingBackground", { scene: scene.id, asset: scene.background }));
     if (scene.music && !sceneAssetIds.includes(scene.music)) errors.push(t("missingMusic", { scene: scene.id, asset: scene.music }));
     duplicates(scene.choices.map((choice) => choice.id)).forEach((id) => errors.push(t("duplicateChoiceId", { scene: scene.id, id })));
+    extractTextVariables(scene.text).forEach((variable) => {
+      if (!variableNames.includes(variable)) errors.push(t("missingTextVariable", { scene: scene.id, variable }));
+    });
     scene.choices.forEach((choice) => {
       if (!sceneIds.includes(choice.target)) errors.push(t("missingTarget", { choice: choice.id, scene: scene.id, target: choice.target }));
       if (choice.fallbackTarget && !sceneIds.includes(choice.fallbackTarget)) errors.push(t("missingTarget", { choice: choice.id, scene: scene.id, target: choice.fallbackTarget }));
@@ -981,6 +989,10 @@ function validateStory(story) {
     });
   });
   return errors;
+}
+
+function extractTextVariables(text) {
+  return [...new Set([...String(text || "").matchAll(/\{\{\s*([^{}\s]+)\s*}}/g)].map((match) => match[1]))];
 }
 
 function fromStoryJson(story) {
@@ -1197,6 +1209,43 @@ function textarea(value, onChange, rows = 3) {
   return el;
 }
 
+function sceneTextField(scene) {
+  const wrap = div("field-wide variable-text-field");
+  const label = document.createElement("span");
+  label.className = "field-label";
+  label.textContent = t("textLabel");
+  const control = textarea(scene.text, (value) => (scene.text = value), 4);
+  const tools = div("variable-insert-tools");
+  const names = draft.variables.map((variable) => variable.name).filter(Boolean);
+  if (!names.length) {
+    const empty = document.createElement("span");
+    empty.className = "muted-hint";
+    empty.textContent = t("noGlobalVariables");
+    tools.append(empty);
+  }
+  names.forEach((name) => {
+    const insert = button(`{{${name}}}`, () => {
+      insertTextAtCursor(control, `{{${name}}}`);
+      scene.text = control.value;
+      renderPreview();
+      saveDraft();
+      control.focus();
+    });
+    insert.title = `${t("insertVariableIntoText")}: ${name}`;
+    tools.append(insert);
+  });
+  wrap.append(label, control, tools);
+  return wrap;
+}
+
+function insertTextAtCursor(control, text) {
+  const start = control.selectionStart ?? control.value.length;
+  const end = control.selectionEnd ?? control.value.length;
+  control.value = `${control.value.slice(0, start)}${text}${control.value.slice(end)}`;
+  const nextPosition = start + text.length;
+  control.setSelectionRange(nextPosition, nextPosition);
+}
+
 function selectField(labelText, options, selected, onChange) {
   const select = document.createElement("select");
   fillSelect(select, keepSelectedOption(options, selected), false);
@@ -1251,6 +1300,7 @@ function assetUploadField(asset, scene = null) {
     if (!file) return;
     const scrollState = captureScrollState();
     try {
+      applyAssetTypeFromFile(asset, file);
       await uploadAssetFile(asset, file, scene ? "local" : "global");
       render({ preserveScroll: true });
     } catch (error) {
@@ -1261,6 +1311,15 @@ function assetUploadField(asset, scene = null) {
     }
   };
   return field(t("uploadAsset"), picker);
+}
+
+function applyAssetTypeFromFile(asset, file) {
+  const contentType = file.type || "";
+  if (contentType.startsWith("audio/")) {
+    asset.type = "music";
+  } else if (contentType.startsWith("image/")) {
+    asset.type = "image";
+  }
 }
 
 function sceneAssetUploadField(scene, targetField) {

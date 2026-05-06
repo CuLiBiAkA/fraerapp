@@ -6,6 +6,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -18,6 +20,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 class GameService {
 
 	private static final String LOCAL_VARIABLES_KEY = "__sceneVariables";
+	private static final Pattern VARIABLE_PLACEHOLDER = Pattern.compile("\\{\\{\\s*([^{}\\s]+)\\s*}}");
 
 	private final PlayerRepository players;
 	private final StoryRepository stories;
@@ -196,7 +199,7 @@ class GameService {
 		RuntimeScene runtimeScene = new RuntimeScene(
 				scene.getSceneKey(),
 				scene.getTitle(),
-				scene.getText(),
+				interpolateText(scene.getText(), sceneVariables),
 				background == null ? localAssetUrls.get(scene.getBackgroundAssetId()) : background.getUrl(),
 				music == null ? localAssetUrls.get(scene.getMusicAssetId()) : music.getUrl(),
 				json.readObject(scene.getAnimationJson()),
@@ -427,6 +430,36 @@ class GameService {
 
 	private boolean blank(String value) {
 		return value == null || value.isBlank();
+	}
+
+	private String interpolateText(String text, Map<String, Object> variables) {
+		if (text == null || text.isBlank()) {
+			return text == null ? "" : text;
+		}
+		Matcher matcher = VARIABLE_PLACEHOLDER.matcher(text);
+		StringBuffer result = new StringBuffer();
+		while (matcher.find()) {
+			Object value = variables.get(matcher.group(1));
+			matcher.appendReplacement(result, Matcher.quoteReplacement(formatTextVariable(value)));
+		}
+		matcher.appendTail(result);
+		return result.toString();
+	}
+
+	private String formatTextVariable(Object value) {
+		if (value == null) {
+			return "";
+		}
+		if (value instanceof Double number && Math.rint(number) == number) {
+			return String.valueOf(number.longValue());
+		}
+		if (value instanceof Float number && Math.rint(number) == number) {
+			return String.valueOf(number.longValue());
+		}
+		if (value instanceof Map<?, ?> || value instanceof List<?>) {
+			return json.write(value);
+		}
+		return String.valueOf(value);
 	}
 
 	private String playerName(String playerId) {

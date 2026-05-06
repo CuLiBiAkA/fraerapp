@@ -86,6 +86,24 @@ class GameFlowTests {
 	}
 
 	@Test
+	void sessionInterpolatesVariablesAndReturnsMusicUrl() {
+		String key = "media_" + UUID.randomUUID().toString().replace("-", "");
+		String admin = TestJwtFactory.admin("admin@example.test");
+		ApiResponse imported = request("POST", "/api/admin/stories/import", variableMusicStory(key), null, admin);
+		assertThat(imported.status()).isEqualTo(HttpStatus.OK.value());
+		String storyId = imported.body().get("storyId").toString();
+		assertThat(request("POST", "/api/admin/stories/" + storyId + "/publish", null, null, admin).status()).isEqualTo(HttpStatus.OK.value());
+
+		String playerId = login("media-" + UUID.randomUUID());
+		ApiResponse session = createSession(playerId, key);
+		Map<String, Object> scene = castMap(session.body().get("scene"));
+
+		assertThat(scene).containsEntry("text", "Score: 3, name: Agent");
+		assertThat(scene).containsEntry("musicUrl", "/assets/silence.mp3");
+	}
+
+
+	@Test
 	void conditionBlocksUnavailableChoice() {
 		String playerId = login("blocked-" + UUID.randomUUID());
 		String sessionId = createSession(playerId, "night_train").body().get("sessionId").toString();
@@ -249,6 +267,35 @@ class GameFlowTests {
 				      "animation": {},
 				      "effects": [],
 				      "ending": { "type": "ok", "title": "Done" },
+				      "choices": []
+				    }
+				  ]
+				}
+				""".formatted(key);
+	}
+
+	private String variableMusicStory(String key) {
+		return """
+				{
+				  "key": "%s",
+				  "title": "Media variables",
+				  "description": "Imported during tests",
+				  "version": 1,
+				  "startSceneId": "start",
+				  "variables": { "score": 1, "name": "Agent" },
+				  "assets": [
+				    { "id": "bg", "type": "image", "url": "/assets/platform.svg" },
+				    { "id": "theme", "type": "music", "url": "/assets/silence.mp3" }
+				  ],
+				  "scenes": [
+				    {
+				      "id": "start",
+				      "title": "Start",
+				      "text": "Score: {{score}}, name: {{ name }}",
+				      "background": "bg",
+				      "music": "theme",
+				      "animation": {},
+				      "effects": [{ "inc": "score", "value": 2 }],
 				      "choices": []
 				    }
 				  ]
