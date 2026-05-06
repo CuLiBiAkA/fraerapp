@@ -24,6 +24,7 @@ const els = {
   langRu: document.querySelector("#lang-ru"),
   langEn: document.querySelector("#lang-en"),
   quickAddScene: document.querySelector("#quick-add-scene"),
+  scrollTop: document.querySelector("#scroll-top"),
 };
 
 const translations = {
@@ -528,7 +529,7 @@ function setLanguage(language) {
 }
 
 function render(options = {}) {
-  const scrollY = options.preserveScroll ? window.scrollY : null;
+  const scrollState = options.preserveScroll ? captureScrollState() : null;
   applyTranslations();
   renderMeta();
   renderVariables();
@@ -539,9 +540,30 @@ function render(options = {}) {
   saveDraft();
   applyHashFocus();
   updateAuthorGate();
-  if (scrollY !== null) {
-    requestAnimationFrame(() => window.scrollTo({ top: scrollY }));
+  if (scrollState) {
+    restoreScrollState(scrollState);
   }
+}
+
+function captureScrollState() {
+  return {
+    windowY: window.scrollY,
+    editor: document.querySelector(".editor")?.scrollTop ?? 0,
+    preview: document.querySelector(".preview")?.scrollTop ?? 0,
+    project: document.querySelector(".project-panel")?.scrollTop ?? 0,
+  };
+}
+
+function restoreScrollState(state) {
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: state.windowY });
+    const editor = document.querySelector(".editor");
+    const preview = document.querySelector(".preview");
+    const project = document.querySelector(".project-panel");
+    if (editor) editor.scrollTop = state.editor;
+    if (preview) preview.scrollTop = state.preview;
+    if (project) project.scrollTop = state.project;
+  });
 }
 
 function renderMeta() {
@@ -584,7 +606,7 @@ function renderVariables() {
         const previousValue = variable.value;
         variable.type = value;
         variable.value = preserveValueForType(previousValue, previousType, value);
-        render();
+        render({ preserveScroll: true });
       }),
       typedValueField(variable, (value) => (variable.value = value)),
       checkboxField(t("showInStatsLabel"), Boolean(variable.showInStats), (checked) => (variable.showInStats = checked)),
@@ -721,7 +743,7 @@ function conditionsEditor(conditions, scene) {
         const previousValue = condition.value;
         condition.variable = value;
         condition.value = preserveValueForType(previousValue, previousType, variableType(value, scene));
-        render();
+        render({ preserveScroll: true });
       }),
       selectField(t("operatorLabel"), ["==", "!=", ">=", "<=", ">", "<"], condition.op || "==", (value) => (condition.op = value || "==")),
       typedValueField({ type: variableType(condition.variable, scene), value: condition.value }, (value) => (condition.value = value)),
@@ -752,7 +774,7 @@ function effectsEditor(effects, title, scene = null) {
         } else {
           effect.value = coerceValue(variableType(effect.variable, scene), previousValue);
         }
-        render();
+        render({ preserveScroll: true });
       }),
       selectField(t("variableLabel"), variableNames, effect.variable, (value) => {
         const previousType = variableType(effect.variable, scene);
@@ -760,7 +782,7 @@ function effectsEditor(effects, title, scene = null) {
         effect.variable = value;
         const nextType = variableType(value, scene);
         effect.value = preserveValueForType(previousValue, previousType, nextType, effect.kind);
-        render();
+        render({ preserveScroll: true });
       }),
       effect.kind === "inc"
         ? field(t("valueLabel"), input(effect.value ?? 1, (value) => (effect.value = Number(value || 0)), "number"))
@@ -778,7 +800,7 @@ function endingEditor(scene) {
   checkbox.checked = Boolean(scene.endingEnabled);
   checkbox.onchange = () => {
     scene.endingEnabled = checkbox.checked;
-    render();
+    render({ preserveScroll: true });
   };
   const label = switchLabel(t("endingEnabled"), checkbox);
   wrap.append(rowTitle(t("endingTitle")), label);
@@ -1152,9 +1174,11 @@ function input(value, onChange, type = "text") {
   el.type = type;
   el.value = value ?? "";
   el.oninput = () => {
+    const scrollState = captureScrollState();
     onChange(type === "number" ? Number(el.value || 0) : el.value);
     renderPreview();
     saveDraft();
+    restoreScrollState(scrollState);
   };
   return el;
 }
@@ -1164,9 +1188,11 @@ function textarea(value, onChange, rows = 3) {
   el.rows = rows;
   el.value = value ?? "";
   el.oninput = () => {
+    const scrollState = captureScrollState();
     onChange(el.value);
     renderPreview();
     saveDraft();
+    restoreScrollState(scrollState);
   };
   return el;
 }
@@ -1177,7 +1203,7 @@ function selectField(labelText, options, selected, onChange) {
   select.value = selected ?? "";
   select.onchange = () => {
     onChange(select.value);
-    render();
+    render({ preserveScroll: true });
   };
   return field(labelText, select);
 }
@@ -1195,9 +1221,11 @@ function checkboxField(labelText, checked, onChange) {
   checkbox.type = "checkbox";
   checkbox.checked = checked;
   checkbox.onchange = () => {
+    const scrollState = captureScrollState();
     onChange(checkbox.checked);
     renderPreview();
     saveDraft();
+    restoreScrollState(scrollState);
   };
   return switchLabel(labelText, checkbox);
 }
@@ -1221,13 +1249,15 @@ function assetUploadField(asset, scene = null) {
   picker.onchange = async () => {
     const file = picker.files?.[0];
     if (!file) return;
+    const scrollState = captureScrollState();
     try {
       await uploadAssetFile(asset, file, scene ? "local" : "global");
-      render();
+      render({ preserveScroll: true });
     } catch (error) {
       els.apiResult.textContent = error.message;
     } finally {
       picker.value = "";
+      restoreScrollState(scrollState);
     }
   };
   return field(t("uploadAsset"), picker);
@@ -1240,6 +1270,7 @@ function sceneAssetUploadField(scene, targetField) {
   picker.onchange = async () => {
     const file = picker.files?.[0];
     if (!file) return;
+    const scrollState = captureScrollState();
     const asset = {
       id: uniqueDraftAssetId(`${scene.id || t("scenePrefix")}_${targetField}`, scene),
       type: targetField === "music" ? "music" : "image",
@@ -1258,6 +1289,7 @@ function sceneAssetUploadField(scene, targetField) {
       render({ preserveScroll: true });
     } finally {
       picker.value = "";
+      restoreScrollState(scrollState);
     }
   };
   return field(t("uploadSceneAsset"), picker);
@@ -2143,6 +2175,7 @@ async function fetchJson(url, options) {
 
 els.langRu.onclick = () => setLanguage("ru");
 els.langEn.onclick = () => setLanguage("en");
+els.scrollTop.onclick = () => window.scrollTo({ top: 0, behavior: "smooth" });
 els.authorLogin.onclick = () => loginAuthor().catch((error) => {
   els.authorState.textContent = error.message;
 });
@@ -2171,6 +2204,13 @@ window.addEventListener("hashchange", () => {
   lastAppliedHash = "";
   applyHashFocus();
 });
+
+function updateScrollTopButton() {
+  els.scrollTop.classList.toggle("is-visible", window.scrollY > 420);
+}
+
+window.addEventListener("scroll", updateScrollTopButton, { passive: true });
+updateScrollTopButton();
 
 render();
 bootstrapAuth().catch(() => {

@@ -132,6 +132,7 @@ h2 {
   width: min(1500px, calc(100% - 32px));
   margin: 0 auto;
   padding: 20px 0;
+  position: relative;
 }
 
 .topbar {
@@ -209,24 +210,24 @@ h2 {
   display: grid;
   align-content: start;
   gap: 16px;
-  max-height: calc(100vh - 178px);
-  overflow-y: auto;
-  overscroll-behavior-y: auto;
-  padding-right: 6px;
-  scrollbar-gutter: stable;
+  overflow-anchor: none;
 }
 
-.editor::-webkit-scrollbar,
+.preview {
+  position: static;
+  max-height: none;
+  overflow: visible;
+  overscroll-behavior-y: auto;
+  padding-right: 0;
+}
+
 .preview::-webkit-scrollbar,
-.project-panel::-webkit-scrollbar,
 pre::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
-.editor::-webkit-scrollbar-thumb,
 .preview::-webkit-scrollbar-thumb,
-.project-panel::-webkit-scrollbar-thumb,
 pre::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
@@ -234,9 +235,7 @@ pre::-webkit-scrollbar-thumb {
   background-clip: padding-box;
 }
 
-.editor::-webkit-scrollbar-track,
 .preview::-webkit-scrollbar-track,
-.project-panel::-webkit-scrollbar-track,
 pre::-webkit-scrollbar-track {
   background: transparent;
 }
@@ -332,11 +331,6 @@ pre::-webkit-scrollbar-track {
   background: #c83f32;
 }
 
-.preview,
-.project-panel {
-  position: static;
-}
-
 .project-group {
   display: grid;
   gap: 8px;
@@ -390,7 +384,7 @@ pre::-webkit-scrollbar-track {
 
 .floating-tools {
   position: fixed;
-  right: 18px;
+  right: 24px;
   bottom: 18px;
   z-index: 20;
   display: grid;
@@ -399,6 +393,19 @@ pre::-webkit-scrollbar-track {
 
 .floating-tools button {
   box-shadow: 0 10px 28px rgb(32 36 38 / 22%);
+}
+
+.scroll-top-button {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.scroll-top-button.is-visible {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .band {
@@ -658,12 +665,6 @@ dialog {
   .topbar {
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
-  }
-
-  .editor,
-  .preview,
-  .project-panel {
-    max-height: calc(100vh - 230px);
   }
 
   .layout {
