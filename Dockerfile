@@ -8,9 +8,10 @@ RUN ./gradlew :bootJar --no-daemon
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app
-RUN useradd --system --uid 1001 spring && mkdir -p /data && chown -R spring:spring /app /data
-USER spring
+RUN useradd --system --uid 1001 spring && mkdir -p /data/uploads && chown -R spring:spring /app /data
+COPY docker-entrypoint.sh /usr/local/bin/fraerapp-entrypoint
+RUN chmod +x /usr/local/bin/fraerapp-entrypoint
 COPY --from=build /workspace/build/libs/*.jar app.jar
 EXPOSE 8080
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
+ENTRYPOINT ["fraerapp-entrypoint"]
