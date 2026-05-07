@@ -1801,7 +1801,7 @@ async function uploadAssetFile(asset, file, scope = "global") {
     throw new Error(t("uploadAssetFirst"));
   }
   if (!lastImportedStoryId) {
-    await runtimeCall("import");
+    await importDraftToRuntime();
   }
   if (!lastImportedStoryId) {
     throw new Error(t("uploadAssetFirst"));
@@ -1838,6 +1838,7 @@ async function uploadAssetFile(asset, file, scope = "global") {
   asset.metadata = payload.metadata ? JSON.stringify(payload.metadata, null, 2) : "";
   renderPreview();
   saveDraft();
+  await importDraftToRuntime();
   els.apiResult.textContent = t("uploadAssetDone", { id: payload.id });
   return payload;
 }
@@ -2249,37 +2250,51 @@ document.querySelector("#import-runtime").onclick = () => runtimeCall("import");
 document.querySelector("#validate-runtime").onclick = () => runtimeCall("validate");
 document.querySelector("#publish-runtime").onclick = () => runtimeCall("publish");
 
+async function importDraftToRuntime(base = els.runtimeUrl.value.replace(/\/$/, "")) {
+  const payload = await fetchJson(`${base}/api/author/stories/import`, {
+    method: "POST",
+    headers: {
+      ...authorHeaders(true),
+      Accept: "application/json",
+    },
+    body: JSON.stringify(toStoryJson()),
+  });
+  if (payload.storyId) {
+    lastImportedStoryId = payload.storyId;
+    localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
+  }
+  await loadAuthorHome();
+  return payload;
+}
+
 async function runtimeCall(action) {
   try {
     const base = els.runtimeUrl.value.replace(/\/$/, "");
     if (canAuthor()) {
-      let path = `${base}/api/author/stories/import`;
-      let options = {
-        method: "POST",
-        headers: {
-          ...authorHeaders(true),
-          Accept: "application/json",
-        },
-        body: JSON.stringify(toStoryJson()),
-      };
+      let payload;
+      if (action === "import") {
+        payload = await importDraftToRuntime(base);
+        els.apiResult.textContent = JSON.stringify(payload, null, 2);
+        return;
+      }
       if (action === "validate" || action === "publish") {
+        await importDraftToRuntime(base);
         if (!lastImportedStoryId) throw new Error(t("importFirst"));
-        path = `${base}/api/author/stories/${lastImportedStoryId}/${action}`;
-        options = {
+        payload = await fetchJson(`${base}/api/author/stories/${lastImportedStoryId}/${action}`, {
           method: "POST",
           headers: {
             ...authorHeaders(false),
             Accept: "application/json",
           },
-        };
+        });
+        if (payload.storyId) {
+          lastImportedStoryId = payload.storyId;
+          localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
+        }
+        els.apiResult.textContent = JSON.stringify(payload, null, 2);
+        await loadAuthorHome();
+        return;
       }
-      const payload = await fetchJson(path, options);
-      if (payload.storyId) {
-        lastImportedStoryId = payload.storyId;
-        localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
-      }
-      els.apiResult.textContent = JSON.stringify(payload, null, 2);
-      await loadAuthorHome();
       return;
     }
     throw new Error(t("authorRoleMissing"));
