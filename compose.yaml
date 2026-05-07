@@ -71,6 +71,10 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-fraerapp-password}
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-dev-auth-secret-change-me-dev-auth-secret}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8088,http://localhost:8090,http://192.168.0.7:8088,http://192.168.0.7:8090}
+      ASSET_STORAGE_PATH: /data/uploads
+      ASSET_PUBLIC_PATH: /uploads
+    volumes:
+      - story-uploads:/data/uploads
     expose:
       - "8080"
     healthcheck:
@@ -124,3 +128,4 @@ services:
 volumes:
   postgres-data:
   auth-postgres-data:
+  story-uploads:

@@ -80,6 +80,19 @@ public class StoryAssetStorageService {
 		}
 	}
 
+	boolean deleteStoryFileByPublicUrl(String storyId, String url) {
+		Path file = filePathFromPublicUrl(storyId, url);
+		if (file == null || !Files.isRegularFile(file)) {
+			return false;
+		}
+		deleteQuietly(file);
+		return true;
+	}
+
+	boolean isStoryUploadUrl(String storyId, String url) {
+		return filePathFromPublicUrl(storyId, url) != null;
+	}
+
 	void deleteStoryFiles(String storyId) {
 		Path directory = storyDirectory(storyId);
 		if (!Files.isDirectory(directory)) {
@@ -107,6 +120,24 @@ public class StoryAssetStorageService {
 
 	private String publicUrl(String storyId, String filename) {
 		return normalizePublicPath() + "/" + safeSegment(storyId) + "/" + filename;
+	}
+
+	private Path filePathFromPublicUrl(String storyId, String url) {
+		if (url == null || url.isBlank()) {
+			return null;
+		}
+		String normalizedUrl = url.trim().replace('\\', '/');
+		String expectedPrefix = normalizePublicPath() + "/" + safeSegment(storyId) + "/";
+		if (!normalizedUrl.startsWith(expectedPrefix)) {
+			return null;
+		}
+		String filename = normalizedUrl.substring(expectedPrefix.length());
+		if (filename.isBlank() || filename.contains("/")) {
+			return null;
+		}
+		Path directory = storyDirectory(storyId);
+		Path target = directory.resolve(filename).normalize();
+		return target.startsWith(directory) ? target : null;
 	}
 
 	private String normalizePublicPath() {

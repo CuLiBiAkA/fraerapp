@@ -998,7 +998,7 @@ Import and publish validate these rules:
 
 The database stores story metadata, scenes, choices, asset URLs, game sessions and session variables JSON.
 
-Binary files are not stored in PostgreSQL. Images, music and sounds should be served from `frontend/assets`, an upload directory, object storage or another static file service.
+Binary files are not stored in PostgreSQL. Uploaded images, music and sounds are stored by the API in `ASSET_STORAGE_PATH` (`/data/uploads` in Docker) and served through `ASSET_PUBLIC_PATH` (`/uploads`). In Docker Compose this directory is backed by the named volume `story-uploads`, so uploaded files live on the server/host volume and are available to all users by public URLs like `/uploads/{storyId}/{file}`. Static bundled assets can still live in `frontend/assets`.
 
 Браузерная narrative game / visual novel с веб-интерфейсом на JavaScript, Java REST API, H2 и Nginx как edge proxy.
 

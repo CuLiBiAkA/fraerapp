@@ -142,6 +142,8 @@ Builder serializes to the same structure expected by backend admin import.
 - `src/main/resources/application.properties`
   - default port `8080`
   - PostgreSQL datasource via `SPRING_DATASOURCE_*`
+  - uploaded assets use `ASSET_STORAGE_PATH` defaulting to `/data/uploads`
+  - uploaded assets are served through `ASSET_PUBLIC_PATH` defaulting to `/uploads`
   - swagger at `/swagger-ui.html`
   - docs at `/api-docs`
   - admin token default: `dev-admin-token`
@@ -150,11 +152,12 @@ Builder serializes to the same structure expected by backend admin import.
   - `edge` exposes runtime on `8088` by default
   - `story-builder` exposes `8090`
   - `api` uses the `postgres` service with Docker volume `postgres-data`
+  - `api` stores uploaded story files in Docker volume `story-uploads` mounted at `/data/uploads`
   - `auth-service` uses the `auth-postgres` service with Docker volume `auth-postgres-data`
 
 - `nginx/nginx.conf`
   - serves static frontend
-  - proxies `/api/`, `/api-docs`, `/swagger-ui*`
+  - proxies `/api/`, `/uploads/`, `/api-docs`, `/swagger-ui*`
   - has basic rate limiting for API
 
 ## Tests

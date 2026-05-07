@@ -80,6 +80,13 @@ class AuthorStoryController {
 		return product.uploadAssetForAuthor(currentUser.requireAuthorPlayerId(), storyId, file, assetKey, type, scope);
 	}
 
+	@DeleteMapping("/stories/{storyId}/assets")
+	StoryProductService.DeletedAsset deleteAsset(@PathVariable String storyId,
+			@RequestParam(name = "assetKey", required = false) String assetKey,
+			@RequestParam(name = "url", required = false) String url) {
+		return product.deleteAssetForAuthor(currentUser.requireAuthorPlayerId(), storyId, assetKey, url);
+	}
+
 	@PostMapping("/stories/import")
 	StoryAdminService.ImportResponse importStory(@RequestBody String body) {
 		return product.importForAuthor(currentUser.requireAuthorPlayerId(), body);

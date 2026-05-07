@@ -108,6 +108,7 @@ const translations = {
     uploadAsset: "Загрузить файл",
     uploadAssetFirst: "Сначала импортируйте draft, чтобы появился storyId.",
     uploadAssetDone: "Ассет загружен: {id}",
+    deleteAssetDone: "Ассет удален: {id}",
     metadataJsonLabel: "JSON метаданных",
     textLabel: "Текст",
     backgroundLabel: "Фон",
@@ -270,6 +271,7 @@ const translations = {
     uploadAsset: "Upload file",
     uploadAssetFirst: "Import the draft first so it has a storyId.",
     uploadAssetDone: "Asset uploaded: {id}",
+    deleteAssetDone: "Asset deleted: {id}",
     metadataJsonLabel: "Metadata JSON",
     textLabel: "Text",
     backgroundLabel: "Background",
@@ -631,7 +633,7 @@ function renderAssets() {
       title: t("assetItem", { index: index + 1 }),
       subtitle: `${asset.id || `${t("assetPrefix")}_${index + 1}`} · ${t("assetSummary", { type: asset.type || "image" })}`,
       key: collapseKey("asset", index),
-      onRemove: () => removeAt(draft.assets, index),
+      onRemove: () => removeAssetAt(draft.assets, index, null),
       entityKind: "asset",
       entityId: asset.id || `${index}`,
     });
@@ -921,7 +923,7 @@ function localAssetsEditor(scene) {
   (scene.assets || []).forEach((asset, index) => {
     const item = div("item subitem");
     item.append(
-      rowHead(t("assetItem", { index: index + 1 }), () => removeAt(scene.assets, index)),
+      rowHead(t("assetItem", { index: index + 1 }), () => removeAssetAt(scene.assets, index, scene)),
       field(t("idLabel"), input(asset.id, (value) => (asset.id = value))),
       selectField(t("typeLabel"), ["image", "music", "sound", "video", "sprite"], asset.type, (value) => (asset.type = value)),
       field(t("urlLabel"), input(asset.url, (value) => (asset.url = value))),
@@ -1422,7 +1424,7 @@ function rowHead(title, onRemove) {
   const row = div("row-head");
   const strong = document.createElement("strong");
   strong.textContent = title;
-  row.append(strong, button(t("removeButton"), () => { onRemove(); render(); }, "danger small"));
+  row.append(strong, button(t("removeButton"), () => handleRemove(onRemove), "danger small"));
   return row;
 }
 
@@ -1514,10 +1516,24 @@ function summaryRemoveButton(onRemove) {
   el.onclick = (event) => {
     event.preventDefault();
     event.stopPropagation();
-    onRemove();
-    render();
+    handleRemove(onRemove);
   };
   return el;
+}
+
+function handleRemove(onRemove) {
+  try {
+    const result = onRemove();
+    if (result?.then) {
+      result.catch((error) => {
+        els.apiResult.textContent = error.message;
+      });
+    } else {
+      render();
+    }
+  } catch (error) {
+    els.apiResult.textContent = error.message;
+  }
 }
 
 function collapseKey(kind, value) {
@@ -1566,6 +1582,26 @@ function cssEscape(value) {
 function removeAt(list, index) {
   list.splice(index, 1);
   render();
+}
+
+async function removeAssetAt(list, index, scene = null) {
+  const asset = list[index];
+  if (!asset) return;
+  const deleted = list.splice(index, 1)[0];
+  if (scene) {
+    if (scene.background === deleted.id) scene.background = "";
+    if (scene.music === deleted.id) scene.music = "";
+  } else {
+    draft.scenes.forEach((candidate) => {
+      if (candidate.background === deleted.id) candidate.background = "";
+      if (candidate.music === deleted.id) candidate.music = "";
+    });
+  }
+  try {
+    await deleteUploadedAsset(deleted);
+  } finally {
+    render();
+  }
 }
 
 function renameVariable(variable, nextName, scene = null) {
@@ -1804,6 +1840,36 @@ async function uploadAssetFile(asset, file, scope = "global") {
   saveDraft();
   els.apiResult.textContent = t("uploadAssetDone", { id: payload.id });
   return payload;
+}
+
+async function deleteUploadedAsset(asset) {
+  if (!asset?.url || !isUploadedAssetUrl(asset.url) || !canAuthor() || !lastImportedStoryId) {
+    return null;
+  }
+  const base = els.runtimeUrl.value.replace(/\/$/, "");
+  const params = new URLSearchParams({ url: asset.url });
+  if (asset.id) {
+    params.set("assetKey", asset.id);
+  }
+  const response = await fetch(`${base}/api/author/stories/${lastImportedStoryId}/assets?${params}`, {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json",
+      ...authorHeaders(false),
+    },
+    credentials: "include",
+  });
+  const text = await response.text();
+  const payload = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
+  }
+  els.apiResult.textContent = t("deleteAssetDone", { id: asset.id || asset.url });
+  return payload;
+}
+
+function isUploadedAssetUrl(url) {
+  return typeof url === "string" && url.startsWith("/uploads/");
 }
 
 async function loginAuthor() {

@@ -185,6 +185,29 @@ class StoryProductService {
 		return new UploadedAsset(resolvedKey, resolvedType, stored.url(), metadata);
 	}
 
+	@Transactional
+	DeletedAsset deleteAssetForAuthor(String playerId, String storyId, String assetKey, String url) {
+		Story story = ownedStory(playerId, storyId);
+		String cleanKey = assetKey == null ? "" : assetKey.trim();
+		String cleanUrl = url == null ? "" : url.trim();
+		StoryAsset asset = cleanKey.isBlank()
+				? null
+				: assets.findByStoryIdAndAssetKey(story.getId(), cleanKey).orElse(null);
+		if (asset != null && cleanUrl.isBlank()) {
+			cleanUrl = asset.getUrl();
+		}
+		if (!assetStorage.isStoryUploadUrl(story.getId(), cleanUrl)) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only story upload assets can be deleted");
+		}
+		boolean fileDeleted = assetStorage.deleteStoryFileByPublicUrl(story.getId(), cleanUrl);
+		if (asset != null) {
+			assets.deleteByStoryIdAndAssetKey(story.getId(), cleanKey);
+			story.touch();
+			stories.save(story);
+		}
+		return new DeletedAsset(true, cleanKey.isBlank() ? null : cleanKey, cleanUrl, fileDeleted);
+	}
+
 	@Transactional(readOnly = true)
 	List<PublishedStorySummary> publishedCatalog(String playerId) {
 		Map<String, GameSession> lastSessionByStoryId = lastSessionByStoryId(playerId);
@@ -413,5 +436,8 @@ class StoryProductService {
 	}
 
 	record UploadedAsset(String id, String type, String url, Map<String, Object> metadata) {
+	}
+
+	record DeletedAsset(boolean deleted, String id, String url, boolean fileDeleted) {
 	}
 }

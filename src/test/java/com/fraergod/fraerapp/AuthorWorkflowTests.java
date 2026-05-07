@@ -3,6 +3,7 @@ package com.fraergod.fraerapp;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -102,6 +103,47 @@ class AuthorWorkflowTests {
 			assertThat(asset).containsEntry("id", "cover");
 			assertThat(asset.get("url").toString()).startsWith("/uploads/" + storyId + "/");
 		});
+	}
+
+	@Test
+	void authorCanDeleteUploadedAssetFromOwnedStory() {
+		String authorId = login("delete-asset-author-" + UUID.randomUUID());
+		String storyKey = "delete_asset_story_" + UUID.randomUUID().toString().replace("-", "");
+		ApiResponse imported = request("POST", "/api/author/stories/import", validStory(storyKey), authorId, null);
+		String storyId = imported.body().get("storyId").toString();
+
+		ApiResponse uploaded = multipart("/api/author/stories/" + storyId + "/assets", authorId, Map.of(
+				"assetKey", "cover",
+				"type", "image"), "cover.svg", "image/svg+xml", "<svg xmlns=\"http://www.w3.org/2000/svg\"/>");
+		String url = uploaded.body().get("url").toString();
+
+		ApiResponse deleted = request("DELETE", "/api/author/stories/" + storyId + "/assets?assetKey=cover&url=" + urlEncode(url), null, authorId, null);
+
+		assertThat(deleted.status()).isEqualTo(HttpStatus.OK.value());
+		assertThat(deleted.body()).containsEntry("deleted", true);
+		assertThat(deleted.body()).containsEntry("fileDeleted", true);
+		ApiResponse document = request("GET", "/api/author/stories/" + storyId + "/document", null, authorId, null);
+		assertThat(castList(document.body().get("assets"))).noneSatisfy(asset -> assertThat(asset).containsEntry("id", "cover"));
+	}
+
+	@Test
+	void authorAssetDeleteRejectsStaticAndForeignAssets() {
+		String ownerId = login("asset-owner-" + UUID.randomUUID());
+		String otherId = login("asset-other-" + UUID.randomUUID());
+		String storyKey = "asset_delete_reject_" + UUID.randomUUID().toString().replace("-", "");
+		ApiResponse imported = request("POST", "/api/author/stories/import", validStory(storyKey), ownerId, null);
+		String storyId = imported.body().get("storyId").toString();
+
+		ApiResponse staticDelete = request("DELETE", "/api/author/stories/" + storyId + "/assets?url=" + urlEncode("/assets/platform.svg"), null, ownerId, null);
+		assertThat(staticDelete.status()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+
+		ApiResponse uploaded = multipart("/api/author/stories/" + storyId + "/assets", ownerId, Map.of(
+				"assetKey", "cover",
+				"type", "image"), "cover.svg", "image/svg+xml", "<svg xmlns=\"http://www.w3.org/2000/svg\"/>");
+		String url = uploaded.body().get("url").toString();
+
+		ApiResponse forbidden = request("DELETE", "/api/author/stories/" + storyId + "/assets?assetKey=cover&url=" + urlEncode(url), null, otherId, null);
+		assertThat(forbidden.status()).isEqualTo(HttpStatus.FORBIDDEN.value());
 	}
 
 	@Test
@@ -269,6 +311,10 @@ class AuthorWorkflowTests {
 				--%s--\r
 				""").formatted(boundary, filename, contentType, fileBody, boundary).getBytes(StandardCharsets.UTF_8));
 		return HttpRequest.BodyPublishers.ofByteArrays(parts);
+	}
+
+	private String urlEncode(String value) {
+		return URLEncoder.encode(value, StandardCharsets.UTF_8);
 	}
 
 	private Map<String, Object> readMap(String body) {

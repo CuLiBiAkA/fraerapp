@@ -10,4 +10,6 @@ interface StoryAssetRepository extends JpaRepository<StoryAsset, String> {
 	List<StoryAsset> findByStoryId(String storyId);
 
 	Optional<StoryAsset> findByStoryIdAndAssetKey(String storyId, String assetKey);
+
+	void deleteByStoryIdAndAssetKey(String storyId, String assetKey);
 }
