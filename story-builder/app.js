@@ -8,6 +8,7 @@ const els = {
   variableOutline: document.querySelector("#variable-outline"),
   assetOutline: document.querySelector("#asset-outline"),
   sceneOutline: document.querySelector("#scene-outline"),
+  activeContext: document.querySelector("#active-context"),
   jsonPreview: document.querySelector("#json-preview"),
   validation: document.querySelector("#validation"),
   apiResult: document.querySelector("#api-result"),
@@ -361,11 +362,16 @@ const storageKey = "fraerapp.storyBuilderDraft";
 const languageKey = "fraerapp.storyBuilderLanguage";
 const authorStorageKey = "fraerapp.storyBuilderAuthor";
 const collapseStateKey = "fraerapp.storyBuilderCollapseState";
+const outlineStateKey = "fraerapp.storyBuilderOutlineState";
 const runtimeUrlStorageKey = "fraerapp.storyBuilderRuntimeUrl";
 let lastImportedStoryId = localStorage.getItem("fraerapp.storyBuilderLastStoryId");
 let currentLanguage = localStorage.getItem(languageKey) || "ru";
 let collapseState = loadCollapseState();
+let outlineState = loadOutlineState();
 let lastAppliedHash = "";
+let contextObserver = null;
+let activeContextId = "";
+let contextScrollBound = false;
 
 function t(key, params = {}) {
   const template = translations[currentLanguage]?.[key] ?? translations.ru[key] ?? key;
@@ -542,8 +548,9 @@ function render(options = {}) {
   renderVariables();
   renderAssets();
   renderScenes();
-  renderProjectOutline();
+  renderProjectOutlineExplorer();
   renderPreview();
+  setupContextTracking();
   saveDraft();
   applyHashFocus();
   updateAuthorGate();
@@ -573,6 +580,120 @@ function restoreScrollState(state) {
   });
 }
 
+function contextId(...parts) {
+  return parts.map((part) => String(part ?? "").replace(/[^a-zA-Z0-9_-]+/g, "_")).join("__");
+}
+
+function annotateContext(node, { id, kind, title, subtitle = "", depth = 0, path = "" }) {
+  node.dataset.contextId = id;
+  node.dataset.contextKind = kind;
+  node.dataset.contextTitle = title;
+  node.dataset.contextSubtitle = subtitle;
+  node.dataset.contextDepth = String(depth);
+  node.dataset.contextPath = path || title;
+  return node;
+}
+
+function setupContextTracking() {
+  const contexts = [...document.querySelectorAll(".editor [data-context-id]")];
+  if (contextObserver) {
+    contextObserver.disconnect();
+  }
+  contextObserver = new IntersectionObserver(() => updateActiveContextFromViewport(), {
+    root: null,
+    rootMargin: "-84px 0px -55% 0px",
+    threshold: [0, 0.1, 0.35],
+  });
+  contexts.forEach((node) => contextObserver.observe(node));
+  if (!contextScrollBound) {
+    window.addEventListener("scroll", scheduleActiveContextUpdate, { passive: true });
+    window.addEventListener("resize", scheduleActiveContextUpdate);
+    contextScrollBound = true;
+  }
+  requestAnimationFrame(updateActiveContextFromViewport);
+}
+
+let contextUpdateQueued = false;
+
+function scheduleActiveContextUpdate() {
+  if (contextUpdateQueued) return;
+  contextUpdateQueued = true;
+  requestAnimationFrame(() => {
+    contextUpdateQueued = false;
+    updateActiveContextFromViewport();
+  });
+}
+
+function updateActiveContextFromViewport() {
+  const contexts = [...document.querySelectorAll(".editor [data-context-id]")];
+  if (!contexts.length) return;
+  const anchor = els.activeContext?.getBoundingClientRect().bottom + 12 || 96;
+  let best = null;
+  for (const node of contexts) {
+    const rect = node.getBoundingClientRect();
+    if (rect.bottom < anchor) {
+      best = node;
+      continue;
+    }
+    if (rect.top <= anchor && rect.bottom >= anchor) {
+      if (!best || Number(node.dataset.contextDepth || 0) >= Number(best.dataset.contextDepth || 0)) {
+        best = node;
+      }
+    }
+  }
+  best ||= contexts.find((node) => node.getBoundingClientRect().bottom > anchor) || contexts[0];
+  setActiveContext(best);
+}
+
+function setActiveContext(node) {
+  if (!node) return;
+  activeContextId = node.dataset.contextId;
+  document.querySelectorAll("[data-context-id].is-context-active").forEach((current) => current.classList.remove("is-context-active"));
+  node.classList.add("is-context-active");
+  document.querySelectorAll("[data-outline-target].is-active").forEach((current) => current.classList.remove("is-active"));
+  document.querySelectorAll(".tree-folder.is-active-branch").forEach((current) => current.classList.remove("is-active-branch"));
+  const activeLinks = [...document.querySelectorAll(`[data-outline-target="${cssEscape(activeContextId)}"]`)];
+  activeLinks.forEach((link) => link.classList.add("is-active"));
+  revealActiveOutline(activeLinks[0]);
+  if (els.activeContext) {
+    els.activeContext.replaceChildren();
+    const kicker = document.createElement("span");
+    kicker.className = "active-context-kicker";
+    kicker.textContent = node.dataset.contextKind || "Story";
+    const title = document.createElement("strong");
+    title.textContent = node.dataset.contextPath || node.dataset.contextTitle || t("storyMetadata");
+    const subtitle = document.createElement("span");
+    subtitle.textContent = node.dataset.contextSubtitle || draft.title || draft.key || t("newStoryTitle");
+    els.activeContext.append(kicker, title, subtitle);
+  }
+}
+
+function revealActiveOutline(link) {
+  if (!link) return;
+  link.closest(".tree-folder")?.classList.add("is-active-branch");
+  link.closest(".outline-tree")?.querySelectorAll(".tree-folder.is-active-branch").forEach((folder) => {
+    if (!folder.contains(link)) folder.classList.remove("is-active-branch");
+  });
+  link.closest(".tree-folder")?.querySelectorAll(".tree-folder").forEach((folder) => {
+    if (folder.contains(link)) folder.classList.add("is-active-branch");
+  });
+  let parent = link.parentElement;
+  while (parent) {
+    if (parent.tagName === "DETAILS") {
+      parent.open = true;
+      parent.classList.add("is-active-branch");
+    }
+    parent = parent.parentElement;
+  }
+  const scroller = link.closest(".outline-tree");
+  if (!scroller) return;
+  const linkRect = link.getBoundingClientRect();
+  const scrollerRect = scroller.getBoundingClientRect();
+  if (linkRect.top < scrollerRect.top + 20 || linkRect.bottom > scrollerRect.bottom - 20) {
+    scroller.scrollTop += linkRect.top - scrollerRect.top - (scrollerRect.height / 2) + (linkRect.height / 2);
+  }
+}
+
 function renderMeta() {
   for (const input of els.meta) {
     const key = input.dataset.meta;
@@ -598,13 +719,21 @@ function renderVariables() {
     draft.variables.map((_, index) => collapseKey("variable", index)),
   );
   draft.variables.forEach((variable, index) => {
+    const contextTitle = t("variableItem", { index: index + 1 });
     const item = collapsibleItem({
-      title: t("variableItem", { index: index + 1 }),
+      title: contextTitle,
       subtitle: `${variable.name || `${t("variablePrefix")}_${index + 1}`} · ${t("variableSummary", { type: variable.type || "string" })}`,
       key: collapseKey("variable", index),
       onRemove: () => removeAt(draft.variables, index),
       entityKind: "variable",
       entityId: variable.name || `${index}`,
+    });
+    annotateContext(item, {
+      id: contextId("variable", index, variable.name || index),
+      kind: t("variablesTitle"),
+      title: contextTitle,
+      subtitle: variable.name || `${t("variablePrefix")}_${index + 1}`,
+      depth: 0,
     });
     item.append(
       field(t("nameLabel"), input(variable.name, (value) => renameVariable(variable, value))),
@@ -629,13 +758,21 @@ function renderAssets() {
     draft.assets.map((_, index) => collapseKey("asset", index)),
   );
   draft.assets.forEach((asset, index) => {
+    const contextTitle = t("assetItem", { index: index + 1 });
     const item = collapsibleItem({
-      title: t("assetItem", { index: index + 1 }),
+      title: contextTitle,
       subtitle: `${asset.id || `${t("assetPrefix")}_${index + 1}`} · ${t("assetSummary", { type: asset.type || "image" })}`,
       key: collapseKey("asset", index),
       onRemove: () => removeAssetAt(draft.assets, index, null),
       entityKind: "asset",
       entityId: asset.id || `${index}`,
+    });
+    annotateContext(item, {
+      id: contextId("asset", index, asset.id || index),
+      kind: t("assetsTitle"),
+      title: contextTitle,
+      subtitle: asset.id || `${t("assetPrefix")}_${index + 1}`,
+      depth: 0,
     });
     item.append(
       field(t("idLabel"), input(asset.id, (value) => (asset.id = value))),
@@ -658,8 +795,10 @@ function renderScenes() {
     scene.variables ||= [];
     scene.assets ||= [];
     const assetIds = assetOptions(scene);
+    const sceneContextId = contextId("scene", sceneIndex, scene.id || sceneIndex);
+    const sceneContextTitle = t("sceneItem", { index: sceneIndex + 1, name: scene.id || t("newSceneFallback") });
     const item = collapsibleItem({
-      title: t("sceneItem", { index: sceneIndex + 1, name: scene.id || t("newSceneFallback") }),
+      title: sceneContextTitle,
       subtitle: `${scene.title || t("sceneDefaultTitle")} · ${t(scene.endingEnabled ? "sceneSummaryEnding" : "sceneSummary", {
         choices: scene.choices.length,
         effects: scene.effects.length,
@@ -668,6 +807,14 @@ function renderScenes() {
       onRemove: () => removeAt(draft.scenes, sceneIndex),
       entityKind: "scene",
       entityId: scene.id || `${sceneIndex}`,
+    });
+    annotateContext(item, {
+      id: sceneContextId,
+      kind: t("scenesTitle"),
+      title: sceneContextTitle,
+      subtitle: scene.title || scene.id || t("sceneDefaultTitle"),
+      depth: 0,
+      path: sceneContextTitle,
     });
     item.append(sceneOrderControls(sceneIndex));
     const identityFields = div("form-panel scene-identity");
@@ -687,19 +834,28 @@ function renderScenes() {
     );
     item.append(
       identityFields,
-      localVariablesEditor(scene),
-      localAssetsEditor(scene),
+      localVariablesEditor(scene, sceneIndex),
+      localAssetsEditor(scene, sceneIndex),
       mediaFields,
-      effectsEditor(scene.effects, t("sceneEffects"), scene),
-      endingEditor(scene),
-      choicesEditor(scene),
+      effectsEditor(scene.effects, t("sceneEffects"), scene, { scope: "scene", sceneIndex }),
+      endingEditor(scene, sceneIndex),
+      choicesEditor(scene, sceneIndex),
     );
     els.scenes.append(item);
   });
 }
 
-function choicesEditor(scene) {
+function choicesEditor(scene, sceneIndex) {
   const wrap = div("nested nested-panel");
+  const scenePath = sceneContextPath(scene, sceneIndex);
+  annotateContext(wrap, {
+    id: contextId("scene", sceneIndex, "choices"),
+    kind: t("scenesTitle"),
+    title: t("choicesTitle"),
+    subtitle: scene.title || scene.id || t("sceneDefaultTitle"),
+    depth: 1,
+    path: `${scenePath} -> ${t("choicesTitle")}`,
+  });
   const add = button(t("addChoice"), () => {
     scene.choices.push({
       id: `${t("choicePrefix")}_${scene.choices.length + 1}`,
@@ -714,22 +870,40 @@ function choicesEditor(scene) {
   wrap.append(rowTitle(t("choicesTitle"), add));
   scene.choices.forEach((choice, index) => {
     const item = div("item subitem");
+    const choiceTitle = t("choiceItem", { index: index + 1 });
+    annotateContext(item, {
+      id: contextId("scene", sceneIndex, "choice", index, choice.id || index),
+      kind: t("choicesTitle"),
+      title: choiceTitle,
+      subtitle: choice.label || choice.id || t("choiceDefaultLabel"),
+      depth: 2,
+      path: `${scenePath} -> ${choiceTitle}`,
+    });
     item.append(
-      rowHead(t("choiceItem", { index: index + 1 }), () => removeAt(scene.choices, index)),
+      rowHead(choiceTitle, () => removeAt(scene.choices, index)),
       field(t("idLabel"), input(choice.id, (value) => (choice.id = value))),
       field(t("labelLabel"), input(choice.label, (value) => (choice.label = value))),
       selectField(t("targetSceneLabel"), draft.scenes.map((candidate) => candidate.id), choice.target, (value) => (choice.target = value)),
       selectField(t("fallbackTargetSceneLabel"), ["", ...draft.scenes.map((candidate) => candidate.id)], choice.fallbackTarget || "", (value) => (choice.fallbackTarget = value)),
-      conditionsEditor(choice.conditions, scene),
-      effectsEditor(choice.effects, t("choiceEffects"), scene),
+      conditionsEditor(choice.conditions, scene, { sceneIndex, choiceIndex: index, choice }),
+      effectsEditor(choice.effects, t("choiceEffects"), scene, { scope: "choice", sceneIndex, choiceIndex: index, choice }),
     );
     wrap.append(item);
   });
   return wrap;
 }
 
-function conditionsEditor(conditions, scene) {
+function conditionsEditor(conditions, scene, context = {}) {
   const wrap = div("nested nested-panel compact-panel");
+  const parentPath = choiceContextPath(scene, context.sceneIndex, context.choiceIndex, context.choice);
+  annotateContext(wrap, {
+    id: contextId("scene", context.sceneIndex ?? "x", "choice", context.choiceIndex ?? "x", "conditions"),
+    kind: t("choicesTitle"),
+    title: t("conditionsTitle"),
+    subtitle: context.choice?.label || context.choice?.id || t("choiceDefaultLabel"),
+    depth: 3,
+    path: `${parentPath} -> ${t("conditionsTitle")}`,
+  });
   const hint = document.createElement("p");
   hint.className = "summary-subtitle";
   hint.textContent = t("conditionRuntimeHint");
@@ -743,8 +917,17 @@ function conditionsEditor(conditions, scene) {
     const variableNames = variableOptions(scene);
     condition.op ||= "==";
     const item = div("item subitem");
+    const conditionTitle = t("conditionItem", { index: index + 1 });
+    annotateContext(item, {
+      id: contextId("scene", context.sceneIndex ?? "x", "choice", context.choiceIndex ?? "x", "condition", index),
+      kind: t("conditionsTitle"),
+      title: conditionTitle,
+      subtitle: `${condition.variable || t("variableLabel")} ${condition.op || "=="} ${condition.value ?? ""}`,
+      depth: 4,
+      path: `${parentPath} -> ${conditionTitle}`,
+    });
     item.append(
-      rowHead(t("conditionItem", { index: index + 1 }), () => removeAt(conditions, index)),
+      rowHead(conditionTitle, () => removeAt(conditions, index)),
       selectField(t("variableLabel"), variableNames, condition.variable, (value) => {
         const previousType = variableType(condition.variable, scene);
         const previousValue = condition.value;
@@ -760,8 +943,19 @@ function conditionsEditor(conditions, scene) {
   return wrap;
 }
 
-function effectsEditor(effects, title, scene = null) {
+function effectsEditor(effects, title, scene = null, context = {}) {
   const wrap = div("nested nested-panel compact-panel");
+  const parentPath = context.scope === "choice"
+    ? choiceContextPath(scene, context.sceneIndex, context.choiceIndex, context.choice)
+    : sceneContextPath(scene, context.sceneIndex);
+  annotateContext(wrap, {
+    id: contextId("scene", context.sceneIndex ?? "global", context.scope || "effects", context.choiceIndex ?? "", "effects"),
+    kind: context.scope === "choice" ? t("choicesTitle") : t("scenesTitle"),
+    title,
+    subtitle: context.choice?.label || scene?.title || scene?.id || "",
+    depth: context.scope === "choice" ? 3 : 1,
+    path: `${parentPath} -> ${title}`,
+  });
   wrap.append(rowTitle(title, button(t("addEffect"), () => {
     const variable = firstVariable(scene);
     effects.push({ kind: "set", variable, value: defaultValue(variableType(variable, scene)) });
@@ -771,8 +965,17 @@ function effectsEditor(effects, title, scene = null) {
     const variableNames = variableOptions(scene);
     const type = variableType(effect.variable, scene);
     const item = div("item");
+    const effectTitle = t("effectItem", { index: index + 1 });
+    annotateContext(item, {
+      id: contextId("scene", context.sceneIndex ?? "global", context.scope || "effect", context.choiceIndex ?? "", "effect", index),
+      kind: title,
+      title: effectTitle,
+      subtitle: `${effect.kind || "set"} ${effect.variable || t("variableLabel")}`,
+      depth: context.scope === "choice" ? 4 : 2,
+      path: `${parentPath} -> ${effectTitle}`,
+    });
     item.append(
-      rowHead(t("effectItem", { index: index + 1 }), () => removeAt(effects, index)),
+      rowHead(effectTitle, () => removeAt(effects, index)),
       selectField(t("kindLabel"), ["set", "inc"], effect.kind, (value) => {
         const previousValue = effect.value;
         effect.kind = value;
@@ -800,8 +1003,17 @@ function effectsEditor(effects, title, scene = null) {
   return wrap;
 }
 
-function endingEditor(scene) {
+function endingEditor(scene, sceneIndex) {
   const wrap = div("nested nested-panel compact-panel");
+  const scenePath = sceneContextPath(scene, sceneIndex);
+  annotateContext(wrap, {
+    id: contextId("scene", sceneIndex, "ending"),
+    kind: t("scenesTitle"),
+    title: t("endingTitle"),
+    subtitle: scene.title || scene.id || t("sceneDefaultTitle"),
+    depth: 1,
+    path: `${scenePath} -> ${t("endingTitle")}`,
+  });
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.checked = Boolean(scene.endingEnabled);
@@ -887,8 +1099,17 @@ function toStoryJson() {
   };
 }
 
-function localVariablesEditor(scene) {
+function localVariablesEditor(scene, sceneIndex) {
   const wrap = div("nested nested-panel");
+  const scenePath = sceneContextPath(scene, sceneIndex);
+  annotateContext(wrap, {
+    id: contextId("scene", sceneIndex, "variables"),
+    kind: t("scenesTitle"),
+    title: t("sceneLocalVariables"),
+    subtitle: scene.title || scene.id || t("sceneDefaultTitle"),
+    depth: 1,
+    path: `${scenePath} -> ${t("sceneLocalVariables")}`,
+  });
   wrap.append(rowTitle(t("sceneLocalVariables"), button(t("addVariable"), () => {
     scene.variables ||= [];
     scene.variables.push({ name: `${scene.id || t("scenePrefix")}_${t("variablePrefix")}_${scene.variables.length + 1}`, type: "string", value: "", showInStats: false });
@@ -896,8 +1117,17 @@ function localVariablesEditor(scene) {
   })));
   (scene.variables || []).forEach((variable, index) => {
     const item = div("item subitem");
+    const variableTitle = t("variableItem", { index: index + 1 });
+    annotateContext(item, {
+      id: contextId("scene", sceneIndex, "variable", index, variable.name || index),
+      kind: t("sceneLocalVariables"),
+      title: variableTitle,
+      subtitle: variable.name || `${t("variablePrefix")}_${index + 1}`,
+      depth: 2,
+      path: `${scenePath} -> ${variableTitle}`,
+    });
     item.append(
-      rowHead(t("variableItem", { index: index + 1 }), () => removeAt(scene.variables, index)),
+      rowHead(variableTitle, () => removeAt(scene.variables, index)),
       field(t("nameLabel"), input(variable.name, (value) => renameVariable(variable, value, scene))),
       selectField(t("typeLabel"), ["string", "number", "boolean"], variable.type, (value) => {
         const previousType = variable.type || "string";
@@ -913,8 +1143,17 @@ function localVariablesEditor(scene) {
   return wrap;
 }
 
-function localAssetsEditor(scene) {
+function localAssetsEditor(scene, sceneIndex) {
   const wrap = div("nested nested-panel");
+  const scenePath = sceneContextPath(scene, sceneIndex);
+  annotateContext(wrap, {
+    id: contextId("scene", sceneIndex, "assets"),
+    kind: t("scenesTitle"),
+    title: t("sceneLocalAssets"),
+    subtitle: scene.title || scene.id || t("sceneDefaultTitle"),
+    depth: 1,
+    path: `${scenePath} -> ${t("sceneLocalAssets")}`,
+  });
   wrap.append(rowTitle(t("sceneLocalAssets"), button(t("addAsset"), () => {
     scene.assets ||= [];
     scene.assets.push({ id: `${scene.id || t("scenePrefix")}_${t("assetPrefix")}_${scene.assets.length + 1}`, type: "image", url: "", metadata: "" });
@@ -922,8 +1161,17 @@ function localAssetsEditor(scene) {
   })));
   (scene.assets || []).forEach((asset, index) => {
     const item = div("item subitem");
+    const assetTitle = t("assetItem", { index: index + 1 });
+    annotateContext(item, {
+      id: contextId("scene", sceneIndex, "asset", index, asset.id || index),
+      kind: t("sceneLocalAssets"),
+      title: assetTitle,
+      subtitle: asset.id || `${t("assetPrefix")}_${index + 1}`,
+      depth: 2,
+      path: `${scenePath} -> ${assetTitle}`,
+    });
     item.append(
-      rowHead(t("assetItem", { index: index + 1 }), () => removeAssetAt(scene.assets, index, scene)),
+      rowHead(assetTitle, () => removeAssetAt(scene.assets, index, scene)),
       field(t("idLabel"), input(asset.id, (value) => (asset.id = value))),
       selectField(t("typeLabel"), ["image", "music", "sound", "video", "sprite"], asset.type, (value) => (asset.type = value)),
       field(t("urlLabel"), input(asset.url, (value) => (asset.url = value))),
@@ -933,6 +1181,16 @@ function localAssetsEditor(scene) {
     wrap.append(item);
   });
   return wrap;
+}
+
+function sceneContextPath(scene, sceneIndex) {
+  return t("sceneItem", { index: Number(sceneIndex ?? 0) + 1, name: scene?.id || t("newSceneFallback") });
+}
+
+function choiceContextPath(scene, sceneIndex, choiceIndex, choice = null) {
+  const scenePath = sceneContextPath(scene, sceneIndex);
+  const choiceTitle = t("choiceItem", { index: Number(choiceIndex ?? 0) + 1 });
+  return `${scenePath} -> ${choiceTitle}`;
 }
 
 function serializeVariable(variable) {
@@ -1768,6 +2026,24 @@ function loadCollapseState() {
   }
 }
 
+function outlineOpenState(key, fallback) {
+  return Object.hasOwn(outlineState, key) ? outlineState[key] !== false : fallback;
+}
+
+function saveOutlineOpenState(key, open) {
+  outlineState[key] = Boolean(open);
+  localStorage.setItem(outlineStateKey, JSON.stringify(outlineState));
+}
+
+function loadOutlineState() {
+  try {
+    const raw = localStorage.getItem(outlineStateKey);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 function authorHeaders(contentType = false) {
   const headers = {};
   if (contentType) {
@@ -2118,6 +2394,245 @@ function renderSimpleOutline(container, items, mapper) {
   });
 }
 
+function renderProjectOutlineTree() {
+  renderSimpleOutlineTree(els.variableOutline, draft.variables, (variable, index) => ({
+    label: variable.name || `${t("variablePrefix")}_${index + 1}`,
+    kind: "variable",
+    id: variable.name || `${index}`,
+    contextId: contextId("variable", index, variable.name || index),
+  }));
+  renderSimpleOutlineTree(els.assetOutline, draft.assets, (asset, index) => ({
+    label: asset.id || `${t("assetPrefix")}_${index + 1}`,
+    kind: "asset",
+    id: asset.id || `${index}`,
+    contextId: contextId("asset", index, asset.id || index),
+  }));
+  els.sceneOutline.replaceChildren();
+  els.sceneOutline.classList.add("outline-tree");
+  draft.scenes.forEach((scene, index) => {
+    const branch = div("outline-branch");
+    const item = div("outline-item");
+    const link = outlineButton(
+      `${index + 1}. ${scene.title || scene.id || t("sceneDefaultTitle")}`,
+      contextId("scene", index, scene.id || index),
+      0,
+      () => focusEntity("scene", scene.id || `${index}`),
+    );
+    const up = button("↑", () => moveScene(index, -1), "secondary small outline-move");
+    const down = button("↓", () => moveScene(index, 1), "secondary small outline-move");
+    up.title = t("moveUp");
+    down.title = t("moveDown");
+    up.disabled = index === 0;
+    down.disabled = index === draft.scenes.length - 1;
+    item.append(link, up, down);
+    branch.append(item, sceneOutlineChildren(scene, index));
+    els.sceneOutline.append(branch);
+  });
+}
+
+function renderSimpleOutlineTree(container, items, mapper) {
+  container.replaceChildren();
+  items.forEach((itemValue, index) => {
+    const item = div("outline-item");
+    const mapped = mapper(itemValue, index);
+    item.append(outlineButton(mapped.label, mapped.contextId, 0, () => focusEntity(mapped.kind, mapped.id)));
+    container.append(item);
+  });
+}
+
+function sceneOutlineChildren(scene, sceneIndex) {
+  const children = div("outline-children");
+  children.append(outlineButton(t("sceneLocalVariables"), contextId("scene", sceneIndex, "variables"), 1));
+  (scene.variables || []).forEach((variable, index) => {
+    children.append(outlineButton(`${t("variableItem", { index: index + 1 })}: ${variable.name || `${t("variablePrefix")}_${index + 1}`}`, contextId("scene", sceneIndex, "variable", index, variable.name || index), 2));
+  });
+  children.append(outlineButton(t("sceneLocalAssets"), contextId("scene", sceneIndex, "assets"), 1));
+  (scene.assets || []).forEach((asset, index) => {
+    children.append(outlineButton(`${t("assetItem", { index: index + 1 })}: ${asset.id || `${t("assetPrefix")}_${index + 1}`}`, contextId("scene", sceneIndex, "asset", index, asset.id || index), 2));
+  });
+  children.append(outlineButton(t("sceneEffects"), contextId("scene", sceneIndex, "scene", "", "effects"), 1));
+  (scene.effects || []).forEach((effect, index) => {
+    children.append(outlineButton(`${t("effectItem", { index: index + 1 })}: ${effect.kind || "set"} ${effect.variable || ""}`, contextId("scene", sceneIndex, "scene", "", "effect", index), 2));
+  });
+  children.append(outlineButton(t("endingTitle"), contextId("scene", sceneIndex, "ending"), 1));
+  children.append(outlineButton(t("choicesTitle"), contextId("scene", sceneIndex, "choices"), 1));
+  (scene.choices || []).forEach((choice, choiceIndex) => {
+    children.append(outlineButton(`${t("choiceItem", { index: choiceIndex + 1 })}: ${choice.label || choice.id || t("choiceDefaultLabel")}`, contextId("scene", sceneIndex, "choice", choiceIndex, choice.id || choiceIndex), 2));
+    children.append(outlineButton(t("conditionsTitle"), contextId("scene", sceneIndex, "choice", choiceIndex, "conditions"), 2));
+    (choice.conditions || []).forEach((condition, index) => {
+      children.append(outlineButton(`${t("conditionItem", { index: index + 1 })}: ${condition.variable || ""} ${condition.op || "=="} ${condition.value ?? ""}`, contextId("scene", sceneIndex, "choice", choiceIndex, "condition", index), 2));
+    });
+    children.append(outlineButton(t("choiceEffects"), contextId("scene", sceneIndex, "choice", choiceIndex, "effects"), 2));
+    (choice.effects || []).forEach((effect, index) => {
+      children.append(outlineButton(`${t("effectItem", { index: index + 1 })}: ${effect.kind || "set"} ${effect.variable || ""}`, contextId("scene", sceneIndex, "choice", choiceIndex, "effect", index), 2));
+    });
+  });
+  return children;
+}
+
+function outlineButton(label, targetContextId, depth = 0, fallback = null) {
+  const link = button(label, (event) => {
+    event.stopPropagation();
+    focusContext(targetContextId, fallback);
+  }, `secondary small outline-link depth-${depth}`);
+  link.title = t("openBlock");
+  link.dataset.outlineTarget = targetContextId;
+  return link;
+}
+
+function renderProjectOutlineExplorer() {
+  renderGlobalOutlineFolder(
+    els.variableOutline,
+    "global:variables",
+    t("globalVariablesTitle"),
+    draft.variables.map((variable, index) => ({
+      label: variable.name || `${t("variablePrefix")}_${index + 1}`,
+      kind: "variable",
+      id: variable.name || `${index}`,
+      contextId: contextId("variable", index, variable.name || index),
+    })),
+  );
+  renderGlobalOutlineFolder(
+    els.assetOutline,
+    "global:assets",
+    t("globalAssetsTitle"),
+    draft.assets.map((asset, index) => ({
+      label: asset.id || `${t("assetPrefix")}_${index + 1}`,
+      kind: "asset",
+      id: asset.id || `${index}`,
+      contextId: contextId("asset", index, asset.id || index),
+    })),
+  );
+
+  els.sceneOutline.replaceChildren();
+  els.sceneOutline.classList.add("outline-tree");
+  const scenesRoot = outlineFolder("scenes", true, t("scenePackagesTitle"), contextId("scene-root"), 0);
+  draft.scenes.forEach((scene, sceneIndex) => {
+    const folder = outlineFolder(`scene:${sceneIndex}:${scene.id || sceneIndex}`, true);
+    const row = div("tree-row");
+    row.append(
+      outlineButton(`${sceneIndex + 1}. ${scene.title || scene.id || t("sceneDefaultTitle")}`, contextId("scene", sceneIndex, scene.id || sceneIndex), 0, () => focusEntity("scene", scene.id || `${sceneIndex}`)),
+      outlineMoveButton("↑", t("moveUp"), () => moveScene(sceneIndex, -1), sceneIndex === 0),
+      outlineMoveButton("↓", t("moveDown"), () => moveScene(sceneIndex, 1), sceneIndex === draft.scenes.length - 1),
+    );
+    folder.querySelector("summary").append(row);
+    folder.append(explorerSceneChildren(scene, sceneIndex));
+    scenesRoot.append(folder);
+  });
+  els.sceneOutline.append(scenesRoot);
+}
+
+function renderGlobalOutlineFolder(container, key, label, items) {
+  container.replaceChildren();
+  container.classList.add("outline-tree");
+  const folder = outlineFolder(key, true, label, items[0]?.contextId || "", 0);
+  items.forEach((item) => {
+    folder.append(outlineLeaf(item.label, item.contextId, 1, () => focusEntity(item.kind, item.id)));
+  });
+  container.append(folder);
+}
+
+function explorerSceneChildren(scene, sceneIndex) {
+  const children = div("outline-children");
+  children.append(explorerFolderWithLeaves(
+    `scene:${sceneIndex}:variables`,
+    t("sceneLocalVariables"),
+    contextId("scene", sceneIndex, "variables"),
+    (scene.variables || []).map((variable, index) => ({
+      label: `${t("variableItem", { index: index + 1 })}: ${variable.name || `${t("variablePrefix")}_${index + 1}`}`,
+      context: contextId("scene", sceneIndex, "variable", index, variable.name || index),
+    })),
+  ));
+  children.append(explorerFolderWithLeaves(
+    `scene:${sceneIndex}:assets`,
+    t("sceneLocalAssets"),
+    contextId("scene", sceneIndex, "assets"),
+    (scene.assets || []).map((asset, index) => ({
+      label: `${t("assetItem", { index: index + 1 })}: ${asset.id || `${t("assetPrefix")}_${index + 1}`}`,
+      context: contextId("scene", sceneIndex, "asset", index, asset.id || index),
+    })),
+  ));
+  children.append(explorerFolderWithLeaves(
+    `scene:${sceneIndex}:effects`,
+    t("sceneEffects"),
+    contextId("scene", sceneIndex, "scene", "", "effects"),
+    (scene.effects || []).map((effect, index) => ({
+      label: `${t("effectItem", { index: index + 1 })}: ${effect.kind || "set"} ${effect.variable || ""}`,
+      context: contextId("scene", sceneIndex, "scene", "", "effect", index),
+    })),
+  ));
+  children.append(outlineLeaf(t("endingTitle"), contextId("scene", sceneIndex, "ending"), 1));
+
+  const choices = outlineFolder(`scene:${sceneIndex}:choices`, true, t("choicesTitle"), contextId("scene", sceneIndex, "choices"), 1);
+  (scene.choices || []).forEach((choice, choiceIndex) => {
+    const choiceFolder = outlineFolder(
+      `scene:${sceneIndex}:choice:${choiceIndex}:${choice.id || choiceIndex}`,
+      true,
+      `${t("choiceItem", { index: choiceIndex + 1 })}: ${choice.label || choice.id || t("choiceDefaultLabel")}`,
+      contextId("scene", sceneIndex, "choice", choiceIndex, choice.id || choiceIndex),
+      2,
+    );
+    choiceFolder.append(explorerFolderWithLeaves(
+      `scene:${sceneIndex}:choice:${choiceIndex}:conditions`,
+      t("conditionsTitle"),
+      contextId("scene", sceneIndex, "choice", choiceIndex, "conditions"),
+      (choice.conditions || []).map((condition, index) => ({
+        label: `${t("conditionItem", { index: index + 1 })}: ${condition.variable || ""} ${condition.op || "=="} ${condition.value ?? ""}`,
+        context: contextId("scene", sceneIndex, "choice", choiceIndex, "condition", index),
+      })),
+      2,
+    ));
+    choiceFolder.append(explorerFolderWithLeaves(
+      `scene:${sceneIndex}:choice:${choiceIndex}:effects`,
+      t("choiceEffects"),
+      contextId("scene", sceneIndex, "choice", choiceIndex, "effects"),
+      (choice.effects || []).map((effect, index) => ({
+        label: `${t("effectItem", { index: index + 1 })}: ${effect.kind || "set"} ${effect.variable || ""}`,
+        context: contextId("scene", sceneIndex, "choice", choiceIndex, "effect", index),
+      })),
+      2,
+    ));
+    choices.append(choiceFolder);
+  });
+  children.append(choices);
+  return children;
+}
+
+function explorerFolderWithLeaves(key, label, targetContextId, leaves, depth = 1) {
+  const folder = outlineFolder(key, false, label, targetContextId, depth);
+  leaves.forEach((leaf) => folder.append(outlineLeaf(leaf.label, leaf.context, Math.min(depth + 1, 2))));
+  return folder;
+}
+
+function outlineFolder(key, defaultOpen = false, label = "", targetContextId = "", depth = 0) {
+  const folder = document.createElement("details");
+  folder.className = "tree-folder";
+  folder.open = outlineOpenState(key, defaultOpen);
+  folder.ontoggle = () => saveOutlineOpenState(key, folder.open);
+  const summary = document.createElement("summary");
+  if (label) {
+    summary.append(outlineButton(label, targetContextId, depth));
+  }
+  folder.append(summary);
+  return folder;
+}
+
+function outlineLeaf(label, targetContextId, depth = 0, fallback = null) {
+  const row = div("tree-row");
+  row.append(outlineButton(label, targetContextId, depth, fallback));
+  return row;
+}
+
+function outlineMoveButton(label, title, onClick, disabled) {
+  const control = button(label, (event) => {
+    event.stopPropagation();
+    onClick();
+  }, "secondary small outline-move");
+  control.title = title;
+  control.disabled = disabled;
+  return control;
+}
+
 function sceneOrderControls(sceneIndex) {
   const row = div("actions tight scene-order");
   const up = button("↑ " + t("moveUp"), () => moveScene(sceneIndex, -1), "secondary small");
@@ -2143,6 +2658,17 @@ function focusEntity(kind, id) {
     target.open = true;
   }
   target.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function focusContext(targetContextId, fallback = null) {
+  const target = document.querySelector(`[data-context-id="${cssEscape(targetContextId)}"]`);
+  if (!target) {
+    fallback?.();
+    return;
+  }
+  target.closest("details.collapsible-item")?.setAttribute("open", "");
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+  setActiveContext(target);
 }
 
 async function openAuthorStory(storyId) {
