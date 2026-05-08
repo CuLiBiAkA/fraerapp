@@ -3,6 +3,7 @@ const storyScreen = document.querySelector("#story-screen");
 const sceneScreen = document.querySelector("#scene-screen");
 const loginForm = document.querySelector("#login-form");
 const usernameInput = document.querySelector("#username");
+const loginStatus = document.querySelector("#login-status");
 const storiesList = document.querySelector("#stories");
 const storySearch = document.querySelector("#story-search");
 const storySort = document.querySelector("#story-sort");
@@ -21,7 +22,10 @@ const playerName = document.querySelector("#player-name");
 const sceneNode = document.querySelector("#scene-node");
 const menuButton = document.querySelector("#menu-button");
 const logoutButton = document.querySelector("#logout");
+const soundControl = document.querySelector("#sound-control");
 const soundToggle = document.querySelector("#sound-toggle");
+const volumeSlider = document.querySelector("#volume-slider");
+const adminPanel = document.querySelector("#admin-panel");
 const adminToken = document.querySelector("#admin-token");
 const storyJson = document.querySelector("#story-json");
 const importStory = document.querySelector("#import-story");
@@ -32,29 +36,32 @@ const langEnButton = document.querySelector("#lang-en");
 
 const translations = {
   ru: {
-    loginEyebrow: "Поезд 404",
-    loginTitle: "Войдите по email",
-    loginSubtitle: "Мы отправим одноразовую ссылку для входа. Пароль не нужен.",
+    loginEyebrow: "FraerApp Stories",
+    loginTitle: "Войдите в библиотеку историй",
+    loginSubtitle: "Введите email, чтобы продолжить игру, открыть сохранения и запускать новые интерактивные истории.",
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
-    loginButton: "Отправить ссылку",
-    loginLinkSent: "Письмо отправлено. Откройте ссылку из email, чтобы войти.",
+    loginButton: "Получить ссылку",
+    loginLinkSent: "Ссылка отправлена. Проверьте почту и откройте письмо для входа.",
+    loginDevLink: "Открыть dev-ссылку для входа",
+    loginDevHint: "Локальный dev-режим: можно войти сразу по ссылке ниже.",
+    loginEndpointHint: "Откройте приложение через http://localhost:8088, чтобы работали вход и API.",
     adminSummary: "Админка истории",
     adminTokenLabel: "Админ-действия требуют роль admin",
     storyJsonLabel: "Story JSON",
     storyJsonPlaceholder: "Вставьте сюда Story JSON",
     importButton: "Импортировать",
     publishLastImportButton: "Опубликовать последний импорт",
-    storyScreenEyebrow: "Движок историй",
+    storyScreenEyebrow: "Библиотека FraerApp",
     storyScreenTitle: "Выберите историю",
-    storyScreenSubtitle: "Каждая история запускается через единый backend-движок.",
-    storySearchLabel: "Поиск историй",
-    storySearchPlaceholder: "Название или автор",
+    storyScreenSubtitle: "Интерактивные сюжеты с сохранением прогресса, финалами и личными маршрутами.",
+    storySearchLabel: "Поиск",
+    storySearchPlaceholder: "Название, автор или ключ",
     storySortLabel: "Сортировка",
-    sortLastPlayed: "Последний вход",
-    sortCompletion: "Процент прохождения",
-    sortPublishedAt: "Дата публикации",
-    sortUpdatedAt: "Дата обновления",
+    sortLastPlayed: "Недавний прогресс",
+    sortCompletion: "Прогресс",
+    sortPublishedAt: "Новые истории",
+    sortUpdatedAt: "Обновлены недавно",
     prevPage: "Назад",
     nextPage: "Вперед",
     pageLabel: "Страница {page} из {pages}",
@@ -70,14 +77,15 @@ const translations = {
     statEnabled: "Да",
     statDisabled: "Нет",
     storyRuns: "Запуски: {runs}",
-    finishedRuns: "Завершенные истории: {runs}",
+    finishedRuns: "Завершено: {runs}",
     completionPercent: "{percent}% пройдено",
     publishedDate: "Опубликовано: {date}",
     updatedDate: "Обновлено: {date}",
-    lastPlayedDate: "Последний вход: {date}",
+    lastPlayedDate: "Прогресс: {date}",
     noDate: "нет данных",
     soundOn: "Звук: включен",
     soundOff: "Звук: выключен",
+    volumeLabel: "Громкость",
     logoutButton: "Выйти",
     noStories: "Опубликованных историй пока нет.",
     endingLabel: "Финал: {title}",
@@ -91,26 +99,29 @@ const translations = {
     errorPrefix: "Ошибка: {message}",
   },
   en: {
-    loginEyebrow: "Train 404",
-    loginTitle: "Sign in by email",
-    loginSubtitle: "We will send a one-time sign-in link. No password required.",
+    loginEyebrow: "FraerApp Stories",
+    loginTitle: "Sign in to your story library",
+    loginSubtitle: "Enter your email to continue saved runs and launch new interactive stories.",
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
-    loginButton: "Send link",
-    loginLinkSent: "Email sent. Open the link from your mailbox to sign in.",
+    loginButton: "Get link",
+    loginLinkSent: "Sign-in link sent. Check your email and open the message to continue.",
+    loginDevLink: "Open dev sign-in link",
+    loginDevHint: "Local dev mode: you can sign in with the link below.",
+    loginEndpointHint: "Open the app through http://localhost:8088 so sign-in and API routes work.",
     adminSummary: "Story admin",
     adminTokenLabel: "Admin actions require the admin role",
     storyJsonLabel: "Story JSON",
     storyJsonPlaceholder: "Paste Story JSON here",
     importButton: "Import",
     publishLastImportButton: "Publish last import",
-    storyScreenEyebrow: "Story Engine",
+    storyScreenEyebrow: "FraerApp Library",
     storyScreenTitle: "Choose a story",
-    storyScreenSubtitle: "Every story runs through the same backend engine.",
-    storySearchLabel: "Search stories",
-    storySearchPlaceholder: "Title or author",
+    storyScreenSubtitle: "Interactive stories with saved progress, endings and personal routes.",
+    storySearchLabel: "Search",
+    storySearchPlaceholder: "Title, author or key",
     storySortLabel: "Sort",
-    sortLastPlayed: "Last played",
+    sortLastPlayed: "Recent progress",
     sortCompletion: "Completion",
     sortPublishedAt: "Published date",
     sortUpdatedAt: "Updated date",
@@ -133,10 +144,11 @@ const translations = {
     completionPercent: "{percent}% complete",
     publishedDate: "Published: {date}",
     updatedDate: "Updated: {date}",
-    lastPlayedDate: "Last played: {date}",
+    lastPlayedDate: "Progress: {date}",
     noDate: "no data",
     soundOn: "Sound: on",
     soundOff: "Sound: off",
+    volumeLabel: "Volume",
     logoutButton: "Log out",
     noStories: "No published stories yet.",
     endingLabel: "Ending: {title}",
@@ -161,6 +173,9 @@ const storage = {
   get language() {
     return localStorage.getItem("fraerapp.language") || "ru";
   },
+  get volume() {
+    return Number(localStorage.getItem("fraerapp.volume") ?? 45);
+  },
   setUser(user) {
     localStorage.setItem("fraerapp.email", user.email);
   },
@@ -170,6 +185,9 @@ const storage = {
   },
   setLanguage(language) {
     localStorage.setItem("fraerapp.language", language);
+  },
+  setVolume(volume) {
+    localStorage.setItem("fraerapp.volume", String(volume));
   },
   clearGame() {
     localStorage.removeItem("fraerapp.sessionId");
@@ -184,6 +202,7 @@ const storage = {
 let sound = null;
 let soundRequested = false;
 let soundUnavailableReason = "";
+let soundVolume = clamp(Number.isFinite(storage.volume) ? storage.volume : 45, 0, 100);
 let lastImportedStoryId = null;
 let currentLanguage = storage.language;
 let currentState = null;
@@ -272,8 +291,15 @@ async function request(path, options = {}) {
     credentials: "include",
     body: options.rawBody || (options.body ? JSON.stringify(options.body) : undefined),
   });
-  const text = await response.text();
-  const payload = text ? JSON.parse(text) : {};
+  const responseText = await response.text();
+  let payload = {};
+  if (responseText) {
+    try {
+      payload = JSON.parse(responseText);
+    } catch {
+      payload = { message: responseText.replace(/\s+/g, " ").trim() };
+    }
+  }
   if (!response.ok) {
     throw new Error(payload.message || `HTTP ${response.status}`);
   }
@@ -291,12 +317,47 @@ function updateTopActions(screen) {
   const loggedIn = Boolean(storage.email);
   const inScene = screen === sceneScreen;
   menuButton.classList.toggle("hidden", !loggedIn || screen === storyScreen);
-  soundToggle.classList.toggle("hidden", !inScene);
+  soundControl.classList.toggle("hidden", !inScene);
   logoutButton.classList.toggle("hidden", !loggedIn);
 }
 
 function setStatus(message) {
   status.textContent = message;
+}
+
+function setLoginStatus(message, tone = "info") {
+  loginStatus.replaceChildren();
+  loginStatus.textContent = message;
+  loginStatus.dataset.tone = tone;
+}
+
+async function showLoginLinkResult(email) {
+  loginStatus.replaceChildren();
+  loginStatus.dataset.tone = "success";
+  loginStatus.textContent = t("loginLinkSent");
+  try {
+    const dev = await request(`/auth/dev/magic-links?email=${encodeURIComponent(email)}`);
+    const link = dev.links?.[0]?.link;
+    if (!link) return;
+    const token = new URL(link).searchParams.get("auth_token");
+    if (token) {
+      setLoginStatus(t("loading"), "success");
+      const result = await api.verify(token);
+      storage.setUser(result.user);
+      window.history.replaceState({}, document.title, result.redirectPath || "/");
+      await afterLogin();
+      return;
+    }
+    loginStatus.replaceChildren();
+    const hint = document.createElement("span");
+    hint.textContent = t("loginDevHint");
+    const action = document.createElement("a");
+    action.href = link;
+    action.textContent = t("loginDevLink");
+    loginStatus.append(hint, action);
+  } catch {
+    // Production hides the dev magic-link endpoint; the email message is enough.
+  }
 }
 
 async function afterLogin() {
@@ -343,11 +404,6 @@ function renderGameStats(state) {
   sceneStatsList.replaceChildren();
   const variables = Object.entries(state.statsVariables || {});
   sceneStatsCount.textContent = t("sceneStatsCount", { count: variables.length });
-  const sceneCard = statCard(state.scene.title, state.story.title, "scene");
-  const storyByline = state.story.authorName ? `${state.story.title} / ${state.story.authorName}` : state.story.title;
-  const statusLabel = state.status === "finished" ? t("sessionFinished") : t("progressSaved");
-  const statusCard = statCard(statusLabel, `${storyByline} / ${state.scene.id}`, "status");
-  sceneStatsList.append(sceneCard, statusCard);
 
   if (variables.length === 0) {
     const empty = document.createElement("p");
@@ -391,13 +447,6 @@ function variableCard(name, value) {
     valueNode.classList.toggle("is-enabled", value);
   } else if (typeof value === "number") {
     valueNode.textContent = formatNumber(value);
-    if (value >= 0 && value <= 100) {
-      const track = document.createElement("span");
-      track.className = "variable-meter";
-      track.style.setProperty("--meter-width", `${value}%`);
-      item.append(header, valueNode, track);
-      return item;
-    }
   } else if (value == null) {
     valueNode.textContent = t("noDate");
   } else if (typeof value === "object") {
@@ -436,12 +485,12 @@ function renderStoryPage() {
   const query = storySearch.value.trim().toLowerCase();
   const filtered = sortStories(catalogStories.filter((story) => storyMatchesQuery(story, query)));
   if (catalogStories.length === 0) {
-    storiesList.textContent = t("noStories");
+    storiesList.append(emptyCatalogMessage(t("noStories")));
     storyPagination.classList.add("hidden");
     return;
   }
   if (filtered.length === 0) {
-    storiesList.textContent = t("noSearchResults");
+    storiesList.append(emptyCatalogMessage(t("noSearchResults")));
     storyPagination.classList.add("hidden");
     return;
   }
@@ -523,6 +572,20 @@ function metric(label, value) {
   return item;
 }
 
+function emptyCatalogMessage(message) {
+  const item = document.createElement("article");
+  item.className = "story-card catalog-empty";
+  const title = document.createElement("strong");
+  title.textContent = message;
+  const description = document.createElement("p");
+  description.className = "story-description";
+  description.textContent = currentLanguage === "en"
+    ? "New published stories will appear here automatically."
+    : "Новые опубликованные истории появятся здесь автоматически.";
+  item.append(title, description);
+  return item;
+}
+
 function actionButton(label, action, variant = "") {
   const button = document.createElement("button");
   button.type = "button";
@@ -538,25 +601,27 @@ function actionButton(label, action, variant = "") {
 
 function sortStories(stories) {
   const sortMode = storySort.value;
-  const lastPlayedStory = [...stories].sort((first, second) => compareDate(second.lastPlayedAt, first.lastPlayedAt))[0];
-  const rest = lastPlayedStory?.lastPlayedAt
-    ? stories.filter((story) => story !== lastPlayedStory)
-    : stories;
-  const sorted = [...rest].sort((first, second) => {
+  return [...stories].sort((first, second) => {
     if (sortMode === "completion") {
-      return compareNumber(second.completionRate, first.completionRate) || compareDate(second.lastPlayedAt, first.lastPlayedAt);
+      return compareNumber(second.completionRate, first.completionRate)
+        || compareDate(second.lastPlayedAt, first.lastPlayedAt)
+        || compareStoryTitle(first, second);
     }
     if (sortMode === "publishedAt") {
-      return compareDate(second.publishedAt, first.publishedAt) || compareDate(second.lastPlayedAt, first.lastPlayedAt);
+      return compareDate(second.publishedAt, first.publishedAt)
+        || compareDate(second.updatedAt, first.updatedAt)
+        || compareStoryTitle(first, second);
     }
     if (sortMode === "updatedAt") {
-      return compareDate(second.updatedAt, first.updatedAt) || compareDate(second.lastPlayedAt, first.lastPlayedAt);
+      return compareDate(second.updatedAt, first.updatedAt)
+        || compareDate(second.publishedAt, first.publishedAt)
+        || compareStoryTitle(first, second);
     }
     return compareDate(second.lastPlayedAt, first.lastPlayedAt)
       || compareDate(second.updatedAt, first.updatedAt)
-      || compareDate(second.publishedAt, first.publishedAt);
+      || compareDate(second.publishedAt, first.publishedAt)
+      || compareStoryTitle(first, second);
   });
-  return lastPlayedStory?.lastPlayedAt ? [lastPlayedStory, ...sorted] : sorted;
 }
 
 function compareNumber(first, second) {
@@ -565,6 +630,10 @@ function compareNumber(first, second) {
 
 function compareDate(first, second) {
   return dateValue(first) - dateValue(second);
+}
+
+function compareStoryTitle(first, second) {
+  return String(first.title || first.key || "").localeCompare(String(second.title || second.key || ""), currentLanguage);
 }
 
 function dateValue(value) {
@@ -586,6 +655,10 @@ function completionColor(rate) {
   const normalized = Math.max(0, Math.min(100, Number(rate ?? 0))) / 100;
   const hue = normalized * 120;
   return `hsl(${hue} 72% 46%)`;
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(Number(value) || 0, min), max);
 }
 
 function storyMatchesQuery(story, query) {
@@ -624,6 +697,7 @@ function render(state) {
   }
 
   for (const choice of scene.choices) {
+    if (!choice.id) continue;
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = choice.label;
@@ -657,6 +731,8 @@ function updateSoundLabel() {
   const state = soundRequested ? "on" : "off";
   soundToggle.dataset.soundState = state;
   soundToggle.textContent = t(soundRequested ? "soundOn" : "soundOff");
+  volumeSlider.value = String(soundVolume);
+  volumeSlider.style.setProperty("--volume-level", `${soundVolume}%`);
 }
 
 function stopSound({ resetPreference = false } = {}) {
@@ -673,6 +749,7 @@ function syncSoundToScene() {
   if (!soundRequested || !sound || !currentState) {
     return;
   }
+  sound.setVolume(soundVolume / 100);
   sound.start(currentState.scene.musicUrl).catch((error) => {
     stopSound({ resetPreference: true });
     setStatus(t("errorPrefix", { message: error.message }));
@@ -687,7 +764,7 @@ function createSound() {
   const audio = new Audio();
   audio.loop = true;
   audio.preload = "auto";
-  audio.volume = 0.45;
+  audio.volume = soundVolume / 100;
   let currentUrl = "";
   return {
     async start(url) {
@@ -710,6 +787,9 @@ function createSound() {
     stop() {
       audio.pause();
     },
+    setVolume(volume) {
+      audio.volume = clamp(volume, 0, 1);
+    },
   };
 }
 
@@ -719,11 +799,17 @@ loginForm.addEventListener("submit", async (event) => {
   if (!email) {
     return;
   }
+  const submitButton = loginForm.querySelector("button[type='submit']");
   try {
+    submitButton.disabled = true;
+    setLoginStatus(t("loading"));
     await api.loginLink(email);
-    alert(t("loginLinkSent"));
+    await showLoginLinkResult(email);
   } catch (error) {
-    alert(t("loginFailed", { message: error.message }));
+    const endpointHint = location.port === "4173" ? ` ${t("loginEndpointHint")}` : "";
+    setLoginStatus(`${t("loginFailed", { message: error.message })}${endpointHint}`, "error");
+  } finally {
+    submitButton.disabled = false;
   }
 });
 
@@ -757,11 +843,21 @@ soundToggle.addEventListener("click", async () => {
   }
   try {
     soundRequested = true;
+    sound.setVolume(soundVolume / 100);
     await sound.start(currentState?.scene?.musicUrl);
     updateSoundLabel();
   } catch (error) {
     stopSound({ resetPreference: true });
     setStatus(t("errorPrefix", { message: error.message }));
+  }
+});
+
+volumeSlider.addEventListener("input", () => {
+  soundVolume = clamp(Number(volumeSlider.value), 0, 100);
+  storage.setVolume(soundVolume);
+  updateSoundLabel();
+  if (sound) {
+    sound.setVolume(soundVolume / 100);
   }
 });
 
@@ -814,6 +910,7 @@ storiesNext.addEventListener("click", () => {
 sound = createSound();
 applyTranslations();
 updateSoundLabel();
+adminPanel.classList.toggle("hidden", new URLSearchParams(window.location.search).get("admin") !== "1");
 setStatus(t("loading"));
 const authToken = new URLSearchParams(window.location.search).get("auth_token");
 if (authToken) {

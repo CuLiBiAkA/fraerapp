@@ -3,35 +3,48 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>FraerApp Story</title>
-    <link rel="stylesheet" href="/styles.css?v=game-11">
+    <title>FraerApp Stories</title>
+    <link rel="stylesheet" href="/styles.css?v=game-13">
   </head>
   <body>
     <main class="game">
       <div class="top-actions" aria-label="Game actions">
-        <button id="menu-button" type="button" class="secondary hidden" data-i18n="menuButton">Stories</button>
-        <button id="sound-toggle" type="button" class="secondary hidden" data-i18n="soundOff">&#1047;&#1074;&#1091;&#1082;</button>
-        <button id="logout" type="button" class="secondary hidden" data-i18n="logoutButton">&#1042;&#1099;&#1081;&#1090;&#1080;</button>
-        <button id="lang-ru" type="button" class="secondary">RU</button>
-        <button id="lang-en" type="button" class="secondary">EN</button>
+        <div class="top-group top-group-session">
+          <button id="menu-button" type="button" class="secondary hidden" data-i18n="menuButton">Stories</button>
+          <button id="logout" type="button" class="secondary hidden" data-i18n="logoutButton">&#1042;&#1099;&#1081;&#1090;&#1080;</button>
+        </div>
+        <div id="sound-control" class="top-group sound-control hidden">
+          <button id="sound-toggle" type="button" class="secondary" data-i18n="soundOff">&#1047;&#1074;&#1091;&#1082;</button>
+          <div class="volume-field">
+            <label for="volume-slider" data-i18n="volumeLabel">Volume</label>
+            <input id="volume-slider" type="range" min="0" max="100" step="1" value="45">
+          </div>
+        </div>
+        <div class="top-group language-actions" aria-label="Language switcher">
+          <button id="lang-ru" type="button" class="secondary">RU</button>
+          <button id="lang-en" type="button" class="secondary">EN</button>
+        </div>
       </div>
 
       <section id="login-screen" class="login-screen" aria-label="Login">
-        <div>
-          <p class="eyebrow" data-i18n="loginEyebrow">&#1055;&#1086;&#1077;&#1079;&#1076; 404</p>
-          <h1 data-i18n="loginTitle">&#1053;&#1072;&#1079;&#1086;&#1074;&#1080; &#1089;&#1077;&#1073;&#1103;</h1>
-          <p data-i18n="loginSubtitle">&#1053;&#1086;&#1095;&#1085;&#1086;&#1081; &#1074;&#1086;&#1082;&#1079;&#1072;&#1083; &#1091;&#1078;&#1077; &#1079;&#1085;&#1072;&#1077;&#1090; &#1084;&#1072;&#1088;&#1096;&#1088;&#1091;&#1090;. &#1045;&#1084;&#1091; &#1086;&#1089;&#1090;&#1072;&#1083;&#1086;&#1089;&#1100; &#1091;&#1079;&#1085;&#1072;&#1090;&#1100;, &#1082;&#1090;&#1086; &#1076;&#1077;&#1088;&#1078;&#1080;&#1090; &#1073;&#1080;&#1083;&#1077;&#1090;.</p>
+        <div class="login-copy">
+          <p class="eyebrow" data-i18n="loginEyebrow">FraerApp Stories</p>
+          <h1 data-i18n="loginTitle">Войдите в библиотеку историй</h1>
+          <p data-i18n="loginSubtitle">Введите email, чтобы продолжить игру, открыть сохранения и запускать новые интерактивные истории.</p>
         </div>
 
         <form id="login-form" class="login-form">
-          <label for="username" data-i18n="usernameLabel">Email</label>
-          <div class="form-row">
-            <input id="username" name="email" type="email" maxlength="320" required autocomplete="email" data-i18n-placeholder="usernamePlaceholder" placeholder="you@example.com">
-            <button type="submit" data-i18n="loginButton">&#1042;&#1086;&#1081;&#1090;&#1080;</button>
+          <div class="login-card">
+            <label for="username" data-i18n="usernameLabel">Email</label>
+            <div class="form-row">
+              <input id="username" name="email" type="email" maxlength="320" required autocomplete="email" data-i18n-placeholder="usernamePlaceholder" placeholder="you@example.com">
+              <button type="submit" data-i18n="loginButton">Получить ссылку</button>
+            </div>
+            <p id="login-status" class="login-status" role="status" aria-live="polite"></p>
           </div>
         </form>
 
-        <section id="admin-panel" class="admin-panel" aria-label="Admin">
+        <section id="admin-panel" class="admin-panel hidden" aria-label="Admin">
           <details>
             <summary data-i18n="adminSummary">Story admin</summary>
             <input id="admin-token" type="hidden">
@@ -49,9 +62,9 @@
       <section id="story-screen" class="catalog-screen hidden" aria-label="Stories">
         <header class="catalog-header">
           <div>
-            <p class="eyebrow" data-i18n="storyScreenEyebrow">Story Engine</p>
+            <p class="eyebrow" data-i18n="storyScreenEyebrow">FraerApp Stories</p>
             <h1 data-i18n="storyScreenTitle">Choose a story</h1>
-            <p data-i18n="storyScreenSubtitle">Every story runs through the same backend engine.</p>
+            <p data-i18n="storyScreenSubtitle">Interactive stories with saved progress, endings and personal routes.</p>
           </div>
           <div class="catalog-tools">
             <div>
@@ -61,7 +74,7 @@
             <div>
               <label for="story-sort" data-i18n="storySortLabel">Sort</label>
               <select id="story-sort">
-                <option value="lastPlayed" data-i18n="sortLastPlayed">Last played</option>
+                <option value="lastPlayed" data-i18n="sortLastPlayed">Recent progress</option>
                 <option value="completion" data-i18n="sortCompletion">Completion</option>
                 <option value="publishedAt" data-i18n="sortPublishedAt">Published</option>
                 <option value="updatedAt" data-i18n="sortUpdatedAt">Updated</option>
@@ -91,8 +104,6 @@
 
         <article class="story-panel">
           <p id="status" class="status" role="status">&#1047;&#1072;&#1075;&#1088;&#1091;&#1079;&#1082;&#1072;...</p>
-          <h2 id="scene-title"></h2>
-          <p id="scene-text"></p>
           <details id="scene-stats" class="scene-stats">
             <summary>
               <span data-i18n="sceneStatsTitle">Stats</span>
@@ -100,11 +111,13 @@
             </summary>
             <div id="scene-stats-list" class="scene-stats-list"></div>
           </details>
+          <h2 id="scene-title"></h2>
+          <p id="scene-text"></p>
           <div id="choices" class="choices"></div>
         </article>
       </section>
     </main>
 
-    <script src="/engine.js?v=engine-10" type="module"></script>
+    <script src="/engine.js?v=engine-20" defer></script>
   </body>
 </html>
