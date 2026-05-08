@@ -71,6 +71,17 @@ const ui = {
     cardAdded: "Карточка добавлена",
     autoSavedLayout: "Автосейв",
     zoomReset: "100%",
+    addChoice: "+ выбор",
+    addChildScene: "+ сцена",
+    addSceneAsset: "+ файл",
+    addSceneVariable: "+ влож. перем.",
+    addCondition: "+ условие",
+    addEffect: "+ эффект",
+    deleteCard: "Удалить карточку",
+    resizeCard: "Изменить размер",
+    target: "Цель",
+    fallback: "Иначе",
+    quickActions: "Быстрые действия",
   },
   en: {
     title: "Scenario Map",
@@ -130,6 +141,17 @@ const ui = {
     cardAdded: "Card added",
     autoSavedLayout: "Autosave",
     zoomReset: "100%",
+    addChoice: "+ choice",
+    addChildScene: "+ scene",
+    addSceneAsset: "+ file",
+    addSceneVariable: "+ nested var",
+    addCondition: "+ condition",
+    addEffect: "+ effect",
+    deleteCard: "Delete card",
+    resizeCard: "Resize card",
+    target: "Target",
+    fallback: "Fallback",
+    quickActions: "Quick actions",
   },
 };
 
@@ -192,6 +214,8 @@ let connectState = {
   source: "",
 };
 let renderedCards = new Map();
+let renderedAnchors = new Map();
+let lineDrag = null;
 let cameraInitialized = false;
 
 function text(key, params = {}) {
@@ -246,6 +270,7 @@ function render() {
   applyLanguage();
   updateSummary();
   renderedCards = new Map();
+  renderedAnchors = new Map();
   els.canvas.replaceChildren();
   els.lines.replaceChildren();
   if (!hasEntities()) {
@@ -270,6 +295,8 @@ function normalizeBoardState() {
     boardState = defaultBoardState();
   }
   boardState.positions ||= {};
+  boardState.sizes ||= {};
+  boardState.lineAdjustments ||= {};
   boardState.notes ||= [];
   boardState.lines ||= [];
   boardState.camera ||= {};
@@ -281,6 +308,8 @@ function normalizeBoardState() {
 function defaultBoardState() {
   return {
     positions: loadLegacyPositions(),
+    sizes: {},
+    lineAdjustments: {},
     notes: [],
     lines: [],
     zoom: loadLegacyZoom(),
@@ -292,7 +321,7 @@ function updateSummary() {
   els.summaryScenesCount.textContent = String(draft.scenes?.length || 0);
   els.summaryVariablesCount.textContent = String(draft.variables?.length || 0);
   els.summaryAssetsCount.textContent = String(draft.assets?.length || 0);
-  els.summaryLinksCount.textContent = String((boardState.lines || []).length);
+  els.summaryLinksCount.textContent = String(allBoardLines().length);
 }
 
 function hasEntities() {
@@ -300,10 +329,9 @@ function hasEntities() {
 }
 
 function ensureEntityPositions() {
-  draft.variables.forEach((variable, index) => ensurePosition(entityKey("variable", variable.name || `variable-${index}`), layoutPoint("variable", index)));
-  draft.assets.forEach((asset, index) => ensurePosition(entityKey("asset", asset.id || `asset-${index}`), layoutPoint("asset", index)));
-  draft.scenes.forEach((scene, index) => ensurePosition(entityKey("scene", scene.id || `scene-${index}`), layoutPoint("scene", index)));
-  boardState.notes.forEach((note, index) => ensurePosition(entityKey("note", note.id), layoutPoint("note", index)));
+  const generated = buildAutoLayoutPositions();
+  entityKeys().forEach((key) => ensurePosition(key, generated[key] || { x: 0, y: 0 }));
+  pruneBoardState();
   persistBoardState();
 }
 
@@ -361,6 +389,7 @@ function createSceneCards() {
     });
 
     const body = card.querySelector(".card-body");
+    body.append(createSceneQuickActions(scene));
     const choices = scene.choices || [];
     if (choices.length) {
       const label = document.createElement("strong");
@@ -368,13 +397,32 @@ function createSceneCards() {
       body.append(label);
       const list = document.createElement("div");
       list.className = "choice-list";
-      choices.forEach((choice) => {
+      choices.forEach((choice, choiceIndex) => {
         const row = document.createElement("div");
         row.className = "choice-row";
-        const choiceLabel = document.createElement("span");
+        const choiceLabel = document.createElement("a");
         choiceLabel.className = "choice-label";
+        choiceLabel.href = `/index.html#scene:${encodeURIComponent(id)}`;
         choiceLabel.textContent = trimText(choice.label || choice.id || "choice", 26);
-        row.append(choiceLabel, pill(choice.target || "none"));
+        const target = document.createElement("div");
+        target.className = "choice-targets";
+        const targetPill = pill(`${text("target")}: ${choice.target || "none"}`);
+        targetPill.classList.add("choice-pin", "target-pin");
+        renderedAnchors.set(choiceLineId(scene.id, choice, choiceIndex, "target"), targetPill);
+        target.append(targetPill);
+        if (choice.fallbackTarget) {
+          const fallbackPill = pill(`${text("fallback")}: ${choice.fallbackTarget}`);
+          fallbackPill.classList.add("choice-pin", "fallback-pin");
+          renderedAnchors.set(choiceLineId(scene.id, choice, choiceIndex, "fallback"), fallbackPill);
+          target.append(fallbackPill);
+        }
+        const actions = document.createElement("div");
+        actions.className = "choice-actions";
+        actions.append(
+          miniAction(text("addCondition"), () => addChoiceCondition(id, choiceIndex)),
+          miniAction(text("addEffect"), () => addChoiceEffect(id, choiceIndex)),
+        );
+        row.append(choiceLabel, target, actions);
         list.append(row);
       });
       body.append(list);
@@ -413,7 +461,7 @@ function createNoteCards() {
   });
 }
 
-function createCard({ kind, id, title, subtitle, meta, href, editable = false, removable = false }) {
+function createCard({ kind, id, title, subtitle, meta, href, editable = false, removable = true }) {
   const card = document.createElement("article");
   card.className = "board-card";
   card.dataset.kind = kind;
@@ -421,6 +469,20 @@ function createCard({ kind, id, title, subtitle, meta, href, editable = false, r
 
   const head = document.createElement("div");
   head.className = "card-head";
+
+  if (removable) {
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "card-close";
+    closeButton.title = text("deleteCard");
+    closeButton.setAttribute("aria-label", text("deleteCard"));
+    closeButton.textContent = "x";
+    closeButton.onclick = (event) => {
+      event.stopPropagation();
+      removeEntity(kind, id);
+    };
+    head.append(closeButton);
+  }
 
   const kindTag = document.createElement("span");
   kindTag.className = "card-kind";
@@ -467,29 +529,26 @@ function createCard({ kind, id, title, subtitle, meta, href, editable = false, r
   };
   actions.append(connectButton);
 
-  if (removable) {
-    const removeButton = document.createElement("button");
-    removeButton.type = "button";
-    removeButton.className = "secondary small-button danger-button";
-    removeButton.textContent = text("remove");
-    removeButton.onclick = (event) => {
-      event.stopPropagation();
-      removeNote(id);
-    };
-    actions.append(removeButton);
-  }
-
   body.append(actions);
-  card.append(head, body);
+  const resizeHandle = document.createElement("button");
+  resizeHandle.type = "button";
+  resizeHandle.className = "resize-handle";
+  resizeHandle.title = text("resizeCard");
+  resizeHandle.setAttribute("aria-label", text("resizeCard"));
+  card.append(head, body, resizeHandle);
   makeDraggable(card, editable);
+  makeResizable(card);
   updateVisibility(card);
   return card;
 }
 
 function placeCard(card, key) {
   const point = boardState.positions[key] || { x: 24, y: 24 };
+  const size = boardState.sizes[key];
   card.style.left = `${point.x}px`;
   card.style.top = `${point.y}px`;
+  if (size?.width) card.style.width = `${size.width}px`;
+  if (size?.height) card.style.height = `${size.height}px`;
   els.canvas.append(card);
   renderedCards.set(key, card);
 }
@@ -498,7 +557,7 @@ function makeDraggable(card, editable) {
   let drag = null;
 
   card.addEventListener("pointerdown", (event) => {
-    if (event.target.closest("a,button,textarea,input,select")) return;
+    if (event.target.closest("a,button,textarea,input,select,.resize-handle")) return;
     const pointer = clientToWorld(event.clientX, event.clientY);
     drag = {
       key: entityKey(card.dataset.kind, card.dataset.id),
@@ -535,6 +594,45 @@ function makeDraggable(card, editable) {
   });
 }
 
+function makeResizable(card) {
+  const handle = card.querySelector(".resize-handle");
+  if (!handle) return;
+  let resize = null;
+
+  handle.addEventListener("pointerdown", (event) => {
+    event.stopPropagation();
+    resize = {
+      key: entityKey(card.dataset.kind, card.dataset.id),
+      startX: event.clientX,
+      startY: event.clientY,
+      width: card.offsetWidth,
+      height: card.offsetHeight,
+    };
+    card.classList.add("is-resizing");
+    handle.setPointerCapture(event.pointerId);
+  });
+
+  handle.addEventListener("pointermove", (event) => {
+    if (!resize) return;
+    const deltaX = (event.clientX - resize.startX) / boardState.zoom;
+    const deltaY = (event.clientY - resize.startY) / boardState.zoom;
+    const width = clamp(Math.round(resize.width + deltaX), 240, 680);
+    const height = clamp(Math.round(resize.height + deltaY), 180, 760);
+    card.style.width = `${width}px`;
+    card.style.height = `${height}px`;
+    boardState.sizes[resize.key] = { width, height };
+    drawLines();
+  });
+
+  handle.addEventListener("pointerup", (event) => {
+    if (!resize) return;
+    card.classList.remove("is-resizing");
+    handle.releasePointerCapture(event.pointerId);
+    resize = null;
+    persistBoardState();
+  });
+}
+
 function updateVisibility(card) {
   const matchesFilter = filterKind === "all" || card.dataset.kind === filterKind;
   const haystack = [
@@ -549,31 +647,74 @@ function updateVisibility(card) {
 
 function drawLines() {
   els.lines.replaceChildren();
-  boardState.lines.forEach((line) => {
+  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+  defs.innerHTML = `
+    <marker id="board-arrow-internal" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#075f7a"></path>
+    </marker>
+    <marker id="board-arrow-fallback" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#b35a05"></path>
+    </marker>
+    <marker id="board-arrow-manual" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#455a64"></path>
+    </marker>
+  `;
+  els.lines.append(defs);
+
+  const routeCounts = new Map();
+  allBoardLines().forEach((line, index) => {
     const from = renderedCards.get(line.from);
     const to = renderedCards.get(line.to);
     if (!from || !to) return;
     if (from.classList.contains("is-hidden") || to.classList.contains("is-hidden")) return;
-    const x1 = from.offsetLeft + from.offsetWidth / 2;
-    const y1 = from.offsetTop + from.offsetHeight / 2;
-    const x2 = to.offsetLeft + to.offsetWidth / 2;
-    const y2 = to.offsetTop + to.offsetHeight / 2;
-    const curve = Math.max(60, Math.abs(x2 - x1) / 2);
+    const routeKey = `${line.from}->${line.to}`;
+    const routeIndex = routeCounts.get(routeKey) || 0;
+    routeCounts.set(routeKey, routeIndex + 1);
+    const route = buildLineRoute(line, from, to, routeIndex, index);
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    path.setAttribute("d", `M ${x1} ${y1} C ${x1 + curve} ${y1}, ${x2 - curve} ${y2}, ${x2} ${y2}`);
-    path.setAttribute("class", "board-line");
+    path.setAttribute("d", route.path);
+    path.setAttribute("class", `board-line ${line.kind || "manual"}`);
+    path.setAttribute("marker-end", `url(#board-arrow-${line.kind || "manual"})`);
     path.setAttribute("data-line-id", line.id);
-    path.addEventListener("click", () => {
-      removeLine(line.id);
-    });
+    if (line.removable !== false) {
+      path.addEventListener("click", () => removeLine(line.id));
+    }
     els.lines.append(path);
+
+    if (line.label) {
+      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      label.setAttribute("class", `line-label ${line.kind || "manual"}`);
+      label.setAttribute("x", String(route.label.x));
+      label.setAttribute("y", String(route.label.y));
+      label.setAttribute("tabindex", "0");
+      label.setAttribute("role", "button");
+      label.textContent = trimText(line.label, 32);
+      label.addEventListener("pointerdown", (event) => startLineDrag(event, line.id, "label"));
+      els.lines.append(label);
+    }
+
+    const handle = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    handle.setAttribute("class", `line-route-handle ${line.kind || "manual"}`);
+    handle.setAttribute("tabindex", "0");
+    handle.setAttribute("role", "slider");
+    handle.setAttribute("aria-label", text("resizeCard"));
+    handle.setAttribute("transform", `translate(${route.handle.x} ${route.handle.y})`);
+    handle.addEventListener("pointerdown", (event) => startLineDrag(event, line.id, "route"));
+    const handleCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    handleCircle.setAttribute("r", "8");
+    const handleLine = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    handleLine.setAttribute("d", "M -4 0 L 4 0 M 0 -4 L 0 4");
+    handle.append(handleCircle, handleLine);
+    els.lines.append(handle);
+
+    if (line.removable === false) return;
 
     const deleteButton = document.createElementNS("http://www.w3.org/2000/svg", "g");
     deleteButton.setAttribute("class", "line-delete");
     deleteButton.setAttribute("tabindex", "0");
     deleteButton.setAttribute("role", "button");
     deleteButton.setAttribute("aria-label", text("remove"));
-    deleteButton.setAttribute("transform", `translate(${(x1 + x2) / 2} ${(y1 + y2) / 2})`);
+    deleteButton.setAttribute("transform", `translate(${route.label.x} ${route.label.y + 18})`);
     deleteButton.addEventListener("click", (event) => {
       event.stopPropagation();
       removeLine(line.id);
@@ -591,6 +732,157 @@ function drawLines() {
     deleteButton.append(circle, mark);
     els.lines.append(deleteButton);
   });
+}
+
+function buildLineRoute(line, fromCard, toCard, routeIndex, globalIndex) {
+  const adjustment = boardState.lineAdjustments?.[line.id] || {};
+  const anchor = renderedAnchors.get(line.anchorId);
+  const start = anchor ? elementWorldPoint(anchor, "right") : cardWorldPoint(fromCard, "right");
+  const toSide = toCard.offsetLeft >= fromCard.offsetLeft ? "left" : "right";
+  const end = cardWorldPoint(toCard, toSide);
+  const forward = end.x >= start.x;
+  const laneOffset = (routeIndex * 18) + ((globalIndex % 5) - 2) * 4;
+  const horizontalGap = Math.max(84, Math.min(220, Math.abs(end.x - start.x) * 0.42));
+  const forwardMidX = end.x - start.x > 140
+    ? Math.min(start.x + horizontalGap + laneOffset, end.x - 60)
+    : start.x + 90 + laneOffset;
+  const midX = (forward ? forwardMidX : Math.min(start.x, end.x) - 110 - laneOffset) + (Number(adjustment.routeDx) || 0);
+  const points = [
+    { x: start.x, y: start.y },
+    { x: midX, y: start.y },
+    { x: midX, y: end.y },
+    { x: end.x, y: end.y },
+  ];
+  const path = [
+    `M ${points[0].x} ${points[0].y}`,
+    `L ${points[1].x} ${points[1].y}`,
+    `L ${points[2].x} ${points[2].y}`,
+    `L ${points[3].x} ${points[3].y}`,
+  ].join(" ");
+  const label = pointOnPolyline(points, clamp(Number(adjustment.labelT) || 0.28, 0.08, 0.92));
+  return {
+    path,
+    label: {
+      x: Math.round(label.x),
+      y: Math.round(label.y - 4),
+    },
+    handle: {
+      x: Math.round(midX),
+      y: Math.round((start.y + end.y) / 2),
+    },
+    points,
+  };
+}
+
+function startLineDrag(event, lineId, mode) {
+  event.preventDefault();
+  event.stopPropagation();
+  const pointer = clientToWorld(event.clientX, event.clientY);
+  const base = boardState.lineAdjustments?.[lineId] || {};
+  lineDrag = {
+    id: lineId,
+    mode,
+    start: pointer,
+    base: {
+      labelT: Number(base.labelT) || 0.28,
+      routeDx: Number(base.routeDx) || 0,
+    },
+  };
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+}
+
+function updateLineDrag(event) {
+  if (!lineDrag) return;
+  const pointer = clientToWorld(event.clientX, event.clientY);
+  const dx = pointer.x - lineDrag.start.x;
+  const dy = pointer.y - lineDrag.start.y;
+  const next = { ...lineDrag.base };
+  if (lineDrag.mode === "label") {
+    const line = allBoardLines().find((item) => item.id === lineDrag.id);
+    const from = line ? renderedCards.get(line.from) : null;
+    const to = line ? renderedCards.get(line.to) : null;
+    if (line && from && to) {
+      const routeKey = `${line.from}->${line.to}`;
+      const sameRouteLines = allBoardLines().filter((item) => `${item.from}->${item.to}` === routeKey);
+      const routeIndex = Math.max(0, sameRouteLines.findIndex((item) => item.id === line.id));
+      const route = buildLineRoute(line, from, to, routeIndex, 0);
+      next.labelT = nearestPolylineT(route.points, pointer);
+    }
+  } else {
+    next.routeDx = Math.round(lineDrag.base.routeDx + dx);
+  }
+  boardState.lineAdjustments[lineDrag.id] = next;
+  drawLines();
+}
+
+function finishLineDrag() {
+  if (!lineDrag) return;
+  lineDrag = null;
+  persistBoardState();
+}
+
+function elementWorldPoint(element, side = "right") {
+  const rect = element.getBoundingClientRect();
+  const x = side === "left" ? rect.left : rect.right;
+  const y = rect.top + rect.height / 2;
+  return clientToWorld(x, y);
+}
+
+function cardWorldPoint(card, side = "right") {
+  const x = side === "left" ? card.offsetLeft : card.offsetLeft + card.offsetWidth;
+  return {
+    x,
+    y: card.offsetTop + Math.min(card.offsetHeight - 36, Math.max(48, card.offsetHeight / 2)),
+  };
+}
+
+function pointOnPolyline(points, t) {
+  const segments = polylineSegments(points);
+  const total = segments.reduce((sum, segment) => sum + segment.length, 0) || 1;
+  let distance = total * clamp(t, 0, 1);
+  for (const segment of segments) {
+    if (distance <= segment.length) {
+      const ratio = segment.length ? distance / segment.length : 0;
+      return {
+        x: segment.a.x + (segment.b.x - segment.a.x) * ratio,
+        y: segment.a.y + (segment.b.y - segment.a.y) * ratio,
+      };
+    }
+    distance -= segment.length;
+  }
+  return points[points.length - 1];
+}
+
+function nearestPolylineT(points, pointer) {
+  const segments = polylineSegments(points);
+  const total = segments.reduce((sum, segment) => sum + segment.length, 0) || 1;
+  let best = { distance: Infinity, length: 0 };
+  let walked = 0;
+  segments.forEach((segment) => {
+    const dx = segment.b.x - segment.a.x;
+    const dy = segment.b.y - segment.a.y;
+    const lengthSquared = Math.max(1, dx * dx + dy * dy);
+    const raw = ((pointer.x - segment.a.x) * dx + (pointer.y - segment.a.y) * dy) / lengthSquared;
+    const ratio = clamp(raw, 0, 1);
+    const x = segment.a.x + dx * ratio;
+    const y = segment.a.y + dy * ratio;
+    const distance = Math.hypot(pointer.x - x, pointer.y - y);
+    if (distance < best.distance) {
+      best = { distance, length: walked + segment.length * ratio };
+    }
+    walked += segment.length;
+  });
+  return clamp(best.length / total, 0.08, 0.92);
+}
+
+function polylineSegments(points) {
+  const segments = [];
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const a = points[index];
+    const b = points[index + 1];
+    segments.push({ a, b, length: Math.hypot(b.x - a.x, b.y - a.y) });
+  }
+  return segments;
 }
 
 function handleConnectClick(key) {
@@ -654,6 +946,137 @@ function updateLineHint(message = "") {
   }
 }
 
+function createSceneQuickActions(scene) {
+  const wrap = document.createElement("div");
+  wrap.className = "quick-actions";
+  const caption = document.createElement("span");
+  caption.className = "quick-actions-label";
+  caption.textContent = text("quickActions");
+  wrap.append(
+    caption,
+    miniAction(text("addChildScene"), () => addChildScene(scene.id)),
+    miniAction(text("addChoice"), () => addChoice(scene.id)),
+    miniAction(text("addSceneAsset"), () => addSceneAsset(scene.id)),
+    miniAction(text("addSceneVariable"), () => addSceneVariable(scene.id)),
+  );
+  return wrap;
+}
+
+function miniAction(label, handler) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "secondary micro-button";
+  button.textContent = label;
+  button.onclick = (event) => {
+    event.stopPropagation();
+    handler();
+  };
+  return button;
+}
+
+function addChoice(sceneId) {
+  const scene = findScene(sceneId);
+  if (!scene) return;
+  scene.choices ||= [];
+  const target = (draft.scenes || []).find((item) => item.id !== sceneId)?.id || sceneId;
+  scene.choices.push({
+    id: uniqueId("choice", scene.choices.map((choice) => choice.id)),
+    label: `${text("addChoice").replace("+ ", "")} ${scene.choices.length + 1}`,
+    target,
+    conditions: [],
+    effects: [],
+  });
+  persistDraft();
+  render();
+  updateLineHint(text("cardAdded"));
+}
+
+function addChildScene(sceneId) {
+  const parent = findScene(sceneId);
+  if (!parent) return;
+  const id = uniqueId("scene", draft.scenes.map((scene) => scene.id));
+  draft.scenes.push({
+    id,
+    title: `${text("sceneKind")} ${draft.scenes.length + 1}`,
+    text: "",
+    background: "",
+    music: "",
+    variables: [],
+    assets: [],
+    animationType: "fade-in",
+    animationDurationMs: 700,
+    effects: [],
+    endingEnabled: false,
+    endingType: "",
+    endingTitle: "",
+    choices: [],
+  });
+  parent.choices ||= [];
+  parent.choices.push({
+    id: uniqueId("choice", parent.choices.map((choice) => choice.id)),
+    label: `${text("sceneKind")} ${id}`,
+    target: id,
+    conditions: [],
+    effects: [],
+  });
+  const parentPoint = boardState.positions[entityKey("scene", sceneId)] || nextInsertionPoint();
+  boardState.positions[entityKey("scene", id)] = { x: parentPoint.x + 420, y: parentPoint.y + 120 };
+  persistDraft();
+  persistBoardState();
+  render();
+  updateLineHint(text("cardAdded"));
+}
+
+function addSceneAsset(sceneId) {
+  const scene = findScene(sceneId);
+  if (!scene) return;
+  scene.assets ||= [];
+  scene.assets.push({
+    id: uniqueId("scene_asset", scene.assets.map((asset) => asset.id)),
+    type: "image",
+    url: "",
+    metadata: "",
+  });
+  persistDraft();
+  render();
+  window.location.href = `/index.html#scene:${encodeURIComponent(sceneId)}`;
+}
+
+function addSceneVariable(sceneId) {
+  const scene = findScene(sceneId);
+  if (!scene) return;
+  scene.variables ||= [];
+  scene.variables.push({
+    name: uniqueId("local_variable", scene.variables.map((variable) => variable.name)),
+    type: "number",
+    value: 0,
+    showInStats: false,
+  });
+  persistDraft();
+  render();
+  window.location.href = `/index.html#scene:${encodeURIComponent(sceneId)}`;
+}
+
+function addChoiceCondition(sceneId, choiceIndex) {
+  const choice = findScene(sceneId)?.choices?.[choiceIndex];
+  if (!choice) return;
+  choice.conditions ||= [];
+  choice.conditions.push({ variable: draft.variables?.[0]?.name || "", op: ">=", value: 0 });
+  persistDraft();
+  render();
+  window.location.href = `/index.html#scene:${encodeURIComponent(sceneId)}`;
+}
+
+function addChoiceEffect(sceneId, choiceIndex) {
+  const choice = findScene(sceneId)?.choices?.[choiceIndex];
+  if (!choice) return;
+  choice.effects ||= [];
+  choice.effects.push({ type: "set", variable: draft.variables?.[0]?.name || "", value: 0 });
+  persistDraft();
+  render();
+  window.location.href = `/index.html#scene:${encodeURIComponent(sceneId)}`;
+}
+
 function addNote() {
   const note = {
     id: `note-${Date.now()}`,
@@ -712,9 +1135,62 @@ function addDraftEntityPosition(kind, id) {
 function removeNote(noteId) {
   boardState.notes = boardState.notes.filter((note) => note.id !== noteId);
   delete boardState.positions[entityKey("note", noteId)];
+  delete boardState.sizes[entityKey("note", noteId)];
   boardState.lines = boardState.lines.filter((line) => line.from !== entityKey("note", noteId) && line.to !== entityKey("note", noteId));
   persistBoardState();
   render();
+}
+
+function removeEntity(kind, id) {
+  if (kind === "note") {
+    removeNote(id);
+    return;
+  }
+  if (kind === "scene") {
+    draft.scenes = (draft.scenes || []).filter((scene) => scene.id !== id);
+    draft.scenes.forEach((scene) => {
+      scene.choices = (scene.choices || []).filter((choice) => choice.target !== id && choice.fallbackTarget !== id);
+    });
+    if (draft.startSceneId === id) draft.startSceneId = draft.scenes[0]?.id || "";
+  }
+  if (kind === "variable") {
+    draft.variables = (draft.variables || []).filter((variable) => variable.name !== id);
+    cleanVariableReferences(id);
+  }
+  if (kind === "asset") {
+    draft.assets = (draft.assets || []).filter((asset) => asset.id !== id);
+    cleanAssetReferences(id);
+  }
+  const key = entityKey(kind, id);
+  delete boardState.positions[key];
+  delete boardState.sizes[key];
+  boardState.lines = (boardState.lines || []).filter((line) => line.from !== key && line.to !== key);
+  persistDraft();
+  persistBoardState();
+  render();
+}
+
+function cleanVariableReferences(name) {
+  (draft.scenes || []).forEach((scene) => {
+    scene.variables = (scene.variables || []).filter((variable) => variable.name !== name);
+    scene.effects = (scene.effects || []).filter((effect) => effect.variable !== name);
+    (scene.choices || []).forEach((choice) => {
+      choice.conditions = (choice.conditions || []).filter((condition) => condition.variable !== name);
+      choice.effects = (choice.effects || []).filter((effect) => effect.variable !== name);
+    });
+  });
+}
+
+function cleanAssetReferences(id) {
+  (draft.scenes || []).forEach((scene) => {
+    if (scene.background === id) scene.background = "";
+    if (scene.music === id) scene.music = "";
+    scene.assets = (scene.assets || []).filter((asset) => asset.id !== id);
+  });
+}
+
+function findScene(sceneId) {
+  return (draft.scenes || []).find((scene) => scene.id === sceneId);
 }
 
 function removeLine(lineId) {
@@ -730,7 +1206,173 @@ function createLine(from, to) {
     id: `line-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     from,
     to,
+    kind: "manual",
   };
+}
+
+function allBoardLines() {
+  return [...internalSceneLines(), ...(boardState.lines || []).map((line) => ({ ...line, kind: line.kind || "manual" }))];
+}
+
+function internalSceneLines() {
+  const sceneIds = new Set((draft.scenes || []).map((scene) => scene.id).filter(Boolean));
+  const lines = [];
+  (draft.scenes || []).forEach((scene) => {
+    (scene.choices || []).forEach((choice, index) => {
+      const choiceName = choice.label || choice.id || `choice ${index + 1}`;
+      if (choice.target && sceneIds.has(choice.target)) {
+        lines.push({
+          id: choiceLineId(scene.id, choice, index, "target"),
+          from: entityKey("scene", scene.id),
+          to: entityKey("scene", choice.target),
+          anchorId: choiceLineId(scene.id, choice, index, "target"),
+          label: choiceName,
+          kind: "internal",
+          removable: false,
+        });
+      }
+      if (choice.fallbackTarget && sceneIds.has(choice.fallbackTarget)) {
+        lines.push({
+          id: choiceLineId(scene.id, choice, index, "fallback"),
+          from: entityKey("scene", scene.id),
+          to: entityKey("scene", choice.fallbackTarget),
+          anchorId: choiceLineId(scene.id, choice, index, "fallback"),
+          label: `${text("fallback")}: ${choiceName}`,
+          kind: "fallback",
+          removable: false,
+        });
+      }
+    });
+  });
+  return lines;
+}
+
+function choiceLineId(sceneId, choice, index, route) {
+  return `choice:${sceneId}:${choice.id || index}:${route}`;
+}
+
+function entityKeys() {
+  return [
+    ...(draft.variables || []).map((variable, index) => entityKey("variable", variable.name || `variable-${index}`)),
+    ...(draft.assets || []).map((asset, index) => entityKey("asset", asset.id || `asset-${index}`)),
+    ...(draft.scenes || []).map((scene, index) => entityKey("scene", scene.id || `scene-${index}`)),
+    ...(boardState.notes || []).map((note) => entityKey("note", note.id)),
+  ];
+}
+
+function pruneBoardState() {
+  const live = new Set(entityKeys());
+  Object.keys(boardState.positions || {}).forEach((key) => {
+    if (!live.has(key)) delete boardState.positions[key];
+  });
+  Object.keys(boardState.sizes || {}).forEach((key) => {
+    if (!live.has(key)) delete boardState.sizes[key];
+  });
+  boardState.lines = (boardState.lines || []).filter((line) => live.has(line.from) && live.has(line.to));
+  const liveLineIds = new Set(allBoardLines().map((line) => line.id));
+  Object.keys(boardState.lineAdjustments || {}).forEach((lineId) => {
+    if (!liveLineIds.has(lineId)) delete boardState.lineAdjustments[lineId];
+  });
+}
+
+function buildAutoLayoutPositions() {
+  const positions = {};
+  const sceneLevels = computeSceneLevels();
+  const sceneWeights = computeSceneSortWeights(sceneLevels);
+  const sceneGroups = new Map();
+
+  (draft.scenes || []).forEach((scene, index) => {
+    const level = sceneLevels.get(scene.id) ?? index;
+    if (!sceneGroups.has(level)) sceneGroups.set(level, []);
+    sceneGroups.get(level).push(scene);
+  });
+
+  [...sceneGroups.keys()].sort((a, b) => a - b).forEach((level) => {
+    const scenes = sceneGroups.get(level).sort((a, b) => (sceneWeights.get(a.id) ?? 0) - (sceneWeights.get(b.id) ?? 0) || String(a.id).localeCompare(String(b.id)));
+    const heights = scenes.map(estimateSceneHeight);
+    const totalHeight = heights.reduce((sum, height) => sum + height, 0) + Math.max(0, scenes.length - 1) * 90;
+    let cursorY = -Math.round(totalHeight / 2);
+    scenes.forEach((scene, index) => {
+      const height = heights[index];
+      positions[entityKey("scene", scene.id)] = {
+        x: level * 560,
+        y: cursorY,
+      };
+      cursorY += height + 90;
+    });
+  });
+
+  (draft.variables || []).forEach((variable, index) => {
+    positions[entityKey("variable", variable.name || `variable-${index}`)] = { x: -680, y: index * 150 - 280 };
+  });
+  (draft.assets || []).forEach((asset, index) => {
+    positions[entityKey("asset", asset.id || `asset-${index}`)] = { x: -340, y: index * 150 - 280 };
+  });
+  (boardState.notes || []).forEach((note, index) => {
+    positions[entityKey("note", note.id)] = { x: -1040, y: index * 220 - 160 };
+  });
+  return positions;
+}
+
+function computeSceneSortWeights(levels) {
+  const weights = new Map();
+  const order = new Map((draft.scenes || []).map((scene, index) => [scene.id, index * 100]));
+  const startId = draft.startSceneId || draft.scenes?.[0]?.id;
+  if (startId) weights.set(startId, -10000);
+
+  (draft.scenes || []).forEach((scene) => {
+    const parentLevel = levels.get(scene.id) ?? 0;
+    (scene.choices || []).forEach((choice, choiceIndex) => {
+      [choice.target, choice.fallbackTarget].filter(Boolean).forEach((target, routeIndex) => {
+        const targetLevel = levels.get(target) ?? parentLevel + 1;
+        const base = (weights.get(scene.id) ?? order.get(scene.id) ?? 0) + choiceIndex * 120 + routeIndex * 24;
+        const spread = targetLevel === parentLevel ? 40 : 0;
+        const nextWeight = base + spread;
+        if (!weights.has(target) || nextWeight < weights.get(target)) {
+          weights.set(target, nextWeight);
+        }
+      });
+    });
+  });
+
+  (draft.scenes || []).forEach((scene) => {
+    if (!weights.has(scene.id)) weights.set(scene.id, order.get(scene.id) ?? 0);
+  });
+  return weights;
+}
+
+function estimateSceneHeight(scene) {
+  const choiceCount = Math.max(1, scene.choices?.length || 0);
+  return 190 + choiceCount * 74;
+}
+
+function computeSceneLevels() {
+  const scenes = draft.scenes || [];
+  const byId = new Map(scenes.map((scene) => [scene.id, scene]));
+  const startId = byId.has(draft.startSceneId) ? draft.startSceneId : scenes[0]?.id;
+  const levels = new Map();
+  const queue = startId ? [{ id: startId, level: 0 }] : [];
+
+  while (queue.length) {
+    const item = queue.shift();
+    if (!item?.id || levels.has(item.id)) continue;
+    levels.set(item.id, item.level);
+    const scene = byId.get(item.id);
+    (scene?.choices || []).forEach((choice) => {
+      [choice.target, choice.fallbackTarget].filter((target) => byId.has(target)).forEach((target) => {
+        if (!levels.has(target)) queue.push({ id: target, level: item.level + 1 });
+      });
+    });
+  }
+
+  let orphanLevel = levels.size ? Math.max(...levels.values()) + 1 : 0;
+  scenes.forEach((scene) => {
+    if (!levels.has(scene.id)) {
+      levels.set(scene.id, orphanLevel);
+      orphanLevel += 1;
+    }
+  });
+  return levels;
 }
 
 function layoutPoint(kind, index) {
@@ -778,8 +1420,8 @@ function initializeCamera() {
 }
 
 function autoLayout() {
-  boardState.positions = {};
-  ensureEntityPositions();
+  boardState.positions = buildAutoLayoutPositions();
+  pruneBoardState();
   persistBoardState();
   render();
 }
@@ -961,10 +1603,10 @@ function clientToWorld(clientX, clientY) {
 
 function positionLaneLabels() {
   const lanePositions = {
-    variable: -840,
-    asset: -280,
-    note: 280,
-    scene: 840,
+    variable: -680,
+    asset: -340,
+    note: -1040,
+    scene: 0,
   };
   [
     [els.laneVariables, lanePositions.variable],
@@ -1086,6 +1728,10 @@ els.stage.addEventListener("pointercancel", () => {
   stagePan = null;
   els.stage.classList.remove("is-panning");
 });
+
+document.addEventListener("pointermove", updateLineDrag);
+document.addEventListener("pointerup", finishLineDrag);
+document.addEventListener("pointercancel", finishLineDrag);
 
 window.addEventListener("pagehide", autoSaveLayout);
 window.addEventListener("beforeunload", autoSaveLayout);

@@ -274,12 +274,53 @@ h1 {
 
 .board-line {
   fill: none;
-  stroke: #146356;
-  stroke-width: 5;
-  stroke-linecap: round;
-  stroke-dasharray: 10 8;
+  stroke: #455a64;
+  stroke-width: 4;
+  stroke-linecap: square;
+  stroke-linejoin: round;
+  stroke-dasharray: 9 7;
   pointer-events: stroke;
   cursor: pointer;
+  filter: drop-shadow(0 2px 0 rgba(255, 255, 255, 0.92));
+}
+
+.board-line.internal {
+  stroke: #075f7a;
+  stroke-width: 5;
+  stroke-dasharray: none;
+}
+
+.board-line.fallback {
+  stroke: #b35a05;
+  stroke-width: 4.5;
+  stroke-dasharray: 12 8;
+}
+
+.board-line.internal + .line-label,
+.line-label.internal {
+  fill: #176b87;
+}
+
+.line-label {
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.98);
+  stroke-width: 7px;
+  fill: #075f7a;
+  font-size: 13px;
+  font-weight: 900;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: auto;
+  cursor: ew-resize;
+  user-select: none;
+}
+
+.line-label.fallback {
+  fill: #9f4f00;
+}
+
+.line-label.manual {
+  fill: #455a64;
 }
 
 .board-line:hover {
@@ -289,6 +330,33 @@ h1 {
 .line-delete {
   cursor: pointer;
   pointer-events: auto;
+}
+
+.line-route-handle {
+  cursor: ew-resize;
+  pointer-events: auto;
+}
+
+.line-route-handle circle {
+  fill: #ffffff;
+  stroke: #075f7a;
+  stroke-width: 2;
+  filter: drop-shadow(0 5px 10px rgba(31, 42, 45, 0.16));
+}
+
+.line-route-handle.fallback circle {
+  stroke: #b35a05;
+}
+
+.line-route-handle.manual circle {
+  stroke: #455a64;
+}
+
+.line-route-handle path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  pointer-events: none;
 }
 
 .line-delete circle {
@@ -310,6 +378,8 @@ h1 {
 .board-card {
   position: absolute;
   width: 280px;
+  min-width: 240px;
+  min-height: 180px;
   border-radius: 18px;
   border: 1px solid rgba(31, 42, 45, 0.12);
   box-shadow: 0 18px 50px rgba(31, 42, 45, 0.12);
@@ -318,6 +388,8 @@ h1 {
   overflow: hidden;
   cursor: grab;
   user-select: none;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .board-card.is-dragging {
@@ -328,6 +400,11 @@ h1 {
 .board-card.is-connect-source {
   outline: 4px solid rgba(20, 99, 86, 0.35);
   outline-offset: 4px;
+}
+
+.board-card.is-resizing {
+  cursor: nwse-resize;
+  box-shadow: 0 20px 55px rgba(20, 99, 86, 0.25);
 }
 
 .board-card.is-hidden {
@@ -351,8 +428,24 @@ h1 {
 }
 
 .card-head {
+  position: relative;
   padding: 14px 14px 10px;
   border-bottom: 1px solid rgba(31, 42, 45, 0.08);
+}
+
+.card-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-radius: 8px;
+  background: #c92a20;
+  color: #ffffff;
+  line-height: 1;
+  font-size: 1rem;
 }
 
 .card-kind {
@@ -382,6 +475,8 @@ h1 {
   display: grid;
   gap: 10px;
   padding: 12px 14px 14px;
+  min-height: 0;
+  overflow: auto;
 }
 
 .meta-row {
@@ -408,9 +503,30 @@ h1 {
   flex-wrap: wrap;
 }
 
+.choice-pin {
+  border-width: 2px;
+}
+
+.target-pin {
+  border-color: rgba(7, 95, 122, 0.42);
+  color: #075f7a;
+}
+
+.fallback-pin {
+  border-color: rgba(179, 90, 5, 0.44);
+  color: #9f4f00;
+}
+
 .small-button {
   min-height: 34px;
   padding: 7px 10px;
+}
+
+.micro-button {
+  min-height: 28px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  font-size: 0.76rem;
 }
 
 .danger-button {
@@ -429,18 +545,58 @@ h1 {
 }
 
 .choice-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   padding: 8px 10px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.62);
 }
 
 .choice-label {
+  color: var(--ink);
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.choice-targets,
+.choice-actions,
+.quick-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.quick-actions {
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.quick-actions-label {
+  width: 100%;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.resize-handle {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+  padding: 0;
+  border-radius: 6px;
+  background:
+    linear-gradient(135deg, transparent 50%, rgba(20, 99, 86, 0.28) 50%),
+    rgba(255, 255, 255, 0.72);
+  cursor: nwse-resize;
+  border: 1px solid rgba(31, 42, 45, 0.08);
 }
 
 .note-editor {
