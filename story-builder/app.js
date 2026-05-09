@@ -372,6 +372,7 @@ let lastAppliedHash = "";
 let contextObserver = null;
 let activeContextId = "";
 let contextScrollBound = false;
+const variableTypeOptions = ["string", "number", "boolean", "timer"];
 
 function t(key, params = {}) {
   const template = translations[currentLanguage]?.[key] ?? translations.ru[key] ?? key;
@@ -737,7 +738,7 @@ function renderVariables() {
     });
     item.append(
       field(t("nameLabel"), input(variable.name, (value) => renameVariable(variable, value))),
-      selectField(t("typeLabel"), ["string", "number", "boolean"], variable.type, (value) => {
+      selectField(t("typeLabel"), variableTypeOptions, variable.type, (value) => {
         const previousType = variable.type || "string";
         const previousValue = variable.value;
         variable.type = value;
@@ -964,6 +965,10 @@ function effectsEditor(effects, title, scene = null, context = {}) {
   effects.forEach((effect, index) => {
     const variableNames = variableOptions(scene);
     const type = variableType(effect.variable, scene);
+    if (effect.kind === "inc" && type !== "number") {
+      effect.kind = "set";
+      effect.value = coerceValue(type, effect.value);
+    }
     const item = div("item");
     const effectTitle = t("effectItem", { index: index + 1 });
     annotateContext(item, {
@@ -976,7 +981,7 @@ function effectsEditor(effects, title, scene = null, context = {}) {
     });
     item.append(
       rowHead(effectTitle, () => removeAt(effects, index)),
-      selectField(t("kindLabel"), ["set", "inc"], effect.kind, (value) => {
+      selectField(t("kindLabel"), type === "number" ? ["set", "inc"] : ["set"], effect.kind, (value) => {
         const previousValue = effect.value;
         effect.kind = value;
         if (value === "inc") {
@@ -991,6 +996,9 @@ function effectsEditor(effects, title, scene = null, context = {}) {
         const previousValue = effect.value;
         effect.variable = value;
         const nextType = variableType(value, scene);
+        if (effect.kind === "inc" && nextType !== "number") {
+          effect.kind = "set";
+        }
         effect.value = preserveValueForType(previousValue, previousType, nextType, effect.kind);
         render({ preserveScroll: true });
       }),
@@ -1129,7 +1137,7 @@ function localVariablesEditor(scene, sceneIndex) {
     item.append(
       rowHead(variableTitle, () => removeAt(scene.variables, index)),
       field(t("nameLabel"), input(variable.name, (value) => renameVariable(variable, value, scene))),
-      selectField(t("typeLabel"), ["string", "number", "boolean"], variable.type, (value) => {
+      selectField(t("typeLabel"), variableTypeOptions, variable.type, (value) => {
         const previousType = variable.type || "string";
         const previousValue = variable.value;
         variable.type = value;
@@ -1195,6 +1203,9 @@ function choiceContextPath(scene, sceneIndex, choiceIndex, choice = null) {
 
 function serializeVariable(variable) {
   const value = coerceValue(variable.type, variable.value);
+  if (variable.type === "timer") {
+    return variable.showInStats ? { type: "timer", value, showInStats: true } : { type: "timer", value };
+  }
   return variable.showInStats ? { value, showInStats: true } : value;
 }
 
@@ -1272,7 +1283,7 @@ function fromStoryJson(story) {
       const value = variableValue(definition);
       return {
         name,
-        type: detectType(value),
+        type: detectType(definition),
         value,
         showInStats: Boolean(definition && typeof definition === "object" && definition.showInStats),
       };
@@ -1288,7 +1299,7 @@ function fromStoryJson(story) {
         const value = variableValue(definition);
         return {
           name,
-          type: detectType(value),
+          type: detectType(definition),
           value,
           showInStats: false,
         };
@@ -1633,7 +1644,7 @@ function typedValueField(variable, onChange) {
   if (variable.type === "boolean") {
     return selectField(t("valueLabel"), ["false", "true"], String(toBoolean(variable.value)), (value) => onChange(value === "true"));
   }
-  return field(t("valueLabel"), input(variable.value ?? "", (value) => onChange(coerceValue(variable.type, value)), variable.type === "number" ? "number" : "text"));
+  return field(t("valueLabel"), input(variable.value ?? "", (value) => onChange(coerceValue(variable.type, value)), ["number", "timer"].includes(variable.type) ? "number" : "text"));
 }
 
 function preserveValueForType(value, previousType, nextType, effectKind = "set") {
@@ -1643,7 +1654,7 @@ function preserveValueForType(value, previousType, nextType, effectKind = "set")
   if (previousType === nextType) {
     return coerceValue(nextType, value);
   }
-  if (nextType === "number") {
+  if (nextType === "number" || nextType === "timer") {
     return toNumberOrDefault(value, 0);
   }
   if (nextType === "boolean") {
@@ -1938,17 +1949,22 @@ function assetOptions(scene = null) {
 
 function defaultValue(type) {
   if (type === "number") return 0;
+  if (type === "timer") return 60;
   if (type === "boolean") return false;
   return "";
 }
 
 function coerceValue(type, value) {
   if (type === "number") return Number(value || 0);
+  if (type === "timer") return Math.max(0, Number(value || 0));
   if (type === "boolean") return value === true || value === "true";
   return value ?? "";
 }
 
 function detectType(value) {
+  if (value && typeof value === "object" && value.type === "timer") {
+    return "timer";
+  }
   if (value && typeof value === "object" && "value" in value) {
     return detectType(value.value);
   }

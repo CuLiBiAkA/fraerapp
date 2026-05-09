@@ -85,6 +85,7 @@ test("serialize helpers preserve expected story-engine contract", () => {
     score: "number",
     hasKey: "boolean",
     note: "string",
+    countdown: "timer",
   };
   const typeOf = (name) => variableTypes[name] || "string";
 
@@ -108,6 +109,7 @@ test("serialize helpers preserve expected story-engine contract", () => {
   );
 
   assert.equal(coerceValue("number", "3"), 3);
+  assert.equal(coerceValue("timer", "90"), 90);
   assert.equal(coerceValue("boolean", "true"), true);
   assert.equal(coerceValue("string", "hi"), "hi");
 });

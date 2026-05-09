@@ -69,6 +69,7 @@ const translations = {
     continueButton: "Продолжить",
     startButton: "Начать",
     newRunButton: "Новая игра",
+    newRunConfirm: "Начать новую игру? Текущее сохранение останется в списке, но вы начнете отдельный проход с первой сцены.",
     saveScene: "Сцена: {scene}",
     menuButton: "Истории",
     sceneStatsTitle: "Статы",
@@ -132,6 +133,7 @@ const translations = {
     continueButton: "Continue",
     startButton: "Start",
     newRunButton: "New game",
+    newRunConfirm: "Start a new game? Your current save will stay in the list, but this will create a separate run from the first scene.",
     saveScene: "Scene: {scene}",
     menuButton: "Stories",
     sceneStatsTitle: "Stats",
@@ -380,6 +382,9 @@ function renderStories(stories) {
 }
 
 async function startStory(storyKey) {
+  if (!confirm(t("newRunConfirm"))) {
+    return;
+  }
   stopSound({ resetPreference: true });
   const session = await api.createSession(storyKey);
   storage.setGame(session);

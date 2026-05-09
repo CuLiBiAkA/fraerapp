@@ -277,6 +277,9 @@ export function localizeDraftDefaults(sourceDraft, language) {
 }
 
 export function detectType(value) {
+  if (value && typeof value === "object" && value.type === "timer") {
+    return "timer";
+  }
   if (value && typeof value === "object" && "value" in value) {
     return detectType(value.value);
   }
@@ -297,6 +300,7 @@ export function parseEffects(effects) {
 
 export function coerceValue(type, value) {
   if (type === "number") return Number(value || 0);
+  if (type === "timer") return Math.max(0, Number(value || 0));
   if (type === "boolean") return value === true || value === "true";
   return value ?? "";
 }
@@ -320,7 +324,7 @@ export function validateStory(story, language) {
   const sceneIds = story.scenes.map((scene) => scene.id);
   const assetIds = story.assets.map((asset) => asset.id);
   const variableNames = Object.keys(story.variables);
-  const variableTypes = Object.fromEntries(Object.entries(story.variables).map(([name, value]) => [name, detectType(variableValue(value))]));
+  const variableTypes = Object.fromEntries(Object.entries(story.variables).map(([name, value]) => [name, detectType(value)]));
   if (!story.key) errors.push(translate(language, "keyRequired"));
   if (!story.title) errors.push(translate(language, "titleRequired"));
   if (!story.startSceneId || !sceneIds.includes(story.startSceneId)) errors.push(translate(language, "startSceneMissing"));
