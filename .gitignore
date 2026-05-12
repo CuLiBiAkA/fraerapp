@@ -40,3 +40,14 @@ out/
 .env
 .env.*
 !.env.example
+!.env.production.example
+mailserver.env
+!mailserver.env.example
+nginx/certs/
+
+### Local deploy artifacts ###
+backups/
+transfer/
+*.dump
+*.tgz
+*.zip

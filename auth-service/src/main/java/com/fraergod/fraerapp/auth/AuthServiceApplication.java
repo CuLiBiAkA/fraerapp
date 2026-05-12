@@ -104,6 +104,9 @@ class AuthController {
 	@Value("${auth.bootstrap-admin-email:}")
 	private String bootstrapAdminEmail;
 
+	@Value("${auth.smtp-from:noreply@fraerapp.ru}")
+	private String smtpFrom;
+
 	AuthController(AuthStore store, JwtCodec jwt, Optional<JavaMailSender> mail) {
 		this.store = store;
 		this.jwt = jwt;
@@ -725,7 +728,7 @@ class AuthController {
 				      event.preventDefault();
 				      const email = document.querySelector("#login-email").value.trim();
 				      await json("/auth/login-link", { method: "POST", body: { email, redirectPath: "/auth/admin" } });
-				      loginResult.textContent = "Ссылка отправлена. В dev можно открыть /auth/dev/magic-links?email=" + encodeURIComponent(email);
+				      loginResult.textContent = "Ссылка отправлена с noreply@fraerapp.ru. Если письма нет во входящих, проверьте папку Спам. В dev можно открыть /auth/dev/magic-links?email=" + encodeURIComponent(email);
 				      try {
 				        const dev = await json("/auth/dev/magic-links?email=" + encodeURIComponent(email));
 				        const link = dev.links?.[0]?.link;
@@ -893,8 +896,10 @@ class AuthController {
 		}
 		SimpleMailMessage message = new SimpleMailMessage();
 		message.setTo(email);
+		message.setFrom(smtpFrom);
 		message.setSubject("FraerApp login link");
-		message.setText("Open this link to sign in to FraerApp:\n\n" + link);
+		message.setText("Open this link to sign in to FraerApp:\n\n" + link
+				+ "\n\nIf you did not request this email, you can ignore it.");
 		mail.get().send(message);
 	}
 

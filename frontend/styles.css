@@ -234,6 +234,16 @@ h1 {
   color: var(--accent-strong);
 }
 
+.login-status .mail-hint {
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid rgba(224, 168, 63, 0.32);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(224, 168, 63, 0.12);
+  color: var(--ink);
+}
+
 .login-status[data-tone="error"] {
   color: #ffb4aa;
 }

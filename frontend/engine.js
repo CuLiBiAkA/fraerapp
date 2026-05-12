@@ -43,6 +43,7 @@ const translations = {
     usernamePlaceholder: "you@example.com",
     loginButton: "Получить ссылку",
     loginLinkSent: "Ссылка отправлена. Проверьте почту и откройте письмо для входа.",
+    loginSpamHint: "Если письма нет во входящих, проверьте папку «Спам». Отправитель: noreply@fraerapp.ru.",
     loginDevLink: "Открыть dev-ссылку для входа",
     loginDevHint: "Локальный dev-режим: можно войти сразу по ссылке ниже.",
     loginEndpointHint: "Откройте приложение через http://localhost:8088, чтобы работали вход и API.",
@@ -107,6 +108,7 @@ const translations = {
     usernamePlaceholder: "you@example.com",
     loginButton: "Get link",
     loginLinkSent: "Sign-in link sent. Check your email and open the message to continue.",
+    loginSpamHint: "If the message is missing from your inbox, check Spam. Sender: noreply@fraerapp.ru.",
     loginDevLink: "Open dev sign-in link",
     loginDevHint: "Local dev mode: you can sign in with the link below.",
     loginEndpointHint: "Open the app through http://localhost:8088 so sign-in and API routes work.",
@@ -336,7 +338,12 @@ function setLoginStatus(message, tone = "info") {
 async function showLoginLinkResult(email) {
   loginStatus.replaceChildren();
   loginStatus.dataset.tone = "success";
-  loginStatus.textContent = t("loginLinkSent");
+  const sent = document.createElement("span");
+  sent.textContent = t("loginLinkSent");
+  const spamHint = document.createElement("span");
+  spamHint.className = "mail-hint";
+  spamHint.textContent = t("loginSpamHint");
+  loginStatus.append(sent, spamHint);
   try {
     const dev = await request(`/auth/dev/magic-links?email=${encodeURIComponent(email)}`);
     const link = dev.links?.[0]?.link;
