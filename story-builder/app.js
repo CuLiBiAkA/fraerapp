@@ -383,10 +383,17 @@ let draft = loadDraft() || emptyDraft();
 draft = localizeDraftDefaults(draft);
 let authorSession = loadAuthorSession();
 
-els.runtimeUrl.value = localStorage.getItem(runtimeUrlStorageKey) || els.runtimeUrl.value;
+els.runtimeUrl.value = localStorage.getItem(runtimeUrlStorageKey) || defaultRuntimeUrl();
 els.runtimeUrl.addEventListener("input", () => {
   localStorage.setItem(runtimeUrlStorageKey, els.runtimeUrl.value);
 });
+
+function defaultRuntimeUrl() {
+  if (window.location.hostname === "builder.fraerapp.ru") {
+    return els.runtimeUrl.dataset.prodRuntime || "https://fraerapp.ru";
+  }
+  return els.runtimeUrl.dataset.localRuntime || els.runtimeUrl.value;
+}
 
 function emptyDraft() {
   return {

@@ -3,6 +3,7 @@ WORKDIR /workspace
 COPY settings.gradle build.gradle gradlew ./
 COPY gradle gradle
 COPY auth-service auth-service
+RUN chmod +x gradlew
 RUN ./gradlew :auth-service:bootJar --no-daemon
 
 FROM eclipse-temurin:17-jre

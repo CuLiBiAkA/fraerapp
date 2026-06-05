@@ -4,6 +4,7 @@ COPY gradlew gradlew.bat build.gradle settings.gradle ./
 COPY gradle ./gradle
 COPY auth-service ./auth-service
 COPY src ./src
+RUN chmod +x gradlew
 RUN ./gradlew :bootJar --no-daemon
 
 FROM eclipse-temurin:17-jre
