@@ -389,7 +389,7 @@ els.runtimeUrl.addEventListener("input", () => {
 });
 
 function defaultRuntimeUrl() {
-  if (window.location.hostname === "builder.fraerapp.ru") {
+  if (window.location.pathname.startsWith("/builder")) {
     return els.runtimeUrl.dataset.prodRuntime || "https://fraerapp.ru";
   }
   return els.runtimeUrl.dataset.localRuntime || els.runtimeUrl.value;

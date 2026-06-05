@@ -38,14 +38,13 @@ Production URLs expected by the config:
 
 - Runtime UI: `https://fraerapp.ru/`
 - Admin UI: `https://fraerapp.ru/auth/admin`
-- Story Builder: `https://builder.fraerapp.ru/`
+- Story Builder: `https://fraerapp.ru/builder/`
 - Health: `https://fraerapp.ru/healthz`
 
 DNS records needed:
 
 - `A fraerapp.ru -> <server-public-ip>`
 - `A www.fraerapp.ru -> <server-public-ip>`
-- `A builder.fraerapp.ru -> <server-public-ip>`
 
 Router/firewall rules needed when hosting behind a home router:
 
@@ -57,7 +56,6 @@ Certificate files expected by nginx:
 - `nginx/certs/fraerapp.fullchain.crt`
 - `nginx/certs/fraerapp.key`
 
-The production certificate must cover `fraerapp.ru`, `www.fraerapp.ru`, and `builder.fraerapp.ru`.
+The production certificate must cover `fraerapp.ru` and `www.fraerapp.ru`.
 
 Before public launch, replace all placeholder secrets and passwords in `.env`.
-
