@@ -236,10 +236,10 @@ docker compose -f compose.yaml -f compose.mail.yaml up -d
 docker compose -f compose.yaml -f compose.mail.yaml ps
 ```
 
-If you are not using the bundled mailserver:
+The bundled mailserver is opt-in and does not start unless the `mail` profile is enabled. If you need it later:
 
 ```bash
-docker compose -f compose.yaml -f compose.mail.yaml stop mailserver
+docker compose -f compose.yaml -f compose.mail.yaml --profile mail up -d mailserver
 ```
 
 ## 8. DNS records

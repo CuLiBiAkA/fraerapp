@@ -3,6 +3,7 @@ package com.fraergod.fraerapp.game;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -28,9 +29,7 @@ class CurrentUserService {
 
 	String requirePlayerId() {
 		AuthIdentity identity = requireRole("player");
-		return players.findByUserId(identity.userId())
-				.orElseGet(() -> players.save(new Player(displayName(identity), "legacy", identity.userId())))
-				.getId();
+		return playerFor(identity).getId();
 	}
 
 	String requireAuthorPlayerId() {
@@ -38,9 +37,7 @@ class CurrentUserService {
 		if (!identity.hasRole("author") && !identity.hasRole("admin")) {
 			throw new ForbiddenRoleException();
 		}
-		return players.findByUserId(identity.userId())
-				.orElseGet(() -> players.save(new Player(displayName(identity), "legacy", identity.userId())))
-				.getId();
+		return playerFor(identity).getId();
 	}
 
 	void requireAdmin() {
@@ -59,6 +56,19 @@ class CurrentUserService {
 		String email = identity.email() == null ? "player" : identity.email();
 		String prefix = email.length() <= 62 ? email : email.substring(0, 62);
 		return prefix + "-" + shortHash(identity.userId());
+	}
+
+	private Player playerFor(AuthIdentity identity) {
+		return players.findByUserId(identity.userId()).orElseGet(() -> createPlayer(identity));
+	}
+
+	private Player createPlayer(AuthIdentity identity) {
+		try {
+			return players.save(new Player(displayName(identity), "legacy", identity.userId()));
+		}
+		catch (DataIntegrityViolationException ex) {
+			return players.findByUserId(identity.userId()).orElseThrow(() -> ex);
+		}
 	}
 
 	private String shortHash(String value) {

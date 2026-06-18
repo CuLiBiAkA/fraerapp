@@ -1,5 +1,7 @@
 services:
   mailserver:
+    profiles:
+      - mail
     image: ghcr.io/docker-mailserver/docker-mailserver:latest
     container_name: fraerapp-mailserver
     hostname: ${MAIL_HOSTNAME:-mail.fraerapp.ru}
