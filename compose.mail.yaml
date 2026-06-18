@@ -15,7 +15,12 @@ services:
       - mail-state:/var/mail-state/
       - mail-logs:/var/log/mail/
       - mail-config:/tmp/docker-mailserver/
+      - ./nginx/certs:/etc/mail-certs:ro
       - /etc/localtime:/etc/localtime:ro
+    networks:
+      default:
+        aliases:
+          - mail.fraerapp.ru
     restart: unless-stopped
     stop_grace_period: 1m
 

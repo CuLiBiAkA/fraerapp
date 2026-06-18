@@ -96,6 +96,7 @@ const translations = {
     sessionFinished: "Сессия завершена",
     loading: "Загрузка...",
     loginFailed: "Не удалось войти: {message}",
+    authExpired: "Сессия истекла. Войдите заново.",
     webAudioUnsupported: "Web Audio не поддерживается в этом браузере",
     importFirst: "Сначала импортируйте историю.",
     errorPrefix: "Ошибка: {message}",
@@ -161,11 +162,14 @@ const translations = {
     sessionFinished: "Session finished",
     loading: "Loading...",
     loginFailed: "Login failed: {message}",
+    authExpired: "Session expired. Sign in again.",
     webAudioUnsupported: "Web Audio is not supported",
     importFirst: "Import a story first.",
     errorPrefix: "Error: {message}",
   },
 };
+
+const isLocalDev = ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
 
 const storage = {
   get email() {
@@ -209,6 +213,7 @@ let soundUnavailableReason = "";
 let soundVolume = clamp(Number.isFinite(storage.volume) ? storage.volume : 45, 0, 100);
 let lastImportedStoryId = null;
 let currentLanguage = storage.language;
+let currentUser = null;
 let currentState = null;
 let catalogStories = [];
 let catalogPage = 1;
@@ -284,6 +289,10 @@ function setLanguage(language) {
 }
 
 async function request(path, options = {}) {
+  return requestAttempt(path, options, true);
+}
+
+async function requestAttempt(path, options = {}, allowRefresh = true) {
   const headers = { Accept: "application/json" };
   if (options.body || options.rawBody) {
     headers["Content-Type"] = "application/json";
@@ -295,6 +304,10 @@ async function request(path, options = {}) {
     credentials: "include",
     body: options.rawBody || (options.body ? JSON.stringify(options.body) : undefined),
   });
+  if (response.status === 401 && allowRefresh && shouldRefreshAuth(path)) {
+    await refreshAuth();
+    return requestAttempt(path, options, false);
+  }
   const responseText = await response.text();
   let payload = {};
   if (responseText) {
@@ -305,9 +318,29 @@ async function request(path, options = {}) {
     }
   }
   if (!response.ok) {
-    throw new Error(payload.message || `HTTP ${response.status}`);
+    const error = new Error(payload.message || `HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
   }
   return payload;
+}
+
+async function refreshAuth() {
+  const response = await fetch("/auth/refresh", {
+    method: "POST",
+    headers: { Accept: "application/json" },
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+}
+
+function shouldRefreshAuth(path) {
+  return !String(path).startsWith("/auth/login-link")
+    && !String(path).startsWith("/auth/verify")
+    && !String(path).startsWith("/auth/logout")
+    && !String(path).startsWith("/auth/refresh");
 }
 
 function showOnly(screen) {
@@ -318,7 +351,7 @@ function showOnly(screen) {
 }
 
 function updateTopActions(screen) {
-  const loggedIn = Boolean(storage.email);
+  const loggedIn = Boolean(currentUser);
   const inScene = screen === sceneScreen;
   menuButton.classList.toggle("hidden", !loggedIn || screen === storyScreen);
   soundControl.classList.toggle("hidden", !inScene);
@@ -335,6 +368,16 @@ function setLoginStatus(message, tone = "info") {
   loginStatus.dataset.tone = tone;
 }
 
+function setAuthenticatedUser(user) {
+  currentUser = user;
+  storage.setUser(user);
+}
+
+function clearAuthenticatedUser() {
+  currentUser = null;
+  storage.clear();
+}
+
 async function showLoginLinkResult(email) {
   loginStatus.replaceChildren();
   loginStatus.dataset.tone = "success";
@@ -344,6 +387,9 @@ async function showLoginLinkResult(email) {
   spamHint.className = "mail-hint";
   spamHint.textContent = t("loginSpamHint");
   loginStatus.append(sent, spamHint);
+  if (!isLocalDev) {
+    return;
+  }
   try {
     const dev = await request(`/auth/dev/magic-links?email=${encodeURIComponent(email)}`);
     const link = dev.links?.[0]?.link;
@@ -352,7 +398,7 @@ async function showLoginLinkResult(email) {
     if (token) {
       setLoginStatus(t("loading"), "success");
       const result = await api.verify(token);
-      storage.setUser(result.user);
+      setAuthenticatedUser(result.user);
       window.history.replaceState({}, document.title, result.redirectPath || "/");
       await afterLogin();
       return;
@@ -380,6 +426,15 @@ async function afterLogin() {
   }
 
   renderStories(await api.stories());
+}
+
+function showBootError(error) {
+  storage.clearGame();
+  currentState = null;
+  showOnly(storyScreen);
+  storiesList.replaceChildren();
+  storiesList.append(emptyCatalogMessage(t("errorPrefix", { message: error.message })));
+  storyPagination.classList.add("hidden");
 }
 
 function renderStories(stories) {
@@ -686,7 +741,7 @@ function render(state) {
   currentState = state;
   const scene = state.scene;
   showOnly(sceneScreen);
-  playerName.textContent = storage.email || "";
+  playerName.textContent = currentUser?.email || "";
   sceneNode.textContent = state.story.authorName ? state.story.authorName : state.story.title;
   sceneTitle.textContent = scene.title;
   sceneText.textContent = scene.text;
@@ -733,6 +788,13 @@ async function withBusy(button, action) {
     setStatus(t("loading"));
     await action();
   } catch (error) {
+    if (error.status === 401) {
+      clearAuthenticatedUser();
+      currentState = null;
+      showOnly(loginScreen);
+      setLoginStatus(t("authExpired"), "error");
+      return;
+    }
     setStatus(t("errorPrefix", { message: error.message }));
   } finally {
     button.disabled = false;
@@ -836,7 +898,7 @@ logoutButton.addEventListener("click", async () => {
   } catch (error) {
     setStatus(t("errorPrefix", { message: error.message }));
   }
-  storage.clear();
+  clearAuthenticatedUser();
   currentState = null;
   showOnly(loginScreen);
 });
@@ -925,28 +987,39 @@ updateSoundLabel();
 adminPanel.classList.toggle("hidden", new URLSearchParams(window.location.search).get("admin") !== "1");
 setStatus(t("loading"));
 const authToken = new URLSearchParams(window.location.search).get("auth_token");
-if (authToken) {
-  api.verify(authToken)
-    .then((result) => {
-      storage.setUser(result.user);
+boot().catch((error) => showBootError(error));
+
+async function boot() {
+  if (authToken) {
+    try {
+      const result = await api.verify(authToken);
+      setAuthenticatedUser(result.user);
       window.history.replaceState({}, document.title, result.redirectPath || "/");
-      return afterLogin();
-    })
-    .catch((error) => {
-      storage.clear();
-      currentState = null;
-      showOnly(loginScreen);
-      alert(t("loginFailed", { message: error.message }));
-    });
-} else {
-  api.me()
-    .then((user) => {
-      storage.setUser(user);
-      return afterLogin();
-    })
-    .catch(() => {
-      storage.clear();
-      currentState = null;
-      showOnly(loginScreen);
-    });
+      await afterLogin();
+      return;
+    } catch (error) {
+      try {
+        const user = await api.me();
+        setAuthenticatedUser(user);
+        window.history.replaceState({}, document.title, "/");
+        await afterLogin();
+      } catch {
+        clearAuthenticatedUser();
+        currentState = null;
+        showOnly(loginScreen);
+        alert(t("loginFailed", { message: error.message }));
+      }
+      return;
+    }
+  }
+
+  try {
+    const user = await api.me();
+    setAuthenticatedUser(user);
+    await afterLogin();
+  } catch {
+    clearAuthenticatedUser();
+    currentState = null;
+    showOnly(loginScreen);
+  }
 }

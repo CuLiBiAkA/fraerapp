@@ -1,0 +1,18 @@
+$ORIGIN fraerapp.ru.
+$TTL 300
+
+@       IN A     171.22.138.54
+www     IN A     171.22.138.54
+mail    IN A     171.22.138.54
+
+@       IN MX    10 mail.fraerapp.ru.
+
+@       IN TXT   "v=spf1 mx a ip4:171.22.138.54 ~all"
+
+; Keep existing DMARC record if you already have one in Cloudflare.
+; If you need to recreate it, replace the value below with the full current value.
+; _dmarc  IN TXT   "v=DMARC1; p=none; rua=mailto:noreply@fraerapp.ru"
+
+; Keep existing DKIM record if you already have one in Cloudflare.
+; Do not import this placeholder as-is. DKIM needs the full long key.
+; mail._domainkey  IN TXT   "v=DKIM1; h=sha256; k=rsa; p=PASTE_FULL_DKIM_PUBLIC_KEY_HERE"

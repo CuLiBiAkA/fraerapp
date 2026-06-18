@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.crypto.Mac;
@@ -83,6 +85,9 @@ class AuthController {
 	@Value("${auth.magic-link-ttl-seconds:900}")
 	private long magicLinkTtl;
 
+	@Value("${auth.magic-link-reuse-grace-seconds:120}")
+	private long magicLinkReuseGraceTtl;
+
 	@Value("${auth.access-ttl-seconds:900}")
 	private long accessTtl;
 
@@ -98,6 +103,9 @@ class AuthController {
 	@Value("${auth.dev-mode:true}")
 	private boolean devMode;
 
+	@Value("${auth.manual-login-links:false}")
+	private boolean manualLoginLinks;
+
 	@Value("${auth.public-base-url:}")
 	private String publicBaseUrl;
 
@@ -106,6 +114,8 @@ class AuthController {
 
 	@Value("${auth.smtp-from:noreply@fraerapp.ru}")
 	private String smtpFrom;
+
+	private final ExecutorService mailExecutor = Executors.newSingleThreadExecutor();
 
 	AuthController(AuthStore store, JwtCodec jwt, Optional<JavaMailSender> mail) {
 		this.store = store;
@@ -117,21 +127,40 @@ class AuthController {
 	Map<String, Object> loginLink(@Valid @RequestBody LoginLinkRequest request, HttpServletRequest servletRequest) {
 		String email = AuthServiceApplication.normalizeEmail(request.email());
 		checkRate("login:" + email, devMode ? 200 : 5, Duration.ofMinutes(15));
-		String token = UUID.randomUUID() + "." + UUID.randomUUID();
-		String redirect = safeRedirect(request.redirectPath());
-		Instant expiresAt = Instant.now().plusSeconds(magicLinkTtl);
-		store.createMagicLink(email, sha256(token), redirect, expiresAt);
-		String separator = redirect.contains("?") ? "&" : "?";
-		String link = requestBaseUrl(servletRequest) + redirect + separator + "auth_token=" + token + "&redirect=" + url64(redirect.getBytes(StandardCharsets.UTF_8));
+		GeneratedLoginLink generated = generateLoginLink(email, request.redirectPath(), servletRequest);
 		store.audit(null, email, "login_link_requested", "{}");
 		if (devMode) {
-			devLinks.put(email, List.of(new DevLink(email, link, expiresAt)));
-			System.out.println("FraerApp dev magic link for " + email + ": " + link);
+			devLinks.put(email, List.of(new DevLink(email, generated.link(), generated.expiresAt())));
+			logMagicLink("dev", email, generated);
+		}
+		else if (manualLoginLinks) {
+			logMagicLink("manual", email, generated);
 		}
 		else {
-			sendMail(email, link);
+			queueMail(email, generated.link());
 		}
-		return Map.of("sent", true);
+		return Map.of("sent", !manualLoginLinks && !devMode, "manual", manualLoginLinks || devMode);
+	}
+
+	@PostMapping("/admin/login-links")
+	Map<String, Object> adminLoginLink(@RequestHeader(name = "Authorization", required = false) String authorization,
+			@CookieValue(name = "fraer_access", required = false) String accessToken,
+			@Valid @RequestBody LoginLinkRequest request,
+			HttpServletRequest servletRequest) {
+		User admin = currentUser(authorization, accessToken);
+		if (!admin.roles().contains("admin")) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
+		}
+		String email = AuthServiceApplication.normalizeEmail(request.email());
+		checkRate("admin-login-link:" + admin.id(), 100, Duration.ofMinutes(15));
+		GeneratedLoginLink generated = generateLoginLink(email, request.redirectPath(), servletRequest);
+		store.audit(admin.id(), admin.email(), "manual_login_link_created", "{\"target\":\"" + email + "\"}");
+		logMagicLink("admin-manual", email, generated);
+		return Map.of(
+				"email", email,
+				"link", generated.link(),
+				"redirectPath", generated.redirectPath(),
+				"expiresAt", generated.expiresAt());
 	}
 
 	@PostMapping("/verify")
@@ -139,7 +168,11 @@ class AuthController {
 		checkRate("verify", devMode ? 200 : 20, Duration.ofMinutes(15));
 		MagicLink link = store.magicLink(sha256(request.token()))
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid login link"));
-		if (link.usedAt() != null || link.expiresAt().isBefore(Instant.now())) {
+		Instant now = Instant.now();
+		if (link.expiresAt().isBefore(now)) {
+			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Login link expired");
+		}
+		if (link.usedAt() != null && link.usedAt().plusSeconds(magicLinkReuseGraceTtl).isBefore(now)) {
 			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Login link expired");
 		}
 		User user = store.user(link.email(), true).orElseThrow();
@@ -151,7 +184,9 @@ class AuthController {
 		if (user.blockedAt() != null) {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is blocked");
 		}
-		store.consumeMagicLink(link.id());
+		if (link.usedAt() == null) {
+			store.consumeMagicLink(link.id());
+		}
 		TokenPair pair = issue(user);
 		addCookies(response, pair);
 		store.audit(user.id(), user.email(), "login_link_verified", "{}");
@@ -385,6 +420,30 @@ class AuthController {
 				      <pre id="role-result"></pre>
 				    </section>
 
+				    <section id="manual-links-section" class="hidden">
+				      <h2>Ручные ссылки для входа</h2>
+				      <form id="manual-link-form">
+				        <div class="row">
+				          <div>
+				            <label for="manual-link-email">Email пользователя</label>
+				            <input id="manual-link-email" type="email" placeholder="user@example.com" required>
+				          </div>
+				          <div>
+				            <label for="manual-link-redirect">Куда вести</label>
+				            <select id="manual-link-redirect">
+				              <option value="/">Игра</option>
+				              <option value="/builder/">Конструктор</option>
+				            </select>
+				          </div>
+				          <div>
+				            <button type="submit">Сгенерировать</button>
+				          </div>
+				        </div>
+				      </form>
+				      <p class="muted">Скопируйте ссылку и отправьте человеку вручную. Ссылка также пишется в лог auth-service.</p>
+				      <pre id="manual-link-result"></pre>
+				    </section>
+
 				    <section id="users-section" class="hidden">
 				      <h2>Пользователи</h2>
 				      <div class="toolbar">
@@ -494,10 +553,12 @@ class AuthController {
 				    const loginSection = document.querySelector("#login-section");
 				    const meSection = document.querySelector("#me-section");
 				    const rolesSection = document.querySelector("#roles-section");
+				    const manualLinksSection = document.querySelector("#manual-links-section");
 				    const usersSection = document.querySelector("#users-section");
 				    const storiesSection = document.querySelector("#stories-section");
 				    const loginResult = document.querySelector("#login-result");
 				    const roleResult = document.querySelector("#role-result");
+				    const manualLinkResult = document.querySelector("#manual-link-result");
 				    const usersResult = document.querySelector("#users-result");
 				    const storiesResult = document.querySelector("#stories-result");
 				    const meLine = document.querySelector("#me-line");
@@ -507,16 +568,40 @@ class AuthController {
 				    let storyTotalPages = 0;
 
 				    async function json(path, options = {}) {
+				      return jsonAttempt(path, options, true);
+				    }
+
+				    async function jsonAttempt(path, options = {}, allowRefresh = true) {
 				      const response = await fetch(path, {
 				        method: options.method || "GET",
 				        credentials: "include",
 				        headers: { Accept: "application/json", ...(options.body ? { "Content-Type": "application/json" } : {}) },
 				        body: options.body ? JSON.stringify(options.body) : undefined,
 				      });
+				      if (response.status === 401 && allowRefresh && shouldRefreshAuth(path)) {
+				        await refreshAuth();
+				        return jsonAttempt(path, options, false);
+				      }
 				      const text = await response.text();
 				      const payload = text ? JSON.parse(text) : {};
 				      if (!response.ok) throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
 				      return payload;
+				    }
+
+				    async function refreshAuth() {
+				      const response = await fetch("/auth/refresh", {
+				        method: "POST",
+				        credentials: "include",
+				        headers: { Accept: "application/json" },
+				      });
+				      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+				    }
+
+				    function shouldRefreshAuth(path) {
+				      return !String(path).startsWith("/auth/login-link")
+				        && !String(path).startsWith("/auth/verify")
+				        && !String(path).startsWith("/auth/logout")
+				        && !String(path).startsWith("/auth/refresh");
 				    }
 
 				    async function loadMe() {
@@ -527,12 +612,14 @@ class AuthController {
 				        loginSection.classList.add("hidden");
 				        if (me.roles.includes("admin")) {
 				          rolesSection.classList.remove("hidden");
+				          manualLinksSection.classList.remove("hidden");
 				          usersSection.classList.remove("hidden");
 				          storiesSection.classList.remove("hidden");
 				          loadUsers();
 				          loadStories();
 				        } else {
 				          rolesSection.classList.add("hidden");
+				          manualLinksSection.classList.add("hidden");
 				          usersSection.classList.add("hidden");
 				          storiesSection.classList.add("hidden");
 				          roleResult.textContent = "Нужна роль admin. Проверь AUTH_BOOTSTRAP_ADMIN_EMAIL или выдайте admin в dev.";
@@ -541,6 +628,7 @@ class AuthController {
 				        loginSection.classList.remove("hidden");
 				        meSection.classList.add("hidden");
 				        rolesSection.classList.add("hidden");
+				        manualLinksSection.classList.add("hidden");
 				        usersSection.classList.add("hidden");
 				        storiesSection.classList.add("hidden");
 				      }
@@ -727,19 +815,20 @@ class AuthController {
 				    document.querySelector("#login-form").addEventListener("submit", async (event) => {
 				      event.preventDefault();
 				      const email = document.querySelector("#login-email").value.trim();
-				      await json("/auth/login-link", { method: "POST", body: { email, redirectPath: "/auth/admin" } });
-				      loginResult.textContent = "Ссылка отправлена с noreply@fraerapp.ru. Если письма нет во входящих, проверьте папку Спам. В dev можно открыть /auth/dev/magic-links?email=" + encodeURIComponent(email);
-				      try {
-				        const dev = await json("/auth/dev/magic-links?email=" + encodeURIComponent(email));
-				        const link = dev.links?.[0]?.link;
-				        if (link) {
-				          loginResult.innerHTML = "";
-				          const a = document.createElement("a");
-				          a.href = link;
-				          a.textContent = "Открыть dev-ссылку для входа";
-				          loginResult.append(a);
-				        }
-				      } catch {}
+				      const result = await json("/auth/login-link", { method: "POST", body: { email, redirectPath: "/auth/admin" } });
+				      loginResult.textContent = result.manual
+				        ? "Ссылка для входа создана и записана в лог auth-service. Возьмите ее из docker compose logs auth-service."
+				        : "Ссылка отправлена с noreply@fraerapp.ru. Если письма нет во входящих, проверьте папку Спам.";
+				    });
+
+				    document.querySelector("#manual-link-form").addEventListener("submit", async (event) => {
+				      event.preventDefault();
+				      const payload = {
+				        email: document.querySelector("#manual-link-email").value.trim(),
+				        redirectPath: document.querySelector("#manual-link-redirect").value,
+				      };
+				      const result = await json("/auth/admin/login-links", { method: "POST", body: payload });
+				      manualLinkResult.textContent = result.link + "\\n\\nИстекает: " + formatDate(result.expiresAt);
 				    });
 
 				    document.querySelector("#role-form").addEventListener("submit", async (event) => {
@@ -890,6 +979,39 @@ class AuthController {
 		return Map.of("id", user.id(), "email", user.email(), "roles", user.roles(), "blocked", user.blockedAt() != null);
 	}
 
+	private GeneratedLoginLink generateLoginLink(String email, String requestedRedirect, HttpServletRequest servletRequest) {
+		String token = UUID.randomUUID() + "." + UUID.randomUUID();
+		String redirect = safeRedirect(requestedRedirect);
+		if (redirect.equals("/auth/admin") && !isBootstrapAdmin(email)) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin login link is restricted");
+		}
+		Instant expiresAt = Instant.now().plusSeconds(magicLinkTtl);
+		store.createMagicLink(email, sha256(token), redirect, expiresAt);
+		String separator = redirect.contains("?") ? "&" : "?";
+		String link = requestBaseUrl(servletRequest) + redirect + separator + "auth_token=" + token + "&redirect="
+				+ url64(redirect.getBytes(StandardCharsets.UTF_8));
+		return new GeneratedLoginLink(link, redirect, expiresAt);
+	}
+
+	private void logMagicLink(String mode, String email, GeneratedLoginLink generated) {
+		System.out.println("FraerApp " + mode + " magic link for " + email + " expires at " + generated.expiresAt()
+				+ ": " + generated.link());
+	}
+
+	private void queueMail(String email, String link) {
+		if (mail.isEmpty()) {
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "SMTP is not configured");
+		}
+		mailExecutor.execute(() -> {
+			try {
+				sendMail(email, link);
+			}
+			catch (RuntimeException ex) {
+				System.err.println("Failed to send login link to " + email + ": " + ex.getMessage());
+			}
+		});
+	}
+
 	private void sendMail(String email, String link) {
 		if (mail.isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "SMTP is not configured");
@@ -1003,6 +1125,9 @@ class AuthController {
 	}
 
 	record DevLink(String email, String link, Instant expiresAt) {
+	}
+
+	record GeneratedLoginLink(String link, String redirectPath, Instant expiresAt) {
 	}
 
 	record Window(int count, Instant resetAt) {

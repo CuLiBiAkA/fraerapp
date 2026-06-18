@@ -2076,6 +2076,10 @@ function authorHeaders(contentType = false) {
 }
 
 async function authorFetch(path, options = {}) {
+  return authorFetchAttempt(path, options, true);
+}
+
+async function authorFetchAttempt(path, options = {}, allowRefresh = true) {
   const base = els.runtimeUrl.value.replace(/\/$/, "");
   const response = await fetch(`${base}${path}`, {
     method: options.method || "GET",
@@ -2087,12 +2091,34 @@ async function authorFetch(path, options = {}) {
     credentials: "include",
     body: options.body,
   });
+  if (response.status === 401 && allowRefresh && shouldRefreshAuth(path)) {
+    await refreshAuth(base);
+    return authorFetchAttempt(path, options, false);
+  }
   const text = await response.text();
   const payload = text ? JSON.parse(text) : {};
   if (!response.ok) {
     throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
   }
   return payload;
+}
+
+async function refreshAuth(base = els.runtimeUrl.value.replace(/\/$/, "")) {
+  const response = await fetch(`${base}/auth/refresh`, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+}
+
+function shouldRefreshAuth(path) {
+  return !String(path).startsWith("/auth/login-link")
+    && !String(path).startsWith("/auth/verify")
+    && !String(path).startsWith("/auth/logout")
+    && !String(path).startsWith("/auth/refresh");
 }
 
 async function uploadAssetFile(asset, file, scope = "global") {
@@ -2117,20 +2143,14 @@ async function uploadAssetFile(asset, file, scope = "global") {
     form.append("scope", "local");
   }
   const base = els.runtimeUrl.value.replace(/\/$/, "");
-  const response = await fetch(`${base}/api/author/stories/${lastImportedStoryId}/assets`, {
+  const payload = await fetchJson(`${base}/api/author/stories/${lastImportedStoryId}/assets`, {
     method: "POST",
     headers: {
       Accept: "application/json",
       ...authorHeaders(false),
     },
-    credentials: "include",
     body: form,
   });
-  const text = await response.text();
-  const payload = text ? JSON.parse(text) : {};
-  if (!response.ok) {
-    throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
-  }
   asset.id = payload.id;
   asset.type = payload.type;
   asset.url = payload.url;
@@ -2151,19 +2171,13 @@ async function deleteUploadedAsset(asset) {
   if (asset.id) {
     params.set("assetKey", asset.id);
   }
-  const response = await fetch(`${base}/api/author/stories/${lastImportedStoryId}/assets?${params}`, {
+  const payload = await fetchJson(`${base}/api/author/stories/${lastImportedStoryId}/assets?${params}`, {
     method: "DELETE",
     headers: {
       Accept: "application/json",
       ...authorHeaders(false),
     },
-    credentials: "include",
   });
-  const text = await response.text();
-  const payload = text ? JSON.parse(text) : {};
-  if (!response.ok) {
-    throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
-  }
   els.apiResult.textContent = t("deleteAssetDone", { id: asset.id || asset.url });
   return payload;
 }
@@ -2853,7 +2867,16 @@ async function runtimeCall(action) {
 }
 
 async function fetchJson(url, options) {
+  return fetchJsonAttempt(url, options, true);
+}
+
+async function fetchJsonAttempt(url, options, allowRefresh) {
   const response = await fetch(url, { credentials: "include", ...options });
+  if (response.status === 401 && allowRefresh) {
+    const base = els.runtimeUrl.value.replace(/\/$/, "");
+    await refreshAuth(base);
+    return fetchJsonAttempt(url, options, false);
+  }
   const text = await response.text();
   const payload = text ? JSON.parse(text) : {};
   if (!response.ok) {
