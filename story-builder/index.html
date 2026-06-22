@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FraerApp Story Builder</title>
-    <link rel="stylesheet" href="/styles.css?v=builder-29">
+    <link rel="stylesheet" href="styles.css?v=builder-31">
   </head>
   <body>
     <main class="builder">
@@ -15,16 +15,16 @@
         </div>
         <div class="runtime-settings">
           <label>
-            <span>Email</span>
-            <input id="author-name" type="email" placeholder="you@example.com" autocomplete="email">
+            <span data-i18n="authorSessionLabel">Общая сессия FraerApp</span>
+            <input id="author-name" type="email" placeholder="Вход не выполнен" readonly>
           </label>
           <div class="actions tight">
-            <button id="author-login" type="button">Войти как автор</button>
+            <button id="author-login" type="button" data-i18n="authorSessionRefresh">Проверить вход</button>
             <button id="author-logout" type="button" class="secondary">Выйти</button>
           </div>
           <label>
             <span data-i18n="runtimeApiLabel">Runtime API</span>
-            <input id="runtime-url" value="http://localhost:8088">
+            <input id="runtime-url" value="http://localhost:8088" data-local-runtime="http://localhost:8088" data-prod-runtime="https://fraerapp.ru">
           </label>
           <input id="admin-token" type="hidden">
           <div class="language-switch" aria-label="Language switcher">
@@ -35,7 +35,7 @@
       </header>
 
       <section class="actions">
-        <a class="file-button nav-link" href="/board.html" data-i18n="boardView">Карта сценария</a>
+        <a class="file-button nav-link" href="board.html" data-i18n="boardView">Карта сценария</a>
         <button id="load-example" type="button" data-i18n="loadExample">Загрузить пример</button>
         <button id="copy-json" type="button" data-i18n="copyJson">Копировать JSON</button>
         <button id="download-json" type="button" data-i18n="downloadJson">Скачать JSON</button>
@@ -162,6 +162,6 @@
       <button id="quick-add-scene" type="button" title="Добавить сцену">+ Сцена</button>
     </div>
 
-    <script src="/app.js?v=builder-30" type="module"></script>
+    <script src="app.js?v=builder-33" type="module"></script>
   </body>
 </html>

@@ -1,8 +1,16 @@
+import {
+  credentialToJson,
+  parseCreationOptions,
+  parseRequestOptions,
+  passkeysSupported,
+} from "./passkeys.js";
+
 const loginScreen = document.querySelector("#login-screen");
 const storyScreen = document.querySelector("#story-screen");
 const sceneScreen = document.querySelector("#scene-screen");
 const loginForm = document.querySelector("#login-form");
 const usernameInput = document.querySelector("#username");
+const personalDataConsent = document.querySelector("#personal-data-consent");
 const loginStatus = document.querySelector("#login-status");
 const storiesList = document.querySelector("#stories");
 const storySearch = document.querySelector("#story-search");
@@ -33,6 +41,13 @@ const publishStory = document.querySelector("#publish-story");
 const adminOutput = document.querySelector("#admin-output");
 const langRuButton = document.querySelector("#lang-ru");
 const langEnButton = document.querySelector("#lang-en");
+const passkeyLoginButton = document.querySelector("#passkey-login");
+const passkeyUnavailable = document.querySelector("#passkey-unavailable");
+const passkeySettings = document.querySelector("#passkey-settings");
+const passkeyName = document.querySelector("#passkey-name");
+const passkeyRegisterButton = document.querySelector("#passkey-register");
+const passkeyList = document.querySelector("#passkey-list");
+const passkeyStatus = document.querySelector("#passkey-status");
 
 const translations = {
   ru: {
@@ -42,11 +57,33 @@ const translations = {
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
     loginButton: "Получить ссылку",
-    loginLinkSent: "Ссылка отправлена. Проверьте почту и откройте письмо для входа.",
-    loginSpamHint: "Если письма нет во входящих, проверьте папку «Спам». Отправитель: noreply@fraerapp.ru.",
+    personalDataConsent: "Я принимаю согласие на обработку персональных данных и ознакомлен с политикой конфиденциальности.",
+    consentLink: "Согласие",
+    privacyLink: "Политика",
+    termsLink: "Пользовательское соглашение",
+    loginLinkSent: "Запрос принят. Если вход для этого адреса доступен, вы получите инструкции.",
+    loginSpamHint: "При ручной выдаче администратор передаст ссылку напрямую.",
     loginDevLink: "Открыть dev-ссылку для входа",
     loginDevHint: "Локальный dev-режим: можно войти сразу по ссылке ниже.",
     loginEndpointHint: "Откройте приложение через http://localhost:8088, чтобы работали вход и API.",
+    passkeyOr: "или",
+    passkeyLogin: "Войти с passkey",
+    passkeyUnavailable: "Passkey недоступен в этом браузере или соединение не защищено.",
+    passkeySettingsTitle: "Безопасный вход",
+    passkeySettingsHint: "Добавьте Touch ID, Face ID, Windows Hello или ключ безопасности для входа без email-ссылки.",
+    passkeyNameLabel: "Название устройства",
+    passkeyNamePlaceholder: "Мой телефон",
+    passkeyRegister: "Добавить passkey",
+    passkeyRegistered: "Passkey добавлен.",
+    passkeyDeleted: "Passkey удалён.",
+    passkeyEmpty: "Passkey пока не добавлены.",
+    passkeyDelete: "Удалить",
+    passkeyCreated: "Добавлен: {date}",
+    passkeyLastUsed: "Последний вход: {date}",
+    passkeySynced: "Синхронизируемый ключ",
+    passkeyLocal: "Ключ устройства",
+    passkeyLoginFailed: "Не удалось войти с passkey: {message}",
+    passkeyRegistrationFailed: "Не удалось добавить passkey: {message}",
     adminSummary: "Админка истории",
     adminTokenLabel: "Админ-действия требуют роль admin",
     storyJsonLabel: "Story JSON",
@@ -107,11 +144,33 @@ const translations = {
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
     loginButton: "Get link",
-    loginLinkSent: "Sign-in link sent. Check your email and open the message to continue.",
-    loginSpamHint: "If the message is missing from your inbox, check Spam. Sender: noreply@fraerapp.ru.",
+    personalDataConsent: "I accept the personal data processing consent and acknowledge the privacy policy.",
+    consentLink: "Consent",
+    privacyLink: "Privacy policy",
+    termsLink: "Terms of use",
+    loginLinkSent: "Request accepted. If sign-in is available for this address, you will receive instructions.",
+    loginSpamHint: "For manual delivery, an administrator will provide the link directly.",
     loginDevLink: "Open dev sign-in link",
     loginDevHint: "Local dev mode: you can sign in with the link below.",
     loginEndpointHint: "Open the app through http://localhost:8088 so sign-in and API routes work.",
+    passkeyOr: "or",
+    passkeyLogin: "Sign in with a passkey",
+    passkeyUnavailable: "Passkeys are unavailable in this browser or the connection is not secure.",
+    passkeySettingsTitle: "Secure sign-in",
+    passkeySettingsHint: "Add Touch ID, Face ID, Windows Hello, or a security key to sign in without an email link.",
+    passkeyNameLabel: "Device name",
+    passkeyNamePlaceholder: "My phone",
+    passkeyRegister: "Add passkey",
+    passkeyRegistered: "Passkey added.",
+    passkeyDeleted: "Passkey deleted.",
+    passkeyEmpty: "No passkeys have been added yet.",
+    passkeyDelete: "Delete",
+    passkeyCreated: "Added: {date}",
+    passkeyLastUsed: "Last sign-in: {date}",
+    passkeySynced: "Synced passkey",
+    passkeyLocal: "Device passkey",
+    passkeyLoginFailed: "Passkey sign-in failed: {message}",
+    passkeyRegistrationFailed: "Could not add passkey: {message}",
     adminSummary: "Story admin",
     adminTokenLabel: "Admin actions require the admin role",
     storyJsonLabel: "Story JSON",
@@ -216,8 +275,11 @@ let catalogPage = 1;
 const storiesPerPage = 4;
 
 const api = {
-  loginLink(email) {
-    return request("/auth/login-link", { method: "POST", body: { email, redirectPath: "/" } });
+  loginLink(email, consent) {
+    return request("/auth/login-link", {
+      method: "POST",
+      body: { email, redirectPath: "/", personalDataConsent: consent },
+    });
   },
   verify(token) {
     return request("/auth/verify", { method: "POST", body: { token } });
@@ -227,6 +289,30 @@ const api = {
   },
   logout() {
     return request("/auth/logout", { method: "POST" });
+  },
+  passkeyAuthenticationOptions() {
+    return request("/auth/passkeys/authentication/options", { method: "POST" });
+  },
+  passkeyAuthenticationVerify(challengeId, credential) {
+    return request("/auth/passkeys/authentication/verify", {
+      method: "POST",
+      body: { challengeId, credential },
+    });
+  },
+  passkeyRegistrationOptions() {
+    return request("/auth/passkeys/registration/options", { method: "POST" });
+  },
+  passkeyRegistrationVerify(challengeId, displayName, credential) {
+    return request("/auth/passkeys/registration/verify", {
+      method: "POST",
+      body: { challengeId, displayName, credential },
+    });
+  },
+  passkeys() {
+    return request("/auth/passkeys");
+  },
+  deletePasskey(credentialId) {
+    return request(`/auth/passkeys/${encodeURIComponent(credentialId)}`, { method: "DELETE" });
   },
   stories() {
     return request("/api/catalog/stories");
@@ -284,6 +370,10 @@ function setLanguage(language) {
 }
 
 async function request(path, options = {}) {
+  return requestAttempt(path, options, true);
+}
+
+async function requestAttempt(path, options, allowRefresh) {
   const headers = { Accept: "application/json" };
   if (options.body || options.rawBody) {
     headers["Content-Type"] = "application/json";
@@ -295,6 +385,16 @@ async function request(path, options = {}) {
     credentials: "include",
     body: options.rawBody || (options.body ? JSON.stringify(options.body) : undefined),
   });
+  if (response.status === 401 && allowRefresh && shouldRefreshAuth(path)) {
+    const refreshed = await fetch("/auth/refresh", {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      credentials: "include",
+    });
+    if (refreshed.ok) {
+      return requestAttempt(path, options, false);
+    }
+  }
   const responseText = await response.text();
   let payload = {};
   if (responseText) {
@@ -305,9 +405,16 @@ async function request(path, options = {}) {
     }
   }
   if (!response.ok) {
-    throw new Error(payload.message || `HTTP ${response.status}`);
+    throw new Error(payload.message || payload.detail || `HTTP ${response.status}`);
   }
   return payload;
+}
+
+function shouldRefreshAuth(path) {
+  return !String(path).startsWith("/auth/login-link")
+    && !String(path).startsWith("/auth/verify")
+    && !String(path).startsWith("/auth/refresh")
+    && !String(path).startsWith("/auth/passkeys/authentication");
 }
 
 function showOnly(screen) {
@@ -370,6 +477,10 @@ async function showLoginLinkResult(email) {
 }
 
 async function afterLogin() {
+  loadPasskeys().catch((error) => {
+    passkeyStatus.textContent = t("errorPrefix", { message: error.message });
+    passkeyStatus.dataset.tone = "error";
+  });
   if (storage.sessionId) {
     try {
       render(await api.state(storage.sessionId));
@@ -380,6 +491,98 @@ async function afterLogin() {
   }
 
   renderStories(await api.stories());
+}
+
+async function signInWithPasskey() {
+  if (!passkeysSupported()) {
+    throw new Error(t("passkeyUnavailable"));
+  }
+  const options = await api.passkeyAuthenticationOptions();
+  const credential = await navigator.credentials.get({
+    publicKey: parseRequestOptions(options.publicKey),
+  });
+  if (!credential) {
+    throw new Error("Credential was not returned");
+  }
+  const result = await api.passkeyAuthenticationVerify(options.challengeId, credentialToJson(credential));
+  storage.setUser(result.user);
+  await afterLogin();
+}
+
+async function registerPasskey() {
+  if (!passkeysSupported()) {
+    throw new Error(t("passkeyUnavailable"));
+  }
+  const options = await api.passkeyRegistrationOptions();
+  const credential = await navigator.credentials.create({
+    publicKey: parseCreationOptions(options.publicKey),
+  });
+  if (!credential) {
+    throw new Error("Credential was not returned");
+  }
+  await api.passkeyRegistrationVerify(
+    options.challengeId,
+    passkeyName.value.trim(),
+    credentialToJson(credential),
+  );
+  passkeyName.value = "";
+  passkeyStatus.textContent = t("passkeyRegistered");
+  passkeyStatus.dataset.tone = "success";
+  await loadPasskeys();
+}
+
+async function loadPasskeys() {
+  const response = await api.passkeys();
+  renderPasskeys(response.passkeys || []);
+}
+
+function renderPasskeys(passkeys) {
+  passkeyList.replaceChildren();
+  if (!passkeys.length) {
+    const empty = document.createElement("p");
+    empty.textContent = t("passkeyEmpty");
+    passkeyList.append(empty);
+    return;
+  }
+  for (const passkey of passkeys) {
+    const item = document.createElement("article");
+    item.className = "passkey-item";
+    const details = document.createElement("div");
+    const name = document.createElement("strong");
+    name.textContent = passkey.displayName;
+    const meta = document.createElement("small");
+    const created = formatPasskeyDate(passkey.createdAt);
+    const used = passkey.lastUsedAt ? ` · ${t("passkeyLastUsed", { date: formatPasskeyDate(passkey.lastUsedAt) })}` : "";
+    meta.textContent = `${passkey.backupEligible ? t("passkeySynced") : t("passkeyLocal")} · ${t("passkeyCreated", { date: created })}${used}`;
+    details.append(name, meta);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "secondary";
+    remove.textContent = t("passkeyDelete");
+    remove.addEventListener("click", async () => {
+      remove.disabled = true;
+      try {
+        await api.deletePasskey(passkey.credentialId);
+        passkeyStatus.textContent = t("passkeyDeleted");
+        passkeyStatus.dataset.tone = "success";
+        await loadPasskeys();
+      } catch (error) {
+        passkeyStatus.textContent = t("errorPrefix", { message: error.message });
+        passkeyStatus.dataset.tone = "error";
+        remove.disabled = false;
+      }
+    });
+    item.append(details, remove);
+    passkeyList.append(item);
+  }
+}
+
+function formatPasskeyDate(value) {
+  return new Intl.DateTimeFormat(currentLanguage === "en" ? "en-US" : "ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(value));
 }
 
 function renderStories(stories) {
@@ -815,13 +1018,39 @@ loginForm.addEventListener("submit", async (event) => {
   try {
     submitButton.disabled = true;
     setLoginStatus(t("loading"));
-    await api.loginLink(email);
+    await api.loginLink(email, personalDataConsent.checked);
     await showLoginLinkResult(email);
   } catch (error) {
     const endpointHint = location.port === "4173" ? ` ${t("loginEndpointHint")}` : "";
     setLoginStatus(`${t("loginFailed", { message: error.message })}${endpointHint}`, "error");
   } finally {
     submitButton.disabled = false;
+  }
+});
+
+passkeyLoginButton.addEventListener("click", async () => {
+  try {
+    passkeyLoginButton.disabled = true;
+    setLoginStatus(t("loading"));
+    await signInWithPasskey();
+  } catch (error) {
+    setLoginStatus(t("passkeyLoginFailed", { message: error.message }), "error");
+  } finally {
+    passkeyLoginButton.disabled = false;
+  }
+});
+
+passkeyRegisterButton.addEventListener("click", async () => {
+  try {
+    passkeyRegisterButton.disabled = true;
+    passkeyStatus.textContent = t("loading");
+    passkeyStatus.dataset.tone = "info";
+    await registerPasskey();
+  } catch (error) {
+    passkeyStatus.textContent = t("passkeyRegistrationFailed", { message: error.message });
+    passkeyStatus.dataset.tone = "error";
+  } finally {
+    passkeyRegisterButton.disabled = false;
   }
 });
 
@@ -922,6 +1151,11 @@ storiesNext.addEventListener("click", () => {
 sound = createSound();
 applyTranslations();
 updateSoundLabel();
+const hasPasskeySupport = passkeysSupported();
+passkeyLoginButton.disabled = !hasPasskeySupport;
+passkeyRegisterButton.disabled = !hasPasskeySupport;
+passkeyUnavailable.classList.toggle("hidden", hasPasskeySupport);
+passkeySettings.classList.toggle("passkey-unavailable", !hasPasskeySupport);
 adminPanel.classList.toggle("hidden", new URLSearchParams(window.location.search).get("admin") !== "1");
 setStatus(t("loading"));
 const authToken = new URLSearchParams(window.location.search).get("auth_token");

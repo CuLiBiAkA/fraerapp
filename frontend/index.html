@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FraerApp Stories</title>
-    <link rel="stylesheet" href="/styles.css?v=game-13">
+    <link rel="stylesheet" href="/styles.css?v=game-14">
   </head>
   <body>
     <main class="game">
@@ -40,7 +40,21 @@
               <input id="username" name="email" type="email" maxlength="320" required autocomplete="email" data-i18n-placeholder="usernamePlaceholder" placeholder="you@example.com">
               <button type="submit" data-i18n="loginButton">Получить ссылку</button>
             </div>
+            <label class="legal-consent" for="personal-data-consent">
+              <input id="personal-data-consent" name="personalDataConsent" type="checkbox" required>
+              <span data-i18n="personalDataConsent">Я принимаю согласие на обработку персональных данных и ознакомлен с политикой конфиденциальности.</span>
+            </label>
+            <p class="legal-links">
+              <a href="/personal-data-consent.html" target="_blank" rel="noopener" data-i18n="consentLink">Согласие</a>
+              <a href="/privacy-policy.html" target="_blank" rel="noopener" data-i18n="privacyLink">Политика</a>
+              <a href="/terms.html" target="_blank" rel="noopener" data-i18n="termsLink">Пользовательское соглашение</a>
+            </p>
             <p id="login-status" class="login-status" role="status" aria-live="polite"></p>
+            <div class="passkey-login">
+              <span data-i18n="passkeyOr">или</span>
+              <button id="passkey-login" type="button" class="secondary" data-i18n="passkeyLogin">Войти с passkey</button>
+              <small id="passkey-unavailable" class="hidden" data-i18n="passkeyUnavailable">Passkey недоступен в этом браузере.</small>
+            </div>
           </div>
         </form>
 
@@ -83,6 +97,20 @@
           </div>
         </header>
 
+        <details id="passkey-settings" class="passkey-settings">
+          <summary data-i18n="passkeySettingsTitle">Безопасный вход</summary>
+          <p data-i18n="passkeySettingsHint">Добавьте Touch ID, Face ID, Windows Hello или ключ безопасности для входа без email-ссылки.</p>
+          <div class="passkey-register-row">
+            <label>
+              <span data-i18n="passkeyNameLabel">Название устройства</span>
+              <input id="passkey-name" maxlength="120" data-i18n-placeholder="passkeyNamePlaceholder" placeholder="Мой телефон">
+            </label>
+            <button id="passkey-register" type="button" data-i18n="passkeyRegister">Добавить passkey</button>
+          </div>
+          <div id="passkey-list" class="passkey-list"></div>
+          <p id="passkey-status" class="login-status" role="status" aria-live="polite"></p>
+        </details>
+
         <section class="catalog-main" aria-label="Story catalog">
           <div id="stories" class="story-list"></div>
           <div id="story-pagination" class="pagination hidden" aria-label="Story pages">
@@ -118,6 +146,13 @@
       </section>
     </main>
 
-    <script src="/engine.js?v=engine-21" defer></script>
+    <footer class="site-footer">
+      <span>FraerApp · 18+</span>
+      <a href="/privacy-policy.html">Политика обработки персональных данных</a>
+      <a href="/personal-data-consent.html">Согласие на обработку персональных данных</a>
+      <a href="/terms.html">Пользовательское соглашение</a>
+    </footer>
+
+    <script src="/engine.js?v=engine-23" type="module"></script>
   </body>
 </html>

@@ -13,6 +13,28 @@ Local dev flow:
 5. In dev mode, read the link from auth-service logs or `GET /auth/dev/magic-links?email=you@example.com`.
 6. Open the link. Auth sets httpOnly `fraer_access` and `fraer_refresh` cookies.
 
+The login form requires a separate personal-data consent. Its version is configured with `AUTH_PRIVACY_POLICY_VERSION`. Before public launch in Russia, complete `RU_COMPLIANCE_CHECKLIST.md` and fill all operator details in `frontend/legal-config.js`.
+
+Admins can create a fresh login link for an existing unblocked user from `/auth/admin`. The URL is returned only to the authenticated admin for manual delivery and is never included in the public login response. Issuing a fresh link invalidates previous unused links for the same email. With SMTP disabled, regular public login requests return the same generic response without creating a token.
+
+For no-SMTP admin bootstrap, set `AUTH_ADMIN_LOGIN_LINK_LOG_ENABLED=true`. Only a login request for an existing unblocked admin or `AUTH_BOOTSTRAP_ADMIN_EMAIL` is then written to the auth-service log. Regular user links are never logged in production.
+
+### Passkeys
+
+After the first trusted magic-link login, a user can register a passkey from the main catalog or /auth/admin. Passkeys use WebAuthn with a discoverable credential and required user verification (device PIN, biometric, or security-key verification). The private key never leaves the user's authenticator; auth-service stores only the credential ID, COSE public key, signature counter, and audit metadata.
+
+Passkey registration requires a recent full authentication. Refreshing an old session does not reset that authentication age. Manual admin magic links remain available only for bootstrap and account recovery.
+
+Production settings for https://fraerapp.ru:
+
+    AUTH_PASSKEY_RP_ID=fraerapp.ru
+    AUTH_PASSKEY_RP_NAME=FraerApp
+    AUTH_PASSKEY_ORIGINS=https://fraerapp.ru
+    AUTH_PASSKEY_CHALLENGE_TTL_SECONDS=300
+    AUTH_PASSKEY_REGISTRATION_RECENT_AUTH_SECONDS=600
+
+Do not add wildcard origins or change the RP ID after users register credentials: existing passkeys are cryptographically bound to that RP ID. Local development defaults to RP ID localhost and the two local origins from .env.example.
+
 Roles:
 
 - `player` is granted automatically after the first verified email login.
@@ -37,6 +59,9 @@ Important env:
 - `AUTH_COOKIE_SECURE` and `AUTH_COOKIE_SAME_SITE` - cookie policy.
 - `CORS_ALLOWED_ORIGINS` and `AUTH_CORS_ALLOWED_ORIGINS` - origins allowed to send credentialed requests.
 - `AUTH_BOOTSTRAP_ADMIN_EMAIL` - email that receives the initial `admin` role.
+- `AUTH_PASSKEY_RP_ID`, `AUTH_PASSKEY_RP_NAME`, `AUTH_PASSKEY_ORIGINS` - WebAuthn relying-party identity and exact allowed origins.
+- `AUTH_PASSKEY_CHALLENGE_TTL_SECONDS` - lifetime of a one-time registration or authentication challenge.
+- `AUTH_PASSKEY_REGISTRATION_RECENT_AUTH_SECONDS` - maximum age of the trusted login required to add a passkey.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` - SMTP settings for magic-link email. For the first public setup the sender is `noreply@fraerapp.ru`.
 
 ## Own SMTP Draft

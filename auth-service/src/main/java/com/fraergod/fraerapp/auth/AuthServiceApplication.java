@@ -29,7 +29,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -46,6 +48,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 @SpringBootApplication
 public class AuthServiceApplication {
@@ -77,6 +81,7 @@ class AuthController {
 	private final AuthStore store;
 	private final JwtCodec jwt;
 	private final Optional<JavaMailSender> mail;
+	private final PasskeyService passkeys;
 	private final Map<String, List<DevLink>> devLinks = new ConcurrentHashMap<>();
 	private final Map<String, Window> rate = new ConcurrentHashMap<>();
 
@@ -98,6 +103,9 @@ class AuthController {
 	@Value("${auth.dev-mode:true}")
 	private boolean devMode;
 
+	@Value("${auth.admin-login-link-log-enabled:false}")
+	private boolean adminLoginLinkLogEnabled;
+
 	@Value("${auth.public-base-url:}")
 	private String publicBaseUrl;
 
@@ -107,31 +115,98 @@ class AuthController {
 	@Value("${auth.smtp-from:noreply@fraerapp.ru}")
 	private String smtpFrom;
 
-	AuthController(AuthStore store, JwtCodec jwt, Optional<JavaMailSender> mail) {
+	@Value("${spring.mail.host:}")
+	private String smtpHost;
+
+	@Value("${auth.privacy-policy-version:2026-06-21}")
+	private String privacyPolicyVersion;
+
+	@Value("${auth.passkey.registration-recent-auth-seconds:600}")
+	private long passkeyRegistrationRecentAuthSeconds;
+
+	AuthController(AuthStore store, JwtCodec jwt, Optional<JavaMailSender> mail, PasskeyService passkeys) {
 		this.store = store;
 		this.jwt = jwt;
 		this.mail = mail;
+		this.passkeys = passkeys;
 	}
 
 	@PostMapping("/login-link")
 	Map<String, Object> loginLink(@Valid @RequestBody LoginLinkRequest request, HttpServletRequest servletRequest) {
 		String email = AuthServiceApplication.normalizeEmail(request.email());
+		if (!request.personalDataConsent()) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Personal data consent is required");
+		}
 		checkRate("login:" + email, devMode ? 200 : 5, Duration.ofMinutes(15));
-		String token = UUID.randomUUID() + "." + UUID.randomUUID();
-		String redirect = safeRedirect(request.redirectPath());
-		Instant expiresAt = Instant.now().plusSeconds(magicLinkTtl);
-		store.createMagicLink(email, sha256(token), redirect, expiresAt);
-		String separator = redirect.contains("?") ? "&" : "?";
-		String link = requestBaseUrl(servletRequest) + redirect + separator + "auth_token=" + token + "&redirect=" + url64(redirect.getBytes(StandardCharsets.UTF_8));
-		store.audit(null, email, "login_link_requested", "{}");
+		store.recordConsent(email, privacyPolicyVersion, "login_form");
+		if (!devMode && !smtpAvailable()) {
+			if (adminLoginLinkLogEnabled && canLogAdminLoginLink(email)) {
+				CreatedLoginLink generated = createLoginLink(
+						email, request.redirectPath(), servletRequest, "admin_log_bootstrap", privacyPolicyVersion);
+				System.out.println("FraerApp admin login link for " + email + " expires at "
+						+ generated.expiresAt() + ": " + generated.loginUrl());
+			}
+			else {
+				store.audit(null, email, "login_link_requested",
+						"{\"source\":\"self_service\",\"consentVersion\":\"" + privacyPolicyVersion
+								+ "\",\"delivery\":\"unavailable\"}");
+			}
+			return Map.of("sent", true);
+		}
+		CreatedLoginLink generated = createLoginLink(
+				email, request.redirectPath(), servletRequest, "self_service", privacyPolicyVersion);
 		if (devMode) {
-			devLinks.put(email, List.of(new DevLink(email, link, expiresAt)));
-			System.out.println("FraerApp dev magic link for " + email + ": " + link);
+			devLinks.put(email, List.of(new DevLink(email, generated.loginUrl(), generated.expiresAt())));
+			System.out.println("FraerApp dev magic link for " + email + ": " + generated.loginUrl());
 		}
 		else {
-			sendMail(email, link);
+			sendMail(email, generated.loginUrl());
 		}
 		return Map.of("sent", true);
+	}
+
+	@PostMapping("/admin/users/login-link")
+	Map<String, Object> adminLoginLink(@RequestHeader(name = "Authorization", required = false) String authorization,
+			@CookieValue(name = "fraer_access", required = false) String accessToken,
+			@Valid @RequestBody AdminLoginLinkRequest request,
+			HttpServletRequest servletRequest) {
+		User admin = currentUser(authorization, accessToken);
+		if (!admin.roles().contains("admin")) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
+		}
+		String email = AuthServiceApplication.normalizeEmail(request.email());
+		User user = store.user(email, false)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+		if (user.blockedAt() != null) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "User is blocked");
+		}
+		checkRate("admin-login:" + admin.id(), devMode ? 200 : 20, Duration.ofMinutes(15));
+		CreatedLoginLink generated = createLoginLink(
+				email, request.redirectPath(), servletRequest, "admin_resend", null);
+		store.audit(admin.id(), admin.email(), "admin_login_link_requested",
+				"{\"target\":\"" + email + "\"}");
+		return Map.of(
+				"sent", true,
+				"email", email,
+				"loginUrl", generated.loginUrl(),
+				"expiresAt", generated.expiresAt());
+	}
+
+	private CreatedLoginLink createLoginLink(String email, String requestedRedirect, HttpServletRequest servletRequest,
+			String source, String consentVersion) {
+		String token = UUID.randomUUID() + "." + UUID.randomUUID();
+		String tokenHash = sha256(token);
+		String redirect = safeRedirect(requestedRedirect);
+		Instant expiresAt = Instant.now().plusSeconds(magicLinkTtl);
+		store.createMagicLink(email, tokenHash, redirect, expiresAt);
+		String separator = redirect.contains("?") ? "&" : "?";
+		String link = requestBaseUrl(servletRequest) + redirect + separator + "auth_token=" + token + "&redirect=" + url64(redirect.getBytes(StandardCharsets.UTF_8));
+		String metadata = consentVersion == null
+				? "{\"source\":\"" + source + "\"}"
+				: "{\"source\":\"" + source + "\",\"consentVersion\":\"" + consentVersion + "\"}";
+		store.audit(null, email, "login_link_requested", metadata);
+		store.invalidateOtherActiveMagicLinks(email, tokenHash);
+		return new CreatedLoginLink(link, expiresAt);
 	}
 
 	@PostMapping("/verify")
@@ -152,7 +227,7 @@ class AuthController {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is blocked");
 		}
 		store.consumeMagicLink(link.id());
-		TokenPair pair = issue(user);
+		TokenPair pair = issue(user, "magic_link");
 		addCookies(response, pair);
 		store.audit(user.id(), user.email(), "login_link_verified", "{}");
 		return Map.of("user", userView(user), "redirectPath", link.redirectPath() == null ? "/" : link.redirectPath());
@@ -175,7 +250,7 @@ class AuthController {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is blocked");
 		}
 		store.revokeRefresh(token.id());
-		TokenPair pair = issue(user);
+		TokenPair pair = rotate(user, token.sessionId());
 		store.replaceRefresh(token.id(), pair.refreshId());
 		addCookies(response, pair);
 		store.audit(user.id(), user.email(), "refreshed", "{}");
@@ -211,6 +286,65 @@ class AuthController {
 		clearCookies(response);
 		store.audit(user.id(), user.email(), "logout_all", "{}");
 		return Map.of("loggedOut", true);
+	}
+
+	@PostMapping(value = "/passkeys/registration/options", produces = MediaType.APPLICATION_JSON_VALUE)
+	String passkeyRegistrationOptions(
+			@RequestHeader(name = "Authorization", required = false) String authorization,
+			@CookieValue(name = "fraer_access", required = false) String accessToken) {
+		JwtClaims claims = currentClaims(authorization, accessToken);
+		User user = userForClaims(claims);
+		requireRecentAuthentication(claims);
+		checkRate("passkey-registration-start:" + user.id(), devMode ? 200 : 10, Duration.ofMinutes(15));
+		return passkeys.startRegistration(user);
+	}
+
+	@PostMapping("/passkeys/registration/verify")
+	PasskeyView passkeyRegistrationVerify(
+			@RequestHeader(name = "Authorization", required = false) String authorization,
+			@CookieValue(name = "fraer_access", required = false) String accessToken,
+			@Valid @RequestBody PasskeyRegistrationFinishRequest request) {
+		JwtClaims claims = currentClaims(authorization, accessToken);
+		User user = userForClaims(claims);
+		requireRecentAuthentication(claims);
+		checkRate("passkey-registration-finish:" + user.id(), devMode ? 200 : 10, Duration.ofMinutes(15));
+		return passkeys.finishRegistration(user, request.challengeId(), request.displayName(), request.credential());
+	}
+
+	@PostMapping(value = "/passkeys/authentication/options", produces = MediaType.APPLICATION_JSON_VALUE)
+	String passkeyAuthenticationOptions(HttpServletRequest request) {
+		checkRate("passkey-authentication-start:" + clientAddress(request), devMode ? 200 : 30, Duration.ofMinutes(15));
+		return passkeys.startAuthentication();
+	}
+
+	@PostMapping("/passkeys/authentication/verify")
+	Map<String, Object> passkeyAuthenticationVerify(
+			@Valid @RequestBody PasskeyAuthenticationFinishRequest request,
+			HttpServletRequest servletRequest,
+			HttpServletResponse response) {
+		checkRate("passkey-authentication-finish:" + clientAddress(servletRequest), devMode ? 200 : 30, Duration.ofMinutes(15));
+		User user = passkeys.finishAuthentication(request.challengeId(), request.credential());
+		TokenPair pair = issue(user, "passkey");
+		addCookies(response, pair);
+		return Map.of("user", userView(user));
+	}
+
+	@GetMapping("/passkeys")
+	Map<String, Object> passkeyCredentials(
+			@RequestHeader(name = "Authorization", required = false) String authorization,
+			@CookieValue(name = "fraer_access", required = false) String accessToken) {
+		User user = currentUser(authorization, accessToken);
+		return Map.of("passkeys", passkeys.credentials(user));
+	}
+
+	@DeleteMapping("/passkeys/{credentialId}")
+	Map<String, Object> deletePasskey(
+			@RequestHeader(name = "Authorization", required = false) String authorization,
+			@CookieValue(name = "fraer_access", required = false) String accessToken,
+			@PathVariable @Size(max = 1024) String credentialId) {
+		User user = currentUser(authorization, accessToken);
+		passkeys.deleteCredential(user, credentialId);
+		return Map.of("deleted", true);
 	}
 
 	@PostMapping("/admin/roles")
@@ -293,7 +427,8 @@ class AuthController {
 				    section { background: #fff; border: 1px solid #d8d3ca; border-radius: 8px; padding: 18px; margin-top: 16px; }
 				    label { display: block; font-weight: 650; margin: 12px 0 6px; }
 				    input, select, button { font: inherit; }
-				    input, select { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #c9c2b8; border-radius: 6px; background: #fff; }
+					    input, select { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #c9c2b8; border-radius: 6px; background: #fff; }
+					    input[type="checkbox"] { width: auto; }
 				    button { margin-top: 14px; padding: 10px 14px; border: 0; border-radius: 6px; background: #1f5f46; color: #fff; cursor: pointer; }
 				    button.secondary { background: #51483f; }
 				    button.danger { background: #8f2f25; }
@@ -338,15 +473,17 @@ class AuthController {
 				<body>
 				  <main>
 				    <h1>FraerApp права</h1>
-				    <p class="muted">Вход только через email. Для этой панели нужна роль admin.</p>
+				    <p class="muted">Общая сессия FraerApp. Для этой панели нужна роль admin.</p>
 
 				    <section id="login-section">
 				      <h2>Вход администратора</h2>
 				      <form id="login-form">
-				        <label for="login-email">Email</label>
-				        <input id="login-email" type="email" value="culibiaka2012@yandex.ru" autocomplete="email" required>
-				        <button type="submit">Отправить ссылку</button>
+					        <label for="login-email">Email</label>
+					        <input id="login-email" type="email" placeholder="admin@example.com" autocomplete="email" required>
+					        <label><input id="login-consent" type="checkbox" required> Я принимаю <a href="/personal-data-consent.html" target="_blank" rel="noopener">согласие на обработку персональных данных</a> и ознакомлен с <a href="/privacy-policy.html" target="_blank" rel="noopener">политикой</a>.</label>
+					        <button type="submit">Отправить ссылку</button>
 				      </form>
+				      <button id="passkey-login" type="button" class="secondary">Войти с passkey</button>
 				      <pre id="login-result"></pre>
 				    </section>
 
@@ -354,6 +491,24 @@ class AuthController {
 				      <h2>Текущий вход</h2>
 				      <p id="me-line"></p>
 				      <button id="logout" type="button" class="secondary">Выйти</button>
+				      <h3>Passkeys</h3>
+				      <label for="passkey-name">Название устройства</label>
+				      <input id="passkey-name" maxlength="120" placeholder="Мой телефон">
+				      <button id="passkey-register" type="button">Добавить passkey</button>
+				      <div id="passkey-list"></div>
+				      <pre id="passkey-result"></pre>
+				    </section>
+
+				    <section id="manual-link-section" class="hidden">
+				      <h2>Ручная ссылка для входа</h2>
+				      <p class="muted">Введите email существующего незаблокированного пользователя. Новая ссылка отменит предыдущие активные ссылки.</p>
+				      <form id="manual-link-form">
+				        <label for="manual-link-email">Email пользователя</label>
+				        <input id="manual-link-email" type="email" placeholder="user@example.com" required>
+				        <button type="submit">Создать ссылку</button>
+				      </form>
+				      <pre id="manual-link-result"></pre>
+				      <button id="copy-manual-link" type="button" class="secondary hidden">Скопировать ссылку</button>
 				    </section>
 
 				    <section id="roles-section" class="hidden">
@@ -490,33 +645,55 @@ class AuthController {
 				    </section>
 				  </main>
 
-				  <script>
+				  <script type="module">
+				    import { credentialToJson, parseCreationOptions, parseRequestOptions, passkeysSupported } from "/passkeys.js";
 				    const loginSection = document.querySelector("#login-section");
 				    const meSection = document.querySelector("#me-section");
+				    const manualLinkSection = document.querySelector("#manual-link-section");
 				    const rolesSection = document.querySelector("#roles-section");
 				    const usersSection = document.querySelector("#users-section");
 				    const storiesSection = document.querySelector("#stories-section");
 				    const loginResult = document.querySelector("#login-result");
+				    const manualLinkResult = document.querySelector("#manual-link-result");
+				    const copyManualLink = document.querySelector("#copy-manual-link");
 				    const roleResult = document.querySelector("#role-result");
 				    const usersResult = document.querySelector("#users-result");
 				    const storiesResult = document.querySelector("#stories-result");
 				    const meLine = document.querySelector("#me-line");
+				    const passkeyResult = document.querySelector("#passkey-result");
+				    const passkeyList = document.querySelector("#passkey-list");
 				    let userPage = 0;
 				    let userTotalPages = 0;
 				    let storyPage = 0;
 				    let storyTotalPages = 0;
+				    let currentManualLoginUrl = "";
 
-				    async function json(path, options = {}) {
+				    async function json(path, options = {}, allowRefresh = true) {
 				      const response = await fetch(path, {
 				        method: options.method || "GET",
 				        credentials: "include",
 				        headers: { Accept: "application/json", ...(options.body ? { "Content-Type": "application/json" } : {}) },
 				        body: options.body ? JSON.stringify(options.body) : undefined,
 				      });
+				      if (response.status === 401 && allowRefresh && shouldRefreshAuth(path)) {
+				        const refreshed = await fetch("/auth/refresh", {
+				          method: "POST",
+				          credentials: "include",
+				          headers: { Accept: "application/json" },
+				        });
+				        if (refreshed.ok) return json(path, options, false);
+				      }
 				      const text = await response.text();
 				      const payload = text ? JSON.parse(text) : {};
-				      if (!response.ok) throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
+				      if (!response.ok) throw new Error(payload.message || payload.detail || payload.error || `HTTP ${response.status}`);
 				      return payload;
+				    }
+
+				    function shouldRefreshAuth(path) {
+				      return !String(path).startsWith("/auth/login-link")
+				        && !String(path).startsWith("/auth/verify")
+				        && !String(path).startsWith("/auth/refresh")
+				        && !String(path).startsWith("/auth/passkeys/authentication");
 				    }
 
 				    async function loadMe() {
@@ -525,13 +702,16 @@ class AuthController {
 				        meLine.textContent = `${me.email} / ${me.roles.join(", ")}`;
 				        meSection.classList.remove("hidden");
 				        loginSection.classList.add("hidden");
+				        loadPasskeys().catch((error) => { passkeyResult.textContent = error.message; });
 				        if (me.roles.includes("admin")) {
+				          manualLinkSection.classList.remove("hidden");
 				          rolesSection.classList.remove("hidden");
 				          usersSection.classList.remove("hidden");
 				          storiesSection.classList.remove("hidden");
 				          loadUsers();
 				          loadStories();
 				        } else {
+				          manualLinkSection.classList.add("hidden");
 				          rolesSection.classList.add("hidden");
 				          usersSection.classList.add("hidden");
 				          storiesSection.classList.add("hidden");
@@ -540,6 +720,7 @@ class AuthController {
 				      } catch {
 				        loginSection.classList.remove("hidden");
 				        meSection.classList.add("hidden");
+				        manualLinkSection.classList.add("hidden");
 				        rolesSection.classList.add("hidden");
 				        usersSection.classList.add("hidden");
 				        storiesSection.classList.add("hidden");
@@ -591,7 +772,7 @@ class AuthController {
 				          td(user.email || ""),
 				          td((user.roles || []).join(", ")),
 				          td(user.blocked ? "заблокирован" : ""),
-				          td(`sessions: ${user.sessions || 0}, active: ${user.activeSessions || 0}, audit: ${user.auditEvents || 0}`),
+				          td(`sessions: ${user.sessions || 0}, active: ${user.activeSessions || 0}, passkeys: ${user.passkeys || 0}, audit: ${user.auditEvents || 0}`),
 				          td(`player: ${runtime.username || ""}\\nsaves: ${runtime.sessions || 0}, active: ${runtime.activeSessions || 0}, finished: ${runtime.finishedSessions || 0}`),
 				          td(`stories: ${runtime.authoredStories || 0}\\ndraft/review/pub/archive: ${runtime.draftStories || 0}/${runtime.reviewStories || 0}/${runtime.publishedStories || 0}/${runtime.archivedStories || 0}\\nruns: ${runtime.authoredRuns || 0}`),
 				          td(formatDate(user.createdAt)),
@@ -604,13 +785,37 @@ class AuthController {
 				    function userActionCell(user) {
 				      const cell = document.createElement("td");
 				      cell.className = "actions";
-				      const block = document.createElement("button");
+					      const block = document.createElement("button");
 				      block.type = "button";
 				      block.className = user.blocked ? "secondary" : "danger";
 				      block.textContent = user.blocked ? "Разблокировать" : "Блокировать";
 				      block.addEventListener("click", () => blockUser(user, !user.blocked));
-				      cell.append(block);
-				      return cell;
+					      const loginLink = document.createElement("button");
+					      loginLink.type = "button";
+					      loginLink.className = "secondary";
+					      loginLink.textContent = "Создать ссылку";
+					      loginLink.disabled = user.blocked;
+					      loginLink.addEventListener("click", () => sendLoginLink(user));
+					      cell.append(loginLink, block);
+					      return cell;
+					    }
+
+				    async function createManualLoginLink(email) {
+				      const result = await json("/auth/admin/users/login-link", {
+					        method: "POST",
+					        body: { email, redirectPath: "/" },
+					      });
+				      currentManualLoginUrl = result.loginUrl;
+				      manualLinkResult.textContent = `Новая ссылка для ${result.email} (действует до ${result.expiresAt}):\n${result.loginUrl}\nПередайте её пользователю вручную.`;
+				      copyManualLink.classList.remove("hidden");
+				      return result;
+				    }
+
+				    async function sendLoginLink(user) {
+				      if (!confirm(`Создать новую ссылку для входа ${user.email}? Предыдущие ссылки перестанут работать.`)) return;
+				      const result = await createManualLoginLink(user.email);
+				      document.querySelector("#manual-link-email").value = user.email;
+				      usersResult.textContent = `Ссылка для ${result.email} создана в разделе «Ручная ссылка для входа».`;
 				    }
 
 				    async function blockUser(user, blocked) {
@@ -724,11 +929,71 @@ class AuthController {
 				      loginResult.textContent = JSON.stringify(result, null, 2);
 				    }
 
+				    async function loginWithPasskey() {
+				      if (!passkeysSupported()) throw new Error("Passkey недоступен в этом браузере.");
+				      const options = await json("/auth/passkeys/authentication/options", { method: "POST" });
+				      const credential = await navigator.credentials.get({ publicKey: parseRequestOptions(options.publicKey) });
+				      if (!credential) throw new Error("Passkey не выбран.");
+				      await json("/auth/passkeys/authentication/verify", {
+				        method: "POST",
+				        body: { challengeId: options.challengeId, credential: credentialToJson(credential) },
+				      });
+				      await loadMe();
+				    }
+
+				    async function registerPasskey() {
+				      if (!passkeysSupported()) throw new Error("Passkey недоступен в этом браузере.");
+				      const options = await json("/auth/passkeys/registration/options", { method: "POST" });
+				      const credential = await navigator.credentials.create({ publicKey: parseCreationOptions(options.publicKey) });
+				      if (!credential) throw new Error("Passkey не создан.");
+				      await json("/auth/passkeys/registration/verify", {
+				        method: "POST",
+				        body: {
+				          challengeId: options.challengeId,
+				          displayName: document.querySelector("#passkey-name").value.trim(),
+				          credential: credentialToJson(credential),
+				        },
+				      });
+				      document.querySelector("#passkey-name").value = "";
+				      passkeyResult.textContent = "Passkey добавлен.";
+				      await loadPasskeys();
+				    }
+
+				    async function loadPasskeys() {
+				      const result = await json("/auth/passkeys");
+				      passkeyList.replaceChildren();
+				      if (!result.passkeys?.length) {
+				        passkeyList.textContent = "Passkey пока не добавлены.";
+				        return;
+				      }
+				      for (const passkey of result.passkeys) {
+				        const row = document.createElement("p");
+				        row.textContent = `${passkey.displayName} · ${new Date(passkey.createdAt).toLocaleDateString("ru-RU")} `;
+				        const remove = document.createElement("button");
+				        remove.type = "button";
+				        remove.className = "danger";
+				        remove.textContent = "Удалить";
+				        remove.addEventListener("click", async () => {
+				          await json("/auth/passkeys/" + encodeURIComponent(passkey.credentialId), { method: "DELETE" });
+				          await loadPasskeys();
+				        });
+				        row.append(remove);
+				        passkeyList.append(row);
+				      }
+				    }
+
 				    document.querySelector("#login-form").addEventListener("submit", async (event) => {
 				      event.preventDefault();
 				      const email = document.querySelector("#login-email").value.trim();
-				      await json("/auth/login-link", { method: "POST", body: { email, redirectPath: "/auth/admin" } });
-				      loginResult.textContent = "Ссылка отправлена с noreply@fraerapp.ru. Если письма нет во входящих, проверьте папку Спам. В dev можно открыть /auth/dev/magic-links?email=" + encodeURIComponent(email);
+					      await json("/auth/login-link", {
+					        method: "POST",
+					        body: {
+					          email,
+					          redirectPath: "/auth/admin",
+					          personalDataConsent: document.querySelector("#login-consent").checked,
+					        },
+					      });
+				      loginResult.textContent = "Запрос принят. Если вход для этого адреса доступен, инструкции будут доставлены доступным способом.";
 				      try {
 				        const dev = await json("/auth/dev/magic-links?email=" + encodeURIComponent(email));
 				        const link = dev.links?.[0]?.link;
@@ -742,6 +1007,14 @@ class AuthController {
 				      } catch {}
 				    });
 
+				    document.querySelector("#passkey-login").addEventListener("click", () => {
+				      loginWithPasskey().catch((error) => { loginResult.textContent = error.message; });
+				    });
+
+				    document.querySelector("#passkey-register").addEventListener("click", () => {
+				      registerPasskey().catch((error) => { passkeyResult.textContent = error.message; });
+				    });
+
 				    document.querySelector("#role-form").addEventListener("submit", async (event) => {
 				      event.preventDefault();
 				      const payload = {
@@ -752,6 +1025,25 @@ class AuthController {
 				      const result = await json("/auth/admin/roles", { method: "POST", body: payload });
 				      roleResult.textContent = JSON.stringify(result, null, 2);
 				      await loadUsers();
+				    });
+
+				    document.querySelector("#manual-link-form").addEventListener("submit", async (event) => {
+				      event.preventDefault();
+				      const email = document.querySelector("#manual-link-email").value.trim();
+				      if (!confirm(`Создать новую ссылку для входа ${email}? Предыдущие ссылки перестанут работать.`)) return;
+				      try {
+				        await createManualLoginLink(email);
+				      } catch (error) {
+				        currentManualLoginUrl = "";
+				        copyManualLink.classList.add("hidden");
+				        manualLinkResult.textContent = error.message;
+				      }
+				    });
+
+				    copyManualLink.addEventListener("click", async () => {
+				      if (!currentManualLoginUrl) return;
+				      await navigator.clipboard.writeText(currentManualLoginUrl);
+				      copyManualLink.textContent = "Скопировано";
 				    });
 
 				    document.querySelector("#user-query").addEventListener("input", () => {
@@ -839,18 +1131,30 @@ class AuthController {
 		return userView(store.user(user.email(), true).orElseThrow());
 	}
 
-	private TokenPair issue(User user) {
+	private TokenPair issue(User user, String authMethod) {
 		String sessionId = UUID.randomUUID().toString();
 		Instant now = Instant.now();
+		store.createSession(sessionId, user.id(), now.plusSeconds(refreshTtl), authMethod, now);
+		return tokenPair(user, sessionId, now);
+	}
+
+	private TokenPair rotate(User user, String sessionId) {
+		return tokenPair(user, sessionId, Instant.now());
+	}
+
+	private TokenPair tokenPair(User user, String sessionId, Instant now) {
 		String refreshToken = UUID.randomUUID() + "." + UUID.randomUUID();
 		String refreshId = UUID.randomUUID().toString();
-		store.createSession(sessionId, user.id(), now.plusSeconds(refreshTtl));
 		store.createRefresh(refreshId, sessionId, sha256(refreshToken), now.plusSeconds(refreshTtl));
 		String accessToken = jwt.encode(user, sessionId, now.plusSeconds(accessTtl));
 		return new TokenPair(accessToken, refreshToken, refreshId);
 	}
 
 	private User currentUser(String authorization, String accessToken) {
+		return userForClaims(currentClaims(authorization, accessToken));
+	}
+
+	private JwtClaims currentClaims(String authorization, String accessToken) {
 		String token = accessToken;
 		if ((token == null || token.isBlank()) && authorization != null && authorization.startsWith("Bearer ")) {
 			token = authorization.substring("Bearer ".length());
@@ -858,12 +1162,26 @@ class AuthController {
 		if (token == null || token.isBlank()) {
 			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing access token");
 		}
-		JwtClaims claims = jwt.decode(token);
+		return jwt.decode(token);
+	}
+
+	private User userForClaims(JwtClaims claims) {
 		User user = store.userById(claims.userId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
 		if (user.blockedAt() != null) {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is blocked");
 		}
 		return user;
+	}
+
+	private void requireRecentAuthentication(JwtClaims claims) {
+		SessionAuthentication authentication = store.sessionAuthentication(claims.sessionId())
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Recent authentication required"));
+		Instant cutoff = Instant.now().minusSeconds(passkeyRegistrationRecentAuthSeconds);
+		if (authentication.authenticatedAt() == null
+				|| authentication.authenticatedAt().isBefore(cutoff)
+				|| !List.of("magic_link", "passkey").contains(authentication.authMethod())) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Recent authentication required");
+		}
 	}
 
 	private void addCookies(HttpServletResponse response, TokenPair pair) {
@@ -891,16 +1209,30 @@ class AuthController {
 	}
 
 	private void sendMail(String email, String link) {
-		if (mail.isEmpty()) {
+		if (!smtpAvailable()) {
 			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "SMTP is not configured");
 		}
 		SimpleMailMessage message = new SimpleMailMessage();
 		message.setTo(email);
 		message.setFrom(smtpFrom);
-		message.setSubject("FraerApp login link");
-		message.setText("Open this link to sign in to FraerApp:\n\n" + link
-				+ "\n\nIf you did not request this email, you can ignore it.");
+		message.setSubject("Ссылка для входа в FraerApp");
+		message.setText("Откройте ссылку, чтобы войти в FraerApp:\n\n" + link
+				+ "\n\nСсылка действует ограниченное время. Новая ссылка отменяет предыдущую. "
+				+ "Если вы не запрашивали вход, проигнорируйте это письмо.");
 		mail.get().send(message);
+	}
+
+	private boolean smtpAvailable() {
+		return smtpHost != null && !smtpHost.isBlank() && mail.isPresent();
+	}
+
+	private boolean canLogAdminLoginLink(String email) {
+		Optional<User> existing = store.user(email, false);
+		if (existing.isPresent()) {
+			User user = existing.get();
+			return user.blockedAt() == null && user.roles().contains("admin");
+		}
+		return isBootstrapAdmin(email);
 	}
 
 	private boolean isBootstrapAdmin(String email) {
@@ -946,6 +1278,11 @@ class AuthController {
 		return (comma >= 0 ? value.substring(0, comma) : value).trim();
 	}
 
+	private String clientAddress(HttpServletRequest request) {
+		String realIp = firstHeader(request, "X-Real-IP");
+		return realIp == null || realIp.isBlank() ? request.getRemoteAddr() : realIp;
+	}
+
 	private String stripTrailingSlash(String value) {
 		while (value.endsWith("/")) {
 			value = value.substring(0, value.length() - 1);
@@ -987,7 +1324,10 @@ class AuthController {
 		return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
 	}
 
-	record LoginLinkRequest(@Email @NotBlank String email, String redirectPath) {
+	record LoginLinkRequest(@Email @NotBlank String email, String redirectPath, boolean personalDataConsent) {
+	}
+
+	record AdminLoginLinkRequest(@Email @NotBlank String email, String redirectPath) {
 	}
 
 	record VerifyRequest(@NotBlank String token) {
@@ -999,10 +1339,24 @@ class AuthController {
 	record BlockRequest(@Email @NotBlank String email, boolean blocked) {
 	}
 
+	record PasskeyRegistrationFinishRequest(
+			@NotBlank String challengeId,
+			@Size(max = 120) String displayName,
+			@NotNull Map<String, Object> credential) {
+	}
+
+	record PasskeyAuthenticationFinishRequest(
+			@NotBlank String challengeId,
+			@NotNull Map<String, Object> credential) {
+	}
+
 	record TokenPair(String accessToken, String refreshToken, String refreshId) {
 	}
 
 	record DevLink(String email, String link, Instant expiresAt) {
+	}
+
+	record CreatedLoginLink(String loginUrl, Instant expiresAt) {
 	}
 
 	record Window(int count, Instant resetAt) {
@@ -1021,6 +1375,7 @@ class AuthController {
 			Instant updatedAt,
 			long sessions,
 			long activeSessions,
+			long passkeys,
 			long auditEvents) {
 	}
 }
@@ -1068,7 +1423,7 @@ class JwtCodec {
 			if (exp == null || Instant.ofEpochSecond(exp.longValue()).isBefore(Instant.now())) {
 				throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token expired");
 			}
-			return new JwtClaims((String) claims.get("sub"));
+			return new JwtClaims((String) claims.get("sub"), (String) claims.get("sid"));
 		}
 		catch (ResponseStatusException ex) {
 			throw ex;
@@ -1172,6 +1527,21 @@ class AuthStore {
 				""", UUID.randomUUID().toString(), email, tokenHash, redirectPath, timestamp(expiresAt), timestamp(Instant.now()));
 	}
 
+	void invalidateOtherActiveMagicLinks(String email, String currentTokenHash) {
+		Instant now = Instant.now();
+		jdbc.update("""
+				update email_login_tokens set used_at = ?
+				where email = ? and token_hash <> ? and used_at is null and expires_at > ?
+				""", timestamp(now), email, currentTokenHash, timestamp(now));
+	}
+
+	void recordConsent(String email, String policyVersion, String source) {
+		jdbc.update("""
+				insert into personal_data_consents(id, email, policy_version, source, accepted_at)
+				values (?, ?, ?, ?, ?)
+				""", UUID.randomUUID().toString(), email, policyVersion, source, timestamp(Instant.now()));
+	}
+
 	Optional<MagicLink> magicLink(String tokenHash) {
 		List<MagicLink> links = jdbc.query("""
 				select id, email, redirect_path, expires_at, used_at from email_login_tokens where token_hash = ?
@@ -1184,9 +1554,21 @@ class AuthStore {
 		jdbc.update("update email_login_tokens set used_at = ? where id = ? and used_at is null", timestamp(Instant.now()), id);
 	}
 
-	void createSession(String id, String userId, Instant expiresAt) {
-		jdbc.update("insert into sessions(id, user_id, created_at, expires_at) values (?, ?, ?, ?)", id, userId,
-				timestamp(Instant.now()), timestamp(expiresAt));
+	void createSession(String id, String userId, Instant expiresAt, String authMethod, Instant authenticatedAt) {
+		jdbc.update("""
+				insert into sessions(id, user_id, created_at, expires_at, auth_method, authenticated_at)
+				values (?, ?, ?, ?, ?, ?)
+				""", id, userId, timestamp(Instant.now()), timestamp(expiresAt), authMethod, timestamp(authenticatedAt));
+	}
+
+	Optional<SessionAuthentication> sessionAuthentication(String sessionId) {
+		List<SessionAuthentication> values = jdbc.query("""
+				select auth_method, authenticated_at from sessions
+				where id = ? and revoked_at is null and expires_at > ?
+				""", (rs, row) -> new SessionAuthentication(
+				rs.getString(1), rs.getTimestamp(2) == null ? null : rs.getTimestamp(2).toInstant()),
+				sessionId, timestamp(Instant.now()));
+		return values.stream().findFirst();
 	}
 
 	void createRefresh(String id, String sessionId, String tokenHash, Instant expiresAt) {
@@ -1272,9 +1654,10 @@ class AuthStore {
 		long sessionsCount = jdbc.queryForObject("select count(*) from sessions where user_id = ?", Long.class, id);
 		long activeSessions = jdbc.queryForObject("select count(*) from sessions where user_id = ? and revoked_at is null and expires_at > ?",
 				Long.class, id, timestamp(Instant.now()));
+		long passkeys = jdbc.queryForObject("select count(*) from passkey_credentials where user_id = ?", Long.class, id);
 		long auditEvents = jdbc.queryForObject("select count(*) from auth_audit_events where user_id = ? or email = ?", Long.class, id, email);
 		return new AuthController.AdminUserSummary(id, email, roles, blockedAt != null, blockedAt, createdAt, updatedAt,
-				sessionsCount, activeSessions, auditEvents);
+				sessionsCount, activeSessions, passkeys, auditEvents);
 	}
 
 	private Instant instant(java.sql.Timestamp timestamp) {
@@ -1295,7 +1678,10 @@ record MagicLink(String id, String email, String redirectPath, Instant expiresAt
 record RefreshToken(String id, String sessionId, Instant expiresAt, Instant revokedAt) {
 }
 
-record JwtClaims(String userId) {
+record JwtClaims(String userId, String sessionId) {
+}
+
+record SessionAuthentication(String authMethod, Instant authenticatedAt) {
 }
 
 @Configuration
