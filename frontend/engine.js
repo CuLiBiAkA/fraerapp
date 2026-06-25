@@ -1079,9 +1079,9 @@ async function withChoiceBusy(button, action) {
     await action();
   } catch (error) {
     setStatus(t("errorPrefix", { message: error.message }));
+  } finally {
     choiceInFlight = false;
     setChoicesBusy(false);
-  } finally {
     button.classList.remove("choice-selected");
   }
 }
