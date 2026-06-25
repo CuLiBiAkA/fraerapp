@@ -1015,7 +1015,7 @@ function storyMatchesQuery(story, query) {
 
 function render(state) {
   currentState = state;
-  choiceInFlight = false;
+  releaseChoices();
   const scene = state.scene;
   showOnly(sceneScreen);
   playerName.textContent = storage.email || "";
@@ -1044,13 +1044,14 @@ function render(state) {
     if (!choice.id) continue;
     const button = document.createElement("button");
     button.type = "button";
+    button.disabled = false;
     button.textContent = choice.label;
     button.addEventListener("click", () => withChoiceBusy(button, async () => {
       render(await api.choice(state.sessionId, choice.id));
     }));
     choices.append(button);
   }
-  setChoicesBusy(false);
+  releaseChoices();
 
   setStatus(state.status === "finished" ? t("sessionFinished") : t("progressSaved"));
   if (state.status === "finished") {
@@ -1062,8 +1063,19 @@ function render(state) {
 
 function setChoicesBusy(busy) {
   choices.classList.toggle("choices-busy", busy);
+  choices.toggleAttribute("aria-busy", busy);
   choices.querySelectorAll("button").forEach((choiceButton) => {
     choiceButton.disabled = busy;
+  });
+}
+
+function releaseChoices() {
+  choiceInFlight = false;
+  choices.classList.remove("choices-busy");
+  choices.removeAttribute("aria-busy");
+  choices.querySelectorAll("button").forEach((choiceButton) => {
+    choiceButton.disabled = false;
+    choiceButton.classList.remove("choice-selected");
   });
 }
 
@@ -1080,9 +1092,7 @@ async function withChoiceBusy(button, action) {
   } catch (error) {
     setStatus(t("errorPrefix", { message: error.message }));
   } finally {
-    choiceInFlight = false;
-    setChoicesBusy(false);
-    button.classList.remove("choice-selected");
+    releaseChoices();
   }
 }
 

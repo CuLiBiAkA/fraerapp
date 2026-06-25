@@ -1083,7 +1083,7 @@ h2 {
   line-height: 1.25;
 }
 
-.choices.choices-busy button {
+.choices button:disabled {
   pointer-events: none;
 }
 
