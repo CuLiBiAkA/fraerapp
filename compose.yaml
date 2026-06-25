@@ -2,8 +2,8 @@ services:
   edge:
     image: nginx:1.27-alpine
     ports:
-      - "${HTTP_PORT:-8088}:80"
-      - "${HTTPS_PORT:-443}:443"
+      - "${APP_BIND_IP:-127.0.0.1}:${HTTP_PORT:-8088}:80"
+      - "${APP_BIND_IP:-127.0.0.1}:${HTTPS_PORT:-443}:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/certs:/etc/nginx/certs:ro
@@ -24,7 +24,7 @@ services:
     build:
       context: ./story-builder
     ports:
-      - "${BUILDER_PORT:-8090}:80"
+      - "${APP_BIND_IP:-127.0.0.1}:${BUILDER_PORT:-8090}:80"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
       interval: 10s
@@ -144,7 +144,120 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}
+      - --web.enable-lifecycle
+    ports:
+      - "${OBSERVABILITY_INTERNAL_BIND_IP:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - node-exporter
+      - cadvisor
+      - nginx-exporter
+      - postgres-exporter
+      - auth-postgres-exporter
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    ports:
+      - "${GRAFANA_BIND_IP:-0.0.0.0}:${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-this-grafana-password}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_LOG_MODE: console
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - loki
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.3.2
+    command: -config.file=/etc/loki/config.yml
+    ports:
+      - "${OBSERVABILITY_INTERNAL_BIND_IP:-127.0.0.1}:${LOKI_PORT:-3100}:3100"
+    volumes:
+      - ./observability/loki/config.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:3.3.2
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./observability/promtail/config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    command:
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/containers/storage/.+)($$|/)
+    pid: host
+    volumes:
+      - /:/host:ro
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.2
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    restart: unless-stopped
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.4.0
+    command:
+      - --nginx.scrape-uri=http://edge/nginx_status
+    depends_on:
+      edge:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.16.0
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-fraerapp}:${POSTGRES_PASSWORD:-fraerapp-password}@postgres:5432/${POSTGRES_DB:-fraerapp}?sslmode=disable
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  auth-postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.16.0
+    environment:
+      DATA_SOURCE_NAME: postgresql://${AUTH_POSTGRES_USER:-fraerapp_auth}:${AUTH_POSTGRES_PASSWORD:-fraerapp-auth-password}@auth-postgres:5432/${AUTH_POSTGRES_DB:-fraerapp_auth}?sslmode=disable
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: "true"
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   auth-postgres-data:
   story-uploads:
+  prometheus-data:
+  grafana-data:
+  loki-data:

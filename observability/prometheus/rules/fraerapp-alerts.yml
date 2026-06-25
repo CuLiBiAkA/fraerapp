@@ -1,0 +1,65 @@
+groups:
+  - name: fraerapp-health
+    rules:
+      - alert: FraerAppTargetDown
+        expr: up{app="fraerapp"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.service }} is down"
+          description: "Prometheus cannot scrape {{ $labels.job }} for more than 2 minutes."
+
+      - alert: FraerAppHighMemoryUsage
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "VPS memory usage is above 85%"
+          description: "The host is under memory pressure. Check Java containers, PostgreSQL, and swap."
+
+      - alert: FraerAppSwapInUse
+        expr: (node_memory_SwapTotal_bytes - node_memory_SwapFree_bytes) > 268435456
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "VPS uses more than 256 MiB swap"
+          description: "Swap usage is a strong signal for slow responses on the small VPS."
+
+      - alert: FraerAppDiskAlmostFull
+        expr: (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk usage is above 85%"
+          description: "{{ $labels.mountpoint }} is running out of space."
+
+      - alert: FraerAppContainerRestarting
+        expr: changes(container_start_time_seconds{name=~".+"}[10m]) > 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container restarted recently"
+          description: "{{ $labels.name }} restarted more than once in 10 minutes."
+
+      - alert: FraerAppSlowSpringRequests
+        expr: histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{app="fraerapp"}[5m])) by (le, service, uri)) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow HTTP requests"
+          description: "p95 latency for {{ $labels.service }} {{ $labels.uri }} is above 2 seconds."
+
+      - alert: FraerAppServerErrors
+        expr: sum(rate(http_server_requests_seconds_count{app="fraerapp", status=~"5.."}[5m])) by (service, uri) > 0.1
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "5xx errors detected"
+          description: "{{ $labels.service }} {{ $labels.uri }} returns server errors."

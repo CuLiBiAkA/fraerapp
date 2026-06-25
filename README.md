@@ -129,6 +129,32 @@ docker compose exec auth-postgres pg_restore -U fraerapp_auth -d fraerapp_auth -
 
 For managed PostgreSQL, set `SPRING_DATASOURCE_URL`/`SPRING_DATASOURCE_USERNAME`/`SPRING_DATASOURCE_PASSWORD` for the API and `AUTH_DATASOURCE_URL`/`AUTH_DATASOURCE_USERNAME`/`AUTH_DATASOURCE_PASSWORD` for auth-service.
 
+## Observability
+
+FraerApp runs with a production-grade observability stack: Grafana, Prometheus, Loki, Promtail, node_exporter, cAdvisor, nginx exporter, and PostgreSQL exporters.
+
+Start the app:
+
+```powershell
+docker compose up -d --build
+```
+
+Open Grafana from the Docker host:
+
+```text
+http://localhost:3000
+```
+
+For local-network access, set `GRAFANA_BIND_IP=0.0.0.0` and open the host LAN IP:
+
+```text
+http://<host-lan-ip>:3000
+```
+
+For the current FraerApp server, that means `http://192.168.0.34:3000` if the firewall allows TCP 3000.
+
+The default dashboard is `FraerApp / FraerApp Overview`. Full setup details, panels, alert rules, and investigation playbooks are in `OBSERVABILITY.md`.
+
 ## Story Builder
 
 Story Builder is a separate static service for creating Story JSON in the browser with forms and buttons.
