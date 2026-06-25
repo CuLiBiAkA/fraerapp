@@ -6,11 +6,13 @@ import {
 } from "./passkeys.js";
 
 const loginScreen = document.querySelector("#login-screen");
+const authLoadingScreen = document.querySelector("#auth-loading-screen");
 const storyScreen = document.querySelector("#story-screen");
 const sceneScreen = document.querySelector("#scene-screen");
 const loginForm = document.querySelector("#login-form");
 const usernameInput = document.querySelector("#username");
 const personalDataConsent = document.querySelector("#personal-data-consent");
+const consentHint = document.querySelector("#consent-hint");
 const loginStatus = document.querySelector("#login-status");
 const storiesList = document.querySelector("#stories");
 const storySearch = document.querySelector("#story-search");
@@ -48,16 +50,23 @@ const passkeyName = document.querySelector("#passkey-name");
 const passkeyRegisterButton = document.querySelector("#passkey-register");
 const passkeyList = document.querySelector("#passkey-list");
 const passkeyStatus = document.querySelector("#passkey-status");
+const cookieBanner = document.querySelector("#cookie-banner");
+const cookieAccept = document.querySelector("#cookie-accept");
 
 const translations = {
   ru: {
     loginEyebrow: "FraerApp Stories",
+    authLoadingEyebrow: "FraerApp Stories",
+    authLoadingTitle: "Проверяем вход",
+    authLoadingText: "Подождите несколько секунд. Если сессия активна, мы сразу откроем библиотеку.",
     loginTitle: "Войдите в библиотеку историй",
     loginSubtitle: "Введите email, чтобы продолжить игру, открыть сохранения и запускать новые интерактивные истории.",
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
     loginButton: "Получить ссылку",
     personalDataConsent: "Я принимаю согласие на обработку персональных данных и ознакомлен с политикой конфиденциальности.",
+    personalDataConsentHint: "Перед входом нужно поставить галочку согласия — без неё ссылка для входа не создаётся.",
+    personalDataConsentRequired: "Перед входом необходимо согласиться с обработкой персональных данных.",
     consentLink: "Согласие",
     privacyLink: "Политика",
     termsLink: "Пользовательское соглашение",
@@ -133,18 +142,28 @@ const translations = {
     sessionFinished: "Сессия завершена",
     loading: "Загрузка...",
     loginFailed: "Не удалось войти: {message}",
+    loginLinkInvalid: "Ссылка для входа недействительна, уже использована или истекла. Запросите новую ссылку.",
+    loginLinkInvalidAction: "Запросить новую ссылку",
     webAudioUnsupported: "Web Audio не поддерживается в этом браузере",
     importFirst: "Сначала импортируйте историю.",
     errorPrefix: "Ошибка: {message}",
+    cookieBannerTitle: "Мы используем cookie",
+    cookieBannerText: "Cookie нужны для входа, сохранения сессии и стабильной работы игры.",
+    cookieAccept: "Понятно",
   },
   en: {
     loginEyebrow: "FraerApp Stories",
+    authLoadingEyebrow: "FraerApp Stories",
+    authLoadingTitle: "Checking sign-in",
+    authLoadingText: "Please wait a few seconds. If your session is active, we will open the library.",
     loginTitle: "Sign in to your story library",
     loginSubtitle: "Enter your email to continue saved runs and launch new interactive stories.",
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
     loginButton: "Get link",
     personalDataConsent: "I accept the personal data processing consent and acknowledge the privacy policy.",
+    personalDataConsentHint: "You need to tick the consent checkbox before sign-in; otherwise the link will not be created.",
+    personalDataConsentRequired: "You need to accept personal data processing before sign-in.",
     consentLink: "Consent",
     privacyLink: "Privacy policy",
     termsLink: "Terms of use",
@@ -220,9 +239,14 @@ const translations = {
     sessionFinished: "Session finished",
     loading: "Loading...",
     loginFailed: "Login failed: {message}",
+    loginLinkInvalid: "This sign-in link is invalid, already used, or expired. Request a new link.",
+    loginLinkInvalidAction: "Request a new link",
     webAudioUnsupported: "Web Audio is not supported",
     importFirst: "Import a story first.",
     errorPrefix: "Error: {message}",
+    cookieBannerTitle: "We use cookies",
+    cookieBannerText: "Cookies are required for sign-in, session storage, and stable game operation.",
+    cookieAccept: "Got it",
   },
 };
 
@@ -239,6 +263,9 @@ const storage = {
   get volume() {
     return Number(localStorage.getItem("fraerapp.volume") ?? 45);
   },
+  get cookieConsent() {
+    return localStorage.getItem("fraerapp.cookieConsent");
+  },
   setUser(user) {
     localStorage.setItem("fraerapp.email", user.email);
   },
@@ -251,6 +278,9 @@ const storage = {
   },
   setVolume(volume) {
     localStorage.setItem("fraerapp.volume", String(volume));
+  },
+  acceptCookies() {
+    localStorage.setItem("fraerapp.cookieConsent", "accepted");
   },
   clearGame() {
     localStorage.removeItem("fraerapp.sessionId");
@@ -271,6 +301,7 @@ let currentLanguage = storage.language;
 let currentState = null;
 let catalogStories = [];
 let catalogPage = 1;
+let choiceInFlight = false;
 
 const storiesPerPage = 4;
 
@@ -418,6 +449,7 @@ function shouldRefreshAuth(path) {
 }
 
 function showOnly(screen) {
+  authLoadingScreen.classList.toggle("hidden", screen !== authLoadingScreen);
   loginScreen.classList.toggle("hidden", screen !== loginScreen);
   storyScreen.classList.toggle("hidden", screen !== storyScreen);
   sceneScreen.classList.toggle("hidden", screen !== sceneScreen);
@@ -440,6 +472,31 @@ function setLoginStatus(message, tone = "info") {
   loginStatus.replaceChildren();
   loginStatus.textContent = message;
   loginStatus.dataset.tone = tone;
+  delete loginStatus.dataset.kind;
+}
+
+function showInvalidLoginLink(message) {
+  loginStatus.replaceChildren();
+  loginStatus.dataset.tone = "error";
+  loginStatus.dataset.kind = "invalid-link";
+  const text = document.createElement("span");
+  text.textContent = message || t("loginLinkInvalid");
+  const action = document.createElement("button");
+  action.type = "button";
+  action.className = "secondary";
+  action.textContent = t("loginLinkInvalidAction");
+  action.addEventListener("click", () => {
+    setLoginStatus("");
+    usernameInput.focus();
+  });
+  loginStatus.append(text, action);
+}
+
+function updateConsentState({ showError = false } = {}) {
+  const accepted = personalDataConsent.checked;
+  loginForm.classList.toggle("consent-missing", showError && !accepted);
+  consentHint.dataset.tone = showError && !accepted ? "error" : "info";
+  return accepted;
 }
 
 async function showLoginLinkResult(email) {
@@ -887,6 +944,7 @@ function storyMatchesQuery(story, query) {
 
 function render(state) {
   currentState = state;
+  choiceInFlight = false;
   const scene = state.scene;
   showOnly(sceneScreen);
   playerName.textContent = storage.email || "";
@@ -916,7 +974,7 @@ function render(state) {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = choice.label;
-    button.addEventListener("click", () => withBusy(button, async () => {
+    button.addEventListener("click", () => withChoiceBusy(button, async () => {
       render(await api.choice(state.sessionId, choice.id));
     }));
     choices.append(button);
@@ -930,15 +988,29 @@ function render(state) {
   }
 }
 
-async function withBusy(button, action) {
+function setChoicesBusy(busy) {
+  choices.classList.toggle("choices-busy", busy);
+  choices.querySelectorAll("button").forEach((choiceButton) => {
+    choiceButton.disabled = busy;
+  });
+}
+
+async function withChoiceBusy(button, action) {
+  if (choiceInFlight) {
+    return;
+  }
+  choiceInFlight = true;
   try {
-    button.disabled = true;
+    setChoicesBusy(true);
+    button.classList.add("choice-selected");
     setStatus(t("loading"));
     await action();
   } catch (error) {
     setStatus(t("errorPrefix", { message: error.message }));
+    choiceInFlight = false;
+    setChoicesBusy(false);
   } finally {
-    button.disabled = false;
+    button.classList.remove("choice-selected");
   }
 }
 
@@ -1014,6 +1086,12 @@ loginForm.addEventListener("submit", async (event) => {
   if (!email) {
     return;
   }
+  if (!updateConsentState({ showError: true })) {
+    setLoginStatus(t("personalDataConsentRequired"), "error");
+    loginStatus.dataset.kind = "consent";
+    personalDataConsent.focus();
+    return;
+  }
   const submitButton = loginForm.querySelector("button[type='submit']");
   try {
     submitButton.disabled = true;
@@ -1025,6 +1103,13 @@ loginForm.addEventListener("submit", async (event) => {
     setLoginStatus(`${t("loginFailed", { message: error.message })}${endpointHint}`, "error");
   } finally {
     submitButton.disabled = false;
+  }
+});
+
+personalDataConsent.addEventListener("change", () => {
+  updateConsentState({ showError: false });
+  if (personalDataConsent.checked && loginStatus.dataset.kind === "consent") {
+    setLoginStatus("");
   }
 });
 
@@ -1148,9 +1233,20 @@ storiesNext.addEventListener("click", () => {
   renderStoryPage();
 });
 
+cookieAccept.addEventListener("click", () => {
+  storage.acceptCookies();
+  cookieBanner.classList.add("hidden");
+});
+
+function initCookieBanner() {
+  cookieBanner.classList.toggle("hidden", storage.cookieConsent === "accepted");
+}
+
 sound = createSound();
 applyTranslations();
 updateSoundLabel();
+updateConsentState();
+initCookieBanner();
 const hasPasskeySupport = passkeysSupported();
 passkeyLoginButton.disabled = !hasPasskeySupport;
 passkeyRegisterButton.disabled = !hasPasskeySupport;
@@ -1158,6 +1254,7 @@ passkeyUnavailable.classList.toggle("hidden", hasPasskeySupport);
 passkeySettings.classList.toggle("passkey-unavailable", !hasPasskeySupport);
 adminPanel.classList.toggle("hidden", new URLSearchParams(window.location.search).get("admin") !== "1");
 setStatus(t("loading"));
+showOnly(authLoadingScreen);
 const authToken = new URLSearchParams(window.location.search).get("auth_token");
 if (authToken) {
   api.verify(authToken)
@@ -1169,8 +1266,9 @@ if (authToken) {
     .catch((error) => {
       storage.clear();
       currentState = null;
+      window.history.replaceState({}, document.title, "/");
       showOnly(loginScreen);
-      alert(t("loginFailed", { message: error.message }));
+      showInvalidLoginLink(t("loginLinkInvalid"));
     });
 } else {
   api.me()

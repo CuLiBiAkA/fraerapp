@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FraerApp Stories</title>
-    <link rel="stylesheet" href="/styles.css?v=game-14">
+    <link rel="stylesheet" href="/styles.css?v=game-15">
   </head>
   <body>
     <main class="game">
@@ -26,7 +26,15 @@
         </div>
       </div>
 
-      <section id="login-screen" class="login-screen" aria-label="Login">
+      <section id="auth-loading-screen" class="auth-loading-screen" aria-label="Проверка входа">
+        <div class="auth-loading-card">
+          <p class="eyebrow" data-i18n="authLoadingEyebrow">FraerApp Stories</p>
+          <h1 data-i18n="authLoadingTitle">Проверяем вход</h1>
+          <p data-i18n="authLoadingText">Подождите несколько секунд. Если сессия активна, мы сразу откроем библиотеку.</p>
+        </div>
+      </section>
+
+      <section id="login-screen" class="login-screen hidden" aria-label="Login">
         <div class="login-copy">
           <p class="eyebrow" data-i18n="loginEyebrow">FraerApp Stories</p>
           <h1 data-i18n="loginTitle">Войдите в библиотеку историй</h1>
@@ -44,6 +52,7 @@
               <input id="personal-data-consent" name="personalDataConsent" type="checkbox" required>
               <span data-i18n="personalDataConsent">Я принимаю согласие на обработку персональных данных и ознакомлен с политикой конфиденциальности.</span>
             </label>
+            <p id="consent-hint" class="consent-hint" data-i18n="personalDataConsentHint">Перед входом нужно поставить галочку согласия — без неё ссылка для входа не создаётся.</p>
             <p class="legal-links">
               <a href="/personal-data-consent.html" target="_blank" rel="noopener" data-i18n="consentLink">Согласие</a>
               <a href="/privacy-policy.html" target="_blank" rel="noopener" data-i18n="privacyLink">Политика</a>
@@ -153,6 +162,17 @@
       <a href="/terms.html">Пользовательское соглашение</a>
     </footer>
 
-    <script src="/engine.js?v=engine-23" type="module"></script>
+    <aside id="cookie-banner" class="cookie-banner hidden" role="dialog" aria-live="polite" aria-label="Cookie">
+      <div>
+        <strong data-i18n="cookieBannerTitle">Мы используем cookie</strong>
+        <p data-i18n="cookieBannerText">Cookie нужны для входа, сохранения сессии и стабильной работы игры.</p>
+      </div>
+      <div class="cookie-actions">
+        <a href="/privacy-policy.html" target="_blank" rel="noopener" data-i18n="privacyLink">Политика</a>
+        <button id="cookie-accept" type="button" data-i18n="cookieAccept">Понятно</button>
+      </div>
+    </aside>
+
+    <script src="/engine.js?v=engine-24" type="module"></script>
   </body>
 </html>
