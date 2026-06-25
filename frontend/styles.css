@@ -520,11 +520,17 @@ button.secondary {
   gap: 12px;
 }
 
-.catalog-screen {
+.catalog-screen,
+.settings-screen {
   width: min(1360px, calc(100% - 48px));
   min-height: 100vh;
   margin: 0 auto;
   padding: 48px 0 56px;
+}
+
+.settings-screen {
+  width: min(980px, calc(100% - 48px));
+  padding-top: 92px;
 }
 
 .catalog-header {
@@ -1086,7 +1092,8 @@ h2 {
   background: rgba(47, 164, 135, 0.42);
 }
 
-.cookie-banner {
+.cookie-banner,
+.passkey-nudge {
   position: fixed;
   right: 16px;
   bottom: 16px;
@@ -1104,18 +1111,26 @@ h2 {
   backdrop-filter: blur(18px);
 }
 
+.passkey-nudge {
+  bottom: 112px;
+}
+
 .cookie-banner strong,
-.cookie-banner p {
+.cookie-banner p,
+.passkey-nudge strong,
+.passkey-nudge p {
   margin: 0;
 }
 
-.cookie-banner p {
+.cookie-banner p,
+.passkey-nudge p {
   margin-top: 4px;
   color: var(--muted);
   line-height: 1.35;
 }
 
-.cookie-actions {
+.cookie-actions,
+.passkey-nudge-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -1214,7 +1229,8 @@ h2 {
     flex-basis: 100%;
   }
 
-  .catalog-screen {
+  .catalog-screen,
+  .settings-screen {
     width: min(100% - 20px, 1320px);
     padding: 120px 0 34px;
   }
@@ -1250,17 +1266,24 @@ h2 {
     flex: 1 1 100%;
   }
 
-  .cookie-banner {
+  .cookie-banner,
+  .passkey-nudge {
     right: 10px;
     bottom: 10px;
     grid-template-columns: 1fr;
   }
 
-  .cookie-actions {
+  .passkey-nudge {
+    bottom: 112px;
+  }
+
+  .cookie-actions,
+  .passkey-nudge-actions {
     justify-content: stretch;
   }
 
-  .cookie-actions button {
+  .cookie-actions button,
+  .passkey-nudge-actions button {
     flex: 1 1 auto;
   }
 }

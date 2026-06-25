@@ -175,10 +175,16 @@ class AuthController {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
 		}
 		String email = AuthServiceApplication.normalizeEmail(request.email());
-		User user = store.user(email, false)
+		User user = store.user(email, request.createUser())
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 		if (user.blockedAt() != null) {
 			throw new ResponseStatusException(HttpStatus.CONFLICT, "User is blocked");
+		}
+		for (String role : request.safeGrantRoles()) {
+			if (!List.of("author", "admin").contains(role)) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only author/admin can be pre-granted");
+			}
+			store.grantRole(user.id(), role);
 		}
 		checkRate("admin-login:" + admin.id(), devMode ? 200 : 20, Duration.ofMinutes(15));
 		CreatedLoginLink generated = createLoginLink(
@@ -385,6 +391,19 @@ class AuthController {
 		return store.adminUsers(page, size, query);
 	}
 
+	@GetMapping("/admin/login-requests")
+	AdminLoginRequestPage loginRequests(@RequestHeader(name = "Authorization", required = false) String authorization,
+			@CookieValue(name = "fraer_access", required = false) String accessToken,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "20") int size,
+			@RequestParam(defaultValue = "") String query) {
+		User admin = currentUser(authorization, accessToken);
+		if (!admin.roles().contains("admin")) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
+		}
+		return store.adminLoginRequests(page, size, query);
+	}
+
 	@PostMapping("/admin/users/block")
 	Map<String, Object> blockUser(@RequestHeader(name = "Authorization", required = false) String authorization,
 			@CookieValue(name = "fraer_access", required = false) String accessToken,
@@ -404,6 +423,24 @@ class AuthController {
 			store.audit(admin.id(), admin.email(), "user_unblocked", "{\"target\":\"" + user.email() + "\"}");
 		}
 		return userView(store.userById(user.id()).orElseThrow());
+	}
+
+	@PostMapping("/admin/users/delete")
+	Map<String, Object> deleteUser(@RequestHeader(name = "Authorization", required = false) String authorization,
+			@CookieValue(name = "fraer_access", required = false) String accessToken,
+			@Valid @RequestBody DeleteUserRequest request) {
+		User admin = currentUser(authorization, accessToken);
+		if (!admin.roles().contains("admin")) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
+		}
+		User user = store.user(AuthServiceApplication.normalizeEmail(request.email()), false)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+		if (admin.id().equals(user.id())) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "Admin cannot delete the current account");
+		}
+		store.deleteUser(user.id(), user.email());
+		store.audit(admin.id(), admin.email(), "user_deleted", "{\"target\":\"" + user.email() + "\"}");
+		return Map.of("deleted", true, "email", user.email());
 	}
 
 	@GetMapping("/jwks")
@@ -497,6 +534,53 @@ class AuthController {
 				      <button id="passkey-register" type="button">Добавить passkey</button>
 				      <div id="passkey-list"></div>
 				      <pre id="passkey-result"></pre>
+				    </section>
+
+				    <section id="login-requests-section" class="hidden">
+				      <h2>Заявки на вход</h2>
+				      <p class="muted">Здесь видны email, по которым пользователь пытался войти через публичную форму.</p>
+				      <div class="toolbar">
+				        <label>Поиск email
+				          <input id="request-query" type="search" placeholder="email">
+				        </label>
+				        <label>На странице
+				          <select id="request-size">
+				            <option value="10">10</option>
+				            <option value="20" selected>20</option>
+				            <option value="50">50</option>
+				          </select>
+				        </label>
+				        <button id="refresh-requests" type="button" class="secondary">Обновить</button>
+				      </div>
+				      <div class="table-wrap">
+				        <table>
+				          <colgroup>
+				            <col style="width: 24%">
+				            <col style="width: 13%">
+				            <col style="width: 12%">
+				            <col style="width: 15%">
+				            <col style="width: 12%">
+				            <col style="width: 24%">
+				          </colgroup>
+				          <thead>
+				            <tr>
+				              <th>Email</th>
+				              <th>Попыток</th>
+				              <th>Активные ссылки</th>
+				              <th>Пользователь</th>
+				              <th>Последняя заявка</th>
+				              <th>Действия</th>
+				            </tr>
+				          </thead>
+				          <tbody id="requests-body"></tbody>
+				        </table>
+				      </div>
+				      <div class="pager">
+				        <button id="requests-prev" type="button" class="secondary">Назад</button>
+				        <span id="requests-page"></span>
+				        <button id="requests-next" type="button" class="secondary">Вперед</button>
+				      </div>
+				      <pre id="requests-result"></pre>
 				    </section>
 
 				    <section id="manual-link-section" class="hidden">
@@ -649,11 +733,13 @@ class AuthController {
 				    import { credentialToJson, parseCreationOptions, parseRequestOptions, passkeysSupported } from "/passkeys.js";
 				    const loginSection = document.querySelector("#login-section");
 				    const meSection = document.querySelector("#me-section");
+				    const loginRequestsSection = document.querySelector("#login-requests-section");
 				    const manualLinkSection = document.querySelector("#manual-link-section");
 				    const rolesSection = document.querySelector("#roles-section");
 				    const usersSection = document.querySelector("#users-section");
 				    const storiesSection = document.querySelector("#stories-section");
 				    const loginResult = document.querySelector("#login-result");
+				    const requestsResult = document.querySelector("#requests-result");
 				    const manualLinkResult = document.querySelector("#manual-link-result");
 				    const copyManualLink = document.querySelector("#copy-manual-link");
 				    const roleResult = document.querySelector("#role-result");
@@ -662,6 +748,8 @@ class AuthController {
 				    const meLine = document.querySelector("#me-line");
 				    const passkeyResult = document.querySelector("#passkey-result");
 				    const passkeyList = document.querySelector("#passkey-list");
+				    let requestPage = 0;
+				    let requestTotalPages = 0;
 				    let userPage = 0;
 				    let userTotalPages = 0;
 				    let storyPage = 0;
@@ -704,13 +792,16 @@ class AuthController {
 				        loginSection.classList.add("hidden");
 				        loadPasskeys().catch((error) => { passkeyResult.textContent = error.message; });
 				        if (me.roles.includes("admin")) {
+				          loginRequestsSection.classList.remove("hidden");
 				          manualLinkSection.classList.remove("hidden");
 				          rolesSection.classList.remove("hidden");
 				          usersSection.classList.remove("hidden");
 				          storiesSection.classList.remove("hidden");
+				          loadLoginRequests();
 				          loadUsers();
 				          loadStories();
 				        } else {
+				          loginRequestsSection.classList.add("hidden");
 				          manualLinkSection.classList.add("hidden");
 				          rolesSection.classList.add("hidden");
 				          usersSection.classList.add("hidden");
@@ -720,11 +811,84 @@ class AuthController {
 				      } catch {
 				        loginSection.classList.remove("hidden");
 				        meSection.classList.add("hidden");
+				        loginRequestsSection.classList.add("hidden");
 				        manualLinkSection.classList.add("hidden");
 				        rolesSection.classList.add("hidden");
 				        usersSection.classList.add("hidden");
 				        storiesSection.classList.add("hidden");
 				      }
+				    }
+
+				    async function loadLoginRequests() {
+				      const size = document.querySelector("#request-size").value;
+				      const query = document.querySelector("#request-query").value.trim();
+				      const page = await json(`/auth/admin/login-requests?page=${requestPage}&size=${size}&query=${encodeURIComponent(query)}`);
+				      requestPage = page.page;
+				      requestTotalPages = page.totalPages;
+				      renderLoginRequests(page.items || []);
+				      document.querySelector("#requests-page").textContent =
+				        `Страница ${page.totalPages === 0 ? 0 : page.page + 1} из ${page.totalPages}, всего ${page.totalElements}`;
+				      document.querySelector("#requests-prev").disabled = page.page <= 0;
+				      document.querySelector("#requests-next").disabled = page.page + 1 >= page.totalPages;
+				    }
+
+				    function renderLoginRequests(items) {
+				      const body = document.querySelector("#requests-body");
+				      body.replaceChildren();
+				      if (!items.length) {
+				        const row = document.createElement("tr");
+				        const cell = document.createElement("td");
+				        cell.colSpan = 6;
+				        cell.textContent = "Заявок нет.";
+				        row.append(cell);
+				        body.append(row);
+				        return;
+				      }
+				      for (const request of items) {
+				        const row = document.createElement("tr");
+				        row.append(
+				          td(request.email || ""),
+				          td(String(request.requestCount || 0)),
+				          td(String(request.activeUnusedLinks || 0)),
+				          td(request.userId ? `${(request.roles || []).join(", ")}${request.blocked ? " / blocked" : ""}` : "ещё не создан"),
+				          td(formatDate(request.lastRequestedAt)),
+				          loginRequestActionCell(request)
+				        );
+				        body.append(row);
+				      }
+				    }
+
+				    function loginRequestActionCell(request) {
+				      const cell = document.createElement("td");
+				      cell.className = "actions";
+				      const stack = document.createElement("div");
+				      stack.className = "action-stack";
+				      const loginLink = document.createElement("button");
+				      loginLink.type = "button";
+				      loginLink.className = "secondary";
+				      loginLink.textContent = request.userId ? "Создать ссылку" : "Создать пользователя + ссылку";
+				      loginLink.disabled = request.blocked;
+				      loginLink.addEventListener("click", () => createLoginLinkForRequest(request, []));
+				      const authorLink = document.createElement("button");
+				      authorLink.type = "button";
+				      authorLink.className = "secondary";
+				      authorLink.textContent = "Ссылка + author";
+				      authorLink.disabled = request.blocked;
+				      authorLink.addEventListener("click", () => createLoginLinkForRequest(request, ["author"]));
+				      stack.append(loginLink, authorLink);
+				      cell.append(stack);
+				      return cell;
+				    }
+
+				    async function createLoginLinkForRequest(request, grantRoles) {
+				      const roleText = grantRoles.length ? ` и выдать ${grantRoles.join(", ")}` : "";
+				      if (!confirm(`Создать ссылку для ${request.email}${roleText}?`)) return;
+				      const result = await createManualLoginLink(request.email, {
+				        createUser: true,
+				        grantRoles,
+				      });
+				      requestsResult.textContent = `Ссылка создана для ${result.email}. Она показана в разделе «Ручная ссылка для входа».`;
+				      await Promise.all([loadLoginRequests(), loadUsers()]);
 				    }
 
 				    async function loadUsers() {
@@ -785,6 +949,8 @@ class AuthController {
 				    function userActionCell(user) {
 				      const cell = document.createElement("td");
 				      cell.className = "actions";
+				      const stack = document.createElement("div");
+				      stack.className = "action-stack";
 					      const block = document.createElement("button");
 				      block.type = "button";
 				      block.className = user.blocked ? "secondary" : "danger";
@@ -796,14 +962,25 @@ class AuthController {
 					      loginLink.textContent = "Создать ссылку";
 					      loginLink.disabled = user.blocked;
 					      loginLink.addEventListener("click", () => sendLoginLink(user));
-					      cell.append(loginLink, block);
+				      const remove = document.createElement("button");
+				      remove.type = "button";
+				      remove.className = "danger";
+				      remove.textContent = "Удалить";
+				      remove.addEventListener("click", () => deleteUser(user));
+					      stack.append(loginLink, block, remove);
+					      cell.append(stack);
 					      return cell;
 					    }
 
-				    async function createManualLoginLink(email) {
+				    async function createManualLoginLink(email, options = {}) {
 				      const result = await json("/auth/admin/users/login-link", {
 					        method: "POST",
-					        body: { email, redirectPath: "/" },
+					        body: {
+					          email,
+					          redirectPath: "/",
+					          createUser: Boolean(options.createUser),
+					          grantRoles: options.grantRoles || [],
+					        },
 					      });
 				      currentManualLoginUrl = result.loginUrl;
 				      manualLinkResult.textContent = `Новая ссылка для ${result.email} (действует до ${result.expiresAt}):\n${result.loginUrl}\nПередайте её пользователю вручную.`;
@@ -825,6 +1002,15 @@ class AuthController {
 				      const result = await json("/auth/admin/users/block", { method: "POST", body: { email: user.email, blocked } });
 				      usersResult.textContent = JSON.stringify(result, null, 2);
 				      await loadUsers();
+				    }
+
+				    async function deleteUser(user) {
+				      if (!confirm(`Удалить пользователя ${user.email}? Это удалит auth-сессии, passkey, роли и временные ссылки. Игровые сохранения в основной БД не удаляются.`)) {
+				        return;
+				      }
+				      const result = await json("/auth/admin/users/delete", { method: "POST", body: { email: user.email } });
+				      usersResult.textContent = JSON.stringify(result, null, 2);
+				      await Promise.all([loadUsers(), loadLoginRequests()]);
 				    }
 
 				    async function loadStories() {
@@ -1044,6 +1230,26 @@ class AuthController {
 				      if (!currentManualLoginUrl) return;
 				      await navigator.clipboard.writeText(currentManualLoginUrl);
 				      copyManualLink.textContent = "Скопировано";
+				    });
+
+				    document.querySelector("#request-query").addEventListener("input", () => {
+				      requestPage = 0;
+				      loadLoginRequests().catch((error) => { requestsResult.textContent = error.message; });
+				    });
+				    document.querySelector("#request-size").addEventListener("change", () => {
+				      requestPage = 0;
+				      loadLoginRequests().catch((error) => { requestsResult.textContent = error.message; });
+				    });
+				    document.querySelector("#refresh-requests").addEventListener("click", () => {
+				      loadLoginRequests().catch((error) => { requestsResult.textContent = error.message; });
+				    });
+				    document.querySelector("#requests-prev").addEventListener("click", () => {
+				      if (requestPage > 0) requestPage -= 1;
+				      loadLoginRequests().catch((error) => { requestsResult.textContent = error.message; });
+				    });
+				    document.querySelector("#requests-next").addEventListener("click", () => {
+				      if (requestPage + 1 < requestTotalPages) requestPage += 1;
+				      loadLoginRequests().catch((error) => { requestsResult.textContent = error.message; });
 				    });
 
 				    document.querySelector("#user-query").addEventListener("input", () => {
@@ -1327,7 +1533,15 @@ class AuthController {
 	record LoginLinkRequest(@Email @NotBlank String email, String redirectPath, boolean personalDataConsent) {
 	}
 
-	record AdminLoginLinkRequest(@Email @NotBlank String email, String redirectPath) {
+	record AdminLoginLinkRequest(@Email @NotBlank String email, String redirectPath, boolean createUser,
+			List<String> grantRoles) {
+		AdminLoginLinkRequest(String email, String redirectPath) {
+			this(email, redirectPath, false, List.of());
+		}
+
+		List<String> safeGrantRoles() {
+			return grantRoles == null ? List.of() : grantRoles;
+		}
 	}
 
 	record VerifyRequest(@NotBlank String token) {
@@ -1337,6 +1551,9 @@ class AuthController {
 	}
 
 	record BlockRequest(@Email @NotBlank String email, boolean blocked) {
+	}
+
+	record DeleteUserRequest(@Email @NotBlank String email) {
 	}
 
 	record PasskeyRegistrationFinishRequest(
@@ -1363,6 +1580,20 @@ class AuthController {
 	}
 
 	record AdminUserPage(int page, int size, long totalElements, int totalPages, List<AdminUserSummary> items) {
+	}
+
+	record AdminLoginRequestPage(int page, int size, long totalElements, int totalPages,
+			List<AdminLoginRequestSummary> items) {
+	}
+
+	record AdminLoginRequestSummary(
+			String email,
+			Instant lastRequestedAt,
+			long requestCount,
+			String userId,
+			List<String> roles,
+			boolean blocked,
+			long activeUnusedLinks) {
 	}
 
 	record AdminUserSummary(
@@ -1520,6 +1751,33 @@ class AuthStore {
 		return new AuthController.AdminUserPage(safePage, safeSize, total, totalPages, items);
 	}
 
+	AuthController.AdminLoginRequestPage adminLoginRequests(int page, int size, String query) {
+		int safePage = Math.max(0, page);
+		int safeSize = Math.min(100, Math.max(1, size));
+		String search = query == null ? "" : query.trim().toLowerCase();
+		String like = "%" + search + "%";
+		long total = jdbc.queryForObject("""
+				select count(*) from (
+					select email from auth_audit_events
+					where event_type = 'login_link_requested' and email is not null and lower(email) like ?
+					group by email
+				) requests
+				""", Long.class, like);
+		List<AuthController.AdminLoginRequestSummary> items = jdbc.query("""
+				select email, max(created_at) as last_requested_at, count(*) as request_count
+				from auth_audit_events
+				where event_type = 'login_link_requested' and email is not null and lower(email) like ?
+				group by email
+				order by max(created_at) desc
+				limit ? offset ?
+				""", (rs, row) -> adminLoginRequestRow(
+				rs.getString(1),
+				rs.getTimestamp(2).toInstant(),
+				rs.getLong(3)), like, safeSize, safePage * safeSize);
+		int totalPages = total == 0 ? 0 : (int) Math.ceil((double) total / safeSize);
+		return new AuthController.AdminLoginRequestPage(safePage, safeSize, total, totalPages, items);
+	}
+
 	void createMagicLink(String email, String tokenHash, String redirectPath, Instant expiresAt) {
 		jdbc.update("""
 				insert into email_login_tokens(id, email, token_hash, redirect_path, expires_at, created_at)
@@ -1619,6 +1877,21 @@ class AuthStore {
 		jdbc.update("update users set blocked_at = null, updated_at = ? where id = ?", timestamp(Instant.now()), userId);
 	}
 
+	void deleteUser(String userId, String email) {
+		jdbc.update("delete from passkey_challenges where user_id = ?", userId);
+		jdbc.update("delete from passkey_credentials where user_id = ?", userId);
+		jdbc.update("""
+				delete from refresh_tokens
+				where session_id in (select id from sessions where user_id = ?)
+				""", userId);
+		jdbc.update("delete from sessions where user_id = ?", userId);
+		jdbc.update("delete from user_roles where user_id = ?", userId);
+		jdbc.update("delete from personal_data_consents where email = ?", email);
+		jdbc.update("delete from email_login_tokens where email = ?", email);
+		jdbc.update("delete from auth_audit_events where user_id = ? or email = ?", userId, email);
+		jdbc.update("delete from users where id = ?", userId);
+	}
+
 	void grantRole(String userId, String role) {
 		jdbc.update("""
 				insert into user_roles(user_id, role_name, created_at)
@@ -1658,6 +1931,25 @@ class AuthStore {
 		long auditEvents = jdbc.queryForObject("select count(*) from auth_audit_events where user_id = ? or email = ?", Long.class, id, email);
 		return new AuthController.AdminUserSummary(id, email, roles, blockedAt != null, blockedAt, createdAt, updatedAt,
 				sessionsCount, activeSessions, passkeys, auditEvents);
+	}
+
+	private AuthController.AdminLoginRequestSummary adminLoginRequestRow(String email, Instant lastRequestedAt, long requestCount) {
+		Optional<User> user = userByEmail(email);
+		return new AuthController.AdminLoginRequestSummary(
+				email,
+				lastRequestedAt,
+				requestCount,
+				user.map(User::id).orElse(null),
+				user.map(User::roles).orElse(List.of()),
+				user.map(value -> value.blockedAt() != null).orElse(false),
+				activeUnusedLoginLinks(email));
+	}
+
+	private long activeUnusedLoginLinks(String email) {
+		return jdbc.queryForObject("""
+				select count(*) from email_login_tokens
+				where email = ? and used_at is null and expires_at > ?
+				""", Long.class, email, timestamp(Instant.now()));
 	}
 
 	private Instant instant(java.sql.Timestamp timestamp) {

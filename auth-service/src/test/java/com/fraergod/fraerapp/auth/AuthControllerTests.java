@@ -77,6 +77,7 @@ class AuthControllerTests {
 		User admin = store.user("admin@example.test", true).orElseThrow();
 		store.grantRole(admin.id(), "admin");
 		admin = store.userById(admin.id()).orElseThrow();
+		String adminEmail = admin.email();
 		String adminJwt = jwt.encode(admin, "admin-session", Instant.now().plusSeconds(900));
 		Map<String, Object> adminResponse = controller.adminLoginLink("Bearer " + adminJwt, null,
 				new AuthController.AdminLoginLinkRequest(email, "/"), request);
@@ -165,6 +166,7 @@ class AuthControllerTests {
 		User admin = store.user("admin@example.test", true).orElseThrow();
 		store.grantRole(admin.id(), "admin");
 		admin = store.userById(admin.id()).orElseThrow();
+		String adminEmail = admin.email();
 		String adminJwt = jwt.encode(admin, "admin-session", Instant.now().plusSeconds(900));
 
 		Map<String, Object> response = controller.adminLoginLink("Bearer " + adminJwt, null,
@@ -199,6 +201,59 @@ class AuthControllerTests {
 				.satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode().value()).isEqualTo(409));
 
 		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens", Long.class)).isZero();
+	}
+
+	@Test
+	void adminCanSeePublicLoginRequestsAndCreateUserWithAuthorLink() {
+		ReflectionTestUtils.setField(controller, "devMode", false);
+		String requestedEmail = "future-author@example.test";
+		controller.loginLink(new AuthController.LoginLinkRequest(requestedEmail, "/", true), request());
+		User admin = store.user("admin@example.test", true).orElseThrow();
+		store.grantRole(admin.id(), "admin");
+		admin = store.userById(admin.id()).orElseThrow();
+		String adminJwt = jwt.encode(admin, "admin-session", Instant.now().plusSeconds(900));
+
+		AuthController.AdminLoginRequestPage requests = controller.loginRequests("Bearer " + adminJwt, null, 0, 20, "future");
+
+		assertThat(requests.totalElements()).isEqualTo(1L);
+		assertThat(requests.items()).singleElement().satisfies(item -> {
+			assertThat(item.email()).isEqualTo(requestedEmail);
+			assertThat(item.userId()).isNull();
+			assertThat(item.requestCount()).isEqualTo(1L);
+		});
+
+		Map<String, Object> response = controller.adminLoginLink("Bearer " + adminJwt, null,
+				new AuthController.AdminLoginLinkRequest(requestedEmail, "/", true, java.util.List.of("author")),
+				request());
+
+		assertThat(response.get("loginUrl")).asString().startsWith("http://localhost:8088/");
+		User created = store.userByEmail(requestedEmail).orElseThrow();
+		assertThat(created.roles()).contains("player", "author");
+	}
+
+	@Test
+	void adminCanDeleteUserButNotCurrentAccount() {
+		User admin = store.user("admin@example.test", true).orElseThrow();
+		store.grantRole(admin.id(), "admin");
+		admin = store.userById(admin.id()).orElseThrow();
+		String adminEmail = admin.email();
+		String adminJwt = jwt.encode(admin, "admin-session", Instant.now().plusSeconds(900));
+		User target = store.user("delete-me@example.test", true).orElseThrow();
+		store.createSession("target-session", target.id(), Instant.now().plusSeconds(3600), "magic_link", Instant.now());
+		store.createRefresh("target-refresh", "target-session", sha256("refresh"), Instant.now().plusSeconds(3600));
+		store.createMagicLink(target.email(), sha256("login-token"), "/", Instant.now().plusSeconds(900));
+
+		Map<String, Object> response = controller.deleteUser("Bearer " + adminJwt, null,
+				new AuthController.DeleteUserRequest(target.email()));
+
+		assertThat(response).containsEntry("deleted", true).containsEntry("email", target.email());
+		assertThat(store.userByEmail(target.email())).isEmpty();
+		assertThat(jdbc.queryForObject("select count(*) from sessions where user_id = ?", Long.class, target.id())).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens where email = ?", Long.class, target.email())).isZero();
+		assertThatThrownBy(() -> controller.deleteUser("Bearer " + adminJwt, null,
+				new AuthController.DeleteUserRequest(adminEmail)))
+				.isInstanceOf(ResponseStatusException.class)
+				.satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode().value()).isEqualTo(409));
 	}
 
 	@Test

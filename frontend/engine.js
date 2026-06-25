@@ -8,6 +8,7 @@ import {
 const loginScreen = document.querySelector("#login-screen");
 const authLoadingScreen = document.querySelector("#auth-loading-screen");
 const storyScreen = document.querySelector("#story-screen");
+const settingsScreen = document.querySelector("#settings-screen");
 const sceneScreen = document.querySelector("#scene-screen");
 const loginForm = document.querySelector("#login-form");
 const usernameInput = document.querySelector("#username");
@@ -31,6 +32,9 @@ const status = document.querySelector("#status");
 const playerName = document.querySelector("#player-name");
 const sceneNode = document.querySelector("#scene-node");
 const menuButton = document.querySelector("#menu-button");
+const settingsButton = document.querySelector("#settings-button");
+const builderButton = document.querySelector("#builder-button");
+const adminButton = document.querySelector("#admin-button");
 const logoutButton = document.querySelector("#logout");
 const soundControl = document.querySelector("#sound-control");
 const soundToggle = document.querySelector("#sound-toggle");
@@ -52,6 +56,9 @@ const passkeyList = document.querySelector("#passkey-list");
 const passkeyStatus = document.querySelector("#passkey-status");
 const cookieBanner = document.querySelector("#cookie-banner");
 const cookieAccept = document.querySelector("#cookie-accept");
+const passkeyNudge = document.querySelector("#passkey-nudge");
+const passkeyNudgeOpen = document.querySelector("#passkey-nudge-open");
+const passkeyNudgeDismiss = document.querySelector("#passkey-nudge-dismiss");
 
 const translations = {
   ru: {
@@ -93,6 +100,10 @@ const translations = {
     passkeyLocal: "Ключ устройства",
     passkeyLoginFailed: "Не удалось войти с passkey: {message}",
     passkeyRegistrationFailed: "Не удалось добавить passkey: {message}",
+    passkeyNudgeTitle: "Добавьте быстрый вход",
+    passkeyNudgeText: "Привяжите passkey после первого входа, чтобы дальше входить без email-ссылок.",
+    passkeyNudgeOpen: "Открыть настройки",
+    passkeyNudgeLater: "Позже",
     adminSummary: "Админка истории",
     adminTokenLabel: "Админ-действия требуют роль admin",
     storyJsonLabel: "Story JSON",
@@ -119,6 +130,12 @@ const translations = {
     newRunConfirm: "Начать новую игру? Текущее сохранение останется в списке, но вы начнете отдельный проход с первой сцены.",
     saveScene: "Сцена: {scene}",
     menuButton: "Истории",
+    settingsButton: "Настройки",
+    builderButton: "Builder",
+    adminButton: "Admin",
+    settingsEyebrow: "Настройки",
+    settingsTitle: "Аккаунт и безопасность",
+    settingsSubtitle: "Управляйте безопасным входом и устройствами passkey.",
     sceneStatsTitle: "Статы",
     sceneStatsCount: "{count} шт.",
     statsEmpty: "Автор истории пока не выбрал переменные для статов.",
@@ -190,6 +207,10 @@ const translations = {
     passkeyLocal: "Device passkey",
     passkeyLoginFailed: "Passkey sign-in failed: {message}",
     passkeyRegistrationFailed: "Could not add passkey: {message}",
+    passkeyNudgeTitle: "Add quick sign-in",
+    passkeyNudgeText: "Bind a passkey after your first sign-in to continue without email links.",
+    passkeyNudgeOpen: "Open settings",
+    passkeyNudgeLater: "Later",
     adminSummary: "Story admin",
     adminTokenLabel: "Admin actions require the admin role",
     storyJsonLabel: "Story JSON",
@@ -216,6 +237,12 @@ const translations = {
     newRunConfirm: "Start a new game? Your current save will stay in the list, but this will create a separate run from the first scene.",
     saveScene: "Scene: {scene}",
     menuButton: "Stories",
+    settingsButton: "Settings",
+    builderButton: "Builder",
+    adminButton: "Admin",
+    settingsEyebrow: "Settings",
+    settingsTitle: "Account and security",
+    settingsSubtitle: "Manage secure sign-in and passkey devices.",
     sceneStatsTitle: "Stats",
     sceneStatsCount: "{count}",
     statsEmpty: "The story author has not selected any stats yet.",
@@ -263,11 +290,23 @@ const storage = {
   get volume() {
     return Number(localStorage.getItem("fraerapp.volume") ?? 45);
   },
+  get roles() {
+    try {
+      const roles = JSON.parse(localStorage.getItem("fraerapp.roles") || "[]");
+      return Array.isArray(roles) ? roles : [];
+    } catch {
+      return [];
+    }
+  },
   get cookieConsent() {
     return localStorage.getItem("fraerapp.cookieConsent");
   },
+  get passkeyNudgeDismissed() {
+    return localStorage.getItem("fraerapp.passkeyNudgeDismissed") === "true";
+  },
   setUser(user) {
     localStorage.setItem("fraerapp.email", user.email);
+    localStorage.setItem("fraerapp.roles", JSON.stringify(user.roles || []));
   },
   setGame(session) {
     localStorage.setItem("fraerapp.sessionId", session.sessionId);
@@ -282,6 +321,9 @@ const storage = {
   acceptCookies() {
     localStorage.setItem("fraerapp.cookieConsent", "accepted");
   },
+  dismissPasskeyNudge() {
+    localStorage.setItem("fraerapp.passkeyNudgeDismissed", "true");
+  },
   clearGame() {
     localStorage.removeItem("fraerapp.sessionId");
     localStorage.removeItem("fraerapp.storyKey");
@@ -289,6 +331,7 @@ const storage = {
   clear() {
     this.clearGame();
     localStorage.removeItem("fraerapp.email");
+    localStorage.removeItem("fraerapp.roles");
   },
 };
 
@@ -452,14 +495,19 @@ function showOnly(screen) {
   authLoadingScreen.classList.toggle("hidden", screen !== authLoadingScreen);
   loginScreen.classList.toggle("hidden", screen !== loginScreen);
   storyScreen.classList.toggle("hidden", screen !== storyScreen);
+  settingsScreen.classList.toggle("hidden", screen !== settingsScreen);
   sceneScreen.classList.toggle("hidden", screen !== sceneScreen);
   updateTopActions(screen);
 }
 
 function updateTopActions(screen) {
   const loggedIn = Boolean(storage.email);
+  const roles = storage.roles;
   const inScene = screen === sceneScreen;
   menuButton.classList.toggle("hidden", !loggedIn || screen === storyScreen);
+  settingsButton.classList.toggle("hidden", !loggedIn || screen === settingsScreen);
+  builderButton.classList.toggle("hidden", !loggedIn || !(roles.includes("author") || roles.includes("admin")));
+  adminButton.classList.toggle("hidden", !loggedIn || !roles.includes("admin"));
   soundControl.classList.toggle("hidden", !inScene);
   logoutButton.classList.toggle("hidden", !loggedIn);
 }
@@ -534,10 +582,12 @@ async function showLoginLinkResult(email) {
 }
 
 async function afterLogin() {
-  loadPasskeys().catch((error) => {
+  const passkeyItems = await loadPasskeys().catch((error) => {
     passkeyStatus.textContent = t("errorPrefix", { message: error.message });
     passkeyStatus.dataset.tone = "error";
+    return [];
   });
+  updatePasskeyNudge(passkeyItems);
   if (storage.sessionId) {
     try {
       render(await api.state(storage.sessionId));
@@ -585,12 +635,15 @@ async function registerPasskey() {
   passkeyName.value = "";
   passkeyStatus.textContent = t("passkeyRegistered");
   passkeyStatus.dataset.tone = "success";
-  await loadPasskeys();
+  const items = await loadPasskeys();
+  updatePasskeyNudge(items);
 }
 
 async function loadPasskeys() {
   const response = await api.passkeys();
-  renderPasskeys(response.passkeys || []);
+  const items = response.passkeys || [];
+  renderPasskeys(items);
+  return items;
 }
 
 function renderPasskeys(passkeys) {
@@ -670,6 +723,24 @@ async function openStoryMenu() {
   storage.clearGame();
   currentState = null;
   renderStories(await api.stories());
+}
+
+function openSettings() {
+  stopSound({ resetPreference: true });
+  currentState = null;
+  showOnly(settingsScreen);
+  loadPasskeys().then(updatePasskeyNudge).catch((error) => {
+    passkeyStatus.textContent = t("errorPrefix", { message: error.message });
+    passkeyStatus.dataset.tone = "error";
+  });
+}
+
+function updatePasskeyNudge(passkeys = []) {
+  const shouldShow = Boolean(storage.email)
+    && passkeysSupported()
+    && passkeys.length === 0
+    && !storage.passkeyNudgeDismissed;
+  passkeyNudge.classList.toggle("hidden", !shouldShow);
 }
 
 function renderGameStats(state) {
@@ -1143,6 +1214,18 @@ menuButton.addEventListener("click", () => {
   openStoryMenu().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
 });
 
+settingsButton.addEventListener("click", () => {
+  openSettings();
+});
+
+builderButton.addEventListener("click", () => {
+  window.location.href = "/builder/";
+});
+
+adminButton.addEventListener("click", () => {
+  window.location.href = "/auth/admin";
+});
+
 logoutButton.addEventListener("click", async () => {
   stopSound({ resetPreference: true });
   try {
@@ -1152,6 +1235,7 @@ logoutButton.addEventListener("click", async () => {
   }
   storage.clear();
   currentState = null;
+  passkeyNudge.classList.add("hidden");
   showOnly(loginScreen);
 });
 
@@ -1236,6 +1320,15 @@ storiesNext.addEventListener("click", () => {
 cookieAccept.addEventListener("click", () => {
   storage.acceptCookies();
   cookieBanner.classList.add("hidden");
+});
+
+passkeyNudgeOpen.addEventListener("click", () => {
+  openSettings();
+});
+
+passkeyNudgeDismiss.addEventListener("click", () => {
+  storage.dismissPasskeyNudge();
+  passkeyNudge.classList.add("hidden");
 });
 
 function initCookieBanner() {

@@ -4,13 +4,16 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FraerApp Stories</title>
-    <link rel="stylesheet" href="/styles.css?v=game-15">
+    <link rel="stylesheet" href="/styles.css?v=game-16">
   </head>
   <body>
     <main class="game">
       <div class="top-actions" aria-label="Game actions">
         <div class="top-group top-group-session">
           <button id="menu-button" type="button" class="secondary hidden" data-i18n="menuButton">Stories</button>
+          <button id="settings-button" type="button" class="secondary hidden" data-i18n="settingsButton">Настройки</button>
+          <button id="builder-button" type="button" class="secondary hidden" data-i18n="builderButton">Builder</button>
+          <button id="admin-button" type="button" class="secondary hidden" data-i18n="adminButton">Admin</button>
           <button id="logout" type="button" class="secondary hidden" data-i18n="logoutButton">&#1042;&#1099;&#1081;&#1090;&#1080;</button>
         </div>
         <div id="sound-control" class="top-group sound-control hidden">
@@ -106,8 +109,27 @@
           </div>
         </header>
 
-        <details id="passkey-settings" class="passkey-settings">
-          <summary data-i18n="passkeySettingsTitle">Безопасный вход</summary>
+        <section class="catalog-main" aria-label="Story catalog">
+          <div id="stories" class="story-list"></div>
+          <div id="story-pagination" class="pagination hidden" aria-label="Story pages">
+            <button id="stories-prev" type="button" class="secondary" data-i18n="prevPage">Prev</button>
+            <span id="stories-page"></span>
+            <button id="stories-next" type="button" class="secondary" data-i18n="nextPage">Next</button>
+          </div>
+        </section>
+      </section>
+
+      <section id="settings-screen" class="settings-screen hidden" aria-label="Settings">
+        <header class="catalog-header">
+          <div>
+            <p class="eyebrow" data-i18n="settingsEyebrow">Настройки</p>
+            <h1 data-i18n="settingsTitle">Аккаунт и безопасность</h1>
+            <p data-i18n="settingsSubtitle">Управляйте безопасным входом и устройствами passkey.</p>
+          </div>
+        </header>
+
+        <article id="passkey-settings" class="passkey-settings">
+          <h2 data-i18n="passkeySettingsTitle">Безопасный вход</h2>
           <p data-i18n="passkeySettingsHint">Добавьте Touch ID, Face ID, Windows Hello или ключ безопасности для входа без email-ссылки.</p>
           <div class="passkey-register-row">
             <label>
@@ -118,16 +140,7 @@
           </div>
           <div id="passkey-list" class="passkey-list"></div>
           <p id="passkey-status" class="login-status" role="status" aria-live="polite"></p>
-        </details>
-
-        <section class="catalog-main" aria-label="Story catalog">
-          <div id="stories" class="story-list"></div>
-          <div id="story-pagination" class="pagination hidden" aria-label="Story pages">
-            <button id="stories-prev" type="button" class="secondary" data-i18n="prevPage">Prev</button>
-            <span id="stories-page"></span>
-            <button id="stories-next" type="button" class="secondary" data-i18n="nextPage">Next</button>
-          </div>
-        </section>
+        </article>
       </section>
 
       <section id="scene-screen" class="scene-screen hidden" aria-label="Scene">
@@ -173,6 +186,17 @@
       </div>
     </aside>
 
-    <script src="/engine.js?v=engine-24" type="module"></script>
+    <aside id="passkey-nudge" class="passkey-nudge hidden" role="dialog" aria-live="polite" aria-label="Passkey">
+      <div>
+        <strong data-i18n="passkeyNudgeTitle">Добавьте быстрый вход</strong>
+        <p data-i18n="passkeyNudgeText">Привяжите passkey после первого входа, чтобы дальше входить без email-ссылок.</p>
+      </div>
+      <div class="passkey-nudge-actions">
+        <button id="passkey-nudge-open" type="button" data-i18n="passkeyNudgeOpen">Открыть настройки</button>
+        <button id="passkey-nudge-dismiss" type="button" class="secondary" data-i18n="passkeyNudgeLater">Позже</button>
+      </div>
+    </aside>
+
+    <script src="/engine.js?v=engine-25" type="module"></script>
   </body>
 </html>
