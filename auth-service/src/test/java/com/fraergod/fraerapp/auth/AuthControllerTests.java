@@ -232,6 +232,30 @@ class AuthControllerTests {
 	}
 
 	@Test
+	void adminCanDeleteLoginRequestWithoutDeletingUser() {
+		ReflectionTestUtils.setField(controller, "devMode", false);
+		String requestedEmail = "delete-request@example.test";
+		controller.loginLink(new AuthController.LoginLinkRequest(requestedEmail, "/", true), request());
+		User user = store.user(requestedEmail, true).orElseThrow();
+		store.createMagicLink(requestedEmail, sha256("unused-login-token"), "/", Instant.now().plusSeconds(900));
+		User admin = store.user("admin-delete-request@example.test", true).orElseThrow();
+		store.grantRole(admin.id(), "admin");
+		admin = store.userById(admin.id()).orElseThrow();
+		String adminJwt = jwt.encode(admin, "admin-session", Instant.now().plusSeconds(900));
+
+		Map<String, Object> response = controller.deleteLoginRequest("Bearer " + adminJwt, null,
+				new AuthController.DeleteLoginRequest(requestedEmail));
+
+		assertThat(response).containsEntry("deleted", true).containsEntry("email", requestedEmail);
+		assertThat(response.get("requestEventsDeleted")).isEqualTo(1);
+		assertThat(response.get("unusedLinksDeleted")).isEqualTo(1);
+		assertThat(store.userByEmail(requestedEmail)).contains(user);
+		assertThat(controller.loginRequests("Bearer " + adminJwt, null, 0, 20, requestedEmail).totalElements()).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens where email = ?", Long.class,
+				requestedEmail)).isZero();
+	}
+
+	@Test
 	void adminCanDeleteUserButNotCurrentAccount() {
 		User admin = store.user("admin@example.test", true).orElseThrow();
 		store.grantRole(admin.id(), "admin");

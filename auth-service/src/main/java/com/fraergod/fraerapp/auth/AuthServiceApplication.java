@@ -404,6 +404,24 @@ class AuthController {
 		return store.adminLoginRequests(page, size, query);
 	}
 
+	@PostMapping("/admin/login-requests/delete")
+	Map<String, Object> deleteLoginRequest(@RequestHeader(name = "Authorization", required = false) String authorization,
+			@CookieValue(name = "fraer_access", required = false) String accessToken,
+			@Valid @RequestBody DeleteLoginRequest request) {
+		User admin = currentUser(authorization, accessToken);
+		if (!admin.roles().contains("admin")) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
+		}
+		String email = AuthServiceApplication.normalizeEmail(request.email());
+		AuthStore.DeletedLoginRequest deleted = store.deleteLoginRequest(email);
+		store.audit(admin.id(), admin.email(), "login_request_deleted", "{\"target\":\"" + email + "\"}");
+		return Map.of(
+				"deleted", true,
+				"email", email,
+				"requestEventsDeleted", deleted.requestEventsDeleted(),
+				"unusedLinksDeleted", deleted.unusedLinksDeleted());
+	}
+
 	@PostMapping("/admin/users/block")
 	Map<String, Object> blockUser(@RequestHeader(name = "Authorization", required = false) String authorization,
 			@CookieValue(name = "fraer_access", required = false) String accessToken,
@@ -875,7 +893,12 @@ class AuthController {
 				      authorLink.textContent = "Ссылка + author";
 				      authorLink.disabled = request.blocked;
 				      authorLink.addEventListener("click", () => createLoginLinkForRequest(request, ["author"]));
-				      stack.append(loginLink, authorLink);
+				      const remove = document.createElement("button");
+				      remove.type = "button";
+				      remove.className = "danger";
+				      remove.textContent = "Удалить заявку";
+				      remove.addEventListener("click", () => deleteLoginRequest(request));
+				      stack.append(loginLink, authorLink, remove);
 				      cell.append(stack);
 				      return cell;
 				    }
@@ -889,6 +912,18 @@ class AuthController {
 				      });
 				      requestsResult.textContent = `Ссылка создана для ${result.email}. Она показана в разделе «Ручная ссылка для входа».`;
 				      await Promise.all([loadLoginRequests(), loadUsers()]);
+				    }
+
+				    async function deleteLoginRequest(request) {
+				      if (!confirm(`Удалить заявку ${request.email}? Неиспользованные временные ссылки для этого email тоже будут удалены. Пользователь, если уже создан, останется.`)) {
+				        return;
+				      }
+				      const result = await json("/auth/admin/login-requests/delete", {
+				        method: "POST",
+				        body: { email: request.email },
+				      });
+				      requestsResult.textContent = JSON.stringify(result, null, 2);
+				      await loadLoginRequests();
 				    }
 
 				    async function loadUsers() {
@@ -1556,6 +1591,9 @@ class AuthController {
 	record DeleteUserRequest(@Email @NotBlank String email) {
 	}
 
+	record DeleteLoginRequest(@Email @NotBlank String email) {
+	}
+
 	record PasskeyRegistrationFinishRequest(
 			@NotBlank String challengeId,
 			@Size(max = 120) String displayName,
@@ -1778,6 +1816,18 @@ class AuthStore {
 		return new AuthController.AdminLoginRequestPage(safePage, safeSize, total, totalPages, items);
 	}
 
+	DeletedLoginRequest deleteLoginRequest(String email) {
+		int unusedLinksDeleted = jdbc.update("""
+				delete from email_login_tokens
+				where email = ? and used_at is null
+				""", email);
+		int requestEventsDeleted = jdbc.update("""
+				delete from auth_audit_events
+				where email = ? and event_type = 'login_link_requested'
+				""", email);
+		return new DeletedLoginRequest(requestEventsDeleted, unusedLinksDeleted);
+	}
+
 	void createMagicLink(String email, String tokenHash, String redirectPath, Instant expiresAt) {
 		jdbc.update("""
 				insert into email_login_tokens(id, email, token_hash, redirect_path, expires_at, created_at)
@@ -1958,6 +2008,9 @@ class AuthStore {
 
 	private java.sql.Timestamp timestamp(Instant instant) {
 		return java.sql.Timestamp.from(instant);
+	}
+
+	record DeletedLoginRequest(int requestEventsDeleted, int unusedLinksDeleted) {
 	}
 }
 

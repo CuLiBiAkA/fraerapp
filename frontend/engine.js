@@ -1050,6 +1050,7 @@ function render(state) {
     }));
     choices.append(button);
   }
+  setChoicesBusy(false);
 
   setStatus(state.status === "finished" ? t("sessionFinished") : t("progressSaved"));
   if (state.status === "finished") {
