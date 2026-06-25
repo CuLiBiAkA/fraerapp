@@ -100,6 +100,7 @@ const translations = {
     passkeyLocal: "Ключ устройства",
     passkeyLoginFailed: "Не удалось войти с passkey: {message}",
     passkeyRegistrationFailed: "Не удалось добавить passkey: {message}",
+    passkeyRecentAuthRequired: "Чтобы добавить passkey, заново войдите по ссылке и сразу повторите привязку.",
     passkeyNudgeTitle: "Добавьте быстрый вход",
     passkeyNudgeText: "Привяжите passkey после первого входа, чтобы дальше входить без email-ссылок.",
     passkeyNudgeOpen: "Открыть настройки",
@@ -207,6 +208,7 @@ const translations = {
     passkeyLocal: "Device passkey",
     passkeyLoginFailed: "Passkey sign-in failed: {message}",
     passkeyRegistrationFailed: "Could not add passkey: {message}",
+    passkeyRecentAuthRequired: "To add a passkey, sign in again with an email link and bind the passkey right after that.",
     passkeyNudgeTitle: "Add quick sign-in",
     passkeyNudgeText: "Bind a passkey after your first sign-in to continue without email links.",
     passkeyNudgeOpen: "Open settings",
@@ -637,6 +639,13 @@ async function registerPasskey() {
   passkeyStatus.dataset.tone = "success";
   const items = await loadPasskeys();
   updatePasskeyNudge(items);
+}
+
+function passkeyRegistrationErrorMessage(error) {
+  if (error.message === "Recent authentication required") {
+    return t("passkeyRecentAuthRequired");
+  }
+  return t("passkeyRegistrationFailed", { message: error.message });
 }
 
 async function loadPasskeys() {
@@ -1214,7 +1223,7 @@ passkeyRegisterButton.addEventListener("click", async () => {
     passkeyStatus.dataset.tone = "info";
     await registerPasskey();
   } catch (error) {
-    passkeyStatus.textContent = t("passkeyRegistrationFailed", { message: error.message });
+    passkeyStatus.textContent = passkeyRegistrationErrorMessage(error);
     passkeyStatus.dataset.tone = "error";
   } finally {
     passkeyRegisterButton.disabled = false;
