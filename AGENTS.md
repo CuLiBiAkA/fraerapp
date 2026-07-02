@@ -19,6 +19,16 @@ This repository is the working checkout for FraerApp. Any new Codex thread worki
 - Use `rg`/`rg --files` for repository search.
 - For network, SSH, git push, Docker, or production checks, request escalated execution when required by the sandbox.
 
+## Context maintenance
+
+After any meaningful project, deployment, auth, infrastructure, story-engine, or production-process change, update the relevant context files in the same commit:
+
+- `PROJECT_CONTEXT.md` for architecture, service behavior, known issues, domains, deployment shape, and important decisions.
+- `DEPLOY_RUNBOOK.md` for commands, deploy steps, verification steps, incident handling, and operational procedures.
+- `LOCAL_OPERATOR_NOTES.private.md` only for private local values that must not be pushed.
+
+If no context file needs an update, mention that explicitly in the final handoff.
+
 ## Repository defaults
 
 - Main working branch used in recent work: `codex/passkey-auth-compliance`.
