@@ -1,6 +1,6 @@
 # FraerApp agent instructions
 
-Last updated: 2026-07-02.
+Last updated: 2026-07-03.
 
 This repository is the working checkout for FraerApp. Any new Codex thread working in this project must read these files first:
 
@@ -31,7 +31,9 @@ If no context file needs an update, mention that explicitly in the final handoff
 
 ## Repository defaults
 
-- Main working branch used in recent work: `codex/passkey-auth-compliance`.
+- Default working branch: `main`.
+- Work directly in `main` unless the user explicitly asks for a separate branch, PR, or experimental worktree.
+- Before starting work, verify the branch with `git status --short --branch`; if not on `main`, switch or ask before proceeding when switching could overwrite local changes.
 - Production runtime path is documented as a variable in `DEPLOY_RUNBOOK.md`; read local private notes for the concrete value.
 - Production SSH target is documented as `$FRAERAPP_SSH`; read local private notes for the concrete value.
 - Production domain is documented as `$FRAERAPP_DOMAIN`; read local private notes for the concrete value.
