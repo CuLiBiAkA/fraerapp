@@ -1,8 +1,19 @@
+import {
+  credentialToJson,
+  parseCreationOptions,
+  parseRequestOptions,
+  passkeysSupported,
+} from "./passkeys.js";
+
 const loginScreen = document.querySelector("#login-screen");
+const authLoadingScreen = document.querySelector("#auth-loading-screen");
 const storyScreen = document.querySelector("#story-screen");
+const settingsScreen = document.querySelector("#settings-screen");
 const sceneScreen = document.querySelector("#scene-screen");
 const loginForm = document.querySelector("#login-form");
 const usernameInput = document.querySelector("#username");
+const personalDataConsent = document.querySelector("#personal-data-consent");
+const consentHint = document.querySelector("#consent-hint");
 const loginStatus = document.querySelector("#login-status");
 const storiesList = document.querySelector("#stories");
 const storySearch = document.querySelector("#story-search");
@@ -21,6 +32,9 @@ const status = document.querySelector("#status");
 const playerName = document.querySelector("#player-name");
 const sceneNode = document.querySelector("#scene-node");
 const menuButton = document.querySelector("#menu-button");
+const settingsButton = document.querySelector("#settings-button");
+const builderButton = document.querySelector("#builder-button");
+const adminButton = document.querySelector("#admin-button");
 const logoutButton = document.querySelector("#logout");
 const soundControl = document.querySelector("#sound-control");
 const soundToggle = document.querySelector("#sound-toggle");
@@ -33,20 +47,64 @@ const publishStory = document.querySelector("#publish-story");
 const adminOutput = document.querySelector("#admin-output");
 const langRuButton = document.querySelector("#lang-ru");
 const langEnButton = document.querySelector("#lang-en");
+const passkeyLoginButton = document.querySelector("#passkey-login");
+const passkeyUnavailable = document.querySelector("#passkey-unavailable");
+const passkeySettings = document.querySelector("#passkey-settings");
+const passkeyName = document.querySelector("#passkey-name");
+const passkeyRegisterButton = document.querySelector("#passkey-register");
+const passkeyList = document.querySelector("#passkey-list");
+const passkeyStatus = document.querySelector("#passkey-status");
+const cookieBanner = document.querySelector("#cookie-banner");
+const cookieAccept = document.querySelector("#cookie-accept");
+const passkeyNudge = document.querySelector("#passkey-nudge");
+const passkeyNudgeOpen = document.querySelector("#passkey-nudge-open");
+const passkeyNudgeDismiss = document.querySelector("#passkey-nudge-dismiss");
 
 const translations = {
   ru: {
     loginEyebrow: "FraerApp Stories",
+    authLoadingEyebrow: "FraerApp Stories",
+    authLoadingTitle: "Проверяем вход",
+    authLoadingText: "Подождите несколько секунд. Если сессия активна, мы сразу откроем библиотеку.",
     loginTitle: "Войдите в библиотеку историй",
     loginSubtitle: "Введите email, чтобы продолжить игру, открыть сохранения и запускать новые интерактивные истории.",
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
     loginButton: "Получить ссылку",
-    loginLinkSent: "Ссылка отправлена. Проверьте почту и откройте письмо для входа.",
-    loginSpamHint: "Если письма нет во входящих, проверьте папку «Спам». Отправитель: noreply@fraerapp.ru.",
+    personalDataConsent: "Я принимаю согласие на обработку персональных данных и ознакомлен с политикой конфиденциальности.",
+    personalDataConsentHint: "Перед входом нужно поставить галочку согласия — без неё ссылка для входа не создаётся.",
+    personalDataConsentRequired: "Перед входом необходимо согласиться с обработкой персональных данных.",
+    consentLink: "Согласие",
+    privacyLink: "Политика",
+    termsLink: "Пользовательское соглашение",
+    loginLinkSent: "Запрос принят. Если вход для этого адреса доступен, вы получите инструкции.",
+    loginSpamHint: "При ручной выдаче администратор передаст ссылку напрямую.",
     loginDevLink: "Открыть dev-ссылку для входа",
     loginDevHint: "Локальный dev-режим: можно войти сразу по ссылке ниже.",
     loginEndpointHint: "Откройте приложение через http://localhost:8088, чтобы работали вход и API.",
+    passkeyOr: "или",
+    passkeyLogin: "Войти с passkey",
+    passkeyUnavailable: "Passkey недоступен в этом браузере или соединение не защищено.",
+    passkeySettingsTitle: "Безопасный вход",
+    passkeySettingsHint: "Добавьте Touch ID, Face ID, Windows Hello или ключ безопасности для входа без email-ссылки.",
+    passkeyNameLabel: "Название устройства",
+    passkeyNamePlaceholder: "Мой телефон",
+    passkeyRegister: "Добавить passkey",
+    passkeyRegistered: "Passkey добавлен.",
+    passkeyDeleted: "Passkey удалён.",
+    passkeyEmpty: "Passkey пока не добавлены.",
+    passkeyDelete: "Удалить",
+    passkeyCreated: "Добавлен: {date}",
+    passkeyLastUsed: "Последний вход: {date}",
+    passkeySynced: "Синхронизируемый ключ",
+    passkeyLocal: "Ключ устройства",
+    passkeyLoginFailed: "Не удалось войти с passkey: {message}",
+    passkeyRegistrationFailed: "Не удалось добавить passkey: {message}",
+    passkeyRecentAuthRequired: "Чтобы добавить passkey, заново войдите по ссылке и сразу повторите привязку.",
+    passkeyNudgeTitle: "Добавьте быстрый вход",
+    passkeyNudgeText: "Привяжите passkey после первого входа, чтобы дальше входить без email-ссылок.",
+    passkeyNudgeOpen: "Открыть настройки",
+    passkeyNudgeLater: "Позже",
     adminSummary: "Админка истории",
     adminTokenLabel: "Админ-действия требуют роль admin",
     storyJsonLabel: "Story JSON",
@@ -73,6 +131,12 @@ const translations = {
     newRunConfirm: "Начать новую игру? Текущее сохранение останется в списке, но вы начнете отдельный проход с первой сцены.",
     saveScene: "Сцена: {scene}",
     menuButton: "Истории",
+    settingsButton: "Настройки",
+    builderButton: "Builder",
+    adminButton: "Admin",
+    settingsEyebrow: "Настройки",
+    settingsTitle: "Аккаунт и безопасность",
+    settingsSubtitle: "Управляйте безопасным входом и устройствами passkey.",
     sceneStatsTitle: "Статы",
     sceneStatsCount: "{count} шт.",
     statsEmpty: "Автор истории пока не выбрал переменные для статов.",
@@ -96,23 +160,59 @@ const translations = {
     sessionFinished: "Сессия завершена",
     loading: "Загрузка...",
     loginFailed: "Не удалось войти: {message}",
-    authExpired: "Сессия истекла. Войдите заново.",
+    loginLinkInvalid: "Ссылка для входа недействительна, уже использована или истекла. Запросите новую ссылку.",
+    loginLinkInvalidAction: "Запросить новую ссылку",
     webAudioUnsupported: "Web Audio не поддерживается в этом браузере",
     importFirst: "Сначала импортируйте историю.",
     errorPrefix: "Ошибка: {message}",
+    cookieBannerTitle: "Мы используем cookie",
+    cookieBannerText: "Cookie нужны для входа, сохранения сессии и стабильной работы игры.",
+    cookieAccept: "Понятно",
   },
   en: {
     loginEyebrow: "FraerApp Stories",
+    authLoadingEyebrow: "FraerApp Stories",
+    authLoadingTitle: "Checking sign-in",
+    authLoadingText: "Please wait a few seconds. If your session is active, we will open the library.",
     loginTitle: "Sign in to your story library",
     loginSubtitle: "Enter your email to continue saved runs and launch new interactive stories.",
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
     loginButton: "Get link",
-    loginLinkSent: "Sign-in link sent. Check your email and open the message to continue.",
-    loginSpamHint: "If the message is missing from your inbox, check Spam. Sender: noreply@fraerapp.ru.",
+    personalDataConsent: "I accept the personal data processing consent and acknowledge the privacy policy.",
+    personalDataConsentHint: "You need to tick the consent checkbox before sign-in; otherwise the link will not be created.",
+    personalDataConsentRequired: "You need to accept personal data processing before sign-in.",
+    consentLink: "Consent",
+    privacyLink: "Privacy policy",
+    termsLink: "Terms of use",
+    loginLinkSent: "Request accepted. If sign-in is available for this address, you will receive instructions.",
+    loginSpamHint: "For manual delivery, an administrator will provide the link directly.",
     loginDevLink: "Open dev sign-in link",
     loginDevHint: "Local dev mode: you can sign in with the link below.",
     loginEndpointHint: "Open the app through http://localhost:8088 so sign-in and API routes work.",
+    passkeyOr: "or",
+    passkeyLogin: "Sign in with a passkey",
+    passkeyUnavailable: "Passkeys are unavailable in this browser or the connection is not secure.",
+    passkeySettingsTitle: "Secure sign-in",
+    passkeySettingsHint: "Add Touch ID, Face ID, Windows Hello, or a security key to sign in without an email link.",
+    passkeyNameLabel: "Device name",
+    passkeyNamePlaceholder: "My phone",
+    passkeyRegister: "Add passkey",
+    passkeyRegistered: "Passkey added.",
+    passkeyDeleted: "Passkey deleted.",
+    passkeyEmpty: "No passkeys have been added yet.",
+    passkeyDelete: "Delete",
+    passkeyCreated: "Added: {date}",
+    passkeyLastUsed: "Last sign-in: {date}",
+    passkeySynced: "Synced passkey",
+    passkeyLocal: "Device passkey",
+    passkeyLoginFailed: "Passkey sign-in failed: {message}",
+    passkeyRegistrationFailed: "Could not add passkey: {message}",
+    passkeyRecentAuthRequired: "To add a passkey, sign in again with an email link and bind the passkey right after that.",
+    passkeyNudgeTitle: "Add quick sign-in",
+    passkeyNudgeText: "Bind a passkey after your first sign-in to continue without email links.",
+    passkeyNudgeOpen: "Open settings",
+    passkeyNudgeLater: "Later",
     adminSummary: "Story admin",
     adminTokenLabel: "Admin actions require the admin role",
     storyJsonLabel: "Story JSON",
@@ -139,6 +239,12 @@ const translations = {
     newRunConfirm: "Start a new game? Your current save will stay in the list, but this will create a separate run from the first scene.",
     saveScene: "Scene: {scene}",
     menuButton: "Stories",
+    settingsButton: "Settings",
+    builderButton: "Builder",
+    adminButton: "Admin",
+    settingsEyebrow: "Settings",
+    settingsTitle: "Account and security",
+    settingsSubtitle: "Manage secure sign-in and passkey devices.",
     sceneStatsTitle: "Stats",
     sceneStatsCount: "{count}",
     statsEmpty: "The story author has not selected any stats yet.",
@@ -162,14 +268,16 @@ const translations = {
     sessionFinished: "Session finished",
     loading: "Loading...",
     loginFailed: "Login failed: {message}",
-    authExpired: "Session expired. Sign in again.",
+    loginLinkInvalid: "This sign-in link is invalid, already used, or expired. Request a new link.",
+    loginLinkInvalidAction: "Request a new link",
     webAudioUnsupported: "Web Audio is not supported",
     importFirst: "Import a story first.",
     errorPrefix: "Error: {message}",
+    cookieBannerTitle: "We use cookies",
+    cookieBannerText: "Cookies are required for sign-in, session storage, and stable game operation.",
+    cookieAccept: "Got it",
   },
 };
-
-const isLocalDev = ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
 
 const storage = {
   get email() {
@@ -184,8 +292,23 @@ const storage = {
   get volume() {
     return Number(localStorage.getItem("fraerapp.volume") ?? 45);
   },
+  get roles() {
+    try {
+      const roles = JSON.parse(localStorage.getItem("fraerapp.roles") || "[]");
+      return Array.isArray(roles) ? roles : [];
+    } catch {
+      return [];
+    }
+  },
+  get cookieConsent() {
+    return localStorage.getItem("fraerapp.cookieConsent");
+  },
+  get passkeyNudgeDismissed() {
+    return localStorage.getItem("fraerapp.passkeyNudgeDismissed") === "true";
+  },
   setUser(user) {
     localStorage.setItem("fraerapp.email", user.email);
+    localStorage.setItem("fraerapp.roles", JSON.stringify(user.roles || []));
   },
   setGame(session) {
     localStorage.setItem("fraerapp.sessionId", session.sessionId);
@@ -197,6 +320,12 @@ const storage = {
   setVolume(volume) {
     localStorage.setItem("fraerapp.volume", String(volume));
   },
+  acceptCookies() {
+    localStorage.setItem("fraerapp.cookieConsent", "accepted");
+  },
+  dismissPasskeyNudge() {
+    localStorage.setItem("fraerapp.passkeyNudgeDismissed", "true");
+  },
   clearGame() {
     localStorage.removeItem("fraerapp.sessionId");
     localStorage.removeItem("fraerapp.storyKey");
@@ -204,6 +333,7 @@ const storage = {
   clear() {
     this.clearGame();
     localStorage.removeItem("fraerapp.email");
+    localStorage.removeItem("fraerapp.roles");
   },
 };
 
@@ -213,16 +343,19 @@ let soundUnavailableReason = "";
 let soundVolume = clamp(Number.isFinite(storage.volume) ? storage.volume : 45, 0, 100);
 let lastImportedStoryId = null;
 let currentLanguage = storage.language;
-let currentUser = null;
 let currentState = null;
 let catalogStories = [];
 let catalogPage = 1;
+let choiceInFlight = false;
 
 const storiesPerPage = 4;
 
 const api = {
-  loginLink(email) {
-    return request("/auth/login-link", { method: "POST", body: { email, redirectPath: "/" } });
+  loginLink(email, consent) {
+    return request("/auth/login-link", {
+      method: "POST",
+      body: { email, redirectPath: "/", personalDataConsent: consent },
+    });
   },
   verify(token) {
     return request("/auth/verify", { method: "POST", body: { token } });
@@ -232,6 +365,30 @@ const api = {
   },
   logout() {
     return request("/auth/logout", { method: "POST" });
+  },
+  passkeyAuthenticationOptions() {
+    return request("/auth/passkeys/authentication/options", { method: "POST" });
+  },
+  passkeyAuthenticationVerify(challengeId, credential) {
+    return request("/auth/passkeys/authentication/verify", {
+      method: "POST",
+      body: { challengeId, credential },
+    });
+  },
+  passkeyRegistrationOptions() {
+    return request("/auth/passkeys/registration/options", { method: "POST" });
+  },
+  passkeyRegistrationVerify(challengeId, displayName, credential) {
+    return request("/auth/passkeys/registration/verify", {
+      method: "POST",
+      body: { challengeId, displayName, credential },
+    });
+  },
+  passkeys() {
+    return request("/auth/passkeys");
+  },
+  deletePasskey(credentialId) {
+    return request(`/auth/passkeys/${encodeURIComponent(credentialId)}`, { method: "DELETE" });
   },
   stories() {
     return request("/api/catalog/stories");
@@ -292,7 +449,7 @@ async function request(path, options = {}) {
   return requestAttempt(path, options, true);
 }
 
-async function requestAttempt(path, options = {}, allowRefresh = true) {
+async function requestAttempt(path, options, allowRefresh) {
   const headers = { Accept: "application/json" };
   if (options.body || options.rawBody) {
     headers["Content-Type"] = "application/json";
@@ -305,8 +462,14 @@ async function requestAttempt(path, options = {}, allowRefresh = true) {
     body: options.rawBody || (options.body ? JSON.stringify(options.body) : undefined),
   });
   if (response.status === 401 && allowRefresh && shouldRefreshAuth(path)) {
-    await refreshAuth();
-    return requestAttempt(path, options, false);
+    const refreshed = await fetch("/auth/refresh", {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      credentials: "include",
+    });
+    if (refreshed.ok) {
+      return requestAttempt(path, options, false);
+    }
   }
   const responseText = await response.text();
   let payload = {};
@@ -318,42 +481,35 @@ async function requestAttempt(path, options = {}, allowRefresh = true) {
     }
   }
   if (!response.ok) {
-    const error = new Error(payload.message || `HTTP ${response.status}`);
-    error.status = response.status;
-    throw error;
+    throw new Error(payload.message || payload.detail || `HTTP ${response.status}`);
   }
   return payload;
-}
-
-async function refreshAuth() {
-  const response = await fetch("/auth/refresh", {
-    method: "POST",
-    headers: { Accept: "application/json" },
-    credentials: "include",
-  });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
 }
 
 function shouldRefreshAuth(path) {
   return !String(path).startsWith("/auth/login-link")
     && !String(path).startsWith("/auth/verify")
-    && !String(path).startsWith("/auth/logout")
-    && !String(path).startsWith("/auth/refresh");
+    && !String(path).startsWith("/auth/refresh")
+    && !String(path).startsWith("/auth/passkeys/authentication");
 }
 
 function showOnly(screen) {
+  authLoadingScreen.classList.toggle("hidden", screen !== authLoadingScreen);
   loginScreen.classList.toggle("hidden", screen !== loginScreen);
   storyScreen.classList.toggle("hidden", screen !== storyScreen);
+  settingsScreen.classList.toggle("hidden", screen !== settingsScreen);
   sceneScreen.classList.toggle("hidden", screen !== sceneScreen);
   updateTopActions(screen);
 }
 
 function updateTopActions(screen) {
-  const loggedIn = Boolean(currentUser);
+  const loggedIn = Boolean(storage.email);
+  const roles = storage.roles;
   const inScene = screen === sceneScreen;
   menuButton.classList.toggle("hidden", !loggedIn || screen === storyScreen);
+  settingsButton.classList.toggle("hidden", !loggedIn || screen === settingsScreen);
+  builderButton.classList.toggle("hidden", !loggedIn || !(roles.includes("author") || roles.includes("admin")));
+  adminButton.classList.toggle("hidden", !loggedIn || !roles.includes("admin"));
   soundControl.classList.toggle("hidden", !inScene);
   logoutButton.classList.toggle("hidden", !loggedIn);
 }
@@ -366,16 +522,31 @@ function setLoginStatus(message, tone = "info") {
   loginStatus.replaceChildren();
   loginStatus.textContent = message;
   loginStatus.dataset.tone = tone;
+  delete loginStatus.dataset.kind;
 }
 
-function setAuthenticatedUser(user) {
-  currentUser = user;
-  storage.setUser(user);
+function showInvalidLoginLink(message) {
+  loginStatus.replaceChildren();
+  loginStatus.dataset.tone = "error";
+  loginStatus.dataset.kind = "invalid-link";
+  const text = document.createElement("span");
+  text.textContent = message || t("loginLinkInvalid");
+  const action = document.createElement("button");
+  action.type = "button";
+  action.className = "secondary";
+  action.textContent = t("loginLinkInvalidAction");
+  action.addEventListener("click", () => {
+    setLoginStatus("");
+    usernameInput.focus();
+  });
+  loginStatus.append(text, action);
 }
 
-function clearAuthenticatedUser() {
-  currentUser = null;
-  storage.clear();
+function updateConsentState({ showError = false } = {}) {
+  const accepted = personalDataConsent.checked;
+  loginForm.classList.toggle("consent-missing", showError && !accepted);
+  consentHint.dataset.tone = showError && !accepted ? "error" : "info";
+  return accepted;
 }
 
 async function showLoginLinkResult(email) {
@@ -387,9 +558,6 @@ async function showLoginLinkResult(email) {
   spamHint.className = "mail-hint";
   spamHint.textContent = t("loginSpamHint");
   loginStatus.append(sent, spamHint);
-  if (!isLocalDev) {
-    return;
-  }
   try {
     const dev = await request(`/auth/dev/magic-links?email=${encodeURIComponent(email)}`);
     const link = dev.links?.[0]?.link;
@@ -398,7 +566,7 @@ async function showLoginLinkResult(email) {
     if (token) {
       setLoginStatus(t("loading"), "success");
       const result = await api.verify(token);
-      setAuthenticatedUser(result.user);
+      storage.setUser(result.user);
       window.history.replaceState({}, document.title, result.redirectPath || "/");
       await afterLogin();
       return;
@@ -416,6 +584,12 @@ async function showLoginLinkResult(email) {
 }
 
 async function afterLogin() {
+  const passkeyItems = await loadPasskeys().catch((error) => {
+    passkeyStatus.textContent = t("errorPrefix", { message: error.message });
+    passkeyStatus.dataset.tone = "error";
+    return [];
+  });
+  updatePasskeyNudge(passkeyItems);
   if (storage.sessionId) {
     try {
       render(await api.state(storage.sessionId));
@@ -428,13 +602,106 @@ async function afterLogin() {
   renderStories(await api.stories());
 }
 
-function showBootError(error) {
-  storage.clearGame();
-  currentState = null;
-  showOnly(storyScreen);
-  storiesList.replaceChildren();
-  storiesList.append(emptyCatalogMessage(t("errorPrefix", { message: error.message })));
-  storyPagination.classList.add("hidden");
+async function signInWithPasskey() {
+  if (!passkeysSupported()) {
+    throw new Error(t("passkeyUnavailable"));
+  }
+  const options = await api.passkeyAuthenticationOptions();
+  const credential = await navigator.credentials.get({
+    publicKey: parseRequestOptions(options.publicKey),
+  });
+  if (!credential) {
+    throw new Error("Credential was not returned");
+  }
+  const result = await api.passkeyAuthenticationVerify(options.challengeId, credentialToJson(credential));
+  storage.setUser(result.user);
+  await afterLogin();
+}
+
+async function registerPasskey() {
+  if (!passkeysSupported()) {
+    throw new Error(t("passkeyUnavailable"));
+  }
+  const options = await api.passkeyRegistrationOptions();
+  const credential = await navigator.credentials.create({
+    publicKey: parseCreationOptions(options.publicKey),
+  });
+  if (!credential) {
+    throw new Error("Credential was not returned");
+  }
+  await api.passkeyRegistrationVerify(
+    options.challengeId,
+    passkeyName.value.trim(),
+    credentialToJson(credential),
+  );
+  passkeyName.value = "";
+  passkeyStatus.textContent = t("passkeyRegistered");
+  passkeyStatus.dataset.tone = "success";
+  const items = await loadPasskeys();
+  updatePasskeyNudge(items);
+}
+
+function passkeyRegistrationErrorMessage(error) {
+  if (error.message === "Recent authentication required") {
+    return t("passkeyRecentAuthRequired");
+  }
+  return t("passkeyRegistrationFailed", { message: error.message });
+}
+
+async function loadPasskeys() {
+  const response = await api.passkeys();
+  const items = response.passkeys || [];
+  renderPasskeys(items);
+  return items;
+}
+
+function renderPasskeys(passkeys) {
+  passkeyList.replaceChildren();
+  if (!passkeys.length) {
+    const empty = document.createElement("p");
+    empty.textContent = t("passkeyEmpty");
+    passkeyList.append(empty);
+    return;
+  }
+  for (const passkey of passkeys) {
+    const item = document.createElement("article");
+    item.className = "passkey-item";
+    const details = document.createElement("div");
+    const name = document.createElement("strong");
+    name.textContent = passkey.displayName;
+    const meta = document.createElement("small");
+    const created = formatPasskeyDate(passkey.createdAt);
+    const used = passkey.lastUsedAt ? ` · ${t("passkeyLastUsed", { date: formatPasskeyDate(passkey.lastUsedAt) })}` : "";
+    meta.textContent = `${passkey.backupEligible ? t("passkeySynced") : t("passkeyLocal")} · ${t("passkeyCreated", { date: created })}${used}`;
+    details.append(name, meta);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "secondary";
+    remove.textContent = t("passkeyDelete");
+    remove.addEventListener("click", async () => {
+      remove.disabled = true;
+      try {
+        await api.deletePasskey(passkey.credentialId);
+        passkeyStatus.textContent = t("passkeyDeleted");
+        passkeyStatus.dataset.tone = "success";
+        await loadPasskeys();
+      } catch (error) {
+        passkeyStatus.textContent = t("errorPrefix", { message: error.message });
+        passkeyStatus.dataset.tone = "error";
+        remove.disabled = false;
+      }
+    });
+    item.append(details, remove);
+    passkeyList.append(item);
+  }
+}
+
+function formatPasskeyDate(value) {
+  return new Intl.DateTimeFormat(currentLanguage === "en" ? "en-US" : "ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(value));
 }
 
 function renderStories(stories) {
@@ -465,6 +732,24 @@ async function openStoryMenu() {
   storage.clearGame();
   currentState = null;
   renderStories(await api.stories());
+}
+
+function openSettings() {
+  stopSound({ resetPreference: true });
+  currentState = null;
+  showOnly(settingsScreen);
+  loadPasskeys().then(updatePasskeyNudge).catch((error) => {
+    passkeyStatus.textContent = t("errorPrefix", { message: error.message });
+    passkeyStatus.dataset.tone = "error";
+  });
+}
+
+function updatePasskeyNudge(passkeys = []) {
+  const shouldShow = Boolean(storage.email)
+    && passkeysSupported()
+    && passkeys.length === 0
+    && !storage.passkeyNudgeDismissed;
+  passkeyNudge.classList.toggle("hidden", !shouldShow);
 }
 
 function renderGameStats(state) {
@@ -739,9 +1024,10 @@ function storyMatchesQuery(story, query) {
 
 function render(state) {
   currentState = state;
+  releaseChoices();
   const scene = state.scene;
   showOnly(sceneScreen);
-  playerName.textContent = currentUser?.email || "";
+  playerName.textContent = storage.email || "";
   sceneNode.textContent = state.story.authorName ? state.story.authorName : state.story.title;
   sceneTitle.textContent = scene.title;
   sceneText.textContent = scene.text;
@@ -767,12 +1053,14 @@ function render(state) {
     if (!choice.id) continue;
     const button = document.createElement("button");
     button.type = "button";
+    button.disabled = false;
     button.textContent = choice.label;
-    button.addEventListener("click", () => withBusy(button, async () => {
+    button.addEventListener("click", () => withChoiceBusy(button, async () => {
       render(await api.choice(state.sessionId, choice.id));
     }));
     choices.append(button);
   }
+  releaseChoices();
 
   setStatus(state.status === "finished" ? t("sessionFinished") : t("progressSaved"));
   if (state.status === "finished") {
@@ -782,22 +1070,38 @@ function render(state) {
   }
 }
 
-async function withBusy(button, action) {
+function setChoicesBusy(busy) {
+  choices.classList.toggle("choices-busy", busy);
+  choices.toggleAttribute("aria-busy", busy);
+  choices.querySelectorAll("button").forEach((choiceButton) => {
+    choiceButton.disabled = busy;
+  });
+}
+
+function releaseChoices() {
+  choiceInFlight = false;
+  choices.classList.remove("choices-busy");
+  choices.removeAttribute("aria-busy");
+  choices.querySelectorAll("button").forEach((choiceButton) => {
+    choiceButton.disabled = false;
+    choiceButton.classList.remove("choice-selected");
+  });
+}
+
+async function withChoiceBusy(button, action) {
+  if (choiceInFlight) {
+    return;
+  }
+  choiceInFlight = true;
   try {
-    button.disabled = true;
+    setChoicesBusy(true);
+    button.classList.add("choice-selected");
     setStatus(t("loading"));
     await action();
   } catch (error) {
-    if (error.status === 401) {
-      clearAuthenticatedUser();
-      currentState = null;
-      showOnly(loginScreen);
-      setLoginStatus(t("authExpired"), "error");
-      return;
-    }
     setStatus(t("errorPrefix", { message: error.message }));
   } finally {
-    button.disabled = false;
+    releaseChoices();
   }
 }
 
@@ -873,11 +1177,17 @@ loginForm.addEventListener("submit", async (event) => {
   if (!email) {
     return;
   }
+  if (!updateConsentState({ showError: true })) {
+    setLoginStatus(t("personalDataConsentRequired"), "error");
+    loginStatus.dataset.kind = "consent";
+    personalDataConsent.focus();
+    return;
+  }
   const submitButton = loginForm.querySelector("button[type='submit']");
   try {
     submitButton.disabled = true;
     setLoginStatus(t("loading"));
-    await api.loginLink(email);
+    await api.loginLink(email, personalDataConsent.checked);
     await showLoginLinkResult(email);
   } catch (error) {
     const endpointHint = location.port === "4173" ? ` ${t("loginEndpointHint")}` : "";
@@ -887,8 +1197,53 @@ loginForm.addEventListener("submit", async (event) => {
   }
 });
 
+personalDataConsent.addEventListener("change", () => {
+  updateConsentState({ showError: false });
+  if (personalDataConsent.checked && loginStatus.dataset.kind === "consent") {
+    setLoginStatus("");
+  }
+});
+
+passkeyLoginButton.addEventListener("click", async () => {
+  try {
+    passkeyLoginButton.disabled = true;
+    setLoginStatus(t("loading"));
+    await signInWithPasskey();
+  } catch (error) {
+    setLoginStatus(t("passkeyLoginFailed", { message: error.message }), "error");
+  } finally {
+    passkeyLoginButton.disabled = false;
+  }
+});
+
+passkeyRegisterButton.addEventListener("click", async () => {
+  try {
+    passkeyRegisterButton.disabled = true;
+    passkeyStatus.textContent = t("loading");
+    passkeyStatus.dataset.tone = "info";
+    await registerPasskey();
+  } catch (error) {
+    passkeyStatus.textContent = passkeyRegistrationErrorMessage(error);
+    passkeyStatus.dataset.tone = "error";
+  } finally {
+    passkeyRegisterButton.disabled = false;
+  }
+});
+
 menuButton.addEventListener("click", () => {
   openStoryMenu().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
+});
+
+settingsButton.addEventListener("click", () => {
+  openSettings();
+});
+
+builderButton.addEventListener("click", () => {
+  window.location.href = "/builder/";
+});
+
+adminButton.addEventListener("click", () => {
+  window.location.href = "/auth/admin";
 });
 
 logoutButton.addEventListener("click", async () => {
@@ -898,8 +1253,9 @@ logoutButton.addEventListener("click", async () => {
   } catch (error) {
     setStatus(t("errorPrefix", { message: error.message }));
   }
-  clearAuthenticatedUser();
+  storage.clear();
   currentState = null;
+  passkeyNudge.classList.add("hidden");
   showOnly(loginScreen);
 });
 
@@ -981,45 +1337,61 @@ storiesNext.addEventListener("click", () => {
   renderStoryPage();
 });
 
+cookieAccept.addEventListener("click", () => {
+  storage.acceptCookies();
+  cookieBanner.classList.add("hidden");
+});
+
+passkeyNudgeOpen.addEventListener("click", () => {
+  openSettings();
+});
+
+passkeyNudgeDismiss.addEventListener("click", () => {
+  storage.dismissPasskeyNudge();
+  passkeyNudge.classList.add("hidden");
+});
+
+function initCookieBanner() {
+  cookieBanner.classList.toggle("hidden", storage.cookieConsent === "accepted");
+}
+
 sound = createSound();
 applyTranslations();
 updateSoundLabel();
+updateConsentState();
+initCookieBanner();
+const hasPasskeySupport = passkeysSupported();
+passkeyLoginButton.disabled = !hasPasskeySupport;
+passkeyRegisterButton.disabled = !hasPasskeySupport;
+passkeyUnavailable.classList.toggle("hidden", hasPasskeySupport);
+passkeySettings.classList.toggle("passkey-unavailable", !hasPasskeySupport);
 adminPanel.classList.toggle("hidden", new URLSearchParams(window.location.search).get("admin") !== "1");
 setStatus(t("loading"));
+showOnly(authLoadingScreen);
 const authToken = new URLSearchParams(window.location.search).get("auth_token");
-boot().catch((error) => showBootError(error));
-
-async function boot() {
-  if (authToken) {
-    try {
-      const result = await api.verify(authToken);
-      setAuthenticatedUser(result.user);
+if (authToken) {
+  api.verify(authToken)
+    .then((result) => {
+      storage.setUser(result.user);
       window.history.replaceState({}, document.title, result.redirectPath || "/");
-      await afterLogin();
-      return;
-    } catch (error) {
-      try {
-        const user = await api.me();
-        setAuthenticatedUser(user);
-        window.history.replaceState({}, document.title, "/");
-        await afterLogin();
-      } catch {
-        clearAuthenticatedUser();
-        currentState = null;
-        showOnly(loginScreen);
-        alert(t("loginFailed", { message: error.message }));
-      }
-      return;
-    }
-  }
-
-  try {
-    const user = await api.me();
-    setAuthenticatedUser(user);
-    await afterLogin();
-  } catch {
-    clearAuthenticatedUser();
-    currentState = null;
-    showOnly(loginScreen);
-  }
+      return afterLogin();
+    })
+    .catch((error) => {
+      storage.clear();
+      currentState = null;
+      window.history.replaceState({}, document.title, "/");
+      showOnly(loginScreen);
+      showInvalidLoginLink(t("loginLinkInvalid"));
+    });
+} else {
+  api.me()
+    .then((user) => {
+      storage.setUser(user);
+      return afterLogin();
+    })
+    .catch(() => {
+      storage.clear();
+      currentState = null;
+      showOnly(loginScreen);
+    });
 }

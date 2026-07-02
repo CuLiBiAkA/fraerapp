@@ -51,3 +51,6 @@ transfer/
 *.dump
 *.tgz
 *.zip
+
+### Codex/local operator notes ###
+*.private.md

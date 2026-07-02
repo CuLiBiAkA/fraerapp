@@ -32,6 +32,8 @@ const translations = {
   ru: {
     pageTitle: "FraerApp - Конструктор историй",
     builderTitle: "Конструктор историй",
+    authorSessionLabel: "Общая сессия FraerApp",
+    authorSessionRefresh: "Проверить вход",
     runtimeApiLabel: "API рантайма",
     adminTokenLabel: "Админ-действия требуют роль admin",
     loadExample: "Загрузить пример",
@@ -170,8 +172,6 @@ const translations = {
     authorStoryPickerEmpty: "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0438\u0441\u0442\u043e\u0440\u0438\u044e",
     uploadSceneAsset: "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0430\u0441\u0441\u0435\u0442 \u0432 \u0441\u0446\u0435\u043d\u0443",
     authorLoggedIn: "\u0410\u0432\u0442\u043e\u0440: {name}. \u041c\u043e\u0436\u043d\u043e \u0440\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0438 \u043f\u0443\u0431\u043b\u0438\u043a\u043e\u0432\u0430\u0442\u044c.",
-    authorLoggedOut: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 email. \u041c\u044b \u043e\u0442\u043f\u0440\u0430\u0432\u0438\u043c \u0441\u0441\u044b\u043b\u043a\u0443 \u0434\u043b\u044f \u0432\u0445\u043e\u0434\u0430.",
-    authorLinkSent: "\u0421\u0441\u044b\u043b\u043a\u0430 \u0434\u043b\u044f \u0432\u0445\u043e\u0434\u0430 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0430.",
     authorRoleMissing: "\u0412\u0445\u043e\u0434 \u0435\u0441\u0442\u044c, \u043d\u043e \u043d\u0443\u0436\u043d\u0430 \u0440\u043e\u043b\u044c author.",
     newAuthorStory: "\u041d\u043e\u0432\u0430\u044f \u0438\u0441\u0442\u043e\u0440\u0438\u044f",
     editStoryButton: "\u041f\u0440\u0430\u0432\u0438\u0442\u044c",
@@ -191,10 +191,13 @@ const translations = {
     deleteStoryConfirm: "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0438\u0441\u0442\u043e\u0440\u0438\u044e \"{title}\"? \u042d\u0442\u043e \u0443\u0431\u0435\u0440\u0435\u0442 \u043f\u0443\u0431\u043b\u0438\u043a\u0430\u0446\u0438\u044e, \u0441\u0446\u0435\u043d\u044b, \u0430\u0441\u0441\u0435\u0442\u044b \u0438 \u0432\u0441\u0435 \u043f\u0440\u043e\u0445\u043e\u0436\u0434\u0435\u043d\u0438\u044f.",
     deleteStoryDone: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0443\u0434\u0430\u043b\u0435\u043d\u0430: {title}",
     deleteStoryCurrentDraft: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0443\u0434\u0430\u043b\u0435\u043d\u0430. \u0422\u0435\u043a\u0443\u0449\u0438\u0439 draft \u043e\u0441\u0442\u0430\u043b\u0441\u044f \u0432 \u0440\u0435\u0434\u0430\u043a\u0442\u043e\u0440\u0435.",
+    authorLoggedOut: "Общая сессия FraerApp не найдена. Войдите по выданной администратором ссылке.",
   },
   en: {
     pageTitle: "FraerApp - Story Builder",
     builderTitle: "Story Builder",
+    authorSessionLabel: "Shared FraerApp session",
+    authorSessionRefresh: "Check sign-in",
     runtimeApiLabel: "Runtime API",
     adminTokenLabel: "Admin actions require the admin role",
     loadExample: "Load Example",
@@ -334,8 +337,7 @@ const translations = {
     authorStoryPickerEmpty: "Choose a story",
     uploadSceneAsset: "Upload asset to scene",
     authorLoggedIn: "Author: {name}. Editing and publishing are available.",
-    authorLoggedOut: "Enter your email. We will send a sign-in link.",
-    authorLinkSent: "Sign-in link sent.",
+    authorLoggedOut: "No shared FraerApp session was found. Use the sign-in link provided by an administrator.",
     authorRoleMissing: "You are signed in, but the author role is required.",
     newAuthorStory: "New story",
     editStoryButton: "Edit",
@@ -383,16 +385,30 @@ let draft = loadDraft() || emptyDraft();
 draft = localizeDraftDefaults(draft);
 let authorSession = loadAuthorSession();
 
-els.runtimeUrl.value = localStorage.getItem(runtimeUrlStorageKey) || defaultRuntimeUrl();
+els.runtimeUrl.value = initialRuntimeUrl();
+localStorage.setItem(runtimeUrlStorageKey, els.runtimeUrl.value);
 els.runtimeUrl.addEventListener("input", () => {
   localStorage.setItem(runtimeUrlStorageKey, els.runtimeUrl.value);
 });
 
+function initialRuntimeUrl() {
+  const stored = localStorage.getItem(runtimeUrlStorageKey);
+  const fallback = defaultRuntimeUrl();
+  if (window.location.pathname.startsWith("/builder") && isLocalRuntimeUrl(stored)) {
+    return fallback;
+  }
+  return stored || fallback;
+}
+
 function defaultRuntimeUrl() {
   if (window.location.pathname.startsWith("/builder")) {
-    return els.runtimeUrl.dataset.prodRuntime || "https://fraerapp.ru";
+    return els.runtimeUrl.dataset.prodRuntime || window.location.origin;
   }
   return els.runtimeUrl.dataset.localRuntime || els.runtimeUrl.value;
+}
+
+function isLocalRuntimeUrl(value) {
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(String(value || "").trim());
 }
 
 function emptyDraft() {
@@ -2018,6 +2034,7 @@ function loadDraft() {
 
 function saveAuthorSession(session) {
   authorSession = session;
+  els.authorName.value = session?.email || "";
   if (session) {
     localStorage.setItem(authorStorageKey, JSON.stringify(session));
   } else {
@@ -2115,8 +2132,7 @@ async function refreshAuth(base = els.runtimeUrl.value.replace(/\/$/, "")) {
 }
 
 function shouldRefreshAuth(path) {
-  return !String(path).startsWith("/auth/login-link")
-    && !String(path).startsWith("/auth/verify")
+  return !String(path).startsWith("/auth/verify")
     && !String(path).startsWith("/auth/logout")
     && !String(path).startsWith("/auth/refresh");
 }
@@ -2187,17 +2203,7 @@ function isUploadedAssetUrl(url) {
 }
 
 async function loginAuthor() {
-  const email = els.authorName.value.trim();
-  if (!email) {
-    els.authorState.textContent = "Введите email.";
-    return;
-  }
-  await authorFetch("/auth/login-link", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, redirectPath: "/" }),
-  });
-  els.authorState.textContent = t("authorLinkSent");
+  await bootstrapAuth();
 }
 
 async function loadAuthorHome() {
@@ -2908,9 +2914,7 @@ els.refreshAuthor.onclick = () => {
     els.authorState.textContent = error.message;
   });
 };
-if (authorSession?.email) {
-  els.authorName.value = authorSession.email;
-}
+els.authorName.value = authorSession?.email || "";
 
 window.addEventListener("hashchange", () => {
   lastAppliedHash = "";
@@ -2939,6 +2943,26 @@ function canAuthor() {
 }
 
 async function bootstrapAuth() {
+  const params = new URLSearchParams(window.location.search);
+  const authToken = params.get("auth_token");
+  if (authToken) {
+    const result = await authorFetch("/auth/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: authToken }),
+    });
+    saveAuthorSession(result.user);
+    params.delete("auth_token");
+    params.delete("redirect");
+    const query = params.toString();
+    window.history.replaceState(
+      {},
+      document.title,
+      `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
+    );
+    await loadAuthorHome();
+    return;
+  }
   const user = await authorFetch("/auth/me");
   saveAuthorSession(user);
   await loadAuthorHome();

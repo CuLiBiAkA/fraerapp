@@ -1,0 +1,254 @@
+{
+  "key": "kak_shodit_v_tualet_pravilno",
+  "title": "Как сходить в туалет правильно",
+  "description": "Короткая ироничная интерактивная инструкция о том, как пройти бытовой квест спокойно, гигиенично и без катастроф.",
+  "version": 1,
+  "startSceneId": "start",
+  "variables": {
+    "calm": { "value": 1, "showInStats": true },
+    "hygiene": { "value": 0, "showInStats": true },
+    "comfort": { "value": 0, "showInStats": true },
+    "panic": { "value": 0, "showInStats": true },
+    "phone_used": false,
+    "hands_washed": false,
+    "door_locked": false,
+    "paper_checked": false
+  },
+  "assets": [
+    { "id": "bg_hall", "type": "image", "url": "/assets/hall.svg", "metadata": { "role": "start" } },
+    { "id": "bg_door", "type": "image", "url": "/assets/door.svg", "metadata": { "role": "privacy" } },
+    { "id": "bg_signal", "type": "image", "url": "/assets/signal.svg", "metadata": { "role": "warning" } },
+    { "id": "bg_ticket", "type": "image", "url": "/assets/ticket.svg", "metadata": { "role": "checklist" } },
+    { "id": "bg_finish", "type": "image", "url": "/assets/departure.svg", "metadata": { "role": "success" } },
+    { "id": "quiet_theme", "type": "music", "url": "/assets/silence.mp3", "metadata": { "note": "тишина для сосредоточенности" } }
+  ],
+  "scenes": [
+    {
+      "id": "start",
+      "title": "Зов бытового квеста",
+      "text": "Организм мягко сообщает: пора. Важно не превращать обычный поход в спецоперацию с сиренами. У тебя есть спокойствие: {{calm}}.",
+      "variables": {},
+      "assets": [{ "id": "local_checklist", "type": "image", "url": "/assets/board.svg", "metadata": { "caption": "План: спокойно, чисто, без телефона на полу" } }],
+      "background": "bg_hall",
+      "music": "quiet_theme",
+      "animation": { "type": "fade-in", "durationMs": 600 },
+      "effects": [],
+      "choices": [
+        { "id": "go_calm", "label": "Спокойно пойти в туалет", "target": "privacy", "conditions": [], "effects": [{ "inc": "calm", "value": 1 }, { "inc": "comfort", "value": 1 }] },
+        { "id": "ignore", "label": "Терпеть до драматической музыки", "target": "panic_route", "conditions": [], "effects": [{ "inc": "panic", "value": 2 }, { "inc": "comfort", "value": -1 }] }
+      ]
+    },
+    {
+      "id": "privacy",
+      "title": "Дверь и дипломатия",
+      "text": "Первое правило туалетного этикета: приватность. Дверь существует не для красоты, а чтобы никто не получил лишний сюжетный поворот.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_door",
+      "music": "quiet_theme",
+      "animation": { "type": "fade-in", "durationMs": 400 },
+      "effects": [],
+      "choices": [
+        { "id": "lock_door", "label": "Закрыть дверь и проверить замок", "target": "supplies", "conditions": [], "effects": [{ "set": "door_locked", "value": true }, { "inc": "calm", "value": 1 }] },
+        { "id": "leave_open", "label": "Оставить дверь открытой: доверяем миру", "target": "awkward_ending", "conditions": [], "effects": [{ "inc": "panic", "value": 2 }] }
+      ]
+    },
+    {
+      "id": "supplies",
+      "title": "Проверка ресурсов",
+      "text": "Профессионал не начинает квест, пока не проверит бумагу, воду и пространство вокруг. Это не занудство, это страховка от легендарного позора.",
+      "variables": { "rule": "проверить до начала" },
+      "assets": [{ "id": "local_ticket", "type": "image", "url": "/assets/ticket.svg", "metadata": { "caption": "Контрольный талон чистоты" } }],
+      "background": "bg_ticket",
+      "music": "quiet_theme",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "check_paper", "label": "{{rule}}: бумага, вода, чистое сиденье", "target": "phone_choice", "conditions": [], "effects": [{ "set": "paper_checked", "value": true }, { "inc": "hygiene", "value": 1 }, { "inc": "comfort", "value": 1 }] },
+        { "id": "skip_check", "label": "Начать без проверки — судьба разберётся", "target": "paper_crisis", "conditions": [], "effects": [{ "inc": "panic", "value": 2 }] }
+      ]
+    },
+    {
+      "id": "phone_choice",
+      "title": "Испытание телефоном",
+      "text": "Телефон смотрит на тебя как портал в бесконечную ленту. Но время в туалете должно быть коротким, а поза — без застоя и геройства.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_signal",
+      "music": "quiet_theme",
+      "animation": { "type": "fade-in", "durationMs": 350 },
+      "effects": [],
+      "choices": [
+        { "id": "no_phone", "label": "Оставить телефон в покое и не зависать", "target": "process", "conditions": [], "effects": [{ "inc": "comfort", "value": 1 }, { "inc": "hygiene", "value": 1 }] },
+        { "id": "doom_scroll", "label": "Открыть ленту на «пять минут»", "target": "numb_ending", "conditions": [], "effects": [{ "set": "phone_used", "value": true }, { "inc": "panic", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "process",
+      "title": "Главное действие без подвига",
+      "text": "Сидишь удобно, не спешишь и не устраиваешь силовое соревнование. Организм любит спокойствие, воду и отсутствие лишнего героизма.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_hall",
+      "music": "quiet_theme",
+      "animation": {},
+      "effects": [{ "inc": "comfort", "value": 1 }],
+      "choices": [
+        { "id": "finish_calm", "label": "Закончить спокойно и перейти к чистоте", "target": "cleanliness", "conditions": [], "effects": [{ "inc": "calm", "value": 1 }] },
+        { "id": "rush", "label": "Вскочить как пожарная тревога", "target": "messy_warning", "conditions": [], "effects": [{ "inc": "panic", "value": 2 }, { "inc": "hygiene", "value": -1 }] }
+      ]
+    },
+    {
+      "id": "cleanliness",
+      "title": "Финальный протокол чистоты",
+      "text": "Теперь важна не скорость, а качество. Бумага, вода если доступна, порядок после себя. Никто не должен узнавать историю по следам.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_ticket",
+      "music": "quiet_theme",
+      "animation": { "type": "fade-in", "durationMs": 400 },
+      "effects": [{ "inc": "hygiene", "value": 2 }],
+      "choices": [
+        { "id": "wash_hands", "label": "Смыть, привести всё в порядок и помыть руки", "target": "hands", "conditions": [], "effects": [{ "set": "hands_washed", "value": true }, { "inc": "hygiene", "value": 2 }] },
+        { "id": "skip_hands", "label": "Руки? Они же вроде свои", "target": "bad_hygiene_ending", "conditions": [], "effects": [{ "inc": "hygiene", "value": -3 }, { "inc": "panic", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "hands",
+      "title": "Раковина как финальный босс",
+      "text": "Мыло, вода, нормальное время, не два символических хлопка. Руки становятся чистыми, самооценка — устойчивой.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_finish",
+      "music": "quiet_theme",
+      "animation": { "type": "fade-in", "durationMs": 700 },
+      "effects": [],
+      "choices": [
+        { "id": "perfect_finish", "label": "Выйти победителем бытового квеста", "target": "good_ending", "fallbackTarget": "okay_ending", "conditions": [{ "var": "door_locked", "op": "==", "value": true }, { "var": "paper_checked", "op": "==", "value": true }, { "var": "hands_washed", "op": "==", "value": true }, { "var": "hygiene", "op": ">=", "value": 4 }], "effects": [] }
+      ]
+    },
+    {
+      "id": "panic_route",
+      "title": "Марш-бросок терпения",
+      "text": "Ты тянул слишком долго. Теперь поход в туалет похож на скоростной забег с внутренним комментатором.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_signal",
+      "music": "quiet_theme",
+      "animation": { "type": "shake", "durationMs": 450 },
+      "effects": [{ "inc": "panic", "value": 1 }],
+      "choices": [
+        { "id": "recover", "label": "Всё же закрыть дверь и действовать спокойно", "target": "supplies", "conditions": [], "effects": [{ "set": "door_locked", "value": true }, { "inc": "calm", "value": 1 }] },
+        { "id": "panic_more", "label": "Продолжить хаос", "target": "chaos_ending", "conditions": [], "effects": [{ "inc": "panic", "value": 2 }] }
+      ]
+    },
+    {
+      "id": "paper_crisis",
+      "title": "Кризис бумаги",
+      "text": "Ты не проверил ресурсы. Вселенная заметила. Теперь приходится решать задачу, которую можно было предотвратить одним взглядом.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_signal",
+      "music": "quiet_theme",
+      "animation": { "type": "shake", "durationMs": 450 },
+      "effects": [],
+      "choices": [
+        { "id": "ask_help", "label": "Спокойно попросить помощи и запомнить урок", "target": "cleanliness", "conditions": [], "effects": [{ "inc": "calm", "value": 1 }, { "inc": "hygiene", "value": 1 }] },
+        { "id": "invent_bad", "label": "Изобрести сомнительную технологию", "target": "bad_hygiene_ending", "conditions": [], "effects": [{ "inc": "panic", "value": 2 }, { "inc": "hygiene", "value": -2 }] }
+      ]
+    },
+    {
+      "id": "messy_warning",
+      "title": "Слишком быстро",
+      "text": "Спешка почти всегда создаёт дополнительную работу. Но ещё можно вернуться в нормальный протокол.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_signal",
+      "music": "quiet_theme",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        { "id": "restore_order", "label": "Остановиться, навести порядок и помыть руки", "target": "hands", "conditions": [], "effects": [{ "set": "hands_washed", "value": true }, { "inc": "hygiene", "value": 2 }] },
+        { "id": "escape", "label": "Сбежать от ответственности", "target": "bad_hygiene_ending", "conditions": [], "effects": [{ "inc": "panic", "value": 2 }] }
+      ]
+    },
+    {
+      "id": "good_ending",
+      "title": "Чистая победа",
+      "text": "Ты всё сделал правильно: не терпел до беды, закрыл дверь, проверил ресурсы, не завис в телефоне, навёл порядок и помыл руки. Бытовой квест пройден.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_finish",
+      "music": "quiet_theme",
+      "animation": { "type": "fade-in", "durationMs": 800 },
+      "effects": [],
+      "ending": { "type": "good", "title": "Туалетный протокол выполнен" },
+      "choices": []
+    },
+    {
+      "id": "okay_ending",
+      "title": "Нормально, но можно чище",
+      "text": "Ты справился, но где-то пропустил часть протокола. Не трагедия, а бытовое напоминание: подготовка и гигиена экономят нервы.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_finish",
+      "music": "quiet_theme",
+      "animation": {},
+      "effects": [],
+      "ending": { "type": "neutral", "title": "Зачёт с замечанием" },
+      "choices": []
+    },
+    {
+      "id": "awkward_ending",
+      "title": "Дверь была не декорацией",
+      "text": "Кто-то дёрнул ручку. Все живы, но атмосфера стала документальной. В следующий раз закрывай дверь.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_door",
+      "music": "quiet_theme",
+      "animation": { "type": "shake", "durationMs": 400 },
+      "effects": [],
+      "ending": { "type": "bad", "title": "Провал приватности" },
+      "choices": []
+    },
+    {
+      "id": "numb_ending",
+      "title": "Пять минут превратились в эпоху",
+      "text": "Телефон победил. Ноги затекли, время исчезло, а бытовой квест стал сериалом без финала. Не бери телефон в следующий забег.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_signal",
+      "music": "quiet_theme",
+      "animation": {},
+      "effects": [],
+      "ending": { "type": "bad", "title": "Поражение лентой" },
+      "choices": []
+    },
+    {
+      "id": "bad_hygiene_ending",
+      "title": "Гигиена подала жалобу",
+      "text": "Главный квест был не в том, чтобы зайти, а в том, чтобы выйти чистым человеком. Тут протокол нарушен.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_signal",
+      "music": "quiet_theme",
+      "animation": { "type": "shake", "durationMs": 450 },
+      "effects": [],
+      "ending": { "type": "bad", "title": "Минус гигиена" },
+      "choices": []
+    },
+    {
+      "id": "chaos_ending",
+      "title": "Хаос победил планирование",
+      "text": "Терпеть до последнего оказалось плохой стратегией. Организм не любит, когда с ним играют в дедлайн.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_signal",
+      "music": "quiet_theme",
+      "animation": { "type": "shake", "durationMs": 450 },
+      "effects": [],
+      "ending": { "type": "bad", "title": "Поздний старт" },
+      "choices": []
+    }
+  ]
+}

@@ -1,0 +1,261 @@
+{
+  "key": "kak_pogladit_kota_ne_ubiv",
+  "title": "Как погладить кота и никого не убить",
+  "description": "Ироничная интерактивная инструкция на русском: подойти к коту, прочитать его сигналы, не попасться на пузоловку и сохранить живыми кота, руку и доверие.",
+  "version": 1,
+  "startSceneId": "start",
+  "variables": {
+    "trust": { "value": 0, "showInStats": true },
+    "cat_mood": { "value": 2, "showInStats": true },
+    "noise": { "value": 0, "showInStats": true },
+    "scratches": { "value": 0, "showInStats": true },
+    "treats": { "value": 1, "showInStats": true },
+    "distance": { "value": 3, "showInStats": true },
+    "slow_blink_done": false,
+    "hand_offered": false,
+    "hand_smells_fish": false,
+    "touched_tail": false,
+    "stopped_on_time": false
+  },
+  "assets": [
+    { "id": "bg_room", "type": "image", "url": "/assets/hall.svg", "metadata": { "role": "safe room" } },
+    { "id": "bg_sofa", "type": "image", "url": "/assets/platform.svg", "metadata": { "role": "sofa arena" } },
+    { "id": "bg_warning", "type": "image", "url": "/assets/signal.svg", "metadata": { "role": "warning sign" } },
+    { "id": "bg_treat", "type": "image", "url": "/assets/ticket.svg", "metadata": { "role": "treat card" } },
+    { "id": "bg_door", "type": "image", "url": "/assets/door.svg", "metadata": { "role": "retreat route" } },
+    { "id": "bg_victory", "type": "image", "url": "/assets/departure.svg", "metadata": { "role": "peace treaty" } },
+    { "id": "bg_tracks", "type": "sprite", "url": "/assets/tracks.svg", "metadata": { "role": "invisible cat routes" } },
+    { "id": "music_purr", "type": "music", "url": "/assets/silence.mp3", "metadata": { "note": "quiet mode; purr imagined by player" } }
+  ],
+  "scenes": [
+    {
+      "id": "start",
+      "title": "Операция «Бархатная лапа»",
+      "text": "Перед тобой кот. Он лежит на диване так, будто это он платит ипотеку. Цель проста: погладить кота и не разрушить международные отношения между человеком и шерстью.",
+      "variables": {},
+      "assets": [
+        { "id": "local_rulebook", "type": "image", "url": "/assets/board.svg", "metadata": { "caption": "Правило №1: кот не обязан быть гладимым" } }
+      ],
+      "background": "bg_room",
+      "music": "music_purr",
+      "animation": { "type": "fade-in", "durationMs": 700 },
+      "effects": [],
+      "choices": [
+        { "id": "observe", "label": "Сначала прочитать кота как древний манускрипт", "target": "observe", "conditions": [], "effects": [{ "inc": "trust", "value": 1 }, { "inc": "cat_mood", "value": 1 }] },
+        { "id": "rush", "label": "Сразу тянуть руку: я же добрый", "target": "rush", "conditions": [], "effects": [{ "inc": "noise", "value": 2 }, { "inc": "scratches", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "observe",
+      "title": "Сканирование усов",
+      "text": "Хвост лежит {{tail_signal}}, уши смотрят {{ear_radar}}, глаза прищурены на 37%. Это не приглашение, но и не ультиматум. Дистанция: {{distance}} шага.",
+      "variables": { "tail_signal": "крючком, без нервного метронома", "ear_radar": "в сторону кухни" },
+      "assets": [
+        { "id": "local_laser_warning", "type": "sprite", "url": "/assets/signal.svg", "metadata": { "caption": "Красная зона: хвост и пузо" } }
+      ],
+      "background": "bg_sofa",
+      "music": "music_purr",
+      "animation": { "type": "fade-in", "durationMs": 500 },
+      "effects": [{ "inc": "distance", "value": -1 }],
+      "choices": [
+        { "id": "slow_blink", "label": "Медленно моргнуть: дипломатия без слов", "target": "slow_blink", "conditions": [], "effects": [{ "set": "slow_blink_done", "value": true }, { "inc": "trust", "value": 1 }, { "inc": "noise", "value": -1 }] },
+        { "id": "offer_empty_hand", "label": "Протянуть пустую руку для нюха", "target": "offer_hand", "fallbackTarget": "warning_hiss", "conditions": [{ "var": "trust", "op": ">=", "value": 1 }], "effects": [{ "set": "hand_offered", "value": true }] },
+        { "id": "touch_tail_now", "label": "Потрогать хвост: вдруг это ручка запуска", "target": "tail_disaster", "conditions": [], "effects": [{ "set": "touched_tail", "value": true }, { "inc": "scratches", "value": 2 }] }
+      ]
+    },
+    {
+      "id": "rush",
+      "title": "Рука-ракета",
+      "text": "Рука входит в воздушное пространство кота без визы. Кот делает взгляд, которым обычно закрывают целые империи. Все живы, но твой рейтинг упал.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_warning",
+      "music": "music_purr",
+      "animation": { "type": "shake", "durationMs": 450 },
+      "effects": [{ "inc": "trust", "value": -1 }, { "inc": "cat_mood", "value": -1 }],
+      "choices": [
+        { "id": "apologize", "label": "Замереть, отвести взгляд и начать заново", "target": "observe", "conditions": [], "effects": [{ "inc": "trust", "value": 1 }, { "inc": "noise", "value": -1 }] },
+        { "id": "continue_rush", "label": "Продолжать наступление как пылесос", "target": "panic_ending", "conditions": [], "effects": [{ "inc": "scratches", "value": 2 }, { "inc": "noise", "value": 2 }] }
+      ]
+    },
+    {
+      "id": "slow_blink",
+      "title": "Кошачий пароль принят",
+      "text": "Ты моргаешь медленно. Кот моргает в ответ так, будто подписал предварительное соглашение. Теперь можно переходить от теории к руке.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_sofa",
+      "music": "music_purr",
+      "animation": { "type": "fade-in", "durationMs": 600 },
+      "effects": [{ "inc": "cat_mood", "value": 1 }],
+      "choices": [
+        { "id": "offer_after_blink", "label": "Протянуть руку ниже уровня носа", "target": "offer_hand", "conditions": [], "effects": [{ "set": "hand_offered", "value": true }, { "inc": "distance", "value": -1 }] },
+        { "id": "take_treat", "label": "Достать лакомство и не делать резких движений", "target": "treat_protocol", "conditions": [], "effects": [] }
+      ]
+    },
+    {
+      "id": "offer_hand",
+      "title": "Ритуал нюха",
+      "text": "Ладонь остановилась в десяти сантиметрах от носа. Кот сам решает, будет ли это инспекция, игнор или мини-налог на запахи.",
+      "variables": { "inspection_seconds": 5 },
+      "assets": [],
+      "background": "bg_sofa",
+      "music": "music_purr",
+      "animation": {},
+      "effects": [{ "inc": "trust", "value": 1 }],
+      "choices": [
+        { "id": "wait_inspection", "label": "Ждать {{inspection_seconds}} секунд без давления", "target": "approach_zones", "conditions": [], "effects": [{ "inc": "trust", "value": 1 }] },
+        { "id": "pet_too_early", "label": "Не выдержать и гладить сверху", "target": "warning_hiss", "conditions": [], "effects": [{ "inc": "scratches", "value": 1 }, { "inc": "noise", "value": 1 }] },
+        { "id": "add_treat_from_hand", "label": "Подкрепить переговоры лакомством", "target": "treat_protocol", "fallbackTarget": "approach_zones", "conditions": [{ "var": "treats", "op": ">", "value": 0 }], "effects": [] }
+      ]
+    },
+    {
+      "id": "treat_protocol",
+      "title": "Печенька мира",
+      "text": "Лакомство появляется не как взятка, а как культурный обмен. Кот принимает дар, а твоя рука теперь пахнет рыбой и ответственностью.",
+      "variables": {},
+      "assets": [
+        { "id": "local_treat", "type": "image", "url": "/assets/ticket.svg", "metadata": { "caption": "Не больше одной: кот не банкомат" } }
+      ],
+      "background": "bg_treat",
+      "music": "music_purr",
+      "animation": { "type": "fade-in", "durationMs": 500 },
+      "effects": [{ "set": "hand_smells_fish", "value": true }, { "inc": "treats", "value": -1 }, { "inc": "trust", "value": 2 }, { "inc": "cat_mood", "value": 1 }],
+      "choices": [
+        { "id": "move_to_zones", "label": "Перейти к безопасным зонам", "target": "approach_zones", "conditions": [], "effects": [] },
+        { "id": "buy_love", "label": "Попытаться купить любовь второй печенькой", "target": "warning_hiss", "fallbackTarget": "approach_zones", "conditions": [{ "var": "treats", "op": ">", "value": 0 }], "effects": [{ "inc": "noise", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "approach_zones",
+      "title": "Карта разрешённых территорий",
+      "text": "Открыты базовые зоны: щёки, подбородок, основание ушей. Закрытые зоны: хвост, пузо, лапы, личные финансы кота.",
+      "variables": { "safe_zone": "щёки и подбородок" },
+      "assets": [
+        { "id": "local_map", "type": "image", "url": "/assets/board.svg", "metadata": { "caption": "Карта: зелёное — можно, красное — завещание" } }
+      ],
+      "background": "bg_tracks",
+      "music": "music_purr",
+      "animation": { "type": "fade-in", "durationMs": 500 },
+      "effects": [],
+      "choices": [
+        { "id": "pet_cheeks", "label": "Гладить {{safe_zone}} двумя пальцами", "target": "pet_success", "fallbackTarget": "warning_hiss", "conditions": [{ "var": "trust", "op": ">=", "value": 3 }], "effects": [] },
+        { "id": "belly_trap_choice", "label": "Поверить пузу: оно такое мягкое", "target": "belly_trap", "conditions": [], "effects": [{ "inc": "scratches", "value": 2 }] },
+        { "id": "tail_button_choice", "label": "Нажать хвост как секретную кнопку", "target": "tail_disaster", "conditions": [], "effects": [{ "set": "touched_tail", "value": true }, { "inc": "scratches", "value": 2 }] }
+      ]
+    },
+    {
+      "id": "warning_hiss",
+      "title": "Жёлтая карточка с шипением",
+      "text": "Кот не нападает. Он просто объясняет: «Ещё миллиметр — и я начну писать отзыв». Это подарок: предупреждение лучше, чем ремонт руки.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_warning",
+      "music": "music_purr",
+      "animation": { "type": "shake", "durationMs": 350 },
+      "effects": [{ "inc": "cat_mood", "value": -1 }, { "inc": "noise", "value": 1 }],
+      "choices": [
+        { "id": "recover_blink", "label": "Отступить на шаг и медленно моргнуть", "target": "slow_blink", "conditions": [], "effects": [{ "inc": "trust", "value": 1 }, { "inc": "distance", "value": 1 }] },
+        { "id": "ignore_warning", "label": "Игнорировать шипение: что может пойти не так?", "target": "panic_ending", "conditions": [], "effects": [{ "inc": "scratches", "value": 3 }] }
+      ]
+    },
+    {
+      "id": "pet_success",
+      "title": "Первый контакт",
+      "text": "Пальцы проходят по щеке, не давят и не спорят с направлением шерсти. Кот включает мотор: тихий, но юридически значимый мур.",
+      "variables": { "purr_volume": "низкий, уверенный" },
+      "assets": [],
+      "background": "bg_victory",
+      "music": "music_purr",
+      "animation": { "type": "fade-in", "durationMs": 650 },
+      "effects": [{ "inc": "trust", "value": 1 }, { "inc": "cat_mood", "value": 1 }],
+      "choices": [
+        { "id": "stop_on_time", "label": "Остановиться на пике успеха", "target": "good_ending", "conditions": [], "effects": [{ "set": "stopped_on_time", "value": true }] },
+        { "id": "perfect_continue", "label": "Продолжить ещё три аккуратных движения", "target": "perfect_ending", "fallbackTarget": "good_ending", "conditions": [{ "var": "slow_blink_done", "op": "==", "value": true }, { "var": "scratches", "op": "<=", "value": 1 }, { "var": "trust", "op": ">=", "value": 4 }], "effects": [] },
+        { "id": "overpet", "label": "Гладить, пока кот не станет ковриком", "target": "overpet_warning", "conditions": [], "effects": [{ "inc": "noise", "value": 1 }] }
+      ]
+    },
+    {
+      "id": "overpet_warning",
+      "title": "Секунда лишняя",
+      "text": "Мурчание выключилось. Хвост сделал одно резкое «тук». Это не метроном, это обратный отсчёт.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_warning",
+      "music": "music_purr",
+      "animation": { "type": "shake", "durationMs": 350 },
+      "effects": [{ "inc": "cat_mood", "value": -1 }],
+      "choices": [
+        { "id": "retreat_now", "label": "Убрать руку и похвалить кота голосом", "target": "good_ending", "conditions": [], "effects": [{ "set": "stopped_on_time", "value": true }, { "inc": "trust", "value": 1 }] },
+        { "id": "one_more_pet", "label": "Ну ещё разочек", "target": "panic_ending", "conditions": [], "effects": [{ "inc": "scratches", "value": 2 }] }
+      ]
+    },
+    {
+      "id": "belly_trap",
+      "title": "Пузоловка",
+      "text": "Кот показывает живот. Новичок думает: «приглашение». Профессионал знает: это музейный экспонат за стеклом. Ты всё равно трогаешь. Стекла не было.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_warning",
+      "music": "music_purr",
+      "animation": { "type": "shake", "durationMs": 500 },
+      "effects": [{ "inc": "cat_mood", "value": -2 }],
+      "ending": { "type": "bad", "title": "Все живы, но доверие в реанимации" },
+      "choices": []
+    },
+    {
+      "id": "tail_disaster",
+      "title": "Хвостовой трибунал",
+      "text": "Хвост оказался не ручкой запуска, а священной территорией. Кот жив, ты жив, но теперь тебя судит комиссия из одного пушистого прокурора.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_door",
+      "music": "music_purr",
+      "animation": { "type": "shake", "durationMs": 500 },
+      "effects": [{ "inc": "noise", "value": 2 }, { "inc": "cat_mood", "value": -2 }],
+      "ending": { "type": "bad", "title": "Нарушение хвостовой конвенции" },
+      "choices": []
+    },
+    {
+      "id": "panic_ending",
+      "title": "Режим «пылесос включён»",
+      "text": "Ты слишком шумел, слишком спешил и слишком верил в свою харизму. Кот эвакуировался под диван. Никто не погиб, но гладёж официально перенесён на другой день.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_door",
+      "music": "music_purr",
+      "animation": { "type": "fade-in", "durationMs": 500 },
+      "effects": [],
+      "ending": { "type": "bad", "title": "Операция сорвана без жертв" },
+      "choices": []
+    },
+    {
+      "id": "good_ending",
+      "title": "Мурчащий договор",
+      "text": "Ты погладил кота и вовремя остановился. Кот жив. Рука жива. Доверие выросло. Главный урок: кота не берут штурмом, с котом заключают временное перемирие.",
+      "variables": {},
+      "assets": [],
+      "background": "bg_victory",
+      "music": "music_purr",
+      "animation": { "type": "fade-in", "durationMs": 800 },
+      "effects": [],
+      "ending": { "type": "good", "title": "Безопасный гладёж выполнен" },
+      "choices": []
+    },
+    {
+      "id": "perfect_ending",
+      "title": "Кот разрешил продолжение",
+      "text": "Три движения, пауза, ещё одно медленное моргание. Кот сам подставляет щёку. Ты не победил кота — ты стал временно допущенным персоналом.",
+      "variables": {},
+      "assets": [
+        { "id": "local_certificate", "type": "image", "url": "/assets/ticket.svg", "metadata": { "caption": "Сертификат: человек условно годен к котам" } }
+      ],
+      "background": "bg_victory",
+      "music": "music_purr",
+      "animation": { "type": "fade-in", "durationMs": 900 },
+      "effects": [{ "inc": "trust", "value": 1 }, { "inc": "cat_mood", "value": 1 }],
+      "ending": { "type": "good", "title": "Идеальный протокол поглаживания" },
+      "choices": []
+    }
+  ]
+}
