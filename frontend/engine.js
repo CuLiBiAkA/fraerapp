@@ -68,7 +68,7 @@ const translations = {
     authLoadingTitle: "Проверяем вход",
     authLoadingText: "Подождите несколько секунд. Если сессия активна, мы сразу откроем библиотеку.",
     loginTitle: "Войдите в библиотеку историй",
-    loginSubtitle: "Введите email, чтобы продолжить игру, открыть сохранения и запускать новые интерактивные истории.",
+    loginSubtitle: "Войдите через Telegram или passkey, чтобы продолжить игру, открыть сохранения и запускать новые интерактивные истории.",
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
     loginButton: "Получить ссылку",
@@ -78,7 +78,7 @@ const translations = {
     consentLink: "Согласие",
     privacyLink: "Политика",
     termsLink: "Пользовательское соглашение",
-    loginLinkSent: "Запрос принят. Если вход для этого адреса доступен, вы получите инструкции.",
+    loginLinkSent: "Откройте Telegram-бота и напишите ему любое сообщение. Он отправит одноразовую ссылку для входа.",
     loginSpamHint: "При ручной выдаче администратор передаст ссылку напрямую.",
     loginDevLink: "Открыть dev-ссылку для входа",
     loginDevHint: "Локальный dev-режим: можно войти сразу по ссылке ниже.",
@@ -164,7 +164,7 @@ const translations = {
     loading: "Загрузка...",
     loginFailed: "Не удалось войти: {message}",
     loginLinkInvalid: "Ссылка для входа недействительна, уже использована или истекла. Запросите новую ссылку.",
-    loginLinkInvalidAction: "Запросить новую ссылку",
+    loginLinkInvalidAction: "Войти через Telegram",
     webAudioUnsupported: "Web Audio не поддерживается в этом браузере",
     importFirst: "Сначала импортируйте историю.",
     errorPrefix: "Ошибка: {message}",
@@ -178,7 +178,7 @@ const translations = {
     authLoadingTitle: "Checking sign-in",
     authLoadingText: "Please wait a few seconds. If your session is active, we will open the library.",
     loginTitle: "Sign in to your story library",
-    loginSubtitle: "Enter your email to continue saved runs and launch new interactive stories.",
+    loginSubtitle: "Sign in with Telegram or a passkey to continue saved runs and launch new interactive stories.",
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
     loginButton: "Get link",
@@ -188,7 +188,7 @@ const translations = {
     consentLink: "Consent",
     privacyLink: "Privacy policy",
     termsLink: "Terms of use",
-    loginLinkSent: "Request accepted. If sign-in is available for this address, you will receive instructions.",
+    loginLinkSent: "Open the Telegram bot and send it any message. It will reply with a one-time sign-in link.",
     loginSpamHint: "For manual delivery, an administrator will provide the link directly.",
     loginDevLink: "Open dev sign-in link",
     loginDevHint: "Local dev mode: you can sign in with the link below.",
@@ -274,7 +274,7 @@ const translations = {
     loading: "Loading...",
     loginFailed: "Login failed: {message}",
     loginLinkInvalid: "This sign-in link is invalid, already used, or expired. Request a new link.",
-    loginLinkInvalidAction: "Request a new link",
+    loginLinkInvalidAction: "Sign in with Telegram",
     webAudioUnsupported: "Web Audio is not supported",
     importFirst: "Import a story first.",
     errorPrefix: "Error: {message}",
@@ -546,7 +546,12 @@ function showInvalidLoginLink(message) {
   action.textContent = t("loginLinkInvalidAction");
   action.addEventListener("click", () => {
     setLoginStatus("");
-    usernameInput.focus();
+    if (telegramBotUrl) {
+      window.open(telegramBotUrl, "_blank", "noopener");
+      setLoginStatus(t("loginLinkSent"));
+      return;
+    }
+    telegramLoginButton.focus();
   });
   loginStatus.append(text, action);
 }
@@ -1205,7 +1210,9 @@ loginForm.addEventListener("submit", async (event) => {
   }
   const submitButton = loginForm.querySelector("button[type='submit']");
   try {
-    submitButton.disabled = true;
+    if (submitButton) {
+      submitButton.disabled = true;
+    }
     setLoginStatus(t("loading"));
     await api.loginLink(email, personalDataConsent.checked);
     await showLoginLinkResult(email);
@@ -1213,7 +1220,9 @@ loginForm.addEventListener("submit", async (event) => {
     const endpointHint = location.port === "4173" ? ` ${t("loginEndpointHint")}` : "";
     setLoginStatus(`${t("loginFailed", { message: error.message })}${endpointHint}`, "error");
   } finally {
-    submitButton.disabled = false;
+    if (submitButton) {
+      submitButton.disabled = false;
+    }
   }
 });
 

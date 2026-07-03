@@ -43,7 +43,8 @@ class AuthControllerTests {
 				new ClassPathResource("db/migration/V1__create_auth_schema.sql"),
 				new ClassPathResource("db/migration/V2__add_user_blocking.sql"),
 				new ClassPathResource("db/migration/V4__add_personal_data_consents.sql"),
-				new ClassPathResource("db/migration/V5__add_passkeys.sql"));
+				new ClassPathResource("db/migration/V5__add_passkeys.sql"),
+				new ClassPathResource("db/migration/V6__add_telegram_identities.sql"));
 		schema.execute(dataSource);
 		jdbc = new JdbcTemplate(dataSource);
 		store = new AuthStore(jdbc);
@@ -309,7 +310,7 @@ class AuthControllerTests {
 				"message", Map.of(
 						"message_id", 2,
 						"chat", Map.of("id", 12345L),
-						"from", Map.of("id", 67890L, "is_bot", false),
+						"from", Map.of("id", 67890L, "is_bot", false, "username", "fraer_user"),
 						"text", "/start login"));
 
 		Map<String, Object> response = controller.telegramWebhook("secret", update, request());
@@ -325,6 +326,13 @@ class AuthControllerTests {
 				Long.class, identity, "login_link_requested")).isEqualTo(1L);
 		assertThat(jdbc.queryForObject("select count(*) from personal_data_consents where email = ? and source = ?",
 				Long.class, identity, "telegram_bot")).isEqualTo(1L);
+		assertThat(jdbc.queryForObject("select count(*) from telegram_identities where telegram_user_id = ? and username = ?",
+				Long.class, 67890L, "fraer_user")).isEqualTo(1L);
+		assertThat(store.userByTelegramId(67890L)).map(User::email).contains(identity);
+		controller.telegramWebhook("secret", update, request());
+		assertThat(jdbc.queryForObject("select count(*) from users where email = ?", Long.class, identity)).isEqualTo(1L);
+		assertThat(jdbc.queryForObject("select count(*) from telegram_identities where telegram_user_id = ?",
+				Long.class, 67890L)).isEqualTo(1L);
 	}
 
 	@Test

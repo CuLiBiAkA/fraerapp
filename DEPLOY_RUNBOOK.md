@@ -200,7 +200,7 @@ ssh "$FRAERAPP_SSH" "cd '$FRAERAPP_REMOTE_DIR' && docker compose ps && curl -skS
 
 ## Telegram login deploy
 
-Telegram login runs through `auth-service` and uses the same temporary-link tables as email login.
+Telegram login runs through `auth-service`, is the public sign-in path, and uses the same temporary-link verification as recovery/admin email login. Public email login is intentionally hidden from the main frontend.
 
 Required environment variables:
 
@@ -232,9 +232,9 @@ ssh "$FRAERAPP_SSH" "cd '$FRAERAPP_REMOTE_DIR' && docker compose logs --since=30
 Expected behavior:
 
 - `/auth/telegram/login` returns `enabled: true` and the public bot URL;
-- the homepage shows the Telegram login button;
+- the homepage shows Telegram and passkey login, not the email form;
 - a Telegram message to the bot produces a one-time FraerApp link;
-- auth DB receives an `email_login_tokens` row and a `login_link_requested` audit event with `source=telegram_bot`.
+- auth DB receives a `telegram_identities` binding, an `email_login_tokens` row, and a `login_link_requested` audit event with `source=telegram_bot`.
 
 Production note: the webhook should return Telegram's `sendMessage` method JSON directly. Do not make auth-service depend on outbound HTTPS to `api.telegram.org`; the production host may be unable to reach it even though inbound Telegram webhooks arrive through Cloudflare.
 

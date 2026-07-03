@@ -5,7 +5,7 @@ Last updated: 2026-07-03.
 FraerApp is an interactive story/game platform with:
 
 - public story catalog and game runtime;
-- email-link, Telegram-link, and passkey authentication;
+- Telegram-link and passkey public authentication, with email-link kept as hidden admin/recovery fallback;
 - author story builder;
 - admin/auth panel;
 - production Docker deployment behind nginx and Cloudflare.
@@ -105,7 +105,7 @@ Spring Boot auth service.
 
 Responsibilities:
 
-- email login links;
+- Telegram login links and hidden email/admin login links;
 - cookies and refresh;
 - passkeys;
 - admin panel `/auth/admin`;
@@ -121,7 +121,7 @@ Recent behavior:
 
 - passkey registration requires recent auth;
 - if backend returns `Recent authentication required`, frontend should show a clear Russian/English text.
-- Telegram login is an alternate delivery path for the same temporary-link flow. The bot webhook creates rows in `email_login_tokens`, records `login_link_requested` audit events with source `telegram_bot`, and returns a Telegram `sendMessage` method response containing the one-time `/auth/verify` link. This avoids outbound server calls to `api.telegram.org`, which may be unavailable from the production host. Telegram users are mapped to stable internal identities shaped like `telegram-<id>@telegram.fraerapp.local`; do not accept arbitrary email addresses through the bot.
+- Telegram login is the primary public sign-in path. The bot webhook resolves or creates a stable `telegram_identities.telegram_user_id -> users.id` binding, creates rows in `email_login_tokens`, records `login_link_requested` audit events with source `telegram_bot`, and returns a Telegram `sendMessage` method response containing the one-time `/auth/verify` link. This avoids outbound server calls to `api.telegram.org`, which may be unavailable from the production host. Email login remains available as an admin/recovery fallback but is not shown on the public login screen.
 
 ### `story-builder`
 

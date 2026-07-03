@@ -243,11 +243,12 @@ class AuthController {
 			return Map.of("ok", true);
 		}
 		checkRate("telegram-login:" + message.userId(), 200, Duration.ofMinutes(15));
-		String identity = telegramIdentity(message.userId());
+		User user = store.userForTelegram(message.userId(), message.chatId(), message.username());
+		String identity = user.email();
 		store.recordConsent(identity, privacyPolicyVersion, "telegram_bot");
 		CreatedLoginLink generated = createLoginLink(
 				identity, telegramLoginRedirectPath, servletRequest, "telegram_bot", privacyPolicyVersion);
-		store.audit(null, identity, "telegram_login_link_prepared",
+		store.audit(user.id(), identity, "telegram_login_link_prepared",
 				"{\"source\":\"telegram_bot\",\"telegramUserId\":" + message.userId() + "}");
 		return Map.of(
 				"method", "sendMessage",
@@ -285,10 +286,11 @@ class AuthController {
 		Map<?, ?> from = mapValue(message.get("from"));
 		long chatId = longValue(chat == null ? null : chat.get("id"));
 		long userId = longValue(from == null ? null : from.get("id"));
+		String username = stringValue(from == null ? null : from.get("username"));
 		if (chatId == 0L || userId == 0L || booleanValue(from == null ? null : from.get("is_bot"))) {
 			return Optional.empty();
 		}
-		return Optional.of(new TelegramMessage(chatId, userId));
+		return Optional.of(new TelegramMessage(chatId, userId, username));
 	}
 
 	private Map<?, ?> mapValue(Object value) {
@@ -314,8 +316,8 @@ class AuthController {
 		return value instanceof Boolean bool && bool;
 	}
 
-	private String telegramIdentity(long telegramUserId) {
-		return "telegram-" + telegramUserId + "@telegram.fraerapp.local";
+	private String stringValue(Object value) {
+		return value == null ? "" : value.toString().trim();
 	}
 
 	private String telegramLoginMessage(String loginUrl, Instant expiresAt) {
@@ -1875,6 +1877,54 @@ class AuthStore {
 		return users.stream().findFirst();
 	}
 
+	User userForTelegram(long telegramUserId, long telegramChatId, String username) {
+		Optional<User> existing = userByTelegramId(telegramUserId);
+		if (existing.isPresent()) {
+			touchTelegramIdentity(telegramUserId, telegramChatId, username);
+			return existing.get();
+		}
+		String email = telegramEmail(telegramUserId);
+		User user = user(email, true).orElseThrow();
+		Instant now = Instant.now();
+		jdbc.update("""
+				insert into telegram_identities(
+					telegram_user_id, telegram_chat_id, user_id, username, created_at, updated_at, last_seen_at
+				)
+				select ?, ?, ?, ?, ?, ?, ?
+				where not exists (select 1 from telegram_identities where telegram_user_id = ?)
+				""", telegramUserId, telegramChatId, user.id(), blankToNull(username), timestamp(now), timestamp(now),
+				timestamp(now), telegramUserId);
+		return userByTelegramId(telegramUserId).orElse(user);
+	}
+
+	Optional<User> userByTelegramId(long telegramUserId) {
+		List<User> users = jdbc.query("""
+				select u.id, u.email, u.blocked_at, u.created_at, u.updated_at
+				from telegram_identities t
+				join users u on u.id = t.user_id
+				where t.telegram_user_id = ?
+				""", (rs, row) -> userRow(rs.getString(1), rs.getString(2), instant(rs.getTimestamp(3)),
+				rs.getTimestamp(4).toInstant(), rs.getTimestamp(5).toInstant()), telegramUserId);
+		return users.stream().findFirst();
+	}
+
+	private void touchTelegramIdentity(long telegramUserId, long telegramChatId, String username) {
+		Instant now = Instant.now();
+		jdbc.update("""
+				update telegram_identities
+				set telegram_chat_id = ?, username = ?, updated_at = ?, last_seen_at = ?
+				where telegram_user_id = ?
+				""", telegramChatId, blankToNull(username), timestamp(now), timestamp(now), telegramUserId);
+	}
+
+	private String telegramEmail(long telegramUserId) {
+		return "telegram-" + telegramUserId + "@telegram.fraerapp.local";
+	}
+
+	private String blankToNull(String value) {
+		return value == null || value.isBlank() ? null : value.trim();
+	}
+
 	AuthController.AdminUserPage adminUsers(int page, int size, String query) {
 		int safePage = Math.max(0, page);
 		int safeSize = Math.min(100, Math.max(1, size));
@@ -2137,7 +2187,7 @@ record JwtClaims(String userId, String sessionId) {
 record SessionAuthentication(String authMethod, Instant authenticatedAt) {
 }
 
-record TelegramMessage(long chatId, long userId) {
+record TelegramMessage(long chatId, long userId, String username) {
 }
 
 interface TelegramMessenger {

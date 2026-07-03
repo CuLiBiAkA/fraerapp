@@ -41,33 +41,29 @@
         <div class="login-copy">
           <p class="eyebrow" data-i18n="loginEyebrow">FraerApp Stories</p>
           <h1 data-i18n="loginTitle">Войдите в библиотеку историй</h1>
-          <p data-i18n="loginSubtitle">Введите email, чтобы продолжить игру, открыть сохранения и запускать новые интерактивные истории.</p>
+          <p data-i18n="loginSubtitle">Войдите через Telegram или passkey, чтобы продолжить игру, открыть сохранения и запускать новые интерактивные истории.</p>
         </div>
 
         <form id="login-form" class="login-form">
           <div class="login-card">
-            <label for="username" data-i18n="usernameLabel">Email</label>
-            <div class="form-row">
-              <input id="username" name="email" type="email" maxlength="320" required autocomplete="email" data-i18n-placeholder="usernamePlaceholder" placeholder="you@example.com">
-              <button type="submit" data-i18n="loginButton">Получить ссылку</button>
+            <div class="passkey-login">
+              <button id="telegram-login" type="button" class="secondary hidden" data-i18n="telegramLogin">Войти через Telegram</button>
+              <span data-i18n="passkeyOr">или</span>
+              <button id="passkey-login" type="button" class="secondary" data-i18n="passkeyLogin">Войти с passkey</button>
+              <small id="passkey-unavailable" class="hidden" data-i18n="passkeyUnavailable">Passkey недоступен в этом браузере.</small>
             </div>
-            <label class="legal-consent" for="personal-data-consent">
-              <input id="personal-data-consent" name="personalDataConsent" type="checkbox" required>
-              <span data-i18n="personalDataConsent">Я принимаю согласие на обработку персональных данных и ознакомлен с политикой конфиденциальности.</span>
-            </label>
-            <p id="consent-hint" class="consent-hint" data-i18n="personalDataConsentHint">Перед входом нужно поставить галочку согласия — без неё ссылка для входа не создаётся.</p>
+            <div class="hidden" aria-hidden="true">
+              <label for="username" data-i18n="usernameLabel">Email</label>
+              <input id="username" name="email" type="email" maxlength="320" autocomplete="email" data-i18n-placeholder="usernamePlaceholder" placeholder="you@example.com">
+              <input id="personal-data-consent" name="personalDataConsent" type="checkbox">
+              <p id="consent-hint" class="consent-hint" data-i18n="personalDataConsentHint">Перед входом нужно поставить галочку согласия — без неё ссылка для входа не создаётся.</p>
+            </div>
             <p class="legal-links">
               <a href="/personal-data-consent.html" target="_blank" rel="noopener" data-i18n="consentLink">Согласие</a>
               <a href="/privacy-policy.html" target="_blank" rel="noopener" data-i18n="privacyLink">Политика</a>
               <a href="/terms.html" target="_blank" rel="noopener" data-i18n="termsLink">Пользовательское соглашение</a>
             </p>
             <p id="login-status" class="login-status" role="status" aria-live="polite"></p>
-            <div class="passkey-login">
-              <span data-i18n="passkeyOr">или</span>
-              <button id="passkey-login" type="button" class="secondary" data-i18n="passkeyLogin">Войти с passkey</button>
-              <button id="telegram-login" type="button" class="secondary hidden" data-i18n="telegramLogin">Войти через Telegram</button>
-              <small id="passkey-unavailable" class="hidden" data-i18n="passkeyUnavailable">Passkey недоступен в этом браузере.</small>
-            </div>
           </div>
         </form>
 
@@ -198,6 +194,6 @@
       </div>
     </aside>
 
-    <script src="/engine.js?v=engine-28" type="module"></script>
+    <script src="/engine.js?v=engine-29" type="module"></script>
   </body>
 </html>
