@@ -12,5 +12,12 @@ document.querySelectorAll("[data-legal-email]").forEach((element) => {
   if (!email.startsWith("УКАЖИТЕ")) element.href = `mailto:${email}`;
 });
 
+document.querySelectorAll("[data-legal-withdrawal-email]").forEach((element) => {
+  const email = legal.consentWithdrawalEmail;
+  if (!email) return;
+  element.textContent = email;
+  if (!email.startsWith("УКАЖИТЕ")) element.href = `mailto:${email}`;
+});
+
 const incomplete = Object.values(legal).some((value) => String(value).startsWith("УКАЖИТЕ"));
 document.querySelector("#legal-config-warning")?.classList.toggle("hidden", !incomplete);

@@ -3,7 +3,12 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>FraerApp Stories</title>
+    <title>FraerApp — интерактивные истории с сохранением прогресса</title>
+    <meta name="description" content="FraerApp — сервис интерактивных историй с сохранением прогресса, вариантами выбора и персональными маршрутами.">
+    <meta property="og:title" content="FraerApp — интерактивные истории">
+    <meta property="og:description" content="FraerApp — сервис интерактивных историй с сохранением прогресса, вариантами выбора и персональными маршрутами.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://fraerapp.ru/">
     <link rel="stylesheet" href="/styles.css?v=game-17">
   </head>
   <body>
@@ -12,14 +17,12 @@
         <div class="top-group top-group-session">
           <button id="menu-button" type="button" class="secondary hidden" data-i18n="menuButton">Stories</button>
           <button id="settings-button" type="button" class="secondary hidden" data-i18n="settingsButton">Настройки</button>
-          <button id="builder-button" type="button" class="secondary hidden" data-i18n="builderButton">Builder</button>
-          <button id="admin-button" type="button" class="secondary hidden" data-i18n="adminButton">Admin</button>
           <button id="logout" type="button" class="secondary hidden" data-i18n="logoutButton">&#1042;&#1099;&#1081;&#1090;&#1080;</button>
         </div>
         <div id="sound-control" class="top-group sound-control hidden">
           <button id="sound-toggle" type="button" class="secondary" data-i18n="soundOff">&#1047;&#1074;&#1091;&#1082;</button>
           <div class="volume-field">
-            <label for="volume-slider" data-i18n="volumeLabel">Volume</label>
+            <label for="volume-slider" data-i18n="volumeLabel">Громкость</label>
             <input id="volume-slider" type="range" min="0" max="100" step="1" value="45">
           </div>
         </div>
@@ -41,6 +44,7 @@
         <div class="login-copy">
           <p class="eyebrow" data-i18n="loginEyebrow">FraerApp Stories</p>
           <h1 data-i18n="loginTitle">Войдите в библиотеку историй</h1>
+          <p class="seo-description">FraerApp — сервис интерактивных историй с сохранением прогресса, вариантами выбора и персональными маршрутами.</p>
           <p data-i18n="loginSubtitle">Войдите через Telegram или passkey, чтобы продолжить игру, открыть сохранения и запускать новые интерактивные истории.</p>
         </div>
 
@@ -50,7 +54,7 @@
               <button id="telegram-login" type="button" class="secondary hidden" data-i18n="telegramLogin">Войти через Telegram</button>
               <span data-i18n="passkeyOr">или</span>
               <button id="passkey-login" type="button" class="secondary" data-i18n="passkeyLogin">Войти с passkey</button>
-              <small id="passkey-unavailable" class="hidden" data-i18n="passkeyUnavailable">Passkey недоступен в этом браузере.</small>
+              <small id="passkey-unavailable" class="hidden" data-i18n="passkeyUnavailable">Вход по passkey недоступен в этом браузере</small>
             </div>
             <div class="hidden" aria-hidden="true">
               <label for="username" data-i18n="usernameLabel">Email</label>
@@ -67,40 +71,27 @@
           </div>
         </form>
 
-        <section id="admin-panel" class="admin-panel hidden" aria-label="Admin">
-          <details>
-            <summary data-i18n="adminSummary">Story admin</summary>
-            <input id="admin-token" type="hidden">
-            <label for="story-json" data-i18n="storyJsonLabel">Story JSON</label>
-            <textarea id="story-json" rows="10" data-i18n-placeholder="storyJsonPlaceholder" placeholder="Paste Story JSON here"></textarea>
-            <div class="controls">
-              <button id="import-story" type="button" class="secondary" data-i18n="importButton">Import</button>
-              <button id="publish-story" type="button" class="secondary" data-i18n="publishLastImportButton">Publish last import</button>
-            </div>
-            <pre id="admin-output"></pre>
-          </details>
-        </section>
       </section>
 
       <section id="story-screen" class="catalog-screen hidden" aria-label="Stories">
         <header class="catalog-header">
           <div>
             <p class="eyebrow" data-i18n="storyScreenEyebrow">FraerApp Stories</p>
-            <h1 data-i18n="storyScreenTitle">Choose a story</h1>
-            <p data-i18n="storyScreenSubtitle">Interactive stories with saved progress, endings and personal routes.</p>
+            <h1 data-i18n="storyScreenTitle">Выберите историю</h1>
+            <p data-i18n="storyScreenSubtitle">Интерактивные истории с сохранением прогресса, концовками и персональными маршрутами</p>
           </div>
           <div class="catalog-tools">
             <div>
-              <label for="story-search" data-i18n="storySearchLabel">Search stories</label>
+              <label for="story-search" data-i18n="storySearchLabel">Поиск историй</label>
               <input id="story-search" type="search" data-i18n-placeholder="storySearchPlaceholder" placeholder="Title, key or author">
             </div>
             <div>
-              <label for="story-sort" data-i18n="storySortLabel">Sort</label>
+              <label for="story-sort" data-i18n="storySortLabel">Сортировка</label>
               <select id="story-sort">
-                <option value="lastPlayed" data-i18n="sortLastPlayed">Recent progress</option>
-                <option value="completion" data-i18n="sortCompletion">Completion</option>
-                <option value="publishedAt" data-i18n="sortPublishedAt">Published</option>
-                <option value="updatedAt" data-i18n="sortUpdatedAt">Updated</option>
+                <option value="lastPlayed" data-i18n="sortLastPlayed">Последний прогресс</option>
+                <option value="completion" data-i18n="sortCompletion">Завершение</option>
+                <option value="publishedAt" data-i18n="sortPublishedAt">Опубликовано</option>
+                <option value="updatedAt" data-i18n="sortUpdatedAt">Обновлено</option>
               </select>
             </div>
           </div>
@@ -109,9 +100,9 @@
         <section class="catalog-main" aria-label="Story catalog">
           <div id="stories" class="story-list"></div>
           <div id="story-pagination" class="pagination hidden" aria-label="Story pages">
-            <button id="stories-prev" type="button" class="secondary" data-i18n="prevPage">Prev</button>
+            <button id="stories-prev" type="button" class="secondary" data-i18n="prevPage">Назад</button>
             <span id="stories-page"></span>
-            <button id="stories-next" type="button" class="secondary" data-i18n="nextPage">Next</button>
+            <button id="stories-next" type="button" class="secondary" data-i18n="nextPage">Далее</button>
           </div>
         </section>
       </section>
@@ -153,7 +144,7 @@
           <p id="status" class="status" role="status">&#1047;&#1072;&#1075;&#1088;&#1091;&#1079;&#1082;&#1072;...</p>
           <details id="scene-stats" class="scene-stats">
             <summary>
-              <span data-i18n="sceneStatsTitle">Stats</span>
+              <span data-i18n="sceneStatsTitle">Статистика</span>
               <strong id="scene-stats-count"></strong>
             </summary>
             <div id="scene-stats-list" class="scene-stats-list"></div>
@@ -194,6 +185,6 @@
       </div>
     </aside>
 
-    <script src="/engine.js?v=engine-29" type="module"></script>
+    <script src="/engine.js?v=engine-30" type="module"></script>
   </body>
 </html>

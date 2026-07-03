@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /auth/
+Disallow: /builder/
+Disallow: /api/
+
+Allow: /

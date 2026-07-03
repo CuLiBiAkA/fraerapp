@@ -115,14 +115,18 @@ git status --short --branch
 
 ```bash
 node --check frontend/engine.js
-node --test frontend/engine.i18n.test.js frontend/passkeys.test.js story-builder/core.test.js story-builder/auth-session.test.js
+node --check frontend/legal.js
+node --check frontend/legal-config.js
+node --check scripts/validate-production.mjs
+node scripts/validate-production.mjs
+node --test frontend/engine.i18n.test.js frontend/passkeys.test.js frontend/public-surface.test.js story-builder/core.test.js story-builder/auth-session.test.js
 git diff --check
 ```
 
 3. Copy files to the server:
 
 ```bash
-scp frontend/index.html frontend/engine.js frontend/styles.css "$FRAERAPP_SSH:/tmp/"
+scp frontend/index.html frontend/engine.js frontend/styles.css frontend/legal-config.js frontend/legal.js frontend/privacy-policy.html frontend/personal-data-consent.html frontend/terms.html frontend/robots.txt "$FRAERAPP_SSH:/tmp/"
 ```
 
 4. Backup and install:
@@ -133,9 +137,16 @@ cd '$FRAERAPP_REMOTE_DIR'
 ts=\$(date +%Y%m%d-%H%M%S)
 mkdir -p backups/deploy-\$ts
 cp frontend/index.html frontend/engine.js frontend/styles.css backups/deploy-\$ts/
+cp frontend/legal-config.js frontend/legal.js frontend/privacy-policy.html frontend/personal-data-consent.html frontend/terms.html frontend/robots.txt backups/deploy-\$ts/
 install -m 0644 /tmp/index.html frontend/index.html
 install -m 0644 /tmp/engine.js frontend/engine.js
 install -m 0644 /tmp/styles.css frontend/styles.css
+install -m 0644 /tmp/legal-config.js frontend/legal-config.js
+install -m 0644 /tmp/legal.js frontend/legal.js
+install -m 0644 /tmp/privacy-policy.html frontend/privacy-policy.html
+install -m 0644 /tmp/personal-data-consent.html frontend/personal-data-consent.html
+install -m 0644 /tmp/terms.html frontend/terms.html
+install -m 0644 /tmp/robots.txt frontend/robots.txt
 curl -skS https://127.0.0.1:8443/healthz
 "
 ```
@@ -144,6 +155,24 @@ curl -skS https://127.0.0.1:8443/healthz
 
 ```bash
 curl -sS -A 'Mozilla/5.0' "https://$FRAERAPP_DOMAIN/" | rg 'engine.js|styles.css'
+```
+
+## Legal/public SEO checks
+
+Before publishing public frontend changes, run:
+
+```bash
+node scripts/validate-production.mjs
+```
+
+This fails if required legal values in `frontend/legal-config.js` are missing, if legal pages contain unpublished warnings or empty реквизиты, if the homepage exposes service/admin text in public visible content, or if production nginx noindex headers for `/auth/admin...` and `/builder/` are missing from `nginx/nginx.prod.conf`.
+
+If nginx config changes are deployed, rebuild/recreate `edge` and verify:
+
+```bash
+ssh "$FRAERAPP_SSH" "cd '$FRAERAPP_REMOTE_DIR' && docker compose build edge && docker compose up -d edge"
+curl -sSI -A 'Mozilla/5.0' "https://$FRAERAPP_DOMAIN/builder/" | grep -i x-robots-tag
+curl -sSI -A 'Mozilla/5.0' "https://$FRAERAPP_DOMAIN/auth/admin" | grep -i x-robots-tag
 ```
 
 ## API deploy

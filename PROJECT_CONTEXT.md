@@ -122,6 +122,9 @@ Recent behavior:
 - passkey registration requires recent auth;
 - if backend returns `Recent authentication required`, frontend should show a clear Russian/English text.
 - Telegram login is the primary public sign-in path. The bot webhook resolves or creates a stable `telegram_identities.telegram_user_id -> users.id` binding, creates rows in `email_login_tokens`, records `login_link_requested` audit events with source `telegram_bot`, and returns a Telegram `sendMessage` method response containing the one-time `/auth/verify` link. This avoids outbound server calls to `api.telegram.org`, which may be unavailable from the production host. Email login remains available as an admin/recovery fallback but is not shown on the public login screen.
+- The public homepage is a consumer login/catalog entrypoint. Author/admin controls are not present in the static public HTML and are created by the frontend only after `/auth/me` confirms `author` or `admin` roles. Main API author/admin endpoints still enforce roles server-side through `CurrentUserService`.
+- Legal pages use `frontend/legal-config.js` for operator, owner, address, registration, privacy contact, and consent-withdrawal contact. Production validation must fail if these required values are empty or left as placeholders.
+- Private/admin pages should not be indexed. nginx adds `X-Robots-Tag: noindex, nofollow` to `/auth/admin...` and `/builder/`, and `frontend/robots.txt` disallows `/auth/`, `/builder/`, and `/api/`.
 
 ### `story-builder`
 

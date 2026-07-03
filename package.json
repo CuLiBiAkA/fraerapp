@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lint": "node --check frontend/engine.js && node --check frontend/legal.js && node --check frontend/legal-config.js && node --check scripts/validate-production.mjs",
+    "build": "node scripts/validate-production.mjs",
+    "test": "node --test frontend/engine.i18n.test.js frontend/passkeys.test.js frontend/public-surface.test.js story-builder/core.test.js story-builder/auth-session.test.js",
     "test:ui": "node scripts/run-ui-tests.mjs"
   }
 }

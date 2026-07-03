@@ -5,6 +5,7 @@ import {
   base64UrlToBytes,
   bytesToBase64Url,
   credentialToJson,
+  passkeysSupported,
 } from "./passkeys.js";
 
 globalThis.btoa ??= (value) => Buffer.from(value, "binary").toString("base64");
@@ -75,3 +76,31 @@ test("credential fallback JSON contains WebAuthn registration fields", () => {
     },
   });
 });
+
+test("passkeysSupported requires secure context, PublicKeyCredential and credentials API", () => {
+  setPasskeyGlobals({ secure: true, publicKeyCredential: function PublicKeyCredential() {}, credentials: {} });
+  assert.equal(passkeysSupported(), true);
+
+  setPasskeyGlobals({ secure: false, publicKeyCredential: function PublicKeyCredential() {}, credentials: {} });
+  assert.equal(passkeysSupported(), false);
+
+  setPasskeyGlobals({ secure: true, publicKeyCredential: null, credentials: {} });
+  assert.equal(passkeysSupported(), false);
+
+  setPasskeyGlobals({ secure: true, publicKeyCredential: function PublicKeyCredential() {}, credentials: null });
+  assert.equal(passkeysSupported(), false);
+});
+
+function setPasskeyGlobals({ secure, publicKeyCredential, credentials }) {
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      isSecureContext: secure,
+      PublicKeyCredential: publicKeyCredential,
+    },
+  });
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: { credentials },
+  });
+}

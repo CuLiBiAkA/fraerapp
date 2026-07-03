@@ -31,20 +31,13 @@ const choices = document.querySelector("#choices");
 const status = document.querySelector("#status");
 const playerName = document.querySelector("#player-name");
 const sceneNode = document.querySelector("#scene-node");
+const topSessionGroup = document.querySelector(".top-group-session");
 const menuButton = document.querySelector("#menu-button");
 const settingsButton = document.querySelector("#settings-button");
-const builderButton = document.querySelector("#builder-button");
-const adminButton = document.querySelector("#admin-button");
 const logoutButton = document.querySelector("#logout");
 const soundControl = document.querySelector("#sound-control");
 const soundToggle = document.querySelector("#sound-toggle");
 const volumeSlider = document.querySelector("#volume-slider");
-const adminPanel = document.querySelector("#admin-panel");
-const adminToken = document.querySelector("#admin-token");
-const storyJson = document.querySelector("#story-json");
-const importStory = document.querySelector("#import-story");
-const publishStory = document.querySelector("#publish-story");
-const adminOutput = document.querySelector("#admin-output");
 const langRuButton = document.querySelector("#lang-ru");
 const langEnButton = document.querySelector("#lang-en");
 const passkeyLoginButton = document.querySelector("#passkey-login");
@@ -87,7 +80,7 @@ const translations = {
     passkeyLogin: "Войти с passkey",
     telegramLogin: "Войти через Telegram",
     telegramLoginUnavailable: "Вход через Telegram пока недоступен.",
-    passkeyUnavailable: "Passkey недоступен в этом браузере или соединение не защищено.",
+    passkeyUnavailable: "Вход по passkey недоступен в этом браузере",
     passkeySettingsTitle: "Безопасный вход",
     passkeySettingsHint: "Добавьте Touch ID, Face ID, Windows Hello или ключ безопасности для входа без email-ссылки.",
     passkeyNameLabel: "Название устройства",
@@ -109,23 +102,23 @@ const translations = {
     passkeyNudgeOpen: "Открыть настройки",
     passkeyNudgeLater: "Позже",
     adminSummary: "Админка истории",
-    adminTokenLabel: "Админ-действия требуют роль admin",
-    storyJsonLabel: "Story JSON",
-    storyJsonPlaceholder: "Вставьте сюда Story JSON",
+    adminTokenLabel: "Админ-действия требуют роль администратора",
+    storyJsonLabel: "JSON истории",
+    storyJsonPlaceholder: "Вставьте сюда JSON истории",
     importButton: "Импортировать",
     publishLastImportButton: "Опубликовать последний импорт",
     storyScreenEyebrow: "Библиотека FraerApp",
     storyScreenTitle: "Выберите историю",
-    storyScreenSubtitle: "Интерактивные сюжеты с сохранением прогресса, финалами и личными маршрутами.",
-    storySearchLabel: "Поиск",
+    storyScreenSubtitle: "Интерактивные истории с сохранением прогресса, концовками и персональными маршрутами",
+    storySearchLabel: "Поиск историй",
     storySearchPlaceholder: "Название, автор или ключ",
     storySortLabel: "Сортировка",
-    sortLastPlayed: "Недавний прогресс",
-    sortCompletion: "Прогресс",
-    sortPublishedAt: "Новые истории",
-    sortUpdatedAt: "Обновлены недавно",
+    sortLastPlayed: "Последний прогресс",
+    sortCompletion: "Завершение",
+    sortPublishedAt: "Опубликовано",
+    sortUpdatedAt: "Обновлено",
     prevPage: "Назад",
-    nextPage: "Вперед",
+    nextPage: "Далее",
     pageLabel: "Страница {page} из {pages}",
     noSearchResults: "По этому поиску историй нет.",
     continueButton: "Продолжить",
@@ -135,12 +128,12 @@ const translations = {
     saveScene: "Сцена: {scene}",
     menuButton: "Истории",
     settingsButton: "Настройки",
-    builderButton: "Builder",
-    adminButton: "Admin",
+    builderButton: "Конструктор",
+    adminButton: "Админ",
     settingsEyebrow: "Настройки",
     settingsTitle: "Аккаунт и безопасность",
     settingsSubtitle: "Управляйте безопасным входом и устройствами passkey.",
-    sceneStatsTitle: "Статы",
+    sceneStatsTitle: "Статистика",
     sceneStatsCount: "{count} шт.",
     statsEmpty: "Автор истории пока не выбрал переменные для статов.",
     statEnabled: "Да",
@@ -353,6 +346,8 @@ let catalogStories = [];
 let catalogPage = 1;
 let choiceInFlight = false;
 let telegramBotUrl = "";
+let builderButton = null;
+let adminButton = null;
 
 const storiesPerPage = 4;
 
@@ -433,6 +428,7 @@ function applyTranslations() {
     node.placeholder = t(node.dataset.i18nPlaceholder);
   });
   updateLanguageButtons();
+  syncRoleActionButtons();
 }
 
 function updateLanguageButtons() {
@@ -515,12 +511,63 @@ function updateTopActions(screen) {
   const loggedIn = Boolean(storage.email);
   const roles = storage.roles;
   const inScene = screen === sceneScreen;
+  syncRoleActionButtons();
   menuButton.classList.toggle("hidden", !loggedIn || screen === storyScreen);
   settingsButton.classList.toggle("hidden", !loggedIn || screen === settingsScreen);
-  builderButton.classList.toggle("hidden", !loggedIn || !(roles.includes("author") || roles.includes("admin")));
-  adminButton.classList.toggle("hidden", !loggedIn || !roles.includes("admin"));
+  builderButton?.classList.toggle("hidden", !loggedIn || !hasAnyRole(roles, ["author", "admin"]));
+  adminButton?.classList.toggle("hidden", !loggedIn || !hasRole(roles, "admin"));
   soundControl.classList.toggle("hidden", !inScene);
   logoutButton.classList.toggle("hidden", !loggedIn);
+}
+
+function hasRole(roles, role) {
+  return Array.isArray(roles) && roles.includes(role);
+}
+
+function hasAnyRole(roles, allowed) {
+  return allowed.some((role) => hasRole(roles, role));
+}
+
+function syncRoleActionButtons() {
+  const roles = storage.roles;
+  builderButton = syncRoleActionButton(
+    builderButton,
+    hasAnyRole(roles, ["author", "admin"]),
+    "builder-button",
+    "builderButton",
+    () => {
+      window.location.href = "/builder/";
+    },
+  );
+  adminButton = syncRoleActionButton(
+    adminButton,
+    hasRole(roles, "admin"),
+    "admin-button",
+    "adminButton",
+    () => {
+      window.location.href = "/auth/admin";
+    },
+  );
+}
+
+function syncRoleActionButton(current, shouldExist, id, i18nKey, onClick) {
+  if (!shouldExist) {
+    current?.remove();
+    return null;
+  }
+  if (current) {
+    current.textContent = t(i18nKey);
+    return current;
+  }
+  const button = document.createElement("button");
+  button.id = id;
+  button.type = "button";
+  button.className = "secondary hidden";
+  button.dataset.i18n = i18nKey;
+  button.textContent = t(i18nKey);
+  button.addEventListener("click", onClick);
+  topSessionGroup.insertBefore(button, logoutButton);
+  return button;
 }
 
 function setStatus(message) {
@@ -1234,6 +1281,10 @@ personalDataConsent.addEventListener("change", () => {
 });
 
 passkeyLoginButton.addEventListener("click", async () => {
+  if (!passkeysSupported()) {
+    updatePasskeyAvailability();
+    return;
+  }
   try {
     passkeyLoginButton.disabled = true;
     setLoginStatus(t("loading"));
@@ -1274,14 +1325,6 @@ menuButton.addEventListener("click", () => {
 
 settingsButton.addEventListener("click", () => {
   openSettings();
-});
-
-builderButton.addEventListener("click", () => {
-  window.location.href = "/builder/";
-});
-
-adminButton.addEventListener("click", () => {
-  window.location.href = "/auth/admin";
 });
 
 logoutButton.addEventListener("click", async () => {
@@ -1329,29 +1372,6 @@ volumeSlider.addEventListener("input", () => {
   }
 });
 
-importStory.addEventListener("click", async () => {
-  try {
-    const result = await api.importStory(storyJson.value);
-    lastImportedStoryId = result.storyId;
-    adminOutput.textContent = JSON.stringify(result, null, 2);
-  } catch (error) {
-    adminOutput.textContent = error.message;
-  }
-});
-
-publishStory.addEventListener("click", async () => {
-  if (!lastImportedStoryId) {
-    adminOutput.textContent = t("importFirst");
-    return;
-  }
-  try {
-    const result = await api.publishStory(lastImportedStoryId);
-    adminOutput.textContent = JSON.stringify(result, null, 2);
-  } catch (error) {
-    adminOutput.textContent = error.message;
-  }
-});
-
 langRuButton.addEventListener("click", () => setLanguage("ru"));
 langEnButton.addEventListener("click", () => setLanguage("en"));
 
@@ -1393,18 +1413,22 @@ function initCookieBanner() {
   cookieBanner.classList.toggle("hidden", storage.cookieConsent === "accepted");
 }
 
+function updatePasskeyAvailability() {
+  const supported = passkeysSupported();
+  passkeyLoginButton.classList.toggle("hidden", !supported);
+  passkeyLoginButton.disabled = !supported;
+  passkeyRegisterButton.disabled = !supported;
+  passkeyUnavailable.classList.toggle("hidden", supported);
+  passkeySettings.classList.toggle("passkey-unavailable", !supported);
+}
+
 sound = createSound();
 applyTranslations();
 updateSoundLabel();
 updateConsentState();
 initCookieBanner();
-const hasPasskeySupport = passkeysSupported();
-passkeyLoginButton.disabled = !hasPasskeySupport;
-passkeyRegisterButton.disabled = !hasPasskeySupport;
-passkeyUnavailable.classList.toggle("hidden", hasPasskeySupport);
-passkeySettings.classList.toggle("passkey-unavailable", !hasPasskeySupport);
+updatePasskeyAvailability();
 initTelegramLogin();
-adminPanel.classList.toggle("hidden", new URLSearchParams(window.location.search).get("admin") !== "1");
 setStatus(t("loading"));
 showOnly(authLoadingScreen);
 const authToken = new URLSearchParams(window.location.search).get("auth_token");
