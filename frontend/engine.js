@@ -97,6 +97,9 @@ const translations = {
     passkeyLoginFailed: "Не удалось войти с passkey: {message}",
     passkeyRegistrationFailed: "Не удалось добавить passkey: {message}",
     passkeyRecentAuthRequired: "Чтобы добавить passkey, заново войдите по ссылке и сразу повторите привязку.",
+    passkeyNotAllowed: "Браузер отменил или запретил операцию passkey. Откройте fraerapp.ru в Safari или Chrome по HTTPS, разрешите Face ID, Touch ID или ключ безопасности и попробуйте еще раз.",
+    passkeyCredentialMissing: "Браузер не вернул passkey. Повторите попытку и завершите подтверждение Face ID, Touch ID или ключом безопасности.",
+    passkeyAlreadyRegistered: "Этот passkey уже добавлен. Используйте другое устройство или удалите старый passkey в настройках.",
     passkeyNudgeTitle: "Добавьте быстрый вход",
     passkeyNudgeText: "Привяжите passkey после первого входа, чтобы дальше входить без email-ссылок.",
     passkeyNudgeOpen: "Открыть настройки",
@@ -207,6 +210,9 @@ const translations = {
     passkeyLoginFailed: "Passkey sign-in failed: {message}",
     passkeyRegistrationFailed: "Could not add passkey: {message}",
     passkeyRecentAuthRequired: "To add a passkey, sign in again with an email link and bind the passkey right after that.",
+    passkeyNotAllowed: "The browser cancelled or blocked the passkey operation. Open fraerapp.ru in Safari or Chrome over HTTPS, allow Face ID, Touch ID, or your security key, and try again.",
+    passkeyCredentialMissing: "The browser did not return a passkey. Try again and complete the Face ID, Touch ID, or security key prompt.",
+    passkeyAlreadyRegistered: "This passkey is already added. Use another device or remove the old passkey in settings.",
     passkeyNudgeTitle: "Add quick sign-in",
     passkeyNudgeText: "Bind a passkey after your first sign-in to continue without email links.",
     passkeyNudgeOpen: "Open settings",
@@ -672,7 +678,7 @@ async function signInWithPasskey() {
     publicKey: parseRequestOptions(options.publicKey),
   });
   if (!credential) {
-    throw new Error("Credential was not returned");
+    throw new Error("Passkey credential was not returned");
   }
   const result = await api.passkeyAuthenticationVerify(options.challengeId, credentialToJson(credential));
   storage.setUser(result.user);
@@ -699,7 +705,7 @@ async function registerPasskey() {
     publicKey: parseCreationOptions(options.publicKey),
   });
   if (!credential) {
-    throw new Error("Credential was not returned");
+    throw new Error("Passkey credential was not returned");
   }
   await api.passkeyRegistrationVerify(
     options.challengeId,
@@ -717,7 +723,34 @@ function passkeyRegistrationErrorMessage(error) {
   if (error.message === "Recent authentication required") {
     return t("passkeyRecentAuthRequired");
   }
-  return t("passkeyRegistrationFailed", { message: error.message });
+  return passkeyErrorMessage(error, "passkeyRegistrationFailed");
+}
+
+function passkeyLoginErrorMessage(error) {
+  return passkeyErrorMessage(error, "passkeyLoginFailed");
+}
+
+function passkeyErrorMessage(error, fallbackKey) {
+  if (isPasskeyNotAllowedError(error)) {
+    return t("passkeyNotAllowed");
+  }
+  if (error?.name === "InvalidStateError") {
+    return t("passkeyAlreadyRegistered");
+  }
+  if (String(error?.message || "").includes("Passkey credential was not returned")) {
+    return t("passkeyCredentialMissing");
+  }
+  return t(fallbackKey, { message: error?.message || t("passkeyCredentialMissing") });
+}
+
+function isPasskeyNotAllowedError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return error?.name === "NotAllowedError"
+    || message.includes("not allowed")
+    || message.includes("denied permission")
+    || message.includes("current context")
+    || message.includes("operation either timed out")
+    || message.includes("user denied");
 }
 
 async function loadPasskeys() {
@@ -1290,7 +1323,7 @@ passkeyLoginButton.addEventListener("click", async () => {
     setLoginStatus(t("loading"));
     await signInWithPasskey();
   } catch (error) {
-    setLoginStatus(t("passkeyLoginFailed", { message: error.message }), "error");
+    setLoginStatus(passkeyLoginErrorMessage(error), "error");
   } finally {
     passkeyLoginButton.disabled = false;
   }

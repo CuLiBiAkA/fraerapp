@@ -90,6 +90,15 @@ test("passkey unavailable state hides the active login button", () => {
   assert.match(engineJs, /passkeyUnavailable\.classList\.toggle\("hidden", supported\)/);
 });
 
+test("passkey WebAuthn browser errors are converted to readable messages", () => {
+  assert.match(engineJs, /function passkeyErrorMessage/);
+  assert.match(engineJs, /function isPasskeyNotAllowedError/);
+  assert.match(engineJs, /passkeyNotAllowed: "Браузер отменил или запретил операцию passkey/);
+  assert.match(engineJs, /passkeyStatus\.textContent = passkeyRegistrationErrorMessage\(error\)/);
+  assert.match(engineJs, /setLoginStatus\(passkeyLoginErrorMessage\(error\), "error"\)/);
+  assert.doesNotMatch(engineJs, /passkeyRegistrationFailed", \{ message: error\.message \}/);
+});
+
 function visibleText(html) {
   return html
     .replace(/<script[\s\S]*?<\/script>/g, " ")
