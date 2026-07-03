@@ -1,6 +1,10 @@
 package com.fraergod.fraerapp.auth;
 
 import java.nio.charset.StandardCharsets;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
@@ -14,12 +18,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.stereotype.Component;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -82,6 +88,7 @@ class AuthController {
 	private final JwtCodec jwt;
 	private final Optional<JavaMailSender> mail;
 	private final PasskeyService passkeys;
+	private final TelegramMessenger telegram;
 	private final Map<String, List<DevLink>> devLinks = new ConcurrentHashMap<>();
 	private final Map<String, Window> rate = new ConcurrentHashMap<>();
 
@@ -124,11 +131,25 @@ class AuthController {
 	@Value("${auth.passkey.registration-recent-auth-seconds:600}")
 	private long passkeyRegistrationRecentAuthSeconds;
 
-	AuthController(AuthStore store, JwtCodec jwt, Optional<JavaMailSender> mail, PasskeyService passkeys) {
+	@Value("${auth.telegram.bot-enabled:false}")
+	private boolean telegramBotEnabled;
+
+	@Value("${auth.telegram.bot-username:}")
+	private String telegramBotUsername;
+
+	@Value("${auth.telegram.webhook-secret:}")
+	private String telegramWebhookSecret;
+
+	@Value("${auth.telegram.login-redirect-path:/}")
+	private String telegramLoginRedirectPath;
+
+	AuthController(AuthStore store, JwtCodec jwt, Optional<JavaMailSender> mail, PasskeyService passkeys,
+			TelegramMessenger telegram) {
 		this.store = store;
 		this.jwt = jwt;
 		this.mail = mail;
 		this.passkeys = passkeys;
+		this.telegram = telegram;
 	}
 
 	@PostMapping("/login-link")
@@ -198,6 +219,45 @@ class AuthController {
 				"expiresAt", generated.expiresAt());
 	}
 
+	@GetMapping("/telegram/login")
+	Map<String, Object> telegramLogin() {
+		boolean enabled = telegramBotEnabled && telegram.configured() && telegramBotUsername != null
+				&& !telegramBotUsername.isBlank();
+		if (!enabled) {
+			return Map.of("enabled", false);
+		}
+		return Map.of(
+				"enabled", true,
+				"botUrl", "https://t.me/" + telegramBotUsername.replaceFirst("^@", "") + "?start=login");
+	}
+
+	@PostMapping("/telegram/webhook")
+	Map<String, Object> telegramWebhook(
+			@RequestHeader(name = "X-Telegram-Bot-Api-Secret-Token", required = false) String secretToken,
+			@RequestBody JsonNode update,
+			HttpServletRequest servletRequest) {
+		if (!telegramBotEnabled || !telegram.configured()) {
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Telegram login is disabled");
+		}
+		if (telegramWebhookSecret != null && !telegramWebhookSecret.isBlank()
+				&& !telegramWebhookSecret.equals(secretToken)) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid Telegram webhook secret");
+		}
+		TelegramMessage message = telegramMessage(update).orElse(null);
+		if (message == null) {
+			return Map.of("ok", true);
+		}
+		checkRate("telegram-login:" + message.userId(), devMode ? 200 : 5, Duration.ofMinutes(15));
+		String identity = telegramIdentity(message.userId());
+		store.recordConsent(identity, privacyPolicyVersion, "telegram_bot");
+		CreatedLoginLink generated = createLoginLink(
+				identity, telegramLoginRedirectPath, servletRequest, "telegram_bot", privacyPolicyVersion);
+		store.audit(null, identity, "telegram_login_link_sent",
+				"{\"source\":\"telegram_bot\",\"telegramUserId\":" + message.userId() + "}");
+		telegram.sendMessage(message.chatId(), telegramLoginMessage(generated.loginUrl(), generated.expiresAt()));
+		return Map.of("ok", true);
+	}
+
 	private CreatedLoginLink createLoginLink(String email, String requestedRedirect, HttpServletRequest servletRequest,
 			String source, String consentVersion) {
 		String token = UUID.randomUUID() + "." + UUID.randomUUID();
@@ -213,6 +273,31 @@ class AuthController {
 		store.audit(null, email, "login_link_requested", metadata);
 		store.invalidateOtherActiveMagicLinks(email, tokenHash);
 		return new CreatedLoginLink(link, expiresAt);
+	}
+
+	private Optional<TelegramMessage> telegramMessage(JsonNode update) {
+		JsonNode message = update.path("message");
+		if (message.isMissingNode()) {
+			message = update.path("edited_message");
+		}
+		if (message.isMissingNode()) {
+			return Optional.empty();
+		}
+		long chatId = message.path("chat").path("id").asLong(0L);
+		long userId = message.path("from").path("id").asLong(0L);
+		if (chatId == 0L || userId == 0L || message.path("from").path("is_bot").asBoolean(false)) {
+			return Optional.empty();
+		}
+		return Optional.of(new TelegramMessage(chatId, userId));
+	}
+
+	private String telegramIdentity(long telegramUserId) {
+		return "telegram-" + telegramUserId + "@telegram.fraerapp.local";
+	}
+
+	private String telegramLoginMessage(String loginUrl, Instant expiresAt) {
+		return "Временная ссылка для входа во FraerApp:\n" + loginUrl
+				+ "\n\nСсылка одноразовая и действует до " + expiresAt + ".";
 	}
 
 	@PostMapping("/verify")
@@ -2027,6 +2112,64 @@ record JwtClaims(String userId, String sessionId) {
 }
 
 record SessionAuthentication(String authMethod, Instant authenticatedAt) {
+}
+
+record TelegramMessage(long chatId, long userId) {
+}
+
+interface TelegramMessenger {
+
+	boolean configured();
+
+	void sendMessage(long chatId, String text);
+}
+
+@Component
+class TelegramBotApiClient implements TelegramMessenger {
+
+	private final String token;
+	private final ObjectMapper json;
+	private final HttpClient http;
+
+	TelegramBotApiClient(@Value("${auth.telegram.bot-token:}") String token) {
+		this.token = token == null ? "" : token.trim();
+		this.json = new ObjectMapper();
+		this.http = HttpClient.newHttpClient();
+	}
+
+	@Override
+	public boolean configured() {
+		return !token.isBlank();
+	}
+
+	@Override
+	public void sendMessage(long chatId, String text) {
+		if (!configured()) {
+			return;
+		}
+		try {
+			String body = json.writeValueAsString(Map.of(
+					"chat_id", chatId,
+					"text", text,
+					"disable_web_page_preview", true));
+			HttpRequest request = HttpRequest.newBuilder()
+					.uri(URI.create("https://api.telegram.org/bot" + token + "/sendMessage"))
+					.header("Content-Type", "application/json")
+					.POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+					.timeout(Duration.ofSeconds(10))
+					.build();
+			HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+			if (response.statusCode() < 200 || response.statusCode() >= 300) {
+				throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Telegram delivery failed");
+			}
+		}
+		catch (ResponseStatusException ex) {
+			throw ex;
+		}
+		catch (Exception ex) {
+			throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Telegram delivery failed");
+		}
+	}
 }
 
 @Configuration

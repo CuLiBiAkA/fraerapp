@@ -48,6 +48,7 @@ const adminOutput = document.querySelector("#admin-output");
 const langRuButton = document.querySelector("#lang-ru");
 const langEnButton = document.querySelector("#lang-en");
 const passkeyLoginButton = document.querySelector("#passkey-login");
+const telegramLoginButton = document.querySelector("#telegram-login");
 const passkeyUnavailable = document.querySelector("#passkey-unavailable");
 const passkeySettings = document.querySelector("#passkey-settings");
 const passkeyName = document.querySelector("#passkey-name");
@@ -84,6 +85,8 @@ const translations = {
     loginEndpointHint: "Откройте приложение через http://localhost:8088, чтобы работали вход и API.",
     passkeyOr: "или",
     passkeyLogin: "Войти с passkey",
+    telegramLogin: "Войти через Telegram",
+    telegramLoginUnavailable: "Вход через Telegram пока недоступен.",
     passkeyUnavailable: "Passkey недоступен в этом браузере или соединение не защищено.",
     passkeySettingsTitle: "Безопасный вход",
     passkeySettingsHint: "Добавьте Touch ID, Face ID, Windows Hello или ключ безопасности для входа без email-ссылки.",
@@ -192,6 +195,8 @@ const translations = {
     loginEndpointHint: "Open the app through http://localhost:8088 so sign-in and API routes work.",
     passkeyOr: "or",
     passkeyLogin: "Sign in with a passkey",
+    telegramLogin: "Sign in with Telegram",
+    telegramLoginUnavailable: "Telegram sign-in is not available yet.",
     passkeyUnavailable: "Passkeys are unavailable in this browser or the connection is not secure.",
     passkeySettingsTitle: "Secure sign-in",
     passkeySettingsHint: "Add Touch ID, Face ID, Windows Hello, or a security key to sign in without an email link.",
@@ -347,6 +352,7 @@ let currentState = null;
 let catalogStories = [];
 let catalogPage = 1;
 let choiceInFlight = false;
+let telegramBotUrl = "";
 
 const storiesPerPage = 4;
 
@@ -368,6 +374,9 @@ const api = {
   },
   passkeyAuthenticationOptions() {
     return request("/auth/passkeys/authentication/options", { method: "POST" });
+  },
+  telegramLogin() {
+    return request("/auth/telegram/login");
   },
   passkeyAuthenticationVerify(challengeId, credential) {
     return request("/auth/passkeys/authentication/verify", {
@@ -616,6 +625,17 @@ async function signInWithPasskey() {
   const result = await api.passkeyAuthenticationVerify(options.challengeId, credentialToJson(credential));
   storage.setUser(result.user);
   await afterLogin();
+}
+
+async function initTelegramLogin() {
+  try {
+    const config = await api.telegramLogin();
+    telegramBotUrl = config.enabled ? config.botUrl || "" : "";
+    telegramLoginButton.classList.toggle("hidden", !telegramBotUrl);
+  } catch (error) {
+    telegramBotUrl = "";
+    telegramLoginButton.classList.add("hidden");
+  }
 }
 
 async function registerPasskey() {
@@ -1216,6 +1236,15 @@ passkeyLoginButton.addEventListener("click", async () => {
   }
 });
 
+telegramLoginButton.addEventListener("click", () => {
+  if (!telegramBotUrl) {
+    setLoginStatus(t("telegramLoginUnavailable"), "error");
+    return;
+  }
+  window.open(telegramBotUrl, "_blank", "noopener");
+  setLoginStatus(t("loginLinkSent"));
+});
+
 passkeyRegisterButton.addEventListener("click", async () => {
   try {
     passkeyRegisterButton.disabled = true;
@@ -1365,6 +1394,7 @@ passkeyLoginButton.disabled = !hasPasskeySupport;
 passkeyRegisterButton.disabled = !hasPasskeySupport;
 passkeyUnavailable.classList.toggle("hidden", hasPasskeySupport);
 passkeySettings.classList.toggle("passkey-unavailable", !hasPasskeySupport);
+initTelegramLogin();
 adminPanel.classList.toggle("hidden", new URLSearchParams(window.location.search).get("admin") !== "1");
 setStatus(t("loading"));
 showOnly(authLoadingScreen);

@@ -1,6 +1,6 @@
 # FraerApp deploy and ops runbook
 
-Last updated: 2026-07-02.
+Last updated: 2026-07-03.
 
 This file is a practical checklist for production operations. Read `PROJECT_CONTEXT.md` first.
 
@@ -197,6 +197,44 @@ ssh "$FRAERAPP_SSH" "cd '$FRAERAPP_REMOTE_DIR' && docker compose ps && curl -skS
 ```
 
 `/auth/me` without a session may return 401; that only proves routing works. For auth health, use container health plus a known authenticated flow if needed.
+
+## Telegram login deploy
+
+Telegram login runs through `auth-service` and uses the same temporary-link tables as email login.
+
+Required environment variables:
+
+```bash
+export AUTH_TELEGRAM_BOT_ENABLED=true
+export AUTH_TELEGRAM_BOT_USERNAME='<bot-username-without-@>'
+export AUTH_TELEGRAM_BOT_TOKEN='<telegram-bot-token>'
+export AUTH_TELEGRAM_WEBHOOK_SECRET='<random-webhook-secret>'
+export AUTH_TELEGRAM_LOGIN_REDIRECT_PATH='/'
+```
+
+Keep the bot token and webhook secret in private local/runtime env only. Do not commit them.
+
+After deploying `auth-service`, register the webhook:
+
+```bash
+curl -sS -X POST "https://api.telegram.org/bot$AUTH_TELEGRAM_BOT_TOKEN/setWebhook" \
+  -H 'Content-Type: application/json' \
+  -d "{\"url\":\"https://$FRAERAPP_DOMAIN/auth/telegram/webhook\",\"secret_token\":\"$AUTH_TELEGRAM_WEBHOOK_SECRET\"}"
+```
+
+Verify without printing secrets:
+
+```bash
+curl -sS -A 'Mozilla/5.0' "https://$FRAERAPP_DOMAIN/auth/telegram/login"
+ssh "$FRAERAPP_SSH" "cd '$FRAERAPP_REMOTE_DIR' && docker compose logs --since=30m auth-service | grep -Ei 'telegram|error|exception|warn' | tail -100 || true"
+```
+
+Expected behavior:
+
+- `/auth/telegram/login` returns `enabled: true` and the public bot URL;
+- the homepage shows the Telegram login button;
+- a Telegram message to the bot produces a one-time FraerApp link;
+- auth DB receives an `email_login_tokens` row and a `login_link_requested` audit event with `source=telegram_bot`.
 
 ## Story creation and publication
 

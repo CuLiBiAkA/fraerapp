@@ -1,11 +1,11 @@
 # FraerApp project context
 
-Last updated: 2026-07-02.
+Last updated: 2026-07-03.
 
 FraerApp is an interactive story/game platform with:
 
 - public story catalog and game runtime;
-- email-link and passkey authentication;
+- email-link, Telegram-link, and passkey authentication;
 - author story builder;
 - admin/auth panel;
 - production Docker deployment behind nginx and Cloudflare.
@@ -121,6 +121,7 @@ Recent behavior:
 
 - passkey registration requires recent auth;
 - if backend returns `Recent authentication required`, frontend should show a clear Russian/English text.
+- Telegram login is an alternate delivery path for the same temporary-link flow. The bot webhook creates rows in `email_login_tokens`, records `login_link_requested` audit events with source `telegram_bot`, and sends the one-time `/auth/verify` link back to the Telegram chat. Telegram users are mapped to stable internal identities shaped like `telegram-<id>@telegram.fraerapp.local`; do not accept arbitrary email addresses through the bot.
 
 ### `story-builder`
 
