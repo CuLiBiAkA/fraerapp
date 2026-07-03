@@ -958,6 +958,9 @@ function renderStoryPage() {
   for (const story of pageStories) {
     const card = document.createElement("article");
     card.className = "story-card";
+    const cover = document.createElement("div");
+    cover.className = "story-cover";
+    cover.style.backgroundImage = `url("${storyCoverAsset(story)}")`;
     const author = story.authorName ? story.authorName : "";
     const progress = Math.round(story.completionRate ?? 0);
     const titleRow = document.createElement("div");
@@ -1009,13 +1012,31 @@ function renderStoryPage() {
     } else {
       actions.append(actionButton(t("startButton"), () => startStory(story.key)));
     }
-    card.append(titleRow, description, meta, saveContext, progressRow, actions);
+    card.append(cover, titleRow, description, meta, saveContext, progressRow, actions);
     storiesList.append(card);
   }
   storyPagination.classList.toggle("hidden", pageCount <= 1);
   storiesPage.textContent = t("pageLabel", { page: catalogPage, pages: pageCount });
   storiesPrev.disabled = catalogPage <= 1;
   storiesNext.disabled = catalogPage >= pageCount;
+}
+
+function storyCoverAsset(story) {
+  const assets = [
+    "/assets/platform.svg",
+    "/assets/hall.svg",
+    "/assets/ticket.svg",
+    "/assets/door.svg",
+    "/assets/tracks.svg",
+    "/assets/signal.svg",
+    "/assets/conductor.svg",
+  ];
+  const source = story.key || story.title || "";
+  let hash = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    hash = (hash + source.charCodeAt(index) * (index + 1)) % assets.length;
+  }
+  return assets[hash];
 }
 
 function metric(label, value) {

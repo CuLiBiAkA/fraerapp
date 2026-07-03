@@ -1,6 +1,6 @@
 # FraerApp project context
 
-Last updated: 2026-07-03.
+Last updated: 2026-07-04.
 
 FraerApp is an interactive story/game platform with:
 
@@ -9,6 +9,8 @@ FraerApp is an interactive story/game platform with:
 - author story builder;
 - admin/auth panel;
 - production Docker deployment behind nginx and Cloudflare.
+
+Public login and catalog screens use a light, mobile-first visual shell based on the current Figma direction. The in-story runtime keeps the darker immersive game presentation.
 
 This file is safe to commit. Concrete SSH targets, private IPs, and other operator-only values belong in `LOCAL_OPERATOR_NOTES.private.md`, which is ignored by git.
 
