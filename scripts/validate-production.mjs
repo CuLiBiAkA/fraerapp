@@ -8,6 +8,7 @@ const indexHtml = read("frontend/index.html");
 const indexText = visibleText(indexHtml);
 const legalConfigJs = read("frontend/legal-config.js");
 const nginxProd = read("nginx/nginx.prod.conf");
+const nginxLocal = read("nginx/nginx.local.conf");
 const legalPages = [
   "frontend/privacy-policy.html",
   "frontend/personal-data-consent.html",
@@ -50,6 +51,8 @@ assert.match(indexHtml, /<meta property="og:url" content="https:\/\/fraerapp\.ru
 
 assert.match(nginxProd, /location \^~ \/auth\/admin[\s\S]+X-Robots-Tag "noindex, nofollow"/);
 assert.match(nginxProd, /location \/builder\/[\s\S]+X-Robots-Tag "noindex, nofollow"/);
+assert.match(nginxLocal, /location \^~ \/auth\/admin[\s\S]+X-Robots-Tag "noindex, nofollow"/);
+assert.match(nginxLocal, /location \/builder\/[\s\S]+X-Robots-Tag "noindex, nofollow"/);
 
 console.log("Production validation passed.");
 
