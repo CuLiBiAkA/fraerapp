@@ -236,6 +236,10 @@ Expected behavior:
 - a Telegram message to the bot produces a one-time FraerApp link;
 - auth DB receives an `email_login_tokens` row and a `login_link_requested` audit event with `source=telegram_bot`.
 
+Production note: the webhook should return Telegram's `sendMessage` method JSON directly. Do not make auth-service depend on outbound HTTPS to `api.telegram.org`; the production host may be unable to reach it even though inbound Telegram webhooks arrive through Cloudflare.
+
+Telegram retries failed webhook updates. The webhook must avoid returning `429` for normal user messages, because Telegram will keep retrying and the bot will appear silent.
+
 ## Story creation and publication
 
 Story files live in:

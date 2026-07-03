@@ -1,10 +1,6 @@
 package com.fraergod.fraerapp.auth;
 
 import java.nio.charset.StandardCharsets;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
@@ -18,7 +14,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -234,7 +229,7 @@ class AuthController {
 	@PostMapping("/telegram/webhook")
 	Map<String, Object> telegramWebhook(
 			@RequestHeader(name = "X-Telegram-Bot-Api-Secret-Token", required = false) String secretToken,
-			@RequestBody JsonNode update,
+			@RequestBody Map<String, Object> update,
 			HttpServletRequest servletRequest) {
 		if (!telegramBotEnabled || !telegram.configured()) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Telegram login is disabled");
@@ -247,15 +242,18 @@ class AuthController {
 		if (message == null) {
 			return Map.of("ok", true);
 		}
-		checkRate("telegram-login:" + message.userId(), devMode ? 200 : 5, Duration.ofMinutes(15));
+		checkRate("telegram-login:" + message.userId(), 200, Duration.ofMinutes(15));
 		String identity = telegramIdentity(message.userId());
 		store.recordConsent(identity, privacyPolicyVersion, "telegram_bot");
 		CreatedLoginLink generated = createLoginLink(
 				identity, telegramLoginRedirectPath, servletRequest, "telegram_bot", privacyPolicyVersion);
-		store.audit(null, identity, "telegram_login_link_sent",
+		store.audit(null, identity, "telegram_login_link_prepared",
 				"{\"source\":\"telegram_bot\",\"telegramUserId\":" + message.userId() + "}");
-		telegram.sendMessage(message.chatId(), telegramLoginMessage(generated.loginUrl(), generated.expiresAt()));
-		return Map.of("ok", true);
+		return Map.of(
+				"method", "sendMessage",
+				"chat_id", message.chatId(),
+				"text", telegramLoginMessage(generated.loginUrl(), generated.expiresAt()),
+				"disable_web_page_preview", true);
 	}
 
 	private CreatedLoginLink createLoginLink(String email, String requestedRedirect, HttpServletRequest servletRequest,
@@ -275,20 +273,45 @@ class AuthController {
 		return new CreatedLoginLink(link, expiresAt);
 	}
 
-	private Optional<TelegramMessage> telegramMessage(JsonNode update) {
-		JsonNode message = update.path("message");
-		if (message.isMissingNode()) {
-			message = update.path("edited_message");
+	private Optional<TelegramMessage> telegramMessage(Map<String, Object> update) {
+		Map<?, ?> message = mapValue(update.get("message"));
+		if (message == null) {
+			message = mapValue(update.get("edited_message"));
 		}
-		if (message.isMissingNode()) {
+		if (message == null) {
 			return Optional.empty();
 		}
-		long chatId = message.path("chat").path("id").asLong(0L);
-		long userId = message.path("from").path("id").asLong(0L);
-		if (chatId == 0L || userId == 0L || message.path("from").path("is_bot").asBoolean(false)) {
+		Map<?, ?> chat = mapValue(message.get("chat"));
+		Map<?, ?> from = mapValue(message.get("from"));
+		long chatId = longValue(chat == null ? null : chat.get("id"));
+		long userId = longValue(from == null ? null : from.get("id"));
+		if (chatId == 0L || userId == 0L || booleanValue(from == null ? null : from.get("is_bot"))) {
 			return Optional.empty();
 		}
 		return Optional.of(new TelegramMessage(chatId, userId));
+	}
+
+	private Map<?, ?> mapValue(Object value) {
+		return value instanceof Map<?, ?> map ? map : null;
+	}
+
+	private long longValue(Object value) {
+		if (value instanceof Number number) {
+			return number.longValue();
+		}
+		if (value instanceof String string && !string.isBlank()) {
+			try {
+				return Long.parseLong(string);
+			}
+			catch (NumberFormatException ex) {
+				return 0L;
+			}
+		}
+		return 0L;
+	}
+
+	private boolean booleanValue(Object value) {
+		return value instanceof Boolean bool && bool;
 	}
 
 	private String telegramIdentity(long telegramUserId) {
@@ -2120,55 +2143,20 @@ record TelegramMessage(long chatId, long userId) {
 interface TelegramMessenger {
 
 	boolean configured();
-
-	void sendMessage(long chatId, String text);
 }
 
 @Component
 class TelegramBotApiClient implements TelegramMessenger {
 
 	private final String token;
-	private final ObjectMapper json;
-	private final HttpClient http;
 
 	TelegramBotApiClient(@Value("${auth.telegram.bot-token:}") String token) {
 		this.token = token == null ? "" : token.trim();
-		this.json = new ObjectMapper();
-		this.http = HttpClient.newHttpClient();
 	}
 
 	@Override
 	public boolean configured() {
 		return !token.isBlank();
-	}
-
-	@Override
-	public void sendMessage(long chatId, String text) {
-		if (!configured()) {
-			return;
-		}
-		try {
-			String body = json.writeValueAsString(Map.of(
-					"chat_id", chatId,
-					"text", text,
-					"disable_web_page_preview", true));
-			HttpRequest request = HttpRequest.newBuilder()
-					.uri(URI.create("https://api.telegram.org/bot" + token + "/sendMessage"))
-					.header("Content-Type", "application/json")
-					.POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
-					.timeout(Duration.ofSeconds(10))
-					.build();
-			HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
-			if (response.statusCode() < 200 || response.statusCode() >= 300) {
-				throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Telegram delivery failed");
-			}
-		}
-		catch (ResponseStatusException ex) {
-			throw ex;
-		}
-		catch (Exception ex) {
-			throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Telegram delivery failed");
-		}
 	}
 }
 

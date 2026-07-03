@@ -304,32 +304,39 @@ class AuthControllerTests {
 		ReflectionTestUtils.setField(controller, "telegramBotEnabled", true);
 		ReflectionTestUtils.setField(controller, "telegramWebhookSecret", "secret");
 		ReflectionTestUtils.setField(controller, "telegramLoginRedirectPath", "/builder/");
-		JsonNode update = new ObjectMapper().readTree("""
-				{
-				  "update_id": 1,
-				  "message": {
-				    "message_id": 2,
-				    "chat": {"id": 12345},
-				    "from": {"id": 67890, "is_bot": false},
-				    "text": "/start login"
-				  }
-				}
-				""");
+		Map<String, Object> update = Map.of(
+				"update_id", 1,
+				"message", Map.of(
+						"message_id", 2,
+						"chat", Map.of("id", 12345L),
+						"from", Map.of("id", 67890L, "is_bot", false),
+						"text", "/start login"));
 
 		Map<String, Object> response = controller.telegramWebhook("secret", update, request());
 
 		String identity = "telegram-67890@telegram.fraerapp.local";
-		assertThat(response).containsEntry("ok", true);
+		assertThat(response).containsEntry("method", "sendMessage")
+				.containsEntry("chat_id", 12345L)
+				.containsEntry("disable_web_page_preview", true);
+		assertThat(response.get("text")).asString().contains("auth_token=");
 		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens where email = ? and redirect_path = ?",
 				Long.class, identity, "/builder/")).isEqualTo(1L);
 		assertThat(jdbc.queryForObject("select count(*) from auth_audit_events where email = ? and event_type = ?",
 				Long.class, identity, "login_link_requested")).isEqualTo(1L);
 		assertThat(jdbc.queryForObject("select count(*) from personal_data_consents where email = ? and source = ?",
 				Long.class, identity, "telegram_bot")).isEqualTo(1L);
-		assertThat(telegram.messages).singleElement().satisfies(message -> {
-			assertThat(message.chatId()).isEqualTo(12345L);
-			assertThat(message.text()).contains("auth_token=");
-		});
+	}
+
+	@Test
+	void telegramWebhookIgnoresNonMessageUpdates() {
+		telegram.enabled = true;
+		ReflectionTestUtils.setField(controller, "telegramBotEnabled", true);
+		ReflectionTestUtils.setField(controller, "telegramWebhookSecret", "secret");
+
+		Map<String, Object> response = controller.telegramWebhook("secret", Map.of(), request());
+
+		assertThat(response).containsEntry("ok", true);
+		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens", Long.class)).isZero();
 	}
 
 	@Test
@@ -481,19 +488,10 @@ class AuthControllerTests {
 	private static class FakeTelegramMessenger implements TelegramMessenger {
 
 		boolean enabled;
-		java.util.List<SentTelegramMessage> messages = new java.util.ArrayList<>();
 
 		@Override
 		public boolean configured() {
 			return enabled;
 		}
-
-		@Override
-		public void sendMessage(long chatId, String text) {
-			messages.add(new SentTelegramMessage(chatId, text));
-		}
-	}
-
-	private record SentTelegramMessage(long chatId, String text) {
 	}
 }

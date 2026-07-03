@@ -121,7 +121,7 @@ Recent behavior:
 
 - passkey registration requires recent auth;
 - if backend returns `Recent authentication required`, frontend should show a clear Russian/English text.
-- Telegram login is an alternate delivery path for the same temporary-link flow. The bot webhook creates rows in `email_login_tokens`, records `login_link_requested` audit events with source `telegram_bot`, and sends the one-time `/auth/verify` link back to the Telegram chat. Telegram users are mapped to stable internal identities shaped like `telegram-<id>@telegram.fraerapp.local`; do not accept arbitrary email addresses through the bot.
+- Telegram login is an alternate delivery path for the same temporary-link flow. The bot webhook creates rows in `email_login_tokens`, records `login_link_requested` audit events with source `telegram_bot`, and returns a Telegram `sendMessage` method response containing the one-time `/auth/verify` link. This avoids outbound server calls to `api.telegram.org`, which may be unavailable from the production host. Telegram users are mapped to stable internal identities shaped like `telegram-<id>@telegram.fraerapp.local`; do not accept arbitrary email addresses through the bot.
 
 ### `story-builder`
 
