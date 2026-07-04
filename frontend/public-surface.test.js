@@ -99,6 +99,16 @@ test("passkey WebAuthn browser errors are converted to readable messages", () =>
   assert.doesNotMatch(engineJs, /passkeyRegistrationFailed", \{ message: error\.message \}/);
 });
 
+test("signed-in homepage keeps the public shell but enables user actions", () => {
+  assert.match(indexHtml, /id="modal-sound-toggle"/);
+  assert.match(engineJs, /async function afterLogin\(\)[\s\S]*await showPublicHome\(\);/);
+  assert.match(engineJs, /homeProfileButton\.classList\.toggle\("is-guest", !loggedIn\)/);
+  assert.match(engineJs, /homeSearchButton\.classList\.toggle\("hidden", !loggedIn\)/);
+  assert.match(engineJs, /homeCreateButton\.classList\.toggle\("hidden", !hasAnyRole\(roles, \["author", "admin"\]\)\)/);
+  assert.match(engineJs, /homeReadButton\.addEventListener\("click", \(\) => \{[\s\S]*openStoryMenu\(\)/);
+  assert.match(engineJs, /const action = story\.lastSessionId \? continueStory\(story\.lastSessionId\) : startStoryRun\(story\.key\)/);
+});
+
 function visibleText(html) {
   return html
     .replace(/<script[\s\S]*?<\/script>/g, " ")
