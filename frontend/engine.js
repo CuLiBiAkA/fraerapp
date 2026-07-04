@@ -937,7 +937,7 @@ async function showPublicHome() {
   } catch {
     catalogStories = [];
   }
-  homeCarouselIndex = 0;
+  homeCarouselIndex = catalogStories.length > 2 ? 1 : 0;
   showOnly(loginScreen);
   renderHomeCarousel();
 }
