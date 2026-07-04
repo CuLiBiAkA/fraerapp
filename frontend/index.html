@@ -9,7 +9,7 @@
     <meta property="og:description" content="FraerApp — сервис интерактивных историй с сохранением прогресса, вариантами выбора и персональными маршрутами.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://fraerapp.ru/">
-    <link rel="stylesheet" href="/styles.css?v=game-18">
+    <link rel="stylesheet" href="/styles.css?v=game-19">
   </head>
   <body>
     <main class="game">
@@ -40,37 +40,41 @@
         </div>
       </section>
 
-      <section id="login-screen" class="login-screen hidden" aria-label="Login">
-        <div class="login-copy">
-          <p class="eyebrow" data-i18n="loginEyebrow">FraerApp Stories</p>
-          <h1 data-i18n="loginTitle">Войдите в библиотеку историй</h1>
-          <p class="seo-description">FraerApp — сервис интерактивных историй с сохранением прогресса, вариантами выбора и персональными маршрутами.</p>
-          <p data-i18n="loginSubtitle">Войдите через Telegram или passkey, чтобы продолжить игру, открыть сохранения и запускать новые интерактивные истории.</p>
+      <section id="login-screen" class="home-screen hidden" aria-label="FraerApp">
+        <header class="home-header">
+          <a class="brand-mark" href="/" aria-label="FraerApp">
+            <span class="brand-symbol" aria-hidden="true">F</span>
+            <span class="brand-word">FraerApp</span>
+          </a>
+          <nav class="home-nav" aria-label="Главное меню">
+            <button id="home-search" class="icon-button home-search-button hidden" type="button" aria-label="Поиск историй">
+              <span class="icon-search" aria-hidden="true"></span>
+            </button>
+            <button id="home-settings" class="icon-button" type="button" aria-label="Настройки">
+              <span class="icon-gear" aria-hidden="true"></span>
+            </button>
+            <button id="home-profile" class="icon-button profile-button is-guest" type="button" aria-label="Войти в профиль">
+              <span class="icon-profile" aria-hidden="true"></span>
+            </button>
+          </nav>
+        </header>
+
+        <div class="home-copy">
+          <h1 data-i18n="loginTitle">Истории, которые оживают в твоем воображении</h1>
+          <p data-i18n="loginSubtitle">Читай. Создавай. Твори.</p>
+          <div class="home-actions">
+            <button id="home-read" class="outline-button" type="button" data-i18n="homeReadStories">Читать истории</button>
+            <button id="home-create" class="outline-button" type="button" data-i18n="homeCreateStory">Создать свою</button>
+          </div>
         </div>
 
-        <form id="login-form" class="login-form">
-          <div class="login-card">
-            <div class="passkey-login">
-              <button id="telegram-login" type="button" class="secondary hidden" data-i18n="telegramLogin">Войти через Telegram</button>
-              <span data-i18n="passkeyOr">или</span>
-              <button id="passkey-login" type="button" class="secondary" data-i18n="passkeyLogin">Войти с passkey</button>
-              <small id="passkey-unavailable" class="hidden" data-i18n="passkeyUnavailable">Вход по passkey недоступен в этом браузере</small>
-            </div>
-            <div class="hidden" aria-hidden="true">
-              <label for="username" data-i18n="usernameLabel">Email</label>
-              <input id="username" name="email" type="email" maxlength="320" autocomplete="email" data-i18n-placeholder="usernamePlaceholder" placeholder="you@example.com">
-              <input id="personal-data-consent" name="personalDataConsent" type="checkbox">
-              <p id="consent-hint" class="consent-hint" data-i18n="personalDataConsentHint">Перед входом нужно поставить галочку согласия — без неё ссылка для входа не создаётся.</p>
-            </div>
-            <p class="legal-links">
-              <a href="/personal-data-consent.html" target="_blank" rel="noopener" data-i18n="consentLink">Согласие</a>
-              <a href="/privacy-policy.html" target="_blank" rel="noopener" data-i18n="privacyLink">Политика</a>
-              <a href="/terms.html" target="_blank" rel="noopener" data-i18n="termsLink">Пользовательское соглашение</a>
-            </p>
-            <p id="login-status" class="login-status" role="status" aria-live="polite"></p>
+        <section class="home-carousel" aria-label="Истории">
+          <button id="home-prev" class="carousel-arrow carousel-arrow-prev" type="button" aria-label="Предыдущие истории">&lt;</button>
+          <div class="home-carousel-window">
+            <div id="home-stories" class="home-story-track"></div>
           </div>
-        </form>
-
+          <button id="home-next" class="carousel-arrow carousel-arrow-next" type="button" aria-label="Следующие истории">&gt;</button>
+        </section>
       </section>
 
       <section id="story-screen" class="catalog-screen hidden" aria-label="Stories">
@@ -156,6 +160,67 @@
       </section>
     </main>
 
+    <div id="auth-modal" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+      <div class="modal-backdrop" data-modal-close="auth"></div>
+      <section class="modal-card auth-card">
+        <button id="auth-modal-close" class="modal-close" type="button" aria-label="Закрыть"></button>
+        <h2 id="auth-modal-title" data-i18n="authModalTitle">Начните знакомство с историей</h2>
+        <p data-i18n="authModalText">Сейчас вам доступен просмотр карточек историй. После регистрации вы сможете проходить истории, сохранять прогресс и открыть доступ ко всей библиотеке.</p>
+        <form id="login-form" class="login-form">
+          <div class="login-card">
+            <div class="passkey-login">
+              <button id="telegram-login" type="button" class="secondary hidden" data-i18n="telegramLogin">Войти через Telegram</button>
+              <span data-i18n="passkeyOr">или</span>
+              <button id="passkey-login" type="button" class="secondary" data-i18n="passkeyLogin">Войти с passkey</button>
+              <small id="passkey-unavailable" class="hidden" data-i18n="passkeyUnavailable">Вход по passkey недоступен в этом браузере</small>
+            </div>
+            <div class="hidden" aria-hidden="true">
+              <label for="username" data-i18n="usernameLabel">Email</label>
+              <input id="username" name="email" type="email" maxlength="320" autocomplete="email" data-i18n-placeholder="usernamePlaceholder" placeholder="you@example.com">
+              <input id="personal-data-consent" name="personalDataConsent" type="checkbox">
+              <p id="consent-hint" class="consent-hint" data-i18n="personalDataConsentHint">Перед входом нужно поставить галочку согласия — без неё ссылка для входа не создаётся.</p>
+            </div>
+            <p class="legal-links">
+              <a href="/personal-data-consent.html" target="_blank" rel="noopener" data-i18n="consentLink">Согласие</a>
+              <a href="/privacy-policy.html" target="_blank" rel="noopener" data-i18n="privacyLink">Политика</a>
+              <a href="/terms.html" target="_blank" rel="noopener" data-i18n="termsLink">Пользовательское соглашение</a>
+            </p>
+            <p id="login-status" class="login-status" role="status" aria-live="polite"></p>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div id="settings-modal" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+      <div class="modal-backdrop" data-modal-close="settings"></div>
+      <section class="modal-card compact-modal-card">
+        <button id="settings-modal-close" class="modal-close" type="button" aria-label="Закрыть"></button>
+        <h2 id="settings-modal-title" data-i18n="settingsModalTitle">Настройки</h2>
+        <div class="modal-setting-row">
+          <span data-i18n="settingsLanguage">Язык</span>
+          <div class="modal-segmented">
+            <button id="modal-lang-ru" type="button">RU</button>
+            <button id="modal-lang-en" type="button">EN</button>
+          </div>
+        </div>
+        <div class="modal-links">
+          <a href="/privacy-policy.html" target="_blank" rel="noopener" data-i18n="privacyLink">Политика</a>
+          <a href="/personal-data-consent.html" target="_blank" rel="noopener" data-i18n="consentLink">Согласие</a>
+          <a href="/terms.html" target="_blank" rel="noopener" data-i18n="termsLink">Пользовательское соглашение</a>
+        </div>
+      </section>
+    </div>
+
+    <div id="profile-modal" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+      <div class="modal-backdrop" data-modal-close="profile"></div>
+      <section class="modal-card compact-modal-card">
+        <button id="profile-modal-close" class="modal-close" type="button" aria-label="Закрыть"></button>
+        <h2 id="profile-modal-title" data-i18n="profileModalTitle">Аккаунт</h2>
+        <p id="profile-modal-email" class="profile-email"></p>
+        <button id="profile-logout" type="button" class="outline-button" data-i18n="logoutButton">Выйти</button>
+      </section>
+    </div>
+
     <footer class="site-footer">
       <span>FraerApp · 18+</span>
       <a href="/privacy-policy.html">Политика обработки персональных данных</a>
@@ -185,6 +250,6 @@
       </div>
     </aside>
 
-    <script src="/engine.js?v=engine-32" type="module"></script>
+    <script src="/engine.js?v=engine-33" type="module"></script>
   </body>
 </html>

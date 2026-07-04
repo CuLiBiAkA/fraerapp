@@ -53,6 +53,24 @@ const cookieAccept = document.querySelector("#cookie-accept");
 const passkeyNudge = document.querySelector("#passkey-nudge");
 const passkeyNudgeOpen = document.querySelector("#passkey-nudge-open");
 const passkeyNudgeDismiss = document.querySelector("#passkey-nudge-dismiss");
+const homeSearchButton = document.querySelector("#home-search");
+const homeSettingsButton = document.querySelector("#home-settings");
+const homeProfileButton = document.querySelector("#home-profile");
+const homeReadButton = document.querySelector("#home-read");
+const homeCreateButton = document.querySelector("#home-create");
+const homeStories = document.querySelector("#home-stories");
+const homePrevButton = document.querySelector("#home-prev");
+const homeNextButton = document.querySelector("#home-next");
+const authModal = document.querySelector("#auth-modal");
+const authModalClose = document.querySelector("#auth-modal-close");
+const settingsModal = document.querySelector("#settings-modal");
+const settingsModalClose = document.querySelector("#settings-modal-close");
+const profileModal = document.querySelector("#profile-modal");
+const profileModalClose = document.querySelector("#profile-modal-close");
+const profileModalEmail = document.querySelector("#profile-modal-email");
+const profileLogoutButton = document.querySelector("#profile-logout");
+const modalLangRuButton = document.querySelector("#modal-lang-ru");
+const modalLangEnButton = document.querySelector("#modal-lang-en");
 
 const translations = {
   ru: {
@@ -60,8 +78,15 @@ const translations = {
     authLoadingEyebrow: "FraerApp Stories",
     authLoadingTitle: "Проверяем вход",
     authLoadingText: "Подождите несколько секунд. Если сессия активна, мы сразу откроем библиотеку.",
-    loginTitle: "Войдите в библиотеку историй",
-    loginSubtitle: "Войдите через Telegram или passkey, чтобы продолжить игру, открыть сохранения и запускать новые интерактивные истории.",
+    loginTitle: "Истории, которые оживают в твоем воображении",
+    loginSubtitle: "Читай. Создавай. Твори.",
+    homeReadStories: "Читать истории",
+    homeCreateStory: "Создать свою",
+    authModalTitle: "Начните знакомство с историей",
+    authModalText: "Сейчас вам доступен просмотр карточек историй. После регистрации вы сможете проходить истории, сохранять прогресс и открыть доступ ко всей библиотеке.",
+    settingsModalTitle: "Настройки",
+    settingsLanguage: "Язык",
+    profileModalTitle: "Аккаунт",
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
     loginButton: "Получить ссылку",
@@ -173,8 +198,15 @@ const translations = {
     authLoadingEyebrow: "FraerApp Stories",
     authLoadingTitle: "Checking sign-in",
     authLoadingText: "Please wait a few seconds. If your session is active, we will open the library.",
-    loginTitle: "Sign in to your story library",
-    loginSubtitle: "Sign in with Telegram or a passkey to continue saved runs and launch new interactive stories.",
+    loginTitle: "Stories that come alive in your imagination",
+    loginSubtitle: "Read. Create. Imagine.",
+    homeReadStories: "Read stories",
+    homeCreateStory: "Create yours",
+    authModalTitle: "Start exploring the story",
+    authModalText: "You can browse story cards now. After sign-in you can play stories, save progress, and access the full library.",
+    settingsModalTitle: "Settings",
+    settingsLanguage: "Language",
+    profileModalTitle: "Account",
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
     loginButton: "Get link",
@@ -354,6 +386,7 @@ let choiceInFlight = false;
 let telegramBotUrl = "";
 let builderButton = null;
 let adminButton = null;
+let homeCarouselIndex = 0;
 
 const storiesPerPage = 4;
 
@@ -435,11 +468,14 @@ function applyTranslations() {
   });
   updateLanguageButtons();
   syncRoleActionButtons();
+  renderHomeCarousel();
 }
 
 function updateLanguageButtons() {
   langRuButton.classList.toggle("is-active", currentLanguage === "ru");
   langEnButton.classList.toggle("is-active", currentLanguage === "en");
+  modalLangRuButton.classList.toggle("is-active", currentLanguage === "ru");
+  modalLangEnButton.classList.toggle("is-active", currentLanguage === "en");
 }
 
 function setLanguage(language) {
@@ -510,6 +546,7 @@ function showOnly(screen) {
   storyScreen.classList.toggle("hidden", screen !== storyScreen);
   settingsScreen.classList.toggle("hidden", screen !== settingsScreen);
   sceneScreen.classList.toggle("hidden", screen !== sceneScreen);
+  document.body.classList.toggle("is-public-home", screen === loginScreen);
   updateTopActions(screen);
 }
 
@@ -517,9 +554,12 @@ function updateTopActions(screen) {
   const loggedIn = Boolean(storage.email);
   const roles = storage.roles;
   const inScene = screen === sceneScreen;
+  document.body.classList.toggle("is-authenticated", loggedIn);
   syncRoleActionButtons();
   menuButton.classList.toggle("hidden", !loggedIn || screen === storyScreen);
   settingsButton.classList.toggle("hidden", !loggedIn || screen === settingsScreen);
+  homeSearchButton.classList.toggle("hidden", !loggedIn);
+  homeProfileButton.classList.toggle("is-guest", !loggedIn);
   builderButton?.classList.toggle("hidden", !loggedIn || !hasAnyRole(roles, ["author", "admin"]));
   adminButton?.classList.toggle("hidden", !loggedIn || !hasRole(roles, "admin"));
   soundControl.classList.toggle("hidden", !inScene);
@@ -651,6 +691,7 @@ async function showLoginLinkResult(email) {
 }
 
 async function afterLogin() {
+  closeModals();
   const passkeyItems = await loadPasskeys().catch((error) => {
     passkeyStatus.textContent = t("errorPrefix", { message: error.message });
     passkeyStatus.dataset.tone = "error";
@@ -857,6 +898,97 @@ function updatePasskeyNudge(passkeys = []) {
   passkeyNudge.classList.toggle("hidden", !shouldShow);
 }
 
+function openModal(modal) {
+  closeModals();
+  modal.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+}
+
+function closeModals() {
+  authModal.classList.add("hidden");
+  settingsModal.classList.add("hidden");
+  profileModal.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+}
+
+function openAuthModal() {
+  openModal(authModal);
+}
+
+function openSettingsModal() {
+  openModal(settingsModal);
+}
+
+function openProfileModal() {
+  if (!storage.email) {
+    openAuthModal();
+    return;
+  }
+  profileModalEmail.textContent = storage.email;
+  openModal(profileModal);
+}
+
+async function showPublicHome() {
+  stopSound({ resetPreference: true });
+  currentState = null;
+  try {
+    const stories = await api.stories();
+    catalogStories = Array.isArray(stories) ? stories : [];
+  } catch {
+    catalogStories = [];
+  }
+  homeCarouselIndex = 0;
+  showOnly(loginScreen);
+  renderHomeCarousel();
+}
+
+function renderHomeCarousel() {
+  if (!homeStories) return;
+  homeStories.replaceChildren();
+  const stories = catalogStories.slice(0, 12);
+  if (stories.length === 0) {
+    const empty = document.createElement("article");
+    empty.className = "home-story-card home-story-empty";
+    empty.textContent = t("noStories");
+    homeStories.append(empty);
+    homePrevButton.disabled = true;
+    homeNextButton.disabled = true;
+    return;
+  }
+
+  homeCarouselIndex = Math.min(Math.max(homeCarouselIndex, 0), stories.length - 1);
+  stories.forEach((story, index) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "home-story-card";
+    card.style.setProperty("--story-offset", String(index - homeCarouselIndex));
+    const cover = document.createElement("span");
+    cover.className = "home-story-cover";
+    cover.style.backgroundImage = `url("${storyCoverAsset(story)}")`;
+    const title = document.createElement("strong");
+    title.textContent = story.title;
+    card.append(cover, title);
+    card.addEventListener("click", () => {
+      if (!storage.email) {
+        openAuthModal();
+        return;
+      }
+      const action = story.lastSessionId ? continueStory(story.lastSessionId) : startStory(story.key);
+      action.catch((error) => setStatus(t("errorPrefix", { message: error.message })));
+    });
+    homeStories.append(card);
+  });
+  homePrevButton.disabled = stories.length <= 1;
+  homeNextButton.disabled = stories.length <= 1;
+}
+
+function moveHomeCarousel(direction) {
+  const stories = catalogStories.slice(0, 12);
+  if (stories.length <= 1) return;
+  homeCarouselIndex = (homeCarouselIndex + direction + stories.length) % stories.length;
+  renderHomeCarousel();
+}
+
 function renderGameStats(state) {
   sceneStatsList.replaceChildren();
   const variables = Object.entries(state.statsVariables || {});
@@ -1022,6 +1154,10 @@ function renderStoryPage() {
 }
 
 function storyCoverAsset(story) {
+  const explicitCover = story.coverUrl || story.imageUrl || story.backgroundUrl;
+  if (explicitCover) {
+    return explicitCover;
+  }
   const assets = [
     "/assets/platform.svg",
     "/assets/hall.svg",
@@ -1391,7 +1527,7 @@ logoutButton.addEventListener("click", async () => {
   storage.clear();
   currentState = null;
   passkeyNudge.classList.add("hidden");
-  showOnly(loginScreen);
+  showPublicHome();
 });
 
 soundToggle.addEventListener("click", async () => {
@@ -1463,6 +1599,48 @@ passkeyNudgeDismiss.addEventListener("click", () => {
   passkeyNudge.classList.add("hidden");
 });
 
+homeReadButton.addEventListener("click", () => {
+  document.querySelector(".home-carousel")?.scrollIntoView({ behavior: "smooth", block: "center" });
+});
+
+homeCreateButton.addEventListener("click", () => {
+  if (hasAnyRole(storage.roles, ["author", "admin"])) {
+    window.location.href = "/builder/";
+    return;
+  }
+  openAuthModal();
+});
+
+homeSearchButton.addEventListener("click", () => {
+  if (storage.email) {
+    openStoryMenu().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
+  }
+});
+
+homeSettingsButton.addEventListener("click", openSettingsModal);
+homeProfileButton.addEventListener("click", openProfileModal);
+homePrevButton.addEventListener("click", () => moveHomeCarousel(-1));
+homeNextButton.addEventListener("click", () => moveHomeCarousel(1));
+authModalClose.addEventListener("click", closeModals);
+settingsModalClose.addEventListener("click", closeModals);
+profileModalClose.addEventListener("click", closeModals);
+document.querySelectorAll("[data-modal-close]").forEach((node) => {
+  node.addEventListener("click", closeModals);
+});
+modalLangRuButton.addEventListener("click", () => setLanguage("ru"));
+modalLangEnButton.addEventListener("click", () => setLanguage("en"));
+profileLogoutButton.addEventListener("click", async () => {
+  try {
+    await api.logout();
+  } catch (error) {
+    setStatus(t("errorPrefix", { message: error.message }));
+  }
+  storage.clear();
+  closeModals();
+  passkeyNudge.classList.add("hidden");
+  showPublicHome();
+});
+
 function initCookieBanner() {
   cookieBanner.classList.toggle("hidden", storage.cookieConsent === "accepted");
 }
@@ -1497,8 +1675,9 @@ if (authToken) {
       storage.clear();
       currentState = null;
       window.history.replaceState({}, document.title, "/");
-      showOnly(loginScreen);
+      showPublicHome();
       showInvalidLoginLink(t("loginLinkInvalid"));
+      openAuthModal();
     });
 } else {
   api.me()
@@ -1509,6 +1688,6 @@ if (authToken) {
     .catch(() => {
       storage.clear();
       currentState = null;
-      showOnly(loginScreen);
+      showPublicHome();
     });
 }
