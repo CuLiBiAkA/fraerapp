@@ -101,12 +101,24 @@ test("passkey WebAuthn browser errors are converted to readable messages", () =>
 
 test("signed-in homepage keeps the public shell but enables user actions", () => {
   assert.match(indexHtml, /id="modal-sound-toggle"/);
-  assert.match(engineJs, /async function afterLogin\(\)[\s\S]*await showPublicHome\(\);/);
+  assert.match(engineJs, /async function afterLogin\(\)[\s\S]*await handleRoute\(\);/);
   assert.match(engineJs, /homeProfileButton\.classList\.toggle\("is-guest", !loggedIn\)/);
   assert.match(engineJs, /homeSearchButton\.classList\.toggle\("hidden", !loggedIn\)/);
   assert.match(engineJs, /homeCreateButton\.classList\.toggle\("hidden", !hasAnyRole\(roles, \["author", "admin"\]\)\)/);
-  assert.match(engineJs, /homeReadButton\.addEventListener\("click", \(\) => \{[\s\S]*openStoryMenu\(\)/);
+  assert.match(engineJs, /homeReadButton\.addEventListener\("click", \(\) => \{[\s\S]*navigateTo\("\/history"\)/);
   assert.match(engineJs, /const action = story\.lastSessionId \? continueStory\(story\.lastSessionId\) : startStoryRun\(story\.key\)/);
+});
+
+test("history catalog and story detail have stable public routes", () => {
+  assert.match(indexHtml, /id="story-detail-screen"/);
+  assert.match(indexHtml, /styles\.css\?v=game-20/);
+  assert.match(indexHtml, /engine\.js\?v=engine-36/);
+  assert.match(engineJs, /function storyRoute\(story\)[\s\S]*`\/history\/\$\{encodeURIComponent/);
+  assert.match(engineJs, /if \(path === "\/history"\)[\s\S]*renderHistoryRoute\(\)/);
+  assert.match(engineJs, /if \(path\.startsWith\("\/history\/"\)\)[\s\S]*renderStoryDetailRoute/);
+  assert.match(engineJs, /homeReadButton\.addEventListener\("click", \(\) => \{[\s\S]*navigateTo\("\/history"\)/);
+  assert.match(engineJs, /card\.addEventListener\("click", \(\) => navigateTo\(storyRoute\(story\)\)\)/);
+  assert.match(engineJs, /storyDetailBack\.addEventListener\("click", \(\) => navigateTo\("\/history"\)\)/);
 });
 
 function visibleText(html) {

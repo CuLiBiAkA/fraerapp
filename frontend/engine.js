@@ -8,6 +8,7 @@ import {
 const loginScreen = document.querySelector("#login-screen");
 const authLoadingScreen = document.querySelector("#auth-loading-screen");
 const storyScreen = document.querySelector("#story-screen");
+const storyDetailScreen = document.querySelector("#story-detail-screen");
 const settingsScreen = document.querySelector("#settings-screen");
 const sceneScreen = document.querySelector("#scene-screen");
 const loginForm = document.querySelector("#login-form");
@@ -22,6 +23,12 @@ const storyPagination = document.querySelector("#story-pagination");
 const storiesPrev = document.querySelector("#stories-prev");
 const storiesNext = document.querySelector("#stories-next");
 const storiesPage = document.querySelector("#stories-page");
+const storyDetailBack = document.querySelector("#story-detail-back");
+const storyDetailCover = document.querySelector("#story-detail-cover");
+const storyDetailTitle = document.querySelector("#story-detail-title");
+const storyDetailDescription = document.querySelector("#story-detail-description");
+const storyDetailMeta = document.querySelector("#story-detail-meta");
+const storyDetailAction = document.querySelector("#story-detail-action");
 const sceneImage = document.querySelector("#scene-image");
 const sceneTitle = document.querySelector("#scene-title");
 const sceneText = document.querySelector("#scene-text");
@@ -140,6 +147,8 @@ const translations = {
     storyScreenEyebrow: "Библиотека FraerApp",
     storyScreenTitle: "Выберите историю",
     storyScreenSubtitle: "Интерактивные истории с сохранением прогресса, концовками и персональными маршрутами",
+    storyDetailEyebrow: "История FraerApp",
+    storyDetailBack: "Все истории",
     storySearchLabel: "Поиск историй",
     storySearchPlaceholder: "Название, автор или ключ",
     storySortLabel: "Сортировка",
@@ -261,6 +270,8 @@ const translations = {
     storyScreenEyebrow: "FraerApp Library",
     storyScreenTitle: "Choose a story",
     storyScreenSubtitle: "Interactive stories with saved progress, endings and personal routes.",
+    storyDetailEyebrow: "FraerApp story",
+    storyDetailBack: "All stories",
     storySearchLabel: "Search",
     storySearchPlaceholder: "Title, author or key",
     storySortLabel: "Sort",
@@ -547,6 +558,7 @@ function showOnly(screen) {
   authLoadingScreen.classList.toggle("hidden", screen !== authLoadingScreen);
   loginScreen.classList.toggle("hidden", screen !== loginScreen);
   storyScreen.classList.toggle("hidden", screen !== storyScreen);
+  storyDetailScreen.classList.toggle("hidden", screen !== storyDetailScreen);
   settingsScreen.classList.toggle("hidden", screen !== settingsScreen);
   sceneScreen.classList.toggle("hidden", screen !== sceneScreen);
   document.body.classList.toggle("is-public-home", screen === loginScreen);
@@ -568,6 +580,7 @@ function updateTopActions(screen) {
   adminButton?.classList.toggle("hidden", !loggedIn || !hasRole(roles, "admin"));
   soundControl.classList.toggle("hidden", !inScene);
   logoutButton.classList.toggle("hidden", !loggedIn);
+  storyScreen.classList.toggle("is-guest-catalog", !loggedIn);
 }
 
 function hasRole(roles, role) {
@@ -702,7 +715,7 @@ async function afterLogin() {
     return [];
   });
   updatePasskeyNudge(passkeyItems);
-  await showPublicHome();
+  await handleRoute();
 }
 
 async function signInWithPasskey() {
@@ -851,6 +864,87 @@ function renderStories(stories) {
   renderStoryPage();
 }
 
+async function ensureCatalogStories() {
+  if (catalogStories.length > 0) {
+    return catalogStories;
+  }
+  const stories = await api.stories();
+  catalogStories = Array.isArray(stories) ? stories : [];
+  return catalogStories;
+}
+
+function storyRoute(story) {
+  return `/history/${encodeURIComponent(story.slug || story.key)}`;
+}
+
+function navigateTo(path, { replace = false } = {}) {
+  if (window.location.pathname !== path) {
+    const method = replace ? "replaceState" : "pushState";
+    window.history[method]({}, document.title, path);
+  }
+  handleRoute().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
+}
+
+async function handleRoute() {
+  const path = normalizePath(window.location.pathname);
+  if (path === "/history") {
+    await renderHistoryRoute();
+    return;
+  }
+  if (path.startsWith("/history/")) {
+    await renderStoryDetailRoute(path.slice("/history/".length));
+    return;
+  }
+  await showPublicHome();
+}
+
+function normalizePath(path) {
+  if (!path || path === "/") {
+    return "/";
+  }
+  return path.endsWith("/") ? path.slice(0, -1) : path;
+}
+
+async function renderHistoryRoute() {
+  stopSound({ resetPreference: true });
+  await ensureCatalogStories();
+  catalogPage = 1;
+  renderStoryPage();
+}
+
+async function renderStoryDetailRoute(rawSlug) {
+  stopSound({ resetPreference: true });
+  const slug = decodeURIComponent(rawSlug || "");
+  const stories = await ensureCatalogStories();
+  const story = stories.find((item) => [item.slug, item.key, item.storyId].includes(slug));
+  if (!story) {
+    navigateTo("/history", { replace: true });
+    return;
+  }
+  renderStoryDetail(story);
+}
+
+function renderStoryDetail(story) {
+  showOnly(storyDetailScreen);
+  storyDetailCover.style.backgroundImage = `url("${storyCoverAsset(story)}")`;
+  storyDetailTitle.textContent = story.title;
+  storyDetailDescription.textContent = story.description || story.key;
+  storyDetailMeta.replaceChildren(
+    metric(t("storyRuns", { runs: "" }).replace(":", "").trim(), story.totalRuns ?? 0),
+    metric(t("finishedRuns", { runs: "" }).replace(":", "").trim(), story.finishedRuns ?? 0),
+    metric(t("publishedDate", { date: "" }).replace(":", "").trim(), formatDate(story.publishedAt)),
+  );
+  storyDetailAction.textContent = story.lastSessionId ? t("continueButton") : t("startButton");
+  storyDetailAction.onclick = () => {
+    if (!storage.email) {
+      openAuthModal();
+      return;
+    }
+    const action = story.lastSessionId ? continueStory(story.lastSessionId) : startStoryRun(story.key);
+    action.catch((error) => setStatus(t("errorPrefix", { message: error.message })));
+  };
+}
+
 async function startStory(storyKey) {
   return startStoryRun(storyKey, { confirmNewRun: true });
 }
@@ -967,14 +1061,7 @@ function renderHomeCarousel() {
     const title = document.createElement("strong");
     title.textContent = story.title;
     card.append(cover, title);
-    card.addEventListener("click", () => {
-      if (!storage.email) {
-        openAuthModal();
-        return;
-      }
-      const action = story.lastSessionId ? continueStory(story.lastSessionId) : startStoryRun(story.key);
-      action.catch((error) => setStatus(t("errorPrefix", { message: error.message })));
-    });
+    card.addEventListener("click", () => navigateTo(storyRoute(story)));
     homeStories.append(card);
   });
   homePrevButton.disabled = stories.length <= 1;
@@ -1089,6 +1176,14 @@ function renderStoryPage() {
   for (const story of pageStories) {
     const card = document.createElement("article");
     card.className = "story-card";
+    card.tabIndex = 0;
+    card.addEventListener("click", () => navigateTo(storyRoute(story)));
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        navigateTo(storyRoute(story));
+      }
+    });
     const cover = document.createElement("div");
     cover.className = "story-cover";
     cover.style.backgroundImage = `url("${storyCoverAsset(story)}")`;
@@ -1138,10 +1233,10 @@ function renderStoryPage() {
     const actions = document.createElement("div");
     actions.className = "story-actions";
     if (story.lastSessionId) {
-      actions.append(actionButton(t("continueButton"), () => continueStory(story.lastSessionId)));
-      actions.append(actionButton(t("newRunButton"), () => startStory(story.key), "secondary"));
+      actions.append(actionButton(t("continueButton"), () => continueStory(story.lastSessionId), "", true));
+      actions.append(actionButton(t("newRunButton"), () => startStory(story.key), "secondary", true));
     } else {
-      actions.append(actionButton(t("startButton"), () => startStory(story.key)));
+      actions.append(actionButton(t("startButton"), () => storage.email ? startStory(story.key) : openAuthModal(), "", true));
     }
     card.append(cover, titleRow, description, meta, saveContext, progressRow, actions);
     storiesList.append(card);
@@ -1199,15 +1294,18 @@ function emptyCatalogMessage(message) {
   return item;
 }
 
-function actionButton(label, action, variant = "") {
+function actionButton(label, action, variant = "", stopCardClick = false) {
   const button = document.createElement("button");
   button.type = "button";
   button.textContent = label;
   if (variant) {
     button.className = variant;
   }
-  button.addEventListener("click", () => {
-    action().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
+  button.addEventListener("click", (event) => {
+    if (stopCardClick) {
+      event.stopPropagation();
+    }
+    Promise.resolve(action()).catch((error) => setStatus(t("errorPrefix", { message: error.message })));
   });
   return button;
 }
@@ -1537,7 +1635,7 @@ passkeyRegisterButton.addEventListener("click", async () => {
 });
 
 menuButton.addEventListener("click", () => {
-  openStoryMenu().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
+  navigateTo("/history");
 });
 
 settingsButton.addEventListener("click", () => {
@@ -1608,11 +1706,7 @@ passkeyNudgeDismiss.addEventListener("click", () => {
 });
 
 homeReadButton.addEventListener("click", () => {
-  if (storage.email) {
-    openStoryMenu().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
-    return;
-  }
-  document.querySelector(".home-carousel")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  navigateTo("/history");
 });
 
 homeCreateButton.addEventListener("click", () => {
@@ -1625,7 +1719,7 @@ homeCreateButton.addEventListener("click", () => {
 
 homeSearchButton.addEventListener("click", () => {
   if (storage.email) {
-    openStoryMenu().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
+    navigateTo("/history");
   }
 });
 
@@ -1633,6 +1727,7 @@ homeSettingsButton.addEventListener("click", openSettingsModal);
 homeProfileButton.addEventListener("click", openProfileModal);
 homePrevButton.addEventListener("click", () => moveHomeCarousel(-1));
 homeNextButton.addEventListener("click", () => moveHomeCarousel(1));
+storyDetailBack.addEventListener("click", () => navigateTo("/history"));
 authModalClose.addEventListener("click", closeModals);
 settingsModalClose.addEventListener("click", closeModals);
 profileModalClose.addEventListener("click", closeModals);
@@ -1653,7 +1748,11 @@ profileLogoutButton.addEventListener("click", async () => {
   storage.clear();
   closeModals();
   passkeyNudge.classList.add("hidden");
-  showPublicHome();
+  navigateTo("/", { replace: true });
+});
+
+window.addEventListener("popstate", () => {
+  handleRoute().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
 });
 
 function initCookieBanner() {
@@ -1698,11 +1797,12 @@ if (authToken) {
   api.me()
     .then((user) => {
       storage.setUser(user);
-      return afterLogin();
+      closeModals();
+      return handleRoute();
     })
     .catch(() => {
       storage.clear();
       currentState = null;
-      showPublicHome();
+      return handleRoute();
     });
 }

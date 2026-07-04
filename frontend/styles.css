@@ -501,6 +501,7 @@ button.secondary {
 
 body:has(#login-screen:not(.hidden)),
 body:has(#story-screen:not(.hidden)),
+body:has(#story-detail-screen:not(.hidden)),
 body:has(#auth-loading-screen:not(.hidden)) {
   background:
     linear-gradient(180deg, #fbfaf7 0%, #f2efe8 100%);
@@ -509,6 +510,7 @@ body:has(#auth-loading-screen:not(.hidden)) {
 
 body:has(#login-screen:not(.hidden))::before,
 body:has(#story-screen:not(.hidden))::before,
+body:has(#story-detail-screen:not(.hidden))::before,
 body:has(#auth-loading-screen:not(.hidden))::before {
   background:
     linear-gradient(90deg, rgba(30, 28, 24, 0.035) 1px, transparent 1px),
@@ -519,6 +521,7 @@ body:has(#auth-loading-screen:not(.hidden))::before {
 
 body:has(#login-screen:not(.hidden)) .top-actions,
 body:has(#story-screen:not(.hidden)) .top-actions,
+body:has(#story-detail-screen:not(.hidden)) .top-actions,
 body:has(#auth-loading-screen:not(.hidden)) .top-actions {
   top: 18px;
   right: 24px;
@@ -526,6 +529,7 @@ body:has(#auth-loading-screen:not(.hidden)) .top-actions {
 
 body:has(#login-screen:not(.hidden)) .top-group,
 body:has(#story-screen:not(.hidden)) .top-group,
+body:has(#story-detail-screen:not(.hidden)) .top-group,
 body:has(#auth-loading-screen:not(.hidden)) .top-group {
   border-color: rgba(33, 31, 28, 0.1);
   background: rgba(255, 255, 255, 0.86);
@@ -534,12 +538,14 @@ body:has(#auth-loading-screen:not(.hidden)) .top-group {
 
 body:has(#login-screen:not(.hidden)) .top-actions button,
 body:has(#story-screen:not(.hidden)) .top-actions button,
+body:has(#story-detail-screen:not(.hidden)) .top-actions button,
 body:has(#auth-loading-screen:not(.hidden)) .top-actions button {
   color: #38342f;
 }
 
 body:has(#login-screen:not(.hidden)) .top-actions button.is-active,
 body:has(#story-screen:not(.hidden)) .top-actions button.is-active,
+body:has(#story-detail-screen:not(.hidden)) .top-actions button.is-active,
 body:has(#auth-loading-screen:not(.hidden)) .top-actions button.is-active {
   background: #2e9a83;
   color: #ffffff;
@@ -547,19 +553,22 @@ body:has(#auth-loading-screen:not(.hidden)) .top-actions button.is-active {
 
 body:has(#login-screen:not(.hidden)) .site-footer,
 body:has(#story-screen:not(.hidden)) .site-footer,
+body:has(#story-detail-screen:not(.hidden)) .site-footer,
 body:has(#auth-loading-screen:not(.hidden)) .site-footer {
   color: #6c655c;
 }
 
 body:has(#login-screen:not(.hidden)) .site-footer a,
 body:has(#story-screen:not(.hidden)) .site-footer a,
+body:has(#story-detail-screen:not(.hidden)) .site-footer a,
 body:has(#auth-loading-screen:not(.hidden)) .site-footer a {
   color: #287966;
 }
 
 .auth-loading-screen,
 .login-screen,
-.catalog-screen {
+.catalog-screen,
+.story-detail-screen {
   --screen-ink: #211f1c;
   --screen-muted: #6c655c;
   --screen-faint: #938a7d;
@@ -583,7 +592,8 @@ body:has(#auth-loading-screen:not(.hidden)) .site-footer a {
 
 .auth-loading-screen .eyebrow,
 .login-screen .eyebrow,
-.catalog-screen .eyebrow {
+.catalog-screen .eyebrow,
+.story-detail-screen .eyebrow {
   color: var(--screen-accent-strong);
   letter-spacing: 0;
 }
@@ -2177,6 +2187,111 @@ body.is-public-home .top-actions {
   background: #ffffff;
 }
 
+.catalog-screen.is-guest-catalog .catalog-tools {
+  display: none;
+}
+
+.story-list .story-card {
+  cursor: pointer;
+}
+
+.story-list .story-card:focus-visible,
+.home-story-card:focus-visible {
+  outline: 3px solid #000000;
+  outline-offset: 4px;
+}
+
+.story-detail-screen {
+  min-height: 100vh;
+  width: min(1188px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 112px 0 64px;
+  color: #000000;
+}
+
+.story-detail-back {
+  min-height: 52px;
+  margin-bottom: 24px;
+  font-size: 1rem;
+}
+
+.story-detail-card {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.95fr) minmax(320px, 1.05fr);
+  gap: clamp(24px, 5vw, 60px);
+  align-items: stretch;
+}
+
+.story-detail-cover {
+  min-height: 460px;
+  border-radius: 8px;
+  background-color: #d9d9d9;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.story-detail-copy {
+  display: grid;
+  align-content: center;
+  gap: 18px;
+}
+
+.story-detail-copy h1 {
+  color: #000000;
+  font-size: clamp(2.4rem, 5vw, 4.2rem);
+  line-height: 1.05;
+}
+
+.story-detail-copy p {
+  margin: 0;
+  color: #36312c;
+  font-size: 1.2rem;
+  line-height: 1.45;
+}
+
+.story-detail-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.story-detail-meta .story-metric {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #f2f2f2;
+}
+
+.story-detail-meta .story-metric strong {
+  color: #000000;
+}
+
+@media (max-width: 820px) {
+  .story-detail-screen {
+    width: min(430px, calc(100% - 22px));
+    padding: 84px 0 34px;
+  }
+
+  .story-detail-card {
+    grid-template-columns: 1fr;
+  }
+
+  .story-detail-cover {
+    min-height: 240px;
+  }
+
+  .story-detail-copy h1 {
+    font-size: 2.15rem;
+  }
+
+  .story-detail-copy p {
+    font-size: 1rem;
+  }
+
+  .story-detail-meta {
+    grid-template-columns: 1fr;
+  }
+}
+
 .modal-links {
   display: grid;
   gap: 10px;
@@ -2395,6 +2510,7 @@ body.is-public-home .top-actions {
 @media (max-width: 620px) {
   body:has(#login-screen:not(.hidden)) .top-actions,
   body:has(#story-screen:not(.hidden)) .top-actions,
+  body:has(#story-detail-screen:not(.hidden)) .top-actions,
   body:has(#auth-loading-screen:not(.hidden)) .top-actions {
     top: 10px;
     right: 10px;

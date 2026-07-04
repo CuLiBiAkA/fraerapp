@@ -9,7 +9,7 @@
     <meta property="og:description" content="FraerApp — сервис интерактивных историй с сохранением прогресса, вариантами выбора и персональными маршрутами.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://fraerapp.ru/">
-    <link rel="stylesheet" href="/styles.css?v=game-19">
+    <link rel="stylesheet" href="/styles.css?v=game-20">
   </head>
   <body>
     <main class="game">
@@ -109,6 +109,20 @@
             <button id="stories-next" type="button" class="secondary" data-i18n="nextPage">Далее</button>
           </div>
         </section>
+      </section>
+
+      <section id="story-detail-screen" class="story-detail-screen hidden" aria-label="Story">
+        <button id="story-detail-back" class="outline-button story-detail-back" type="button" data-i18n="storyDetailBack">Все истории</button>
+        <article class="story-detail-card">
+          <div id="story-detail-cover" class="story-detail-cover"></div>
+          <div class="story-detail-copy">
+            <p class="eyebrow" data-i18n="storyDetailEyebrow">История FraerApp</p>
+            <h1 id="story-detail-title"></h1>
+            <p id="story-detail-description"></p>
+            <div id="story-detail-meta" class="story-detail-meta"></div>
+            <button id="story-detail-action" type="button" class="outline-button" data-i18n="startButton">Начать</button>
+          </div>
+        </article>
       </section>
 
       <section id="settings-screen" class="settings-screen hidden" aria-label="Settings">
@@ -254,6 +268,6 @@
       </div>
     </aside>
 
-    <script src="/engine.js?v=engine-35" type="module"></script>
+    <script src="/engine.js?v=engine-36" type="module"></script>
   </body>
 </html>
