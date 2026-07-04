@@ -90,6 +90,10 @@ const translations = {
     loginSubtitle: "Читай. Создавай. Твори.",
     homeReadStories: "Читать истории",
     homeCreateStory: "Создать свою",
+    homeSearchLabel: "Поиск историй",
+    homeSettingsLabel: "Настройки",
+    homeProfileGuestLabel: "Войти в профиль",
+    homeProfileAccountLabel: "Открыть аккаунт",
     authModalTitle: "Начните знакомство с историей",
     authModalText: "Сейчас вам доступен просмотр карточек историй. После регистрации вы сможете проходить истории, сохранять прогресс и открыть доступ ко всей библиотеке.",
     settingsModalTitle: "Настройки",
@@ -213,6 +217,10 @@ const translations = {
     loginSubtitle: "Read. Create. Imagine.",
     homeReadStories: "Read stories",
     homeCreateStory: "Create yours",
+    homeSearchLabel: "Search stories",
+    homeSettingsLabel: "Settings",
+    homeProfileGuestLabel: "Sign in",
+    homeProfileAccountLabel: "Open account",
     authModalTitle: "Start exploring the story",
     authModalText: "You can browse story cards now. After sign-in you can play stories, save progress, and access the full library.",
     settingsModalTitle: "Settings",
@@ -575,6 +583,9 @@ function updateTopActions(screen) {
   settingsButton.classList.toggle("hidden", !loggedIn || screen === settingsScreen);
   homeSearchButton.classList.toggle("hidden", !loggedIn);
   homeProfileButton.classList.toggle("is-guest", !loggedIn);
+  homeSearchButton.setAttribute("aria-label", t("homeSearchLabel"));
+  homeSettingsButton.setAttribute("aria-label", t("homeSettingsLabel"));
+  homeProfileButton.setAttribute("aria-label", loggedIn ? t("homeProfileAccountLabel") : t("homeProfileGuestLabel"));
   homeCreateButton.classList.toggle("hidden", !hasAnyRole(roles, ["author", "admin"]));
   builderButton?.classList.toggle("hidden", !loggedIn || !hasAnyRole(roles, ["author", "admin"]));
   adminButton?.classList.toggle("hidden", !loggedIn || !hasRole(roles, "admin"));
@@ -1051,17 +1062,21 @@ function renderHomeCarousel() {
 
   homeCarouselIndex = Math.min(Math.max(homeCarouselIndex, 0), stories.length - 1);
   stories.forEach((story, index) => {
+    const offset = index - homeCarouselIndex;
     const card = document.createElement("button");
     card.type = "button";
     card.className = "home-story-card";
-    card.style.setProperty("--story-offset", String(index - homeCarouselIndex));
+    card.dataset.offset = String(offset);
+    card.classList.toggle("is-active", offset === 0);
+    card.classList.toggle("is-outside-view", Math.abs(offset) > 1);
+    card.style.setProperty("--story-offset", String(offset));
     const cover = document.createElement("span");
     cover.className = "home-story-cover";
     cover.style.backgroundImage = `url("${storyCoverAsset(story)}")`;
     const title = document.createElement("strong");
     title.textContent = story.title;
     card.append(cover, title);
-    card.addEventListener("click", () => navigateTo(storyRoute(story)));
+    card.addEventListener("click", () => activateHomeStory(story));
     homeStories.append(card);
   });
   homePrevButton.disabled = stories.length <= 1;
@@ -1073,6 +1088,15 @@ function moveHomeCarousel(direction) {
   if (stories.length <= 1) return;
   homeCarouselIndex = (homeCarouselIndex + direction + stories.length) % stories.length;
   renderHomeCarousel();
+}
+
+function activateHomeStory(story) {
+  if (!storage.email) {
+    openAuthModal();
+    return;
+  }
+  const action = story.lastSessionId ? continueStory(story.lastSessionId) : startStoryRun(story.key);
+  action.catch((error) => setStatus(t("errorPrefix", { message: error.message })));
 }
 
 function renderGameStats(state) {

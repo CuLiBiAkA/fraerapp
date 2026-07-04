@@ -2292,6 +2292,116 @@ body.is-public-home .top-actions {
   }
 }
 
+/* Final homepage overrides for the signed-in and guest public shell. */
+.home-screen {
+  min-height: 100svh;
+  padding-bottom: 40px;
+}
+
+.home-header {
+  min-height: 70px;
+  border-bottom: 1px solid #cfcfcf;
+}
+
+.brand-symbol {
+  background: #f4f4f4;
+  font-weight: 900;
+}
+
+.home-copy {
+  max-width: 610px;
+}
+
+.home-copy h1 {
+  font-size: 3.45rem;
+  line-height: 1.18;
+}
+
+.home-actions {
+  align-items: center;
+}
+
+body:not(.is-authenticated) .home-actions {
+  max-width: 560px;
+}
+
+body.is-authenticated .profile-button.is-guest::after {
+  display: none;
+}
+
+.home-story-card {
+  min-height: 246px;
+  cursor: pointer;
+}
+
+.home-story-card.is-active {
+  background: #d0d0d0;
+}
+
+.home-story-card.is-outside-view {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.home-story-card:focus-visible {
+  outline: 3px solid #000000;
+  outline-offset: 5px;
+}
+
+.home-story-cover {
+  aspect-ratio: 16 / 10;
+  height: auto;
+  border: 0;
+}
+
+@media (max-width: 820px) {
+  .home-copy h1 {
+    font-size: 2.05rem;
+  }
+}
+
+@media (max-width: 620px) {
+  .home-screen {
+    min-height: 100svh;
+  }
+
+  .home-copy {
+    margin-top: 28px;
+  }
+
+  .home-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: min(100%, 300px);
+  }
+
+  .home-actions .outline-button {
+    width: 100%;
+  }
+
+  .home-carousel {
+    min-height: 286px;
+    margin-top: 28px;
+  }
+
+  .home-carousel-window {
+    height: 246px;
+    margin: 0 56px;
+  }
+
+  .home-story-card {
+    top: 18px;
+    width: 178px;
+    min-height: 216px;
+    transform: translateX(-50%);
+  }
+
+  .home-story-card:not(.is-active) {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
 .modal-links {
   display: grid;
   gap: 10px;
@@ -2867,5 +2977,44 @@ body:has(#story-detail-screen:not(.hidden)) {
 
   .story-detail-meta {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Last homepage pass after catalog/detail overrides. */
+@media (max-width: 620px) {
+  .home-copy {
+    margin-top: 28px;
+  }
+
+  .home-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: min(100%, 300px);
+  }
+
+  .home-actions .outline-button {
+    width: 100%;
+  }
+
+  .home-carousel {
+    min-height: 286px;
+    margin-top: 28px;
+  }
+
+  .home-carousel-window {
+    height: 246px;
+    margin: 0 56px;
+  }
+
+  .home-story-card {
+    top: 18px;
+    width: 178px;
+    min-height: 216px;
+    transform: translateX(-50%);
+  }
+
+  .home-story-card:not(.is-active) {
+    opacity: 0;
+    pointer-events: none;
   }
 }
