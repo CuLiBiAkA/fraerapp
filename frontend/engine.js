@@ -71,6 +71,7 @@ const profileModalEmail = document.querySelector("#profile-modal-email");
 const profileLogoutButton = document.querySelector("#profile-logout");
 const modalLangRuButton = document.querySelector("#modal-lang-ru");
 const modalLangEnButton = document.querySelector("#modal-lang-en");
+const modalSoundToggle = document.querySelector("#modal-sound-toggle");
 
 const translations = {
   ru: {
@@ -86,6 +87,7 @@ const translations = {
     authModalText: "Сейчас вам доступен просмотр карточек историй. После регистрации вы сможете проходить истории, сохранять прогресс и открыть доступ ко всей библиотеке.",
     settingsModalTitle: "Настройки",
     settingsLanguage: "Язык",
+    settingsSound: "Звук",
     profileModalTitle: "Аккаунт",
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
@@ -206,6 +208,7 @@ const translations = {
     authModalText: "You can browse story cards now. After sign-in you can play stories, save progress, and access the full library.",
     settingsModalTitle: "Settings",
     settingsLanguage: "Language",
+    settingsSound: "Sound",
     profileModalTitle: "Account",
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
@@ -560,6 +563,7 @@ function updateTopActions(screen) {
   settingsButton.classList.toggle("hidden", !loggedIn || screen === settingsScreen);
   homeSearchButton.classList.toggle("hidden", !loggedIn);
   homeProfileButton.classList.toggle("is-guest", !loggedIn);
+  homeCreateButton.classList.toggle("hidden", !hasAnyRole(roles, ["author", "admin"]));
   builderButton?.classList.toggle("hidden", !loggedIn || !hasAnyRole(roles, ["author", "admin"]));
   adminButton?.classList.toggle("hidden", !loggedIn || !hasRole(roles, "admin"));
   soundControl.classList.toggle("hidden", !inScene);
@@ -698,16 +702,7 @@ async function afterLogin() {
     return [];
   });
   updatePasskeyNudge(passkeyItems);
-  if (storage.sessionId) {
-    try {
-      render(await api.state(storage.sessionId));
-      return;
-    } catch (error) {
-      storage.clearGame();
-    }
-  }
-
-  renderStories(await api.stories());
+  await showPublicHome();
 }
 
 async function signInWithPasskey() {
@@ -857,7 +852,11 @@ function renderStories(stories) {
 }
 
 async function startStory(storyKey) {
-  if (!confirm(t("newRunConfirm"))) {
+  return startStoryRun(storyKey, { confirmNewRun: true });
+}
+
+async function startStoryRun(storyKey, { confirmNewRun = false } = {}) {
+  if (confirmNewRun && !confirm(t("newRunConfirm"))) {
     return;
   }
   stopSound({ resetPreference: true });
@@ -973,7 +972,7 @@ function renderHomeCarousel() {
         openAuthModal();
         return;
       }
-      const action = story.lastSessionId ? continueStory(story.lastSessionId) : startStory(story.key);
+      const action = story.lastSessionId ? continueStory(story.lastSessionId) : startStoryRun(story.key);
       action.catch((error) => setStatus(t("errorPrefix", { message: error.message })));
     });
     homeStories.append(card);
@@ -1371,6 +1370,9 @@ function updateSoundLabel() {
   const state = soundRequested ? "on" : "off";
   soundToggle.dataset.soundState = state;
   soundToggle.textContent = t(soundRequested ? "soundOn" : "soundOff");
+  modalSoundToggle.dataset.soundState = state;
+  modalSoundToggle.textContent = t(soundRequested ? "soundOn" : "soundOff");
+  modalSoundToggle.setAttribute("aria-pressed", String(soundRequested));
   volumeSlider.value = String(soundVolume);
   volumeSlider.style.setProperty("--volume-level", `${soundVolume}%`);
 }
@@ -1431,6 +1433,31 @@ function createSound() {
       audio.volume = clamp(volume, 0, 1);
     },
   };
+}
+
+async function toggleSoundPreference() {
+  if (!sound) {
+    sound = createSound();
+  }
+  if (!sound) {
+    setStatus(soundUnavailableReason || t("webAudioUnsupported"));
+    return;
+  }
+  if (soundRequested) {
+    stopSound({ resetPreference: true });
+    return;
+  }
+  try {
+    soundRequested = true;
+    sound.setVolume(soundVolume / 100);
+    if (currentState?.scene?.musicUrl) {
+      await sound.start(currentState.scene.musicUrl);
+    }
+    updateSoundLabel();
+  } catch (error) {
+    stopSound({ resetPreference: true });
+    setStatus(t("errorPrefix", { message: error.message }));
+  }
 }
 
 loginForm.addEventListener("submit", async (event) => {
@@ -1531,26 +1558,7 @@ logoutButton.addEventListener("click", async () => {
 });
 
 soundToggle.addEventListener("click", async () => {
-  if (!sound) {
-    sound = createSound();
-  }
-  if (!sound) {
-    setStatus(soundUnavailableReason || t("webAudioUnsupported"));
-    return;
-  }
-  if (soundRequested) {
-    stopSound({ resetPreference: true });
-    return;
-  }
-  try {
-    soundRequested = true;
-    sound.setVolume(soundVolume / 100);
-    await sound.start(currentState?.scene?.musicUrl);
-    updateSoundLabel();
-  } catch (error) {
-    stopSound({ resetPreference: true });
-    setStatus(t("errorPrefix", { message: error.message }));
-  }
+  await toggleSoundPreference();
 });
 
 volumeSlider.addEventListener("input", () => {
@@ -1600,6 +1608,10 @@ passkeyNudgeDismiss.addEventListener("click", () => {
 });
 
 homeReadButton.addEventListener("click", () => {
+  if (storage.email) {
+    openStoryMenu().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
+    return;
+  }
   document.querySelector(".home-carousel")?.scrollIntoView({ behavior: "smooth", block: "center" });
 });
 
@@ -1629,6 +1641,9 @@ document.querySelectorAll("[data-modal-close]").forEach((node) => {
 });
 modalLangRuButton.addEventListener("click", () => setLanguage("ru"));
 modalLangEnButton.addEventListener("click", () => setLanguage("en"));
+modalSoundToggle.addEventListener("click", () => {
+  toggleSoundPreference();
+});
 profileLogoutButton.addEventListener("click", async () => {
   try {
     await api.logout();

@@ -10,7 +10,7 @@ FraerApp is an interactive story/game platform with:
 - admin/auth panel;
 - production Docker deployment behind nginx and Cloudflare.
 
-The unauthenticated public homepage is a Figma-aligned story preview screen: guests can browse real published story cards with titles and cover visuals, but starting a story or creating one opens the authorization modal. Search is hidden for guests. The in-story runtime keeps the darker immersive game presentation.
+The public homepage is a Figma-aligned story preview screen for both guests and signed-in users. Guests can browse real published story cards with titles and cover visuals, but starting a story or creating one opens the authorization modal. Signed-in users keep the same homepage shell with an active profile icon: story cards start/continue stories, "Read stories" opens the catalog, search is available, and "Create yours" is shown only to author/admin users. The in-story runtime keeps the darker immersive game presentation.
 
 This file is safe to commit. Concrete SSH targets, private IPs, and other operator-only values belong in `LOCAL_OPERATOR_NOTES.private.md`, which is ignored by git.
 
