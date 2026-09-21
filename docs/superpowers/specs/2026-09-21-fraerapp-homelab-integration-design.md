@@ -76,8 +76,8 @@ Public router changes are outside this execution because router access has not b
 The intended router mapping is:
 
 ```text
-external TCP 80  -> 192.168.0.15:8088
-external TCP 443 -> 192.168.0.15:8443
+external TCP 80  -> $FRAERAPP_LAN_IP:8088
+external TCP 443 -> $FRAERAPP_LAN_IP:8443
 ```
 
 This mapping bypasses Nginx Proxy Manager for the public FraerApp domain and preserves NPM ownership of host ports 80/443 for local `*.home.arpa` services. If the router cannot translate external and internal ports, public routing requires a separate reviewed design instead of binding FraerApp directly to ports already owned by NPM.
@@ -94,7 +94,7 @@ After implementation:
 4. Check API readiness and the public catalog through the local edge.
 5. Check recent logs for API, auth-service, edge, and both databases.
 6. Confirm observability containers remain stopped.
-7. Confirm NPM is running on `192.168.0.15:80/443` and all existing `*.home.arpa` routes still respond.
+7. Confirm NPM is running on `$FRAERAPP_LAN_IP:80/443` and all existing `*.home.arpa` routes still respond.
 8. Confirm Homepage contains the FraerApp entry and all existing entries remain present.
 9. Check the public domain, but report it as pending router/DNS work if the origin is not reachable externally.
 
