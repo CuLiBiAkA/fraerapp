@@ -1,6 +1,6 @@
 # FraerApp deploy and ops runbook
 
-Last updated: 2026-07-03.
+Last updated: 2026-09-22.
 
 This file is a practical checklist for production operations. Read `PROJECT_CONTEXT.md` first.
 
@@ -14,6 +14,7 @@ Set these before running production commands:
 export FRAERAPP_SSH='<ssh-target>'
 export FRAERAPP_REMOTE_DIR='<remote-runtime-directory>'
 export FRAERAPP_DOMAIN='<public-domain>'
+export FRAERAPP_LAN_IP='<server-lan-ip>'
 ```
 
 ## Quick production status
@@ -42,6 +43,38 @@ Check current public IP:
 ssh "$FRAERAPP_SSH" 'curl -sS https://api.ipify.org; echo'
 ```
 
+## Shared homelab host
+
+FraerApp shares its Docker host with Nginx Proxy Manager, Homepage, AdGuard, Home Assistant, Forgejo, Beszel, Portainer, Uptime Kuma, and other services. Before starting or recreating FraerApp, inspect host port ownership and running containers:
+
+```bash
+ssh "$FRAERAPP_SSH" 'docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"'
+ssh "$FRAERAPP_SSH" 'ss -lnt | grep -E ":(80|443|3000|8088|8443|8090)[[:space:]]" || true'
+```
+
+Start only the FraerApp core when observability is not required:
+
+```bash
+ssh "$FRAERAPP_SSH" "cd '$FRAERAPP_REMOTE_DIR' && docker compose up -d postgres auth-postgres api auth-service story-builder edge"
+```
+
+Confirm the core restart policy after bringing old containers back online:
+
+```bash
+ssh "$FRAERAPP_SSH" "cd '$FRAERAPP_REMOTE_DIR' && for service in postgres auth-postgres api auth-service story-builder edge; do cid=\$(docker compose ps -q \"\$service\"); docker inspect -f \"\$service restart={{.HostConfig.RestartPolicy.Name}} status={{.State.Status}}\" \"\$cid\"; done"
+```
+
+Do not start `grafana`, `prometheus`, `loki`, `promtail`, `node-exporter`, `cadvisor`, `nginx-exporter`, `postgres-exporter`, or `auth-postgres-exporter` as part of this minimal startup. Grafana's configured port may conflict with another homelab service.
+
+Nginx Proxy Manager owns the server LAN ports 80/443 for local `*.home.arpa` services. FraerApp edge stays on loopback 8088/8443. The intended router mappings for the public FraerApp domain are:
+
+```text
+external TCP 80  -> $FRAERAPP_LAN_IP:8088
+external TCP 443 -> $FRAERAPP_LAN_IP:8443
+```
+
+Do not bind FraerApp directly to the host LAN ports 80/443 while Nginx Proxy Manager owns them.
+
 ## Logs
 
 Recent relevant logs:
@@ -65,6 +98,7 @@ Interpretation:
 - `401 /auth/verify` usually means login link expired or already used.
 - `403 /auth/passkeys/registration/options` usually means recent auth is required.
 - Cloudflare `522` means Cloudflare cannot connect to origin.
+- Cloudflare `525` means Cloudflare reached an origin listener but could not complete TLS. Verify that external TCP 443 maps to `$FRAERAPP_LAN_IP:8443`; mapping it to Nginx Proxy Manager's LAN port 443 sends the FraerApp hostname to the wrong TLS endpoint.
 - nginx `client request body is buffered to a temporary file` during story import is usually non-critical.
 
 ## Cloudflare 522 / site unavailable

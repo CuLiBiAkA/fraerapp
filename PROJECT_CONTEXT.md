@@ -1,6 +1,6 @@
 # FraerApp project context
 
-Last updated: 2026-07-04.
+Last updated: 2026-09-22.
 
 FraerApp is an interactive story/game platform with:
 
@@ -146,6 +146,7 @@ Use these variables in commands:
 FRAERAPP_SSH=<ssh-target>
 FRAERAPP_REMOTE_DIR=<remote-runtime-directory>
 FRAERAPP_DOMAIN=<public-domain>
+FRAERAPP_LAN_IP=<server-lan-ip>
 ```
 
 Concrete values for this checkout are kept in `LOCAL_OPERATOR_NOTES.private.md` when available.
@@ -174,6 +175,21 @@ postgres-exporter
 nginx-exporter
 ```
 
+Production shares its Docker host with other homelab services. Nginx Proxy Manager owns the host LAN ports 80/443 for local `*.home.arpa` routes, while FraerApp edge binds loopback ports 8088/8443 and terminates its own TLS. Homepage includes a FraerApp tile that links to the public domain.
+
+The FraerApp core can run without its observability group. The minimal production service set is:
+
+```text
+postgres
+auth-postgres
+api
+auth-service
+story-builder
+edge
+```
+
+Do not start Grafana on this shared host without checking port ownership; another homelab service may already own port 3000.
+
 ## Domain and DNS
 
 Cloudflare fronts the public domain.
@@ -194,6 +210,8 @@ ssh "$FRAERAPP_SSH" 'curl -sS https://api.ipify.org'
 ```
 
 If local origin is 200 but Cloudflare is 522, update Cloudflare A records to the current public IP.
+
+Cloudflare `525` means the TCP origin is reachable but the TLS handshake reached the wrong service or failed. On the shared-host topology, verify that the router maps external TCP 443 to `$FRAERAPP_LAN_IP:8443`, not to the LAN port 443 owned by Nginx Proxy Manager.
 
 ## Auth and users
 
