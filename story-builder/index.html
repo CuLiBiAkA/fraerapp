@@ -35,6 +35,7 @@
       </header>
 
       <section class="actions">
+        <a class="file-button" href="/" data-i18n="backToSite">На сайт / войти</a>
         <a class="file-button nav-link" href="board.html" data-i18n="boardView">Карта сценария</a>
         <button id="load-example" type="button" data-i18n="loadExample">Загрузить пример</button>
         <button id="copy-json" type="button" data-i18n="copyJson">Копировать JSON</button>
@@ -150,6 +151,7 @@
       <form method="dialog">
         <h2 data-i18n="pasteStoryJson">Вставить Story JSON</h2>
         <textarea id="paste-area" rows="18"></textarea>
+        <p id="paste-error" role="alert"></p>
         <div class="actions">
           <button value="cancel" type="submit" data-i18n="cancelButton">Отмена</button>
           <button id="apply-paste" value="default" type="button" data-i18n="applyButton">Применить</button>
@@ -162,6 +164,6 @@
       <button id="quick-add-scene" type="button" title="Добавить сцену">+ Сцена</button>
     </div>
 
-    <script src="app.js?v=builder-33" type="module"></script>
+    <script src="app.js?v=builder-34" type="module"></script>
   </body>
 </html>

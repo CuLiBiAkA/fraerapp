@@ -153,6 +153,8 @@ curl -k --resolve "$FRAERAPP_DOMAIN:443:<CURRENT_PUBLIC_IP>" "https://$FRAERAPP_
 
 Frontend files are mounted into nginx. Rebuild is usually not required.
 
+The cosmic homepage also requires `frontend/home.css` and the complete `frontend/assets/home/` directory (background, exported SVGs, local fonts). Back up existing versions and install these alongside `index.html` and `engine.js`; deploying only the legacy file list below is insufficient. Verify `/home.css?v=cosmos-1` and `/assets/home/cosmos.png` return 200, and inspect the homepage at desktop and mobile widths. Keep the legal footer links functional.
+
 1. Check local git status:
 
 ```bash
@@ -167,7 +169,7 @@ node --check frontend/legal.js
 node --check frontend/legal-config.js
 node --check scripts/validate-production.mjs
 node scripts/validate-production.mjs
-node --test frontend/engine.i18n.test.js frontend/passkeys.test.js frontend/public-surface.test.js story-builder/core.test.js story-builder/auth-session.test.js
+node --test frontend/*.test.js story-builder/*.test.js
 git diff --check
 ```
 
@@ -318,6 +320,21 @@ Production note: the webhook should return Telegram's `sendMessage` method JSON 
 Telegram retries failed webhook updates. The webhook must avoid returning `429` for normal user messages, because Telegram will keep retrying and the bot will appear silent.
 
 ## Story creation and publication
+
+### Builder frontend changes
+
+The builder is copied into its nginx image by `story-builder/Dockerfile`; it is not mounted like the public frontend. Back up the remote `story-builder/` directory before copying changed files, then rebuild only this service:
+
+```bash
+node --check story-builder/app.js
+node --check story-builder/board.js
+node --test story-builder/*.test.js
+ssh "$FRAERAPP_SSH" "cd '$FRAERAPP_REMOTE_DIR' && docker compose up -d --build --no-deps story-builder && docker compose exec -T edge nginx -s reload"
+```
+
+Reloading edge refreshes nginx's resolution of the recreated builder container. Verify builder health and both `/builder/` and `/builder/board.html`, including the versioned script URL from the deployed HTML. Verify the public catalog before and after. Do not use validation, import or publication on real stories as a deploy smoke test; exercise author mutations against isolated test data. “Validate last import” must issue only the validation call and leave publication state unchanged.
+
+After a static release, compare the bytes or SHA-256 of the served versioned assets with the local files, in addition to checking HTTP status. A 200 response alone can conceal an old cached asset or an SPA fallback page.
 
 Story files live in:
 

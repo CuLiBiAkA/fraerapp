@@ -103,9 +103,9 @@ test("signed-in homepage keeps the public shell but enables user actions", () =>
   assert.match(indexHtml, /id="modal-sound-toggle"/);
   assert.match(engineJs, /async function afterLogin\(\)[\s\S]*await handleRoute\(\);/);
   assert.match(engineJs, /homeProfileButton\.classList\.toggle\("is-guest", !loggedIn\)/);
-  assert.match(engineJs, /homeSearchButton\.classList\.toggle\("hidden", !loggedIn\)/);
+  assert.doesNotMatch(engineJs, /homeSearchButton\.classList\.toggle\("hidden", !loggedIn\)/);
   assert.match(engineJs, /homeProfileButton\.setAttribute\("aria-label", loggedIn \? t\("homeProfileAccountLabel"\) : t\("homeProfileGuestLabel"\)\)/);
-  assert.match(engineJs, /homeCreateButton\.classList\.toggle\("hidden", !hasAnyRole\(roles, \["author", "admin"\]\)\)/);
+  assert.match(engineJs, /homeCreateButton\.classList\.toggle\("hidden", loggedIn && !hasAnyRole\(roles, \["author", "admin"\]\)\)/);
   assert.match(engineJs, /homeReadButton\.addEventListener\("click", \(\) => \{[\s\S]*navigateTo\("\/history"\)/);
   assert.match(engineJs, /function activateHomeStory\(story\)[\s\S]*if \(!storage\.email\)[\s\S]*openAuthModal\(\)/);
   assert.match(engineJs, /const action = story\.lastSessionId \? continueStory\(story\.lastSessionId\) : startStoryRun\(story\.key\)/);
@@ -113,8 +113,8 @@ test("signed-in homepage keeps the public shell but enables user actions", () =>
 
 test("history catalog and story detail have stable public routes", () => {
   assert.match(indexHtml, /id="story-detail-screen"/);
-  assert.match(indexHtml, /styles\.css\?v=game-22/);
-  assert.match(indexHtml, /engine\.js\?v=engine-37/);
+  assert.match(indexHtml, /styles\.css\?v=game-24/);
+  assert.match(indexHtml, /engine\.js\?v=engine-39/);
   assert.match(engineJs, /function storyRoute\(story\)[\s\S]*`\/history\/\$\{encodeURIComponent/);
   assert.match(engineJs, /if \(path === "\/history"\)[\s\S]*renderHistoryRoute\(\)/);
   assert.match(engineJs, /if \(path\.startsWith\("\/history\/"\)\)[\s\S]*renderStoryDetailRoute/);

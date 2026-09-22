@@ -68,6 +68,9 @@ const homeCreateButton = document.querySelector("#home-create");
 const homeStories = document.querySelector("#home-stories");
 const homePrevButton = document.querySelector("#home-prev");
 const homeNextButton = document.querySelector("#home-next");
+const appNotice = document.querySelector("#app-notice");
+const appNoticeText = document.querySelector("#app-notice-text");
+let modalReturnFocus = null;
 const authModal = document.querySelector("#auth-modal");
 const authModalClose = document.querySelector("#auth-modal-close");
 const settingsModal = document.querySelector("#settings-modal");
@@ -86,9 +89,11 @@ const translations = {
     authLoadingEyebrow: "FraerApp Stories",
     authLoadingTitle: "Проверяем вход",
     authLoadingText: "Подождите несколько секунд. Если сессия активна, мы сразу откроем библиотеку.",
-    loginTitle: "Истории, которые оживают в твоем воображении",
+    loginTitle: "Истории,\nкоторые оживают\nв твоем воображении",
     loginSubtitle: "Читай. Создавай. Твори.",
     homeReadStories: "Читать истории",
+    backHome: "← На главную",
+    catalogLoadFailed: "Не удалось загрузить истории. Обновите страницу, чтобы повторить попытку.",
     homeCreateStory: "Создать свою",
     homeSearchLabel: "Поиск историй",
     homeSettingsLabel: "Настройки",
@@ -213,9 +218,11 @@ const translations = {
     authLoadingEyebrow: "FraerApp Stories",
     authLoadingTitle: "Checking sign-in",
     authLoadingText: "Please wait a few seconds. If your session is active, we will open the library.",
-    loginTitle: "Stories that come alive in your imagination",
+    loginTitle: "Stories,\nthat come alive\nin your imagination",
     loginSubtitle: "Read. Create. Imagine.",
     homeReadStories: "Read stories",
+    backHome: "← Home",
+    catalogLoadFailed: "Could not load stories. Reload the page to try again.",
     homeCreateStory: "Create yours",
     homeSearchLabel: "Search stories",
     homeSettingsLabel: "Settings",
@@ -581,12 +588,11 @@ function updateTopActions(screen) {
   syncRoleActionButtons();
   menuButton.classList.toggle("hidden", !loggedIn || screen === storyScreen);
   settingsButton.classList.toggle("hidden", !loggedIn || screen === settingsScreen);
-  homeSearchButton.classList.toggle("hidden", !loggedIn);
   homeProfileButton.classList.toggle("is-guest", !loggedIn);
   homeSearchButton.setAttribute("aria-label", t("homeSearchLabel"));
   homeSettingsButton.setAttribute("aria-label", t("homeSettingsLabel"));
   homeProfileButton.setAttribute("aria-label", loggedIn ? t("homeProfileAccountLabel") : t("homeProfileGuestLabel"));
-  homeCreateButton.classList.toggle("hidden", !hasAnyRole(roles, ["author", "admin"]));
+  homeCreateButton.classList.toggle("hidden", loggedIn && !hasAnyRole(roles, ["author", "admin"]));
   builderButton?.classList.toggle("hidden", !loggedIn || !hasAnyRole(roles, ["author", "admin"]));
   adminButton?.classList.toggle("hidden", !loggedIn || !hasRole(roles, "admin"));
   soundControl.classList.toggle("hidden", !inScene);
@@ -646,6 +652,10 @@ function syncRoleActionButton(current, shouldExist, id, i18nKey, onClick) {
 
 function setStatus(message) {
   status.textContent = message;
+  if (sceneScreen.classList.contains("hidden") && message.startsWith(t("errorPrefix", { message: "" }))) {
+    appNoticeText.textContent = message;
+    appNotice.classList.remove("hidden");
+  }
 }
 
 function setLoginStatus(message, tone = "info") {
@@ -893,20 +903,27 @@ function navigateTo(path, { replace = false } = {}) {
     const method = replace ? "replaceState" : "pushState";
     window.history[method]({}, document.title, path);
   }
-  handleRoute().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
+  return handleRoute().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
 }
 
 async function handleRoute() {
-  const path = normalizePath(window.location.pathname);
-  if (path === "/history") {
-    await renderHistoryRoute();
-    return;
+  appNotice.classList.add("hidden");
+  try {
+    const path = normalizePath(window.location.pathname);
+    if (path === "/history") {
+      await renderHistoryRoute();
+      return;
+    }
+    if (path.startsWith("/history/")) {
+      await renderStoryDetailRoute(path.slice("/history/".length));
+      return;
+    }
+    await showPublicHome();
+  } catch {
+    showOnly(storyScreen);
+    storiesList.replaceChildren(emptyCatalogMessage(t("catalogLoadFailed")));
+    storyPagination.classList.add("hidden");
   }
-  if (path.startsWith("/history/")) {
-    await renderStoryDetailRoute(path.slice("/history/".length));
-    return;
-  }
-  await showPublicHome();
 }
 
 function normalizePath(path) {
@@ -1003,9 +1020,12 @@ function updatePasskeyNudge(passkeys = []) {
 }
 
 function openModal(modal) {
+  const returnFocus = document.activeElement;
   closeModals();
+  modalReturnFocus = returnFocus;
   modal.classList.remove("hidden");
   document.body.classList.add("modal-open");
+  modal.querySelector("button:not([disabled]), a[href], input:not([disabled])")?.focus();
 }
 
 function closeModals() {
@@ -1013,6 +1033,8 @@ function closeModals() {
   settingsModal.classList.add("hidden");
   profileModal.classList.add("hidden");
   document.body.classList.remove("modal-open");
+  if (modalReturnFocus?.isConnected) modalReturnFocus.focus();
+  modalReturnFocus = null;
 }
 
 function openAuthModal() {
@@ -1038,8 +1060,9 @@ async function showPublicHome() {
   try {
     const stories = await api.stories();
     catalogStories = Array.isArray(stories) ? stories : [];
-  } catch {
+  } catch (error) {
     catalogStories = [];
+    setStatus(t("errorPrefix", { message: t("catalogLoadFailed") }));
   }
   homeCarouselIndex = catalogStories.length > 2 ? 1 : 0;
   showOnly(loginScreen);
@@ -1062,13 +1085,16 @@ function renderHomeCarousel() {
 
   homeCarouselIndex = Math.min(Math.max(homeCarouselIndex, 0), stories.length - 1);
   stories.forEach((story, index) => {
-    const offset = index - homeCarouselIndex;
+    let offset = (index - homeCarouselIndex + stories.length) % stories.length;
+    if (offset > stories.length / 2) offset -= stories.length;
     const card = document.createElement("button");
     card.type = "button";
     card.className = "home-story-card";
     card.dataset.offset = String(offset);
     card.classList.toggle("is-active", offset === 0);
-    card.classList.toggle("is-outside-view", Math.abs(offset) > 1);
+    card.classList.toggle("is-outside-view", Math.abs(offset) > 2);
+    card.tabIndex = offset === 0 ? 0 : -1;
+    card.setAttribute("aria-hidden", String(Math.abs(offset) > 2));
     card.style.setProperty("--story-offset", String(offset));
     const cover = document.createElement("span");
     cover.className = "home-story-cover";
@@ -1741,10 +1767,9 @@ homeCreateButton.addEventListener("click", () => {
   openAuthModal();
 });
 
-homeSearchButton.addEventListener("click", () => {
-  if (storage.email) {
-    navigateTo("/history");
-  }
+homeSearchButton.addEventListener("click", async () => {
+  await navigateTo("/history");
+  storySearch.focus();
 });
 
 homeSettingsButton.addEventListener("click", openSettingsModal);
@@ -1777,6 +1802,28 @@ profileLogoutButton.addEventListener("click", async () => {
 
 window.addEventListener("popstate", () => {
   handleRoute().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
+});
+
+document.querySelector("#app-notice-close").addEventListener("click", () => appNotice.classList.add("hidden"));
+document.addEventListener("keydown", (event) => {
+  const modal = document.querySelector(".modal-layer:not(.hidden)");
+  if (!modal) return;
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeModals();
+  } else if (event.key === "Tab") {
+    const controls = [...modal.querySelectorAll("button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex='0']")]
+      .filter(node => node.getClientRects().length > 0);
+    const first = controls[0];
+    const last = controls.at(-1);
+    if (event.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) {
+      event.preventDefault();
+      first?.focus();
+    }
+  }
 });
 
 function initCookieBanner() {

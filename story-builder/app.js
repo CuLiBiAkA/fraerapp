@@ -42,6 +42,9 @@ const translations = {
     importJsonFile: "Импорт JSON-файла",
     pasteJson: "Вставить JSON",
     clearDraft: "Очистить черновик",
+    backToSite: "На сайт / войти",
+    invalidJson: "Не удалось открыть JSON: {message}",
+    draftChanged: "История или сервер изменились во время операции. Действие остановлено; повторите его для нужной истории.",
     storyMetadata: "Метаданные истории",
     keyLabel: "Ключ",
     titleLabel: "Название",
@@ -206,6 +209,9 @@ const translations = {
     importJsonFile: "Import JSON File",
     pasteJson: "Paste JSON",
     clearDraft: "Clear draft",
+    backToSite: "Website / sign in",
+    invalidJson: "Could not open JSON: {message}",
+    draftChanged: "The story or server changed during the operation. It was stopped; retry for the intended story.",
     storyMetadata: "Story metadata",
     keyLabel: "Key",
     titleLabel: "Title",
@@ -366,7 +372,6 @@ const authorStorageKey = "fraerapp.storyBuilderAuthor";
 const collapseStateKey = "fraerapp.storyBuilderCollapseState";
 const outlineStateKey = "fraerapp.storyBuilderOutlineState";
 const runtimeUrlStorageKey = "fraerapp.storyBuilderRuntimeUrl";
-let lastImportedStoryId = localStorage.getItem("fraerapp.storyBuilderLastStoryId");
 let currentLanguage = localStorage.getItem(languageKey) || "ru";
 let collapseState = loadCollapseState();
 let outlineState = loadOutlineState();
@@ -799,7 +804,7 @@ function renderAssets() {
       depth: 0,
     });
     item.append(
-      field(t("idLabel"), input(asset.id, (value) => (asset.id = value))),
+      field(t("idLabel"), input(asset.id, (value) => renameAsset(asset, value))),
       selectField(t("typeLabel"), ["image", "music", "sound", "video", "sprite"], asset.type, (value) => (asset.type = value)),
       field(t("urlLabel"), input(asset.url, (value) => (asset.url = value))),
       assetUploadField(asset),
@@ -843,7 +848,7 @@ function renderScenes() {
     item.append(sceneOrderControls(sceneIndex));
     const identityFields = div("form-panel scene-identity");
     identityFields.append(
-      field(t("idLabel"), input(scene.id, (value) => (scene.id = value))),
+      field(t("idLabel"), input(scene.id, (value) => renameScene(scene, value))),
       field(t("titleLabel"), input(scene.title, (value) => (scene.title = value))),
       sceneTextField(scene),
     );
@@ -1083,16 +1088,14 @@ function renderPreview() {
 }
 
 function toStoryJson() {
-  const localAssetIds = new Set(draft.scenes.flatMap((scene) => (scene.assets || []).map((asset) => asset.id)).filter(Boolean));
-  const localVariableNames = new Set(draft.scenes.flatMap((scene) => (scene.variables || []).map((variable) => variable.name)).filter(Boolean));
   return {
     key: draft.key,
     title: draft.title,
     description: draft.description,
     version: Number(draft.version || 1),
     startSceneId: draft.startSceneId,
-    variables: Object.fromEntries(draft.variables.filter((variable) => variable.name && !localVariableNames.has(variable.name)).map((variable) => [variable.name, serializeVariable(variable)])),
-    assets: draft.assets.filter((asset) => asset.id && !localAssetIds.has(asset.id)).map((asset) => {
+    variables: Object.fromEntries(draft.variables.filter((variable) => variable.name).map((variable) => [variable.name, serializeVariable(variable)])),
+    assets: draft.assets.filter((asset) => asset.id).map((asset) => {
       const result = { id: asset.id, type: asset.type, url: asset.url };
       const metadata = parseMetadata(asset.metadata);
       if (metadata) {
@@ -1203,7 +1206,7 @@ function localAssetsEditor(scene, sceneIndex) {
     });
     item.append(
       rowHead(assetTitle, () => removeAssetAt(scene.assets, index, scene)),
-      field(t("idLabel"), input(asset.id, (value) => (asset.id = value))),
+      field(t("idLabel"), input(asset.id, (value) => renameAsset(asset, value, scene))),
       selectField(t("typeLabel"), ["image", "music", "sound", "video", "sprite"], asset.type, (value) => (asset.type = value)),
       field(t("urlLabel"), input(asset.url, (value) => (asset.url = value))),
       assetUploadField(asset, scene),
@@ -1290,19 +1293,16 @@ function extractTextVariables(text) {
 }
 
 function fromStoryJson(story) {
-  const localAssetIds = new Set((story.scenes || [])
-    .flatMap((scene) => (scene.assets || []).map((asset) => asset.id))
-    .filter(Boolean));
-  const localVariableNames = new Set((story.scenes || [])
-    .flatMap((scene) => Object.keys(scene.variables || {}))
-    .filter(Boolean));
+  if (!story || typeof story !== "object" || Array.isArray(story) || !Array.isArray(story.scenes)) {
+    throw new Error("Ожидается объект истории с массивом scenes / Expected a story object with a scenes array");
+  }
   draft = {
     key: story.key || t("newStoryKey"),
     title: story.title || t("newStoryTitle"),
     description: story.description || "",
     version: story.version || 1,
     startSceneId: story.startSceneId || "",
-    variables: Object.entries(story.variables || {}).filter(([name]) => !localVariableNames.has(name)).map(([name, definition]) => {
+    variables: Object.entries(story.variables || {}).map(([name, definition]) => {
       const value = variableValue(definition);
       return {
         name,
@@ -1312,7 +1312,7 @@ function fromStoryJson(story) {
       };
     }),
     assets: (story.assets || [])
-      .filter((asset) => asset.id && !localAssetIds.has(asset.id))
+      .filter((asset) => asset.id)
       .map((asset) => ({ id: asset.id, type: asset.type || "image", url: asset.url || "", metadata: asset.metadata ? JSON.stringify(asset.metadata, null, 2) : "" })),
     scenes: (story.scenes || []).map((scene) => ({
       id: scene.id,
@@ -1876,6 +1876,39 @@ function removeAt(list, index) {
   render();
 }
 
+function renameScene(scene, nextId) {
+  const previousId = scene.id || scene._lastId;
+  scene.id = nextId;
+  if (!previousId || !nextId || previousId === nextId) {
+    scene._lastId = nextId || previousId;
+    return;
+  }
+  if (draft.startSceneId === previousId) draft.startSceneId = nextId;
+  for (const candidate of draft.scenes) {
+    for (const choice of candidate.choices || []) {
+      if (choice.target === previousId) choice.target = nextId;
+      if (choice.fallbackTarget === previousId) choice.fallbackTarget = nextId;
+    }
+  }
+  scene._lastId = nextId;
+  renderMeta();
+}
+
+function renameAsset(asset, nextId, scene = null) {
+  const previousId = asset.id || asset._lastId;
+  asset.id = nextId;
+  if (!previousId || !nextId || previousId === nextId) {
+    asset._lastId = nextId || previousId;
+    return;
+  }
+  const scenes = scene ? [scene] : draft.scenes.filter(candidate => !(candidate.assets || []).some(local => local.id === previousId));
+  for (const candidate of scenes) {
+    if (candidate.background === previousId) candidate.background = nextId;
+    if (candidate.music === previousId) candidate.music = nextId;
+  }
+  asset._lastId = nextId;
+}
+
 async function removeAssetAt(list, index, scene = null) {
   const asset = list[index];
   if (!asset) return;
@@ -1885,6 +1918,7 @@ async function removeAssetAt(list, index, scene = null) {
     if (scene.music === deleted.id) scene.music = "";
   } else {
     draft.scenes.forEach((candidate) => {
+      if ((candidate.assets || []).some(local => local.id === deleted.id)) return;
       if (candidate.background === deleted.id) candidate.background = "";
       if (candidate.music === deleted.id) candidate.music = "";
     });
@@ -2019,6 +2053,17 @@ function duplicates(values) {
   return [...duplicate];
 }
 
+function getDraftStoryId() {
+  const binding = draft.runtimeStory;
+  return binding?.key === draft.key && binding.base === els.runtimeUrl.value.replace(/\/$/, "")
+    ? binding.storyId : null;
+}
+
+function bindDraftStory(storyId) {
+  draft.runtimeStory = { storyId, key: draft.key, base: els.runtimeUrl.value.replace(/\/$/, "") };
+  saveDraft();
+}
+
 function saveDraft() {
   localStorage.setItem(storageKey, JSON.stringify(draft));
 }
@@ -2141,10 +2186,15 @@ async function uploadAssetFile(asset, file, scope = "global") {
   if (!canAuthor()) {
     throw new Error(t("uploadAssetFirst"));
   }
-  if (!lastImportedStoryId) {
+  const uploadDraft = draft;
+  const uploadKey = draft.key;
+  const base = els.runtimeUrl.value.replace(/\/$/, "");
+  if (!getDraftStoryId()) {
     await importDraftToRuntime();
   }
-  if (!lastImportedStoryId) {
+  const storyId = getDraftStoryId();
+  if (draft !== uploadDraft || draft.key !== uploadKey || base !== els.runtimeUrl.value.replace(/\/$/, "")) throw new Error(t("draftChanged"));
+  if (!storyId) {
     throw new Error(t("uploadAssetFirst"));
   }
   const form = new FormData();
@@ -2158,8 +2208,7 @@ async function uploadAssetFile(asset, file, scope = "global") {
   if (scope === "local") {
     form.append("scope", "local");
   }
-  const base = els.runtimeUrl.value.replace(/\/$/, "");
-  const payload = await fetchJson(`${base}/api/author/stories/${lastImportedStoryId}/assets`, {
+  const payload = await fetchJson(`${base}/api/author/stories/${storyId}/assets`, {
     method: "POST",
     headers: {
       Accept: "application/json",
@@ -2171,6 +2220,7 @@ async function uploadAssetFile(asset, file, scope = "global") {
   asset.type = payload.type;
   asset.url = payload.url;
   asset.metadata = payload.metadata ? JSON.stringify(payload.metadata, null, 2) : "";
+  if (draft !== uploadDraft || draft.key !== uploadKey || base !== els.runtimeUrl.value.replace(/\/$/, "")) throw new Error(t("draftChanged"));
   renderPreview();
   saveDraft();
   await importDraftToRuntime();
@@ -2179,7 +2229,8 @@ async function uploadAssetFile(asset, file, scope = "global") {
 }
 
 async function deleteUploadedAsset(asset) {
-  if (!asset?.url || !isUploadedAssetUrl(asset.url) || !canAuthor() || !lastImportedStoryId) {
+  const storyId = getDraftStoryId();
+  if (!asset?.url || !isUploadedAssetUrl(asset.url) || !canAuthor() || !storyId) {
     return null;
   }
   const base = els.runtimeUrl.value.replace(/\/$/, "");
@@ -2187,7 +2238,7 @@ async function deleteUploadedAsset(asset) {
   if (asset.id) {
     params.set("assetKey", asset.id);
   }
-  const payload = await fetchJson(`${base}/api/author/stories/${lastImportedStoryId}/assets?${params}`, {
+  const payload = await fetchJson(`${base}/api/author/stories/${storyId}/assets?${params}`, {
     method: "DELETE",
     headers: {
       Accept: "application/json",
@@ -2251,7 +2302,7 @@ function renderAuthorWorkspace(home = null) {
     const option = document.createElement("option");
     option.value = story.storyId;
     option.textContent = `${story.title} (${story.status})`;
-    option.selected = story.storyId === lastImportedStoryId;
+    option.selected = story.storyId === getDraftStoryId();
     els.authorStorySelect.append(option);
     const item = div("story-picker-item");
     const summary = document.createElement("div");
@@ -2347,8 +2398,6 @@ function updateAuthorGate() {
 }
 
 function createNewAuthorStory() {
-  lastImportedStoryId = null;
-  localStorage.removeItem("fraerapp.storyBuilderLastStoryId");
   draft = emptyDraft();
   saveDraft();
   render();
@@ -2361,9 +2410,9 @@ async function deleteAuthorStory(story) {
     return;
   }
   await authorFetch(`/api/author/stories/${story.storyId}`, { method: "DELETE" });
-  if (lastImportedStoryId === story.storyId) {
-    lastImportedStoryId = null;
-    localStorage.removeItem("fraerapp.storyBuilderLastStoryId");
+  if (getDraftStoryId() === story.storyId) {
+    delete draft.runtimeStory;
+    saveDraft();
     els.apiResult.textContent = t("deleteStoryCurrentDraft");
   } else {
     els.apiResult.textContent = t("deleteStoryDone", { title });
@@ -2716,31 +2765,23 @@ function focusContext(targetContextId, fallback = null) {
 
 async function openAuthorStory(storyId) {
   const story = await authorFetch(`/api/author/stories/${storyId}/document`);
-  lastImportedStoryId = storyId;
-  localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
   fromStoryJson(story);
-  saveDraft();
+  bindDraftStory(storyId);
   els.apiResult.textContent = `Opened: ${story.title}`;
   await showAuthorAnalytics(storyId);
 }
 
 async function showAuthorAnalytics(storyId) {
-  lastImportedStoryId = storyId;
-  localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
   const analytics = await authorFetch(`/api/author/stories/${storyId}/analytics`);
   els.authorAnalytics.textContent = JSON.stringify(analytics, null, 2);
 }
 
 async function showAuthorPreview(storyId) {
-  lastImportedStoryId = storyId;
-  localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
   const preview = await authorFetch(`/api/author/stories/${storyId}/preview`);
   els.authorAnalytics.textContent = JSON.stringify(preview, null, 2);
 }
 
 async function showAuthorVersions(storyId) {
-  lastImportedStoryId = storyId;
-  localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
   const versions = await authorFetch(`/api/author/stories/${storyId}/versions`);
   els.authorAnalytics.textContent = JSON.stringify(versions, null, 2);
   const value = prompt(t("rollbackPrompt"));
@@ -2753,10 +2794,6 @@ async function showAuthorVersions(storyId) {
 
 async function authorWorkflow(storyId, action) {
   const payload = await authorFetch(`/api/author/stories/${storyId}/${action}`, { method: "POST" });
-  if (payload.storyId) {
-    lastImportedStoryId = payload.storyId;
-    localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
-  }
   els.apiResult.textContent = JSON.stringify(payload, null, 2);
   await loadAuthorHome();
   return payload;
@@ -2796,7 +2833,14 @@ document.querySelector("#download-json").onclick = () => {
 document.querySelector("#import-file").onchange = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
-  fromStoryJson(JSON.parse(await file.text()));
+  try {
+    fromStoryJson(JSON.parse(await file.text()));
+    els.apiResult.textContent = "";
+  } catch (error) {
+    els.apiResult.textContent = t("invalidJson", { message: error.message });
+  } finally {
+    event.target.value = "";
+  }
 };
 
 document.querySelector("#paste-json").onclick = () => {
@@ -2805,8 +2849,14 @@ document.querySelector("#paste-json").onclick = () => {
 };
 
 document.querySelector("#apply-paste").onclick = () => {
-  fromStoryJson(JSON.parse(els.pasteArea.value));
-  els.pasteDialog.close();
+  const errorMessage = document.querySelector("#paste-error");
+  try {
+    fromStoryJson(JSON.parse(els.pasteArea.value));
+    errorMessage.textContent = "";
+    els.pasteDialog.close();
+  } catch (error) {
+    errorMessage.textContent = t("invalidJson", { message: error.message });
+  }
 };
 
 document.querySelector("#clear-draft").onclick = () => {
@@ -2820,6 +2870,8 @@ document.querySelector("#validate-runtime").onclick = () => runtimeCall("validat
 document.querySelector("#publish-runtime").onclick = () => runtimeCall("publish");
 
 async function importDraftToRuntime(base = els.runtimeUrl.value.replace(/\/$/, "")) {
+  const importedDraft = draft;
+  const importedKey = draft.key;
   const payload = await fetchJson(`${base}/api/author/stories/import`, {
     method: "POST",
     headers: {
@@ -2828,9 +2880,8 @@ async function importDraftToRuntime(base = els.runtimeUrl.value.replace(/\/$/, "
     },
     body: JSON.stringify(toStoryJson()),
   });
-  if (payload.storyId) {
-    lastImportedStoryId = payload.storyId;
-    localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
+  if (payload.storyId && draft === importedDraft && draft.key === importedKey && base === els.runtimeUrl.value.replace(/\/$/, "")) {
+    bindDraftStory(payload.storyId);
   }
   await loadAuthorHome();
   return payload;
@@ -2847,19 +2898,24 @@ async function runtimeCall(action) {
         return;
       }
       if (action === "validate" || action === "publish") {
-        await importDraftToRuntime(base);
-        if (!lastImportedStoryId) throw new Error(t("importFirst"));
-        payload = await fetchJson(`${base}/api/author/stories/${lastImportedStoryId}/${action}`, {
+        let storyId = getDraftStoryId();
+        if (action === "publish") {
+          const publishingDraft = draft;
+          const publishingKey = draft.key;
+          const imported = await importDraftToRuntime(base);
+          if (draft !== publishingDraft || draft.key !== publishingKey || base !== els.runtimeUrl.value.replace(/\/$/, "")) {
+            throw new Error(t("draftChanged"));
+          }
+          storyId = imported.storyId;
+        }
+        if (!storyId) throw new Error(t("importFirst"));
+        payload = await fetchJson(`${base}/api/author/stories/${storyId}/${action}`, {
           method: "POST",
           headers: {
             ...authorHeaders(false),
             Accept: "application/json",
           },
         });
-        if (payload.storyId) {
-          lastImportedStoryId = payload.storyId;
-          localStorage.setItem("fraerapp.storyBuilderLastStoryId", lastImportedStoryId);
-        }
         els.apiResult.textContent = JSON.stringify(payload, null, 2);
         await loadAuthorHome();
         return;

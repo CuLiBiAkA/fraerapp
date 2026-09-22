@@ -11,6 +11,7 @@ FraerApp is an interactive story/game platform with:
 - production Docker deployment behind nginx and Cloudflare.
 
 The public homepage is a Figma-aligned story preview screen for both guests and signed-in users. Guests can browse real published story cards with titles and cover visuals, but starting a story or creating one opens the authorization modal. Signed-in users keep the same homepage shell with an active profile icon: story cards start/continue stories, "Read stories" opens the catalog, search is available, and "Create yours" is shown only to author/admin users. The in-story runtime keeps the darker immersive game presentation.
+The homepage visual reference is Figma `5vh1st4bxxI1OoGHTp4tcw`, frame `84:293` on page `3:3`: a cosmic background, Playfair Display SC heading, glass navigation and buttons, and an overlapping five-position carousel. Its scoped styles live in `frontend/home.css`; original exported artwork/icons and locally served fonts live in `frontend/assets/home/`. Actual catalog covers replace the design's placeholders. Search opens the public catalog for guests too; the guest create button opens sign-in, while signed-in creation remains restricted to author/admin roles. On small screens the carousel displays one card with previous/next controls. Existing legal links are retained.
 Story browsing has stable public routes: `/history` renders the catalog, and `/history/<published-slug>` renders a story detail page. nginx static fallback serves the SPA for these routes, while the frontend loads data from `/api/catalog/stories`.
 
 This file is safe to commit. Concrete SSH targets, private IPs, and other operator-only values belong in `LOCAL_OPERATOR_NOTES.private.md`, which is ignored by git.
@@ -135,6 +136,17 @@ Recent behavior:
 Static authoring app available through `/builder/`.
 
 Uses current FraerApp auth session, not a separate builder login.
+
+Builder correctness fixes (2026-09-22):
+
+- Global variables/assets and scene-local definitions may intentionally share names; import/export preserves both scopes. Scene/asset renames update references in their applicable scope.
+- The editor's saved server identity is stored with its local draft as `runtimeStory` (`storyId`, `key`, API `base`). Analytics, preview, version lists and actions on another story never rebind the editor. Changing the key/runtime or replacing the draft invalidates its binding. The old separate `storyBuilderLastStoryId` value is ignored because it could refer to a different story; existing drafts remain intact and can be reopened or explicitly imported to establish a binding.
+- “Validate last import” calls validation only and cannot import/unpublish a story. Explicit import and publish retain their existing save semantics. Local unsaved content is checked continuously in the editor's validation panel.
+- Publishing/uploading checks the initiating draft, story key and runtime after asynchronous requests; switching context stops the follow-up action instead of targeting the newly opened story. Publication uses the ID returned by its own import.
+- JSON parse/shape failures display an error and preserve the active draft. The public website is reachable from the builder even when its author controls are locked.
+- `story-builder/workflow.test.js` exercises these regressions against the actual app functions.
+
+Public interaction fixes: catalog, details and account settings link back to the homepage; dialogs trap keyboard focus, close with Escape and restore focus; failed catalog loads leave a usable page with an error instead of an indefinite loading screen. Main action failures are visible outside the in-story status panel.
 
 ## Production topology
 

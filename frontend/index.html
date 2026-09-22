@@ -9,10 +9,15 @@
     <meta property="og:description" content="FraerApp — сервис интерактивных историй с сохранением прогресса, вариантами выбора и персональными маршрутами.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://fraerapp.ru/">
-    <link rel="stylesheet" href="/styles.css?v=game-22">
+    <link rel="stylesheet" href="/styles.css?v=game-24">
+    <link rel="stylesheet" href="/home.css?v=cosmos-1">
   </head>
   <body>
     <main class="game">
+      <div id="app-notice" class="app-notice hidden" role="alert">
+        <span id="app-notice-text"></span>
+        <button id="app-notice-close" type="button" aria-label="Закрыть">×</button>
+      </div>
       <div class="top-actions" aria-label="Game actions">
         <div class="top-group top-group-session">
           <button id="menu-button" type="button" class="secondary hidden" data-i18n="menuButton">Stories</button>
@@ -42,19 +47,15 @@
 
       <section id="login-screen" class="home-screen hidden" aria-label="FraerApp">
         <header class="home-header">
-          <a class="brand-mark" href="/" aria-label="FraerApp">
-            <span class="brand-symbol" aria-hidden="true">F</span>
-            <span class="brand-word">FraerApp</span>
-          </a>
           <nav class="home-nav" aria-label="Главное меню">
-            <button id="home-search" class="icon-button home-search-button hidden" type="button" aria-label="Поиск историй">
-              <span class="icon-search" aria-hidden="true"></span>
+            <button id="home-search" class="icon-button home-search-button" type="button" aria-label="Поиск историй">
+              <img src="/assets/home/search.svg" width="30" height="31" alt="">
             </button>
             <button id="home-settings" class="icon-button" type="button" aria-label="Настройки">
-              <span class="icon-gear" aria-hidden="true"></span>
+              <img src="/assets/home/settings.svg" width="31" height="34" alt="">
             </button>
             <button id="home-profile" class="icon-button profile-button is-guest" type="button" aria-label="Войти в профиль">
-              <span class="icon-profile" aria-hidden="true"></span>
+              <img src="/assets/home/profile.svg" width="25" height="27" alt="">
             </button>
           </nav>
         </header>
@@ -69,15 +70,16 @@
         </div>
 
         <section class="home-carousel" aria-label="Истории">
-          <button id="home-prev" class="carousel-arrow carousel-arrow-prev" type="button" aria-label="Предыдущие истории">&lt;</button>
+          <button id="home-prev" class="carousel-arrow carousel-arrow-prev" type="button" aria-label="Предыдущие истории"><img src="/assets/home/arrow.svg" width="18" height="17" alt=""></button>
           <div class="home-carousel-window">
             <div id="home-stories" class="home-story-track"></div>
           </div>
-          <button id="home-next" class="carousel-arrow carousel-arrow-next" type="button" aria-label="Следующие истории">&gt;</button>
+          <button id="home-next" class="carousel-arrow carousel-arrow-next" type="button" aria-label="Следующие истории"><img src="/assets/home/arrow.svg" width="18" height="17" alt=""></button>
         </section>
       </section>
 
       <section id="story-screen" class="catalog-screen hidden" aria-label="Stories">
+        <a class="public-home-link" href="/" data-i18n="backHome">← На главную</a>
         <header class="catalog-header">
           <div>
             <p class="eyebrow" data-i18n="storyScreenEyebrow">FraerApp Stories</p>
@@ -112,6 +114,7 @@
       </section>
 
       <section id="story-detail-screen" class="story-detail-screen hidden" aria-label="Story">
+        <a class="public-home-link" href="/" data-i18n="backHome">← На главную</a>
         <button id="story-detail-back" class="outline-button story-detail-back" type="button" data-i18n="storyDetailBack">Все истории</button>
         <article class="story-detail-card">
           <div id="story-detail-cover" class="story-detail-cover"></div>
@@ -126,6 +129,7 @@
       </section>
 
       <section id="settings-screen" class="settings-screen hidden" aria-label="Settings">
+        <a class="public-home-link" href="/" data-i18n="backHome">← На главную</a>
         <header class="catalog-header">
           <div>
             <p class="eyebrow" data-i18n="settingsEyebrow">Настройки</p>
@@ -268,6 +272,6 @@
       </div>
     </aside>
 
-    <script src="/engine.js?v=engine-37" type="module"></script>
+    <script src="/engine.js?v=engine-39" type="module"></script>
   </body>
 </html>

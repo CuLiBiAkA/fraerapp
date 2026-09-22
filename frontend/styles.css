@@ -16,6 +16,34 @@
   color: var(--ink);
 }
 
+.public-home-link {
+  display: inline-block;
+  margin-bottom: 24px;
+  padding: 12px 0;
+  color: inherit;
+  font-weight: 600;
+}
+
+.app-notice {
+  position: fixed;
+  inset: auto 16px 20px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 640px;
+  margin: auto;
+  border: 1px solid #d6828c;
+  border-radius: 16px;
+  padding: 16px 20px;
+  color: #fee3e2;
+  background: #33214af5;
+  box-shadow: 0 8px 32px #0006;
+}
+
+.app-notice button { min-width: 44px; min-height: 44px; }
+
 * {
   box-sizing: border-box;
 }
@@ -2185,10 +2213,6 @@ body.is-public-home .top-actions {
 
 .modal-toggle[aria-pressed="true"] {
   background: #ffffff;
-}
-
-.catalog-screen.is-guest-catalog .catalog-tools {
-  display: none;
 }
 
 .story-list .story-card {
