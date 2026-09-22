@@ -66,7 +66,19 @@ ssh "$FRAERAPP_SSH" "cd '$FRAERAPP_REMOTE_DIR' && for service in postgres auth-p
 
 Do not start `grafana`, `prometheus`, `loki`, `promtail`, `node-exporter`, `cadvisor`, `nginx-exporter`, `postgres-exporter`, or `auth-postgres-exporter` as part of this minimal startup. Grafana's configured port may conflict with another homelab service.
 
-Nginx Proxy Manager owns the server LAN ports 80/443 for local `*.home.arpa` services. FraerApp edge stays on loopback 8088/8443. The intended router mappings for the public FraerApp domain are:
+Nginx Proxy Manager owns the server LAN ports 80/443 for local `*.home.arpa` services. FraerApp edge must bind high ports 8088/8443 only to `$FRAERAPP_LAN_IP`; verify this in the private runtime `.env`:
+
+```bash
+ssh "$FRAERAPP_SSH" "grep -E '^(HOST_BIND_IP|HTTP_PORT|HTTPS_PORT)=' '$FRAERAPP_REMOTE_DIR/.env'"
+```
+
+Expected values are `HOST_BIND_IP=$FRAERAPP_LAN_IP`, `HTTP_PORT=8088`, and `HTTPS_PORT=8443`. Confirm reachability from a different LAN host before changing the router:
+
+```bash
+curl -k --resolve "$FRAERAPP_DOMAIN:8443:$FRAERAPP_LAN_IP" "https://$FRAERAPP_DOMAIN:8443/healthz"
+```
+
+The intended router mappings for the public FraerApp domain are:
 
 ```text
 external TCP 80  -> $FRAERAPP_LAN_IP:8088
@@ -74,6 +86,8 @@ external TCP 443 -> $FRAERAPP_LAN_IP:8443
 ```
 
 Do not bind FraerApp directly to the host LAN ports 80/443 while Nginx Proxy Manager owns them.
+
+Known exception: `homeassistant.home.arpa` may time out even while Home Assistant responds directly on the LAN, because the NPM proxy network cannot currently reach Home Assistant's host-network listener. This issue is outside FraerApp operations. Verify the direct Home Assistant endpoint before treating it as a service outage, and do not change Home Assistant networking as part of a FraerApp deploy.
 
 ## Logs
 

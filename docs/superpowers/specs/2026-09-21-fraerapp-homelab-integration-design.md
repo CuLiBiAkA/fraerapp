@@ -13,9 +13,9 @@ Restore FraerApp on the current server without interrupting the existing homelab
 - FraerApp stopped gracefully on 2026-08-21; the application and database logs do not indicate a crash at shutdown.
 - The current FraerApp Compose configuration is valid.
 - Existing homelab services are running and must not be recreated or restarted.
-- Nginx Proxy Manager is configured and retains its routes, but it is stopped because its fixed proxy-network address `172.21.0.2` conflicts with Beszel.
+- Nginx Proxy Manager is configured and retains its routes, but it is stopped because its fixed `$NPM_CONFLICTING_PROXY_IP` conflicts with Beszel.
 - Host ports 80 and 443 are currently free. Nginx Proxy Manager is configured to publish them on the server LAN address.
-- FraerApp production edge is configured on loopback ports 8088 and 8443.
+- FraerApp production edge initially uses loopback ports 8088 and 8443; public router forwarding requires rebinding those high ports only to `$FRAERAPP_LAN_IP`.
 - AdGuard occupies the server LAN port 3000. FraerApp Grafana would conflict because it is configured on `0.0.0.0:3000`.
 
 ## Design
@@ -53,10 +53,10 @@ Keep the existing Nginx Proxy Manager installation, data, certificates, routes, 
 Change only its fixed address on the external Docker network:
 
 ```text
-172.21.0.2 -> 172.21.0.10
+$NPM_CONFLICTING_PROXY_IP -> $NPM_PROXY_IP
 ```
 
-Confirm that `172.21.0.10` is unused immediately before editing. Recreate only the `npm` Compose project. Existing routes continue to address services by their current hostnames or LAN endpoints and therefore do not depend on NPM retaining `172.21.0.2`.
+Confirm that `$NPM_PROXY_IP` is unused immediately before editing. Recreate only the `npm` Compose project. Existing routes continue to address services by their current hostnames or LAN endpoints and therefore do not depend on NPM retaining `$NPM_CONFLICTING_PROXY_IP`.
 
 ### Homepage integration
 
@@ -71,7 +71,7 @@ Homepage reads its mounted YAML configuration dynamically. Restart only Homepage
 
 ### Public routing
 
-Public router changes are outside this execution because router access has not been established. FraerApp remains on loopback ports 8088/8443 until the final route is confirmed.
+Public router changes are outside this execution because router access has not been established. Bind FraerApp ports 8088/8443 only to `$FRAERAPP_LAN_IP`, then verify them from another LAN host before applying the router mapping.
 
 The intended router mapping is:
 
@@ -94,7 +94,7 @@ After implementation:
 4. Check API readiness and the public catalog through the local edge.
 5. Check recent logs for API, auth-service, edge, and both databases.
 6. Confirm observability containers remain stopped.
-7. Confirm NPM is running on `$FRAERAPP_LAN_IP:80/443` and all existing `*.home.arpa` routes still respond.
+7. Confirm NPM is running on `$FRAERAPP_LAN_IP:80/443`; verify all existing `*.home.arpa` routes and explicitly report any preserved route whose upstream is independently unavailable.
 8. Confirm Homepage contains the FraerApp entry and all existing entries remain present.
 9. Check the public domain, but report it as pending router/DNS work if the origin is not reachable externally.
 

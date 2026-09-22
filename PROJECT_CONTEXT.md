@@ -175,7 +175,7 @@ postgres-exporter
 nginx-exporter
 ```
 
-Production shares its Docker host with other homelab services. Nginx Proxy Manager owns the host LAN ports 80/443 for local `*.home.arpa` routes, while FraerApp edge binds loopback ports 8088/8443 and terminates its own TLS. Homepage includes a FraerApp tile that links to the public domain.
+Production shares its Docker host with other homelab services. Nginx Proxy Manager owns the host LAN ports 80/443 for local `*.home.arpa` routes, while FraerApp edge binds ports 8088/8443 only to `$FRAERAPP_LAN_IP` and terminates its own TLS. Homepage includes a FraerApp tile that links to the public domain.
 
 The FraerApp core can run without its observability group. The minimal production service set is:
 
@@ -212,6 +212,8 @@ ssh "$FRAERAPP_SSH" 'curl -sS https://api.ipify.org'
 If local origin is 200 but Cloudflare is 522, update Cloudflare A records to the current public IP.
 
 Cloudflare `525` means the TCP origin is reachable but the TLS handshake reached the wrong service or failed. On the shared-host topology, verify that the router maps external TCP 443 to `$FRAERAPP_LAN_IP:8443`, not to the LAN port 443 owned by Nginx Proxy Manager.
+
+Known homelab exception: `homeassistant.home.arpa` is retained in Nginx Proxy Manager but currently times out because containers on the external proxy network cannot reach Home Assistant's host-network port. Home Assistant itself remains reachable directly on the LAN. Treat this as a separate network-policy issue; do not restart or reconfigure Home Assistant during FraerApp operations.
 
 ## Auth and users
 

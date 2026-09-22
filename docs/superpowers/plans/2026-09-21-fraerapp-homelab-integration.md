@@ -4,7 +4,7 @@
 
 **Goal:** Restore the FraerApp core stack, recover the existing Nginx Proxy Manager, and add FraerApp to Homepage without interrupting other homelab services.
 
-**Architecture:** FraerApp continues to terminate its own local TLS on loopback ports 8088/8443, while Nginx Proxy Manager continues to own LAN ports 80/443 for `*.home.arpa`. Only the six FraerApp core services run; the complete FraerApp observability group stays stopped. NPM receives a free fixed address on its existing external Docker network, and Homepage gains one public FraerApp link.
+**Architecture:** FraerApp terminates its own TLS on high ports 8088/8443 bound only to `$FRAERAPP_LAN_IP`, while Nginx Proxy Manager continues to own LAN ports 80/443 for `*.home.arpa`. Only the six FraerApp core services run; the complete FraerApp observability group stays stopped. NPM receives a free fixed address on its existing external Docker network, and Homepage gains one public FraerApp link.
 
 **Tech Stack:** Docker Engine, Docker Compose, nginx, Spring Boot, PostgreSQL, Nginx Proxy Manager, Homepage, POSIX shell, YAML.
 
@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Read `PROJECT_CONTEXT.md`, `DEPLOY_RUNBOOK.md`, and the local-only `LOCAL_OPERATOR_NOTES.private.md` before production work.
-- Load `FRAERAPP_SSH`, `FRAERAPP_REMOTE_DIR`, `FRAERAPP_DOMAIN`, and `FRAERAPP_LAN_IP` from the local-only operator notes; never write their concrete private values into committed files or command output.
+- Load `FRAERAPP_SSH`, `FRAERAPP_REMOTE_DIR`, `FRAERAPP_DOMAIN`, `FRAERAPP_LAN_IP`, `NPM_CONFLICTING_PROXY_IP`, and `NPM_PROXY_IP` from the local-only operator notes; never write their concrete private values into committed files or command output.
 - Preserve all existing containers, data volumes, certificates, proxy routes, Homepage entries, and user data.
 - Never run `docker compose down`, remove a volume, prune Docker state, or recreate an unrelated Compose project.
 - Make timestamped server-side backups before changing NPM or Homepage configuration.
@@ -23,7 +23,7 @@
 
 ## Review Focus
 
-- The chosen NPM address may become occupied between inspection and recreation; recheck the external proxy network immediately before editing and refuse the edit if `172.21.0.10` is present.
+- The chosen NPM address may become occupied between inspection and recreation; recheck the external proxy network immediately before editing and refuse the edit if `$NPM_PROXY_IP` is present.
 - Recreating NPM may preserve the address but lose routing if persistent mounts are wrong; verify the same data and certificate mount sources before and after recreation.
 - FraerApp databases may need recovery after their prior long stop; wait for both database health checks and inspect their fresh logs before accepting API health.
 - The six-service Compose command may start dependencies but must not start observability services; compare the exact running-service list afterward.
@@ -100,14 +100,14 @@ Expected: exit 0.
 
 **Interfaces:**
 - Consumes: external Docker network `proxy` and the Task 1 NPM backup.
-- Produces: the existing `npm` container running at fixed proxy-network address `172.21.0.10` with its existing routes and LAN port bindings.
+- Produces: the existing `npm` container running at fixed proxy-network address `$NPM_PROXY_IP` with its existing routes and LAN port bindings.
 
 - [ ] **Step 1: Recheck the candidate address and port ownership**
 
 Run:
 
 ```bash
-ssh "$FRAERAPP_SSH" 'set -e; ! docker network inspect proxy --format "{{range .Containers}}{{.IPv4Address}} {{end}}" | tr " " "\n" | grep -q "^172.21.0.10/"; ! ss -lnt | grep -Eq "LISTEN.+:80[[:space:]]|LISTEN.+:443[[:space:]]"'
+ssh "$FRAERAPP_SSH" "set -e; ! docker network inspect proxy --format '{{range .Containers}}{{.IPv4Address}} {{end}}' | tr ' ' '\n' | grep -q '^$NPM_PROXY_IP/'; ! ss -lnt | grep -Eq 'LISTEN.+:80[[:space:]]|LISTEN.+:443[[:space:]]'"
 ```
 
 Expected: exit 0. Stop if the address or either port is occupied.
@@ -127,10 +127,10 @@ Expected: `/opt/stacks/npm/data:/data` and `/opt/stacks/npm/letsencrypt:/etc/let
 Use a remote temporary file and atomic install:
 
 ```bash
-ssh "$FRAERAPP_SSH" 'set -euo pipefail; src=/opt/stacks/npm/compose.yaml; tmp=$(mktemp); sed "s/ipv4_address: 172\.21\.0\.2$/ipv4_address: 172.21.0.10/" "$src" > "$tmp"; grep -q "ipv4_address: 172.21.0.10" "$tmp"; test "$(grep -c "ipv4_address:" "$tmp")" -eq 1; install -m 0644 "$tmp" "$src"; rm -f "$tmp"'
+ssh "$FRAERAPP_SSH" "set -euo pipefail; src=/opt/stacks/npm/compose.yaml; tmp=\$(mktemp); sed 's/ipv4_address: $NPM_CONFLICTING_PROXY_IP$/ipv4_address: $NPM_PROXY_IP/' \"\$src\" > \"\$tmp\"; grep -q 'ipv4_address: $NPM_PROXY_IP' \"\$tmp\"; test \"\$(grep -c 'ipv4_address:' \"\$tmp\")\" -eq 1; sudo -n install -o root -g root -m 0644 \"\$tmp\" \"\$src\"; rm -f \"\$tmp\""
 ```
 
-Expected: exit 0 and exactly one `ipv4_address` line with `172.21.0.10`.
+Expected: exit 0 and exactly one `ipv4_address` line with `$NPM_PROXY_IP`.
 
 - [ ] **Step 4: Validate and recreate only NPM**
 
@@ -150,7 +150,7 @@ Run:
 ssh "$FRAERAPP_SSH" 'set -e; docker inspect -f "status={{.State.Status}} restart={{.HostConfig.RestartPolicy.Name}} ip={{(index .NetworkSettings.Networks \"proxy\").IPAddress}} mounts={{range .Mounts}}{{.Source}}:{{.Destination}};{{end}}" npm; for host in proxy.home.arpa beszel.home.arpa adguard.home.arpa portainer.home.arpa uptime.home.arpa homeassistant.home.arpa git.home.arpa home.home.arpa share.home.arpa; do code=$(curl -sS --max-time 10 -o /dev/null -w "%{http_code}" "http://$host/"); case "$code" in 200|301|302|401|403) ;; *) echo "$host returned $code" >&2; exit 1;; esac; done'
 ```
 
-Expected: NPM is running with `restart=unless-stopped`, IP `172.21.0.10`, unchanged mounts, and every route returns an expected HTTP status.
+Expected: NPM is running with `restart=unless-stopped`, IP `$NPM_PROXY_IP`, unchanged mounts, and every route returns an expected HTTP status or has a separately verified unavailable upstream.
 
 ### Task 3: Start and verify only the FraerApp core
 
@@ -161,7 +161,7 @@ Expected: NPM is running with `restart=unless-stopped`, IP `172.21.0.10`, unchan
 
 **Interfaces:**
 - Consumes: existing FraerApp images, Compose configuration, environment, certificates, and volumes.
-- Produces: six running core services on loopback ports 8088/8443, with the observability group stopped.
+- Produces: six running core services, with edge high ports 8088/8443 bound only to `$FRAERAPP_LAN_IP` and the observability group stopped.
 
 - [ ] **Step 1: Validate Compose and required runtime assets**
 
@@ -173,7 +173,13 @@ ssh "$FRAERAPP_SSH" "set -e; cd '$FRAERAPP_REMOTE_DIR'; docker compose config --
 
 Expected: exit 0.
 
-- [ ] **Step 2: Start the exact core-service set**
+- [ ] **Step 2: Bind FraerApp high ports only to the LAN interface**
+
+Create a validated candidate for `$FRAERAPP_REMOTE_DIR/.env` that replaces only `HOST_BIND_IP` with `$FRAERAPP_LAN_IP`, install it with mode `0600`, and run `docker compose config --quiet` before recreating edge.
+
+Expected: `.env` contains exactly one `HOST_BIND_IP=$FRAERAPP_LAN_IP`; ports 80/443 remain owned by NPM and no FraerApp service is yet recreated.
+
+- [ ] **Step 3: Start the exact core-service set**
 
 Run:
 
@@ -183,7 +189,7 @@ ssh "$FRAERAPP_SSH" "set -e; cd '$FRAERAPP_REMOTE_DIR'; docker compose up -d pos
 
 Expected: the two databases start first, followed by API/auth, builder, and edge.
 
-- [ ] **Step 3: Wait for core health with a bounded loop**
+- [ ] **Step 4: Wait for core health with a bounded loop**
 
 Run:
 
@@ -193,7 +199,7 @@ ssh "$FRAERAPP_SSH" "cd '$FRAERAPP_REMOTE_DIR'; for attempt in \$(seq 1 30); do 
 
 Expected: all six services become healthy before timeout. On timeout, collect logs and stop without modifying volumes.
 
-- [ ] **Step 4: Verify local HTTP behavior**
+- [ ] **Step 5: Verify local and LAN HTTP behavior**
 
 Run:
 
@@ -203,7 +209,15 @@ ssh "$FRAERAPP_SSH" 'set -e; curl -skS --max-time 10 https://127.0.0.1:8443/heal
 
 Expected: edge returns `ok`, readiness is `UP`, and the catalog is a JSON array.
 
-- [ ] **Step 5: Prove observability stayed stopped**
+From a different LAN host, run:
+
+```bash
+curl -k --resolve "$FRAERAPP_DOMAIN:8443:$FRAERAPP_LAN_IP" "https://$FRAERAPP_DOMAIN:8443/healthz"
+```
+
+Expected: `ok`. A router mapping must not be applied until this check passes.
+
+- [ ] **Step 6: Prove observability stayed stopped**
 
 Run:
 
@@ -213,7 +227,7 @@ ssh "$FRAERAPP_SSH" "cd '$FRAERAPP_REMOTE_DIR'; test -z \"\$(docker compose ps -
 
 Expected: exit 0 with no matching running services.
 
-- [ ] **Step 6: Inspect fresh startup logs**
+- [ ] **Step 7: Inspect fresh startup logs**
 
 Run:
 
@@ -337,7 +351,7 @@ Run:
 
 ```bash
 git diff --check
-rg -n '192\.168\.[0-9]+\.[0-9]+|[0-9]{8,10}:[A-Za-z0-9_-]{30,}|[a-f0-9]{64}' PROJECT_CONTEXT.md DEPLOY_RUNBOOK.md docs/superpowers
+rg -n '(^|[^0-9])(10\.[0-9]+\.[0-9]+\.[0-9]+|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]+\.[0-9]+|192\.168\.[0-9]+\.[0-9]+)|[0-9]{8,10}:[A-Za-z0-9_-]{30,}|[a-f0-9]{64}' PROJECT_CONTEXT.md DEPLOY_RUNBOOK.md docs/superpowers
 ```
 
 Expected: `git diff --check` passes and the secret/private-value scan returns no matches.
