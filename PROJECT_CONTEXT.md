@@ -2,9 +2,20 @@
 
 Last updated: 2026-10-06.
 
-## Chapters and collections (2026-10-06 release preparation)
+## Chapters and collections (deployed 2026-10-06)
 
-Implementation is local pending the deployment receipt below/in DEPLOY_RUNBOOK.
+Implementation `39f41f7` is deployed: engine-70, builder-39, account-ui v4.
+V16–V17 applied; all six services are healthy, API readiness is UP, public files
+match the committed release, and recent API/auth logs contain no error markers.
+Existing story identities, owners, slugs, publication revisions and visibility
+match the pre-release manifest. No sample works were added to production.
+Validation: 59 API, 33 auth and 70 frontend/Builder tests, isolated PostgreSQL
+migration/workflow regressions and browser fixtures at 1440/390/320px passed.
+Privileged mutations were tested on synthetic fixtures, not real user accounts.
+Backup and release receipt: `backups/chapters-20261006-012825`; see DEPLOY_RUNBOOK.
+The implementation and release documentation are committed locally; no Git push
+was performed. Pre-existing unrelated workspace changes remain intact.
+
 V16 adds versioned `work_collections` of type story/volume/cycle/catalog, immutable
 collection versions, derived membership/title indexes, moderation audit, favorites,
 chapter release notices, pinned reading chains and transfer provenance. Existing

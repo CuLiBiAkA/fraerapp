@@ -4,10 +4,28 @@ Last updated: 2026-10-06.
 
 ## Chapters and collections release (V16–V17)
 
-Release preparation is local; deployment verification is recorded separately after
-completion. User authorized implementation, commit and production deployment.
+Released and verified 2026-10-06 from implementation `39f41f7` (engine-70,
+builder-39, account-ui v4). User authorized implementation, commit and deployment.
 This request does not authorize pushing the earlier unpushed commits; Git push is
 separate from runtime deployment.
+
+Release receipt: `backups/chapters-20261006-012825/release-receipt.json` records
+commit and verified API artifact SHA-256. The restricted backup contains both
+database dumps, an additional API cutover dump taken while writes were stopped,
+dump listings, replaced runtime files, compose and private environment settings.
+V16–V17 applied; six services healthy, API readiness UP, public health OK, recent
+API/auth error markers zero. Existing story identity/publication manifest matches;
+guest catalog still has three demos and collection catalog is empty. No production
+sample collections were created. Private endpoints deny anonymous access with 401;
+served assets and all replaced runtime files match the release hashes.
+
+Verification: 59 API tests (17 collection workflows), 33 auth tests, 70 frontend/
+Builder tests, JS syntax, production validator and diff checks passed. PostgreSQL
+verification includes the complete 15-test V16 suite, additive V17 upgrade, and
+three final affected dependency/replay regressions. Browser fixtures passed at
+1440/390/320px including failed editor switching, nullable informational metadata,
+hidden intermediate chapters and exact dependency revision links. The labelled
+PostgreSQL fixture and its SSH tunnel were removed. No Git push was performed.
 
 1. Verify local changes and retain unrelated legal/map/artwork changes. Run API and
    auth suites, all frontend/Builder tests, JS syntax, production validator and

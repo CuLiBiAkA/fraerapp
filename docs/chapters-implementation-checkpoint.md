@@ -61,5 +61,14 @@ suite, additive V17 upgrade and three final affected regressions. The final full
 API/auth suite and bootJar passed; requirement and final quality reviews passed.
 Disposable PostgreSQL and tunnel were removed after tests.
 
-Commit/deployment pending; no feature data or example stories written to production.
-Next: commit exact task files, verified backup/build/cutover, deployment receipt.
+Implementation commit: `39f41f7`, deployed and verified 2026-10-06. Backup and
+restricted release receipt: `backups/chapters-20261006-012825`. Both databases,
+runtime configuration/replaced files and a stopped-writes API cutover dump are
+backed up. V17 applied; six healthy services, readiness UP, public assets/runtime
+file hashes match the release, no recent API/auth error markers. Existing story
+identity/publication manifest and guest-access policy are preserved. Anonymous
+private endpoints return 401. No example works were written to production.
+
+Complete: implementation, reviews, checks, local commit and authorized deployment.
+Release documentation is committed separately after verification. No Git push.
+No task-owned code remains uncommitted; unrelated baseline changes are preserved.
