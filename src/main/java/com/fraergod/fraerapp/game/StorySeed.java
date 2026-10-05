@@ -7,14 +7,15 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
 @Component
+@org.springframework.core.annotation.Order(10)
 class StorySeed implements CommandLineRunner {
 
 	private final StoryRepository stories;
-	private final StoryAdminService admin;
+	private final StoryWorkflowService workflow;
 
-	StorySeed(StoryRepository stories, StoryAdminService admin) {
+	StorySeed(StoryRepository stories, StoryWorkflowService workflow) {
 		this.stories = stories;
-		this.admin = admin;
+		this.workflow = workflow;
 	}
 
 	@Override
@@ -23,9 +24,6 @@ class StorySeed implements CommandLineRunner {
 			return;
 		}
 		String body = new String(new ClassPathResource("story/night-train.json").getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-		Object imported = admin.importStory(body);
-		if (imported instanceof StoryAdminService.ImportResponse response) {
-			admin.publish(response.storyId());
-		}
+		workflow.importDraft(body, null);
 	}
 }

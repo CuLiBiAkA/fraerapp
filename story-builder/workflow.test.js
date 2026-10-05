@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
+import { filterAfterSubmit } from "../frontend/story-workflow.js";
 
 const source = fs.readFileSync(new URL("./app.js", import.meta.url), "utf8");
 function harness(names, overrides = {}) {
@@ -17,6 +18,11 @@ function harness(names, overrides = {}) {
     fetchJson: async url => { calls.push(url); return {}; },
     authorFetch: async url => { calls.push(url); return {}; },
     prompt: () => null,
+    confirm: () => true,
+    window: {location:{}},
+    authorHomeCache: null, authorFilter: "all", builderWorkflowBusy: false,
+    filterAfterSubmit, updateAuthorGate() {},
+    toStoryJson: () => ({key:"story-a"}),
     ...overrides,
   });
   for (const name of names) {
@@ -55,11 +61,11 @@ test("checking a saved story never imports or changes publication", async () => 
   assert.deepEqual(calls, ["https://example.test/api/author/stories/story-a-id/validate"]);
 });
 
-test("inspecting or publishing another story leaves the editor binding alone", async () => {
+test("inspecting or archiving another story leaves the editor binding alone", async () => {
   const { context } = harness(["showAuthorAnalytics", "showAuthorPreview", "showAuthorVersions", "authorWorkflow", "getDraftStoryId", "bindDraftStory"]);
   context.bindDraftStory("story-a-id");
   for (const name of ["showAuthorAnalytics", "showAuthorPreview", "showAuthorVersions"]) await context[name]("story-b-id");
-  await context.authorWorkflow("story-b-id", "publish");
+  await context.authorWorkflow("story-b-id", "archive");
   assert.equal(context.getDraftStoryId(), "story-a-id");
 });
 
@@ -126,7 +132,7 @@ test("malformed imports leave the current draft untouched", () => {
   }
 });
 
-test("switching stories during publish cannot publish the newly opened story", async () => {
+test("switching stories while saving cannot submit the newly opened story", async () => {
   let context;
   const runtime = harness(["runtimeCall", "getDraftStoryId"], {
     importDraftToRuntime: async () => {
@@ -135,15 +141,89 @@ test("switching stories during publish cannot publish the newly opened story", a
     },
   });
   context=runtime.context;
-  await context.runtimeCall("publish");
+  await context.runtimeCall("review");
   assert.deepEqual(runtime.calls,[]);
   assert.equal(context.els.apiResult.textContent,"draftChanged");
 });
 
-test("publish uses the identity returned by its own import", async () => {
-  const {context,calls}=harness(["runtimeCall"],{getDraftStoryId:()=>null,importDraftToRuntime:async()=>({storyId:"new-id"})});
+test("review uses the identity and generation returned by its own save", async () => {
+  let sent;
+  const {context}=harness(["runtimeCall","authorWorkflow"],{
+    getDraftStoryId:()=>null,
+    importDraftToRuntime:async()=>({storyId:"new-id",generation:8,draftRevision:4,reviewState:"draft"}),
+    authorFetch:async(path,options)=>{sent={path,body:JSON.parse(options.body)};return {submittedRevision:4};},
+  });
+  await context.runtimeCall("review");
+  assert.deepEqual(sent,{path:"/api/author/stories/new-id/review",body:{generation:8,replaceReview:false}});
+});
+
+test("editing the same draft while saving stops submission and retains local changes", async () => {
+  let context;
+  const {context:runtime,calls}=harness(["runtimeCall"],{
+    getDraftStoryId:()=>"a-id", toStoryJson:()=>({key:context.draft.key,title:context.draft.title}),
+    importDraftToRuntime:async()=>{context.draft.title="New unsaved title";return {storyId:"a-id"};},
+  });
+  context=runtime;
+  await context.runtimeCall("review");
+  assert.deepEqual(calls,[]);
+  assert.equal(context.els.apiResult.textContent,"draftChanged");
+  assert.equal(context.draft.title,"New unsaved title");
+});
+
+test("replacement needs confirmation and a rejected request keeps the drafts filter", async () => {
+  const summary={storyId:"a",generation:9,submittedRevision:3,draftRevision:4,reviewState:"in_review"};
+  const denied=harness(["authorWorkflow"],{confirm:()=>false,authorFilter:"drafts"});
+  await denied.context.authorWorkflow("a","review",summary);
+  assert.deepEqual(denied.calls,[]);
+  assert.equal(denied.context.authorFilter,"drafts");
+  const failed=harness(["authorWorkflow"],{authorFilter:"drafts",authorFetch:async()=>{throw new Error("Failed");}});
+  await assert.rejects(failed.context.authorWorkflow("a","review",summary),/Failed/);
+  assert.equal(failed.context.authorFilter,"drafts");
+  const accepted=harness(["authorWorkflow"],{authorFilter:"drafts",authorFetch:async()=>({submittedRevision:4})});
+  await accepted.context.authorWorkflow("a","review",summary);
+  assert.equal(accepted.context.authorFilter,"review");
+});
+
+test("legacy publish action has no Builder execution path", async () => {
+  const {context,calls}=harness(["runtimeCall","authorWorkflow"]);
   await context.runtimeCall("publish");
-  assert.deepEqual(calls,["https://example.test/api/author/stories/new-id/publish"]);
+  await assert.rejects(context.authorWorkflow("a","publish"),/authorRoleMissing/);
+  assert.deepEqual(calls,[]);
+});
+
+test("first global and scene-local upload saves a draft, uploads, and saves the URL without publishing", async () => {
+  for (const scope of ["global","local"]) {
+    const steps=[];let context, uploadedForm;
+    const asset={id:"new-image",type:"image",url:""};
+    const setup=harness(["uploadAssetFile","getDraftStoryId","bindDraftStory"],{
+      FormData:class { constructor(){this.data=new Map();} append(key,value){this.data.set(key,value);} get(key){return this.data.get(key);} },
+      renderPreview(){},
+      importDraftToRuntime:async()=>{steps.push("save");context.bindDraftStory("new-story");return {storyId:"new-story",draftRevision:steps.length};},
+      fetchJson:async(path,options)=>{steps.push("upload");uploadedForm=options.body;assert.equal(path,"https://example.test/api/author/stories/new-story/assets");return {id:"new-image",type:"image",url:"/uploads/new-story/immutable.png"};},
+    });
+    context=setup.context;
+    await context.uploadAssetFile(asset,"fake-file",scope);
+    assert.deepEqual(steps,["save","upload","save"]);
+    assert.equal(uploadedForm.get("scope"),scope==="local"?"local":undefined);
+    assert.equal(asset.url,"/uploads/new-story/immutable.png");
+    assert.equal(context.getDraftStoryId(),"new-story");
+  }
+});
+
+test("opening a server draft binds the document and revision from the same response", async () => {
+  let context;
+  const setup=harness(["openAuthorStory","bindDraftStory","getDraftStoryId"],{
+    hasUnsavedChanges:()=>false,
+    authorHomeCache:{stories:[{storyId:"a",draftRevision:2}]},
+    authorFetch:async path=>{assert.equal(path,"/api/author/stories/a");return {draftRevision:4,draftDocument:{key:"a",title:"Working draft"},submittedDocument:{key:"a",title:"Submitted text"}};},
+    fromStoryJson:value=>{context.draft={...value};},
+    toStoryJson:()=>({key:context.draft.key,title:context.draft.title}),
+  });
+  context=setup.context;
+  await context.openAuthorStory("a");
+  assert.equal(context.draft.title,"Working draft");
+  assert.equal(context.draft.runtimeStory.revision,4);
+  assert.equal(context.draft.runtimeStory.savedDocument,JSON.stringify({key:"a",title:"Working draft"}));
 });
 
 test("scenario map edits preserve the saved draft identity", () => {

@@ -49,6 +49,9 @@ class Scene {
 
 	@Column(nullable = false)
 	private int orderIndex;
+	@jakarta.persistence.Transient
+	private java.util.List<Choice> runtimeChoices;
+	java.util.List<Choice> getRuntimeChoices() { return runtimeChoices; }
 
 	protected Scene() {
 	}
@@ -67,6 +70,8 @@ class Scene {
 		this.localAssetsJson = json.write(scene.assets() == null ? java.util.List.of() : scene.assets());
 		this.endingJson = json.writeObject(scene.ending());
 		this.orderIndex = orderIndex;
+		this.runtimeChoices = scene.choices() == null ? java.util.List.of() : java.util.stream.IntStream.range(0, scene.choices().size())
+			.mapToObj(i -> new Choice(id, scene.choices().get(i), json, i)).toList();
 	}
 
 	String getId() {

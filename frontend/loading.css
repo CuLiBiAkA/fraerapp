@@ -1,0 +1,33 @@
+/* The same cosmic canvas as the homepage, with an independent decorative loader. */
+body:has(#auth-loading-screen:not(.hidden)) {
+  min-height: 100svh; color: #fee3e2;
+  background: radial-gradient(ellipse 65% 26% at 35% 0%, #daafe466, transparent), #33214a url('/assets/home/cosmos.png') right top / cover no-repeat;
+}
+body:has(#auth-loading-screen:not(.hidden))::before { display: none; }
+body:has(#auth-loading-screen:not(.hidden)) :is(.top-actions, .site-footer, .cookie-banner) { display: none; }
+#auth-loading-screen { width: 100%; min-height: 100svh; padding: 24px; margin: 0; color: #fee3e2; }
+#auth-loading-screen .auth-loading-card { display: flex; flex-direction: column; align-items: center; gap: 16px; width: min(660px, 100%); padding: 0; border: 0; background: none; box-shadow: none; }
+#auth-loading-screen .auth-loading-card::after { content: none; }
+#auth-loading-screen h1 { margin: 0; font-size: clamp(24px, 2.8vw, 40px); line-height: 1.4; letter-spacing: .07em; text-wrap: balance; text-shadow: 0 3px 20px #21132bcc; }
+#auth-loading-screen p { margin: 0; color: #fee3e2; font-size: clamp(14px, 1.25vw, 18px); line-height: 1.6; text-wrap: balance; text-shadow: 0 2px 10px #21132b; }
+.fairy-stage { --ring-size: clamp(26px, 2.430556vw, 35px); position: relative; flex: none; width: clamp(114px, 13.2vw, 190px); aspect-ratio: 1; margin-bottom: 8px; }
+.fairy-flight { position: absolute; width: 46%; aspect-ratio: 1; left: 24%; top: 9%; animation: fairy-wander 13.7s ease-in-out infinite alternate; will-change: top, left, transform; }
+.loading-fairy { display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 7px #edb6ed80); animation: fairy-flutter .9s ease-in-out infinite alternate; }
+.fairy-ring { position: absolute; width: var(--ring-size); height: var(--ring-size); left: calc(50% - var(--ring-size) / 2); top: 73%; border-radius: 50%; animation: fairy-orbit 1.8s linear infinite; filter: drop-shadow(0 0 4px #f5a6df); }
+.fairy-ring::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: conic-gradient(from 0deg, transparent 0deg 65deg, #daafe41a 100deg, #ed9cde66 220deg, #ffc0ebdd 310deg, #fff5dd 356deg, transparent 360deg); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px)); }
+.fairy-ring::after { content: ''; position: absolute; width: 5px; height: 5px; left: calc(50% - 2.5px); top: -1.5px; border-radius: 50%; background: #fff4df; box-shadow: 0 0 5px #ffe4ef, 0 0 10px #f5a6df; }
+.fairy-ring i { position: absolute; width: 2.5px; height: 2.5px; left: calc(50% - 1.25px); top: calc(50% - 1.25px); border-radius: 50%; background: #ffe4ed; opacity: calc(.08 + var(--spark) * .075); transform: rotate(calc(var(--spark) * 25deg + 75deg)) translateY(calc(var(--ring-size) / -2)); box-shadow: 0 0 3px #f3a9df; }
+@keyframes fairy-orbit { to { transform: rotate(360deg); } }
+@keyframes fairy-flutter { from { transform: rotate(-5deg) scaleX(.95); } to { transform: rotate(4deg) scaleX(1.04); } }
+@keyframes fairy-wander {
+  0% { left: 8%; top: 20%; transform: rotate(-12deg); }
+  17% { left: 42%; top: 3%; transform: rotate(8deg); }
+  33% { left: 22%; top: 34%; transform: rotate(-5deg); }
+  51% { left: 48%; top: 23%; transform: rotate(12deg); }
+  68% { left: 7%; top: 7%; transform: rotate(-16deg); }
+  83% { left: 34%; top: 43%; transform: rotate(6deg); }
+  100% { left: 20%; top: 1%; transform: rotate(-4deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fairy-flight, .loading-fairy, .fairy-ring { animation: none; }
+}

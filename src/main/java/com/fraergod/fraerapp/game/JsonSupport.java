@@ -26,7 +26,7 @@ class JsonSupport {
 		try {
 			return mapper.readValue(json, StoryDocument.class);
 		} catch (Exception ex) {
-			throw new IllegalArgumentException("Invalid story JSON", ex);
+			throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid story JSON");
 		}
 	}
 

@@ -1,0 +1,25 @@
+/* Shared type roles from Figma 84:293. Fonts are served locally, including Cyrillic. */
+@font-face { font-family: "Montserrat"; font-style: normal; font-weight: 100 900; font-display: swap; src: url('/assets/home/montserrat-variable.ttf') format('truetype'); }
+@font-face { font-family: "Playfair Display SC"; font-style: normal; font-weight: 400; font-display: swap; src: url('/assets/home/playfair-display-sc-regular.ttf') format('truetype'); }
+@font-face { font-family: "Playfair Display SC"; font-style: normal; font-weight: 700; font-display: swap; src: url('/assets/home/playfair-display-sc-bold.ttf') format('truetype'); }
+@font-face { font-family: "Inter UI"; font-style: normal; font-weight: 400; font-display: swap; src: url('/assets/home/inter-regular.ttf') format('truetype'); }
+@font-face { font-family: "Inter UI"; font-style: normal; font-weight: 500; font-display: swap; src: url('/assets/home/inter-medium.ttf') format('truetype'); }
+:root { --font-body: "Montserrat", sans-serif; --font-heading: "Playfair Display SC", Georgia, serif; --font-control: "Inter UI", sans-serif; font-family: var(--font-body); }
+body, input, textarea, select { font-family: var(--font-body); }
+button, .outline-button, .home-actions .outline-button { font-family: var(--font-control); font-weight: 500; }
+h1, h2, h3, .modal-layer .modal-card h2 { font-family: var(--font-heading); font-weight: 400; letter-spacing: .11em; }
+.modal-layer .modal-card h2 { line-height: 1.45; }
+.modal-layer .modal-card p, .cookie-banner, .home-catalog-links, .filter-select-trigger, .filter-select-option { font-family: var(--font-body); }
+.engagement-card .story-card-info strong,
+.home-story-card.engagement-card .story-card-info strong { font-family: var(--font-body); font-weight: 400; }
+.story-card-stats, .story-genre { font-family: var(--font-control); font-weight: 400; }
+body .site-footer, body.is-public-home:has(#login-screen:not(.hidden)) .site-footer,
+body:has(#story-screen:not(.hidden)) .site-footer { font-family: var(--font-body); font-size: 15px; font-weight: 500; line-height: 25px; }
+#story-screen h1, #story-screen .eyebrow { font-family: var(--font-heading); font-weight: 400; letter-spacing: .11em; }
+#story-screen h1 { font-size: max(28px, calc(40 * var(--library-unit))); line-height: 1.375; }
+.home-catalog-links { font-size: 18px; line-height: 25px; }
+@media (max-width:700px) {
+  h1, h2, h3, .modal-layer .modal-card h2, #story-screen h1, #story-screen .eyebrow { letter-spacing: .06em; }
+  body .site-footer, body.is-public-home:has(#login-screen:not(.hidden)) .site-footer, body:has(#story-screen:not(.hidden)) .site-footer { font-size: 12px; line-height: 1.5; }
+  .home-catalog-links { font-size: 16px; }
+}

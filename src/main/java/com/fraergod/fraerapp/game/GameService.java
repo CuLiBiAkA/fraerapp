@@ -29,9 +29,11 @@ class GameService {
 	private final StoryAssetRepository assets;
 	private final GameSessionRepository sessions;
 	private final JsonSupport json;
+	private final StoryAccessService access;
+	private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 
 	GameService(PlayerRepository players, StoryRepository stories, SceneRepository scenes, ChoiceRepository choices,
-			StoryAssetRepository assets, GameSessionRepository sessions, JsonSupport json) {
+			StoryAssetRepository assets, GameSessionRepository sessions, JsonSupport json, StoryAccessService access, org.springframework.jdbc.core.JdbcTemplate jdbc) {
 		this.players = players;
 		this.stories = stories;
 		this.scenes = scenes;
@@ -39,6 +41,8 @@ class GameService {
 		this.assets = assets;
 		this.sessions = sessions;
 		this.json = json;
+		this.access = access;
+		this.jdbc = jdbc;
 	}
 
 	@Transactional
@@ -50,7 +54,7 @@ class GameService {
 
 	@Transactional(readOnly = true)
 	List<StorySummary> publishedStories() {
-		return stories.findByStatusOrderByTitleAsc(StoryStatus.PUBLISHED).stream()
+		return stories.findByStatusOrderByTitleAsc(StoryStatus.PUBLISHED).stream().filter(StoryAccessService::listed)
 				.map(story -> new StorySummary(story.getKey(), story.getTitle(), story.getDescription()))
 				.toList();
 	}
@@ -64,8 +68,9 @@ class GameService {
 	SessionState createSession(String playerId, String storyKey, String saveName) {
 		Player player = player(playerId);
 		Story story = stories.findByKey(storyKey)
-				.filter(candidate -> candidate.getStatus() == StoryStatus.PUBLISHED)
+				.filter(StoryAccessService::available)
 				.orElseThrow(StoryNotFoundException::new);
+		story = access.atRevision(story, story.getPublishedRevision());
 		String resolvedSaveName = blank(saveName)
 				? "Save " + (sessions.countByPlayerIdAndStoryId(player.getId(), story.getId()) + 1)
 				: saveName;
@@ -76,6 +81,7 @@ class GameService {
 		session.setVariablesJson(json.write(variables));
 		if (json.readObject(start.getEndingJson()) != null) {
 			session.finish(start.getSceneKey());
+			recordEnding(session);
 		}
 		return state(session, story, start);
 	}
@@ -84,6 +90,7 @@ class GameService {
 	List<SaveSummary> sessionSaves(String playerId) {
 		Player player = player(playerId);
 		return sessions.findByPlayerIdOrderByUpdatedAtDesc(player.getId()).stream()
+				.filter(session -> stories.findById(session.getStoryId()).map(story -> access.supportsRevision(story,session.getStoryRevision())).orElse(false))
 				.map(this::saveSummary)
 				.toList();
 	}
@@ -92,10 +99,11 @@ class GameService {
 	List<SaveSummary> storySaves(String playerId, String storyKey) {
 		Player player = player(playerId);
 		Story story = stories.findByKey(storyKey)
-				.filter(candidate -> candidate.getStatus() == StoryStatus.PUBLISHED)
+				.filter(StoryAccessService::available)
 				.orElseThrow(StoryNotFoundException::new);
 		return sessions.findByPlayerIdAndStoryIdOrderByUpdatedAtDesc(player.getId(), story.getId()).stream()
-				.map(session -> saveSummary(session, story))
+				.filter(session -> access.supportsRevision(story,session.getStoryRevision()))
+				.map(this::saveSummary)
 				.toList();
 	}
 
@@ -109,7 +117,7 @@ class GameService {
 	@Transactional(readOnly = true)
 	SessionState sessionState(String playerId, String sessionId) {
 		GameSession session = session(playerId, sessionId);
-		Story story = story(session.getStoryId());
+		Story story = runtimeStory(session);
 		return state(session, story, scene(story, session.getCurrentSceneKey()));
 	}
 
@@ -119,7 +127,7 @@ class GameService {
 		if (session.getStatus() == SessionStatus.FINISHED) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Session is finished");
 		}
-		Story story = story(session.getStoryId());
+		Story story = runtimeStory(session);
 		Scene current = scene(story, session.getCurrentSceneKey());
 		Map<String, Object> variables = json.readMap(session.getVariablesJson());
 		Map<String, Object> sceneVariables = sceneVariables(current, variables);
@@ -140,6 +148,7 @@ class GameService {
 		session.setCurrentSceneKey(next.getSceneKey());
 		if (json.readObject(next.getEndingJson()) != null) {
 			session.finish(next.getSceneKey());
+			recordEnding(session);
 		}
 		return state(session, story, next);
 	}
@@ -147,13 +156,23 @@ class GameService {
 	@Transactional
 	SessionState reset(String playerId, String sessionId) {
 		GameSession session = session(playerId, sessionId);
-		Story story = story(session.getStoryId());
+		Story story = runtimeStory(session);
 		session.reset(story);
 		Scene start = scene(story, story.getStartSceneId());
 		Map<String, Object> variables = json.readMap(session.getVariablesJson());
 		applySceneEffects(variables, start);
 		session.setVariablesJson(json.write(variables));
 		return state(session, story, start);
+	}
+
+	private void recordEnding(GameSession session) {
+		// Serialize discoveries for one reader; duplicate runs must not duplicate endings.
+		jdbc.queryForObject("select id from players where id=? for update", String.class, session.getPlayerId());
+		if (jdbc.queryForObject("select count(*) from reader_endings where player_id=? and story_id=? and scene_key=?",
+			Long.class, session.getPlayerId(), session.getStoryId(), session.getEndingSceneKey()) == 0) {
+			jdbc.update("insert into reader_endings(player_id,story_id,scene_key) values (?,?,?)",
+				session.getPlayerId(), session.getStoryId(), session.getEndingSceneKey());
+		}
 	}
 
 	private Player player(String playerId) {
@@ -174,17 +193,20 @@ class GameService {
 		return session;
 	}
 
-	private Story story(String storyId) {
-		return stories.findById(storyId).orElseThrow(StoryNotFoundException::new);
+	private Story runtimeStory(GameSession session) {
+		Story live = stories.findById(session.getStoryId()).orElseThrow(StoryNotFoundException::new);
+		return access.atRevision(live,session.getStoryRevision());
 	}
 
 	private Scene scene(Story story, String sceneKey) {
-		return scenes.findByStoryIdAndSceneKey(story.getId(), sceneKey).orElseThrow(StoryConfigurationException::new);
+		return story.getRuntimeDocument().scenes().stream().filter(s -> s.id().equals(sceneKey))
+			.map(s -> new Scene(story.getId(),s,json,0)).findFirst().orElseThrow(StoryConfigurationException::new);
 	}
 
 	private SessionState state(GameSession session, Story story, Scene scene) {
 		Map<String, Object> variables = json.readMap(session.getVariablesJson());
-		Map<String, StoryAsset> assetByKey = assets.findByStoryId(story.getId()).stream()
+		Map<String, StoryAsset> assetByKey = (story.getRuntimeDocument().assets()==null ? List.<StoryDocument.AssetDocument>of() : story.getRuntimeDocument().assets()).stream()
+				.map(a -> new StoryAsset(story.getId(),a.id(),a.type(),a.url(),json.write(a.metadata())))
 				.collect(java.util.stream.Collectors.toMap(StoryAsset::getAssetKey, asset -> asset));
 		Map<String, String> localAssetUrls = localAssetUrls(scene);
 		Map<String, Object> sceneVariables = sceneVariables(scene, variables);
@@ -215,7 +237,7 @@ class GameService {
 	}
 
 	private SaveSummary saveSummary(GameSession session) {
-		return saveSummary(session, story(session.getStoryId()));
+		return saveSummary(session, runtimeStory(session));
 	}
 
 	private SaveSummary saveSummary(GameSession session, Story story) {
@@ -228,17 +250,17 @@ class GameService {
 				playerName(story.getOwnerPlayerId()),
 				current.getSceneKey(),
 				current.getTitle(),
-				progress(story.getId(), session),
+				progress(story, session),
 				session.getStatus().name().toLowerCase(),
 				session.getCreatedAt(),
 				session.getUpdatedAt());
 	}
 
-	private double progress(String storyId, GameSession session) {
+	private double progress(Story story, GameSession session) {
 		if (session.getStatus() == SessionStatus.FINISHED) {
 			return 100.0;
 		}
-		List<Scene> storyScenes = scenes.findByStoryIdOrderByOrderIndexAsc(storyId);
+		List<Scene> storyScenes = story.getRuntimeDocument().scenes().stream().map(s -> new Scene(story.getId(),s,json,0)).toList();
 		if (storyScenes.isEmpty()) {
 			return 0.0;
 		}
@@ -268,7 +290,7 @@ class GameService {
 
 	private List<Choice> availableChoices(Scene scene, Map<String, Object> variables) {
 		List<Choice> result = new ArrayList<>();
-		for (Choice choice : choices.findBySceneIdOrderByOrderIndexAsc(scene.getId())) {
+		for (Choice choice : scene.getRuntimeChoices()) {
 			if (conditionsPass(variables, choice.getConditionsJson()) || !blank(choice.getFallbackTargetSceneKey())) {
 				result.add(choice);
 			}

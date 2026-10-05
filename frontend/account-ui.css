@@ -1,0 +1,15 @@
+#home-profile.account-icon, #library-profile.account-icon { position: relative; width: 48px; height: 48px; min-width: 48px; padding: 0; overflow: visible; background: transparent; border: 0; }
+#home-profile.account-icon img, #library-profile.account-icon img { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 48px; height: 48px; object-fit: contain; opacity: .45; filter: saturate(.4) brightness(.8); }
+#home-profile.account-signed img, #library-profile.account-signed img { opacity: 1; filter: none; }
+.account-icon.account-unread::after { content: ''; display: block; position: absolute; top: 8px; right: 8px; width: 6px; height: 6px; border: 1px solid #ffe3eb; border-radius: 50%; background: linear-gradient(135deg, #ffd9ad, #fa8ebb); box-shadow: 0 0 5px #ffb4d8; pointer-events: none; }
+#profile-modal .modal-card { max-height: calc(100dvh - 32px); overflow-y: auto; }
+#profile-modal #profile-account-status { font-size: 12px; margin: 0 0 10px; }
+#profile-account-status:empty { display: none; }
+#profile-notification-panel { margin-top: 16px; text-align: left; font-size: 14px; }
+#profile-notification-panel summary { cursor: pointer; }
+#profile-notifications { max-height: 240px; overflow-y: auto; }
+#profile-notifications .account-notice { padding: 10px 0; border-bottom: 1px solid #fee3e233; }
+#profile-notifications p { font-size: 13px; margin: 6px 0; }
+#profile-notifications a, #profile-notifications button { color: #fee3e2; font: inherit; font-size: 12px; }
+#profile-notifications button { padding: 5px 8px; margin-left: 8px; border: 1px solid #fee3e266; border-radius: 8px; background: transparent; }
+#profile-notifications .is-unread { border-left: 2px solid #f5a2c0; padding-left: 10px; }

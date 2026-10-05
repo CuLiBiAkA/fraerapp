@@ -24,6 +24,9 @@ class GameSession {
 
 	@Column(nullable = false, length = 36)
 	private String storyId;
+	private Integer storyRevision;
+	Integer getStoryRevision() { return storyRevision; }
+	void setStoryRevision(Integer value) { storyRevision = value; }
 
 	@Column(nullable = false, length = 120)
 	private String currentSceneKey;
@@ -54,6 +57,7 @@ class GameSession {
 		this.id = UUID.randomUUID().toString();
 		this.playerId = playerId;
 		this.storyId = story.getId();
+		this.storyRevision = story.getPublishedRevision();
 		this.currentSceneKey = story.getStartSceneId();
 		this.saveName = "Autosave";
 		this.variablesJson = story.getVariablesJson();

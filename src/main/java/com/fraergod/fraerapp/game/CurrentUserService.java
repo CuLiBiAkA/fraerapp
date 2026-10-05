@@ -10,13 +10,15 @@ import org.springframework.stereotype.Service;
 class CurrentUserService {
 
 	private final PlayerRepository players;
+	private final CurrentSessionClient currentSession;
 
-	CurrentUserService(PlayerRepository players) {
+	CurrentUserService(PlayerRepository players, CurrentSessionClient currentSession) {
 		this.players = players;
+		this.currentSession = currentSession;
 	}
 
 	AuthIdentity requireIdentity() {
-		return AuthContext.current().orElseThrow(AuthRequiredException::new);
+		return currentSession.current(AuthContext.current().orElseThrow(AuthRequiredException::new));
 	}
 
 	AuthIdentity requireRole(String role) {
@@ -44,8 +46,18 @@ class CurrentUserService {
 		requireRole("admin");
 	}
 
+	AuthIdentity requireModerator() {
+		AuthIdentity identity = requireIdentity();
+		if (!identity.hasRole("moderator") && !identity.hasRole("admin")) throw new ForbiddenRoleException();
+		return identity;
+	}
+
+	String requireOwnerReaderPlayerId() { return playerFor(requireIdentity()).getId(); }
+
+	java.util.Optional<AuthIdentity> optionalIdentity() { return AuthContext.current().map(ignored -> requireIdentity()); }
+
 	String optionalPlayerId() {
-		return AuthContext.current()
+		return optionalIdentity()
 				.filter(identity -> identity.hasRole("player"))
 				.flatMap(identity -> players.findByUserId(identity.userId()))
 				.map(Player::getId)

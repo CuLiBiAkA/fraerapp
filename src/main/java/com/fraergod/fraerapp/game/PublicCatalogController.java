@@ -1,6 +1,8 @@
 package com.fraergod.fraerapp.game;
 
 import java.util.List;
+import java.util.Comparator;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,12 +22,19 @@ class PublicCatalogController {
 	}
 
 	@GetMapping
-	List<StoryProductService.PublishedStorySummary> stories() {
-		return product.publishedCatalog(currentUser.optionalPlayerId());
+	List<StoryProductService.PublishedStorySummary> stories(HttpServletResponse response) {
+		response.setHeader("Cache-Control", "private, no-store");
+		var stories = product.publishedCatalog(currentUser.optionalPlayerId());
+		if (AuthContext.current().isPresent()) return stories;
+		return stories.stream().filter(story -> GuestDemoStories.includes(story.key()))
+			.sorted(Comparator.comparingInt(story -> GuestDemoStories.KEYS.indexOf(story.key()))).toList();
 	}
 
 	@GetMapping("/{slug}")
-	StoryProductService.PublishedStoryDetails story(@PathVariable String slug) {
-		return product.publishedStory(slug);
+	StoryProductService.PublishedStoryDetails story(@PathVariable String slug, HttpServletResponse response) {
+		response.setHeader("Cache-Control", "private, no-store");
+		var story = product.publishedStory(slug);
+		if (currentUser.optionalIdentity().isEmpty() && !GuestDemoStories.includes(story.key())) throw new AuthRequiredException();
+		return story;
 	}
 }

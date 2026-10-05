@@ -30,9 +30,10 @@ class StoryAdminService {
 	private final PlayerRepository players;
 	private final JdbcTemplate jdbc;
 	private final JsonSupport json;
+	private final AccountService accounts;
 
 	StoryAdminService(StoryRepository stories, StoryVersionRepository versions, SceneRepository scenes, ChoiceRepository choices,
-			StoryAssetRepository assets, StoryAssetStorageService assetStorage, PlayerRepository players, JdbcTemplate jdbc, JsonSupport json) {
+			StoryAssetRepository assets, StoryAssetStorageService assetStorage, PlayerRepository players, JdbcTemplate jdbc, JsonSupport json, AccountService accounts) {
 		this.stories = stories;
 		this.versions = versions;
 		this.scenes = scenes;
@@ -42,30 +43,7 @@ class StoryAdminService {
 		this.players = players;
 		this.jdbc = jdbc;
 		this.json = json;
-	}
-
-	@Transactional
-	ImportResponse importStory(String body) {
-		return importStory(body, null);
-	}
-
-	@Transactional
-	ImportResponse importStory(String body, String ownerPlayerId) {
-		StoryDocument document = json.readStory(body);
-		StoryValidationResult validation = validate(document);
-		if (!validation.valid()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, String.join("; ", validation.errors()));
-		}
-
-		Story story = stories.findByKey(document.key()).orElseGet(() -> new Story(document.key()));
-		requireOwnerAccess(story, ownerPlayerId);
-		if (story.getOwnerPlayerId() == null && ownerPlayerId != null && !ownerPlayerId.isBlank()) {
-			story.setOwnerPlayerId(ownerPlayerId);
-		}
-		story = applyDocument(story, document, StoryStatus.DRAFT);
-		assetStorage.deleteUnreferencedStoryFiles(story.getId(), referencedAssetUrls(document));
-		StoryVersion version = saveVersion(story, "import");
-		return response(story, version);
+		this.accounts = accounts;
 	}
 
 	@Transactional(readOnly = true)
@@ -181,52 +159,6 @@ class StoryAdminService {
 		return StoryValidationResult.of(errors);
 	}
 
-	@Transactional
-	Object publish(String storyId) {
-		return publish(storyId, null);
-	}
-
-	@Transactional
-	ImportResponse publish(String storyId, String ownerPlayerId) {
-		Story story = story(storyId);
-		requireOwnerAccess(story, ownerPlayerId);
-		StoryValidationResult validation = validateStory(storyId);
-		if (!validation.valid()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, String.join("; ", validation.errors()));
-		}
-		story.setStatus(StoryStatus.PUBLISHED);
-		if (story.getPublishedSlug() == null || story.getPublishedSlug().isBlank()) {
-			story.setPublishedSlug(uniqueSlug(story.getKey(), story.getTitle()));
-		}
-		story.setPublishedAt(java.time.Instant.now());
-		story.setArchivedAt(null);
-		stories.save(story);
-		return response(story, saveVersion(story, "publish"));
-	}
-
-	@Transactional
-	ImportResponse submitForReview(String storyId, String ownerPlayerId) {
-		Story story = story(storyId);
-		requireOwnerAccess(story, ownerPlayerId);
-		StoryValidationResult validation = validateStory(storyId);
-		if (!validation.valid()) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, String.join("; ", validation.errors()));
-		}
-		story.setStatus(StoryStatus.REVIEW);
-		stories.save(story);
-		return response(story, saveVersion(story, "submit_review"));
-	}
-
-	@Transactional
-	ImportResponse archive(String storyId, String ownerPlayerId) {
-		Story story = story(storyId);
-		requireOwnerAccess(story, ownerPlayerId);
-		story.setStatus(StoryStatus.ARCHIVED);
-		story.setArchivedAt(java.time.Instant.now());
-		stories.save(story);
-		return response(story, saveVersion(story, "archive"));
-	}
-
 	@Transactional(readOnly = true)
 	Map<String, Object> preview(String storyId, String ownerPlayerId) {
 		Story story = story(storyId);
@@ -250,29 +182,6 @@ class StoryAdminService {
 						version.getNote(),
 						version.getCreatedAt()))
 				.toList();
-	}
-
-	@Transactional
-	ImportResponse rollback(String storyId, int versionNumber, String ownerPlayerId) {
-		Story story = story(storyId);
-		requireOwnerAccess(story, ownerPlayerId);
-		StoryVersion version = versions.findByStoryIdAndVersionNumber(story.getId(), versionNumber)
-				.orElseThrow(StoryNotFoundException::new);
-		StoryDocument document = json.readStory(version.getSnapshotJson());
-		story = applyDocument(story, document, version.getStatus());
-		StoryVersion rollbackVersion = saveVersion(story, "rollback_to_" + versionNumber);
-		return response(story, rollbackVersion);
-	}
-
-	@Transactional
-	void deleteStory(String storyId, String ownerPlayerId) {
-		Story story = story(storyId);
-		requireOwnerAccess(story, ownerPlayerId);
-		jdbc.update("delete from game_sessions where story_id = ?", story.getId());
-		jdbc.update("delete from story_versions where story_id = ?", story.getId());
-		deleteChildren(story.getId());
-		stories.delete(story);
-		assetStorage.deleteStoryFiles(story.getId());
 	}
 
 	private Optional<StoryStatus> parseStatus(String status) {
@@ -312,6 +221,8 @@ class StoryAdminService {
 		document.put("key", story.getKey());
 		document.put("title", story.getTitle());
 		document.put("description", story.getDescription());
+		document.put("genre", story.getGenre());
+		document.put("completionStatus", story.getCompletionStatus());
 		document.put("version", story.getVersion());
 		document.put("startSceneId", story.getStartSceneId());
 		document.put("variables", exportVariables(story));
@@ -362,12 +273,14 @@ class StoryAdminService {
 		return document;
 	}
 
-	private Story applyDocument(Story story, StoryDocument document, StoryStatus status) {
+	Story applyDocument(Story story, StoryDocument document, StoryStatus status) {
 		if (story.getId() != null) {
 			deleteChildren(story.getId());
 		}
 		story.setTitle(document.title());
 		story.setDescription(document.description());
+		story.setGenre(document.genre());
+		if (document.completionStatus() != null) story.setCompletionStatus(document.completionStatus());
 		story.setVersion(document.version() <= 0 ? 1 : document.version());
 		story.setStartSceneId(document.startSceneId());
 		story.setVariablesJson(json.writeVariables(document.variables()));
@@ -445,7 +358,7 @@ class StoryAdminService {
 		return value == null ? Map.of() : value;
 	}
 
-	private StoryValidationResult validate(StoryDocument document) {
+	StoryValidationResult validate(StoryDocument document) {
 		List<String> errors = new ArrayList<>();
 		if (blank(document.key())) {
 			errors.add("Story key is required");
@@ -453,6 +366,9 @@ class StoryAdminService {
 		if (blank(document.title())) {
 			errors.add("Story title is required");
 		}
+		if (document.key()!=null && !document.key().matches("[a-zA-Z0-9_-]{1,120}")) errors.add("Story key must contain 1–120 letters, numbers, underscores or hyphens");
+		if (document.title()!=null && document.title().length()>200) errors.add("Title is too long");
+		if (document.completionStatus()!=null && !List.of("completed","in_development","abandoned").contains(document.completionStatus())) errors.add("Unknown completion status");
 		if (blank(document.startSceneId())) {
 			errors.add("startSceneId is required");
 		}
@@ -552,7 +468,7 @@ class StoryAdminService {
 		}
 	}
 
-	private String uniqueSlug(String key, String title) {
+	String uniqueSlug(String key, String title) {
 		String base = slugify(title == null || title.isBlank() ? key : title);
 		if (base.isBlank()) {
 			base = slugify(key);

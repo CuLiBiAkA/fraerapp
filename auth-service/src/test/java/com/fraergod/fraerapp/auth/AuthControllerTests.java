@@ -7,8 +7,13 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,19 +37,33 @@ class AuthControllerTests {
 	private JwtCodec jwt;
 	private PasskeyService passkeys;
 	private FakeTelegramMessenger telegram;
+	private DriverManagerDataSource postgresAdmin;
+	private String postgresSchema;
 
 	@BeforeEach
 	void setUp() {
 		DriverManagerDataSource dataSource = new DriverManagerDataSource();
-		dataSource.setDriverClassName("org.h2.Driver");
-		dataSource.setUrl("jdbc:h2:mem:auth-" + System.nanoTime()
-				+ ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DB_CLOSE_DELAY=-1");
+		String postgresUrl=System.getenv("AUTH_MODERATION_TEST_DB");
+		if(postgresUrl==null||postgresUrl.isBlank()) {
+			dataSource.setDriverClassName("org.h2.Driver");
+			dataSource.setUrl("jdbc:h2:mem:auth-" + System.nanoTime()
+					+ ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DB_CLOSE_DELAY=-1");
+		} else {
+			postgresAdmin=new DriverManagerDataSource(postgresUrl,System.getenv("MODERATION_TEST_USER"),System.getenv("MODERATION_TEST_PASSWORD"));
+			postgresSchema="auth_check_"+UUID.randomUUID().toString().replace("-","");
+			new JdbcTemplate(postgresAdmin).execute("create schema "+postgresSchema);
+			dataSource.setDriverClassName("org.postgresql.Driver");
+			dataSource.setUrl(postgresUrl+(postgresUrl.contains("?")?"&":"?")+"currentSchema="+postgresSchema);
+			dataSource.setUsername(System.getenv("MODERATION_TEST_USER"));dataSource.setPassword(System.getenv("MODERATION_TEST_PASSWORD"));
+		}
 		ResourceDatabasePopulator schema = new ResourceDatabasePopulator(
 				new ClassPathResource("db/migration/V1__create_auth_schema.sql"),
 				new ClassPathResource("db/migration/V2__add_user_blocking.sql"),
 				new ClassPathResource("db/migration/V4__add_personal_data_consents.sql"),
 				new ClassPathResource("db/migration/V5__add_passkeys.sql"),
-				new ClassPathResource("db/migration/V6__add_telegram_identities.sql"));
+				new ClassPathResource("db/migration/V6__add_telegram_identities.sql"),
+				new ClassPathResource("db/migration/V7__author_access_requests.sql"),
+				new ClassPathResource("db/migration/V8__moderator_and_bootstrap_initialization.sql"));
 		schema.execute(dataSource);
 		jdbc = new JdbcTemplate(dataSource);
 		store = new AuthStore(jdbc);
@@ -72,6 +91,37 @@ class AuthControllerTests {
 		ReflectionTestUtils.setField(controller, "telegramLoginRedirectPath", "/");
 	}
 
+	@org.junit.jupiter.api.AfterEach
+	void cleanPostgresFixture() {
+		if(postgresAdmin!=null && postgresSchema!=null && postgresSchema.matches("auth_check_[a-f0-9]+"))
+			new JdbcTemplate(postgresAdmin).execute("drop schema "+postgresSchema+" cascade");
+	}
+
+	@Test
+	void authorRequestsArePrivateIdempotentAndResolvedByRoleGrant() {
+		User player = store.user("aspiring@example.test", true).orElseThrow();
+		String token = "Bearer " + authenticatedToken(player);
+		assertThatThrownBy(() -> controller.requestAuthorAccess(null, null)).isInstanceOf(ResponseStatusException.class);
+		assertThat(controller.authorRequestStatus(token, null, new MockHttpServletResponse())).containsEntry("status", "none");
+		assertThat(controller.requestAuthorAccess(token, null)).containsEntry("status", "pending");
+		assertThat(controller.requestAuthorAccess(token, null)).containsEntry("status", "pending");
+		assertThat(jdbc.queryForObject("select count(*) from author_access_requests", Long.class)).isEqualTo(1L);
+		assertThatThrownBy(() -> controller.authorRequests(token, null, new MockHttpServletResponse()))
+			.isInstanceOf(ResponseStatusException.class).hasMessageContaining("403");
+		assertThatThrownBy(() -> controller.grantRole(token, null, new AuthController.RoleRequest(player.email(), "author", true)))
+			.isInstanceOf(ResponseStatusException.class).hasMessageContaining("403");
+		User admin = store.user("approver@example.test", true).orElseThrow();
+		store.grantRole(admin.id(), "admin");
+		String adminToken = "Bearer " + authenticatedToken(store.userById(admin.id()).orElseThrow());
+		assertThat(controller.authorRequests(adminToken, null, new MockHttpServletResponse()))
+			.singleElement().satisfies(item -> assertThat(item.email()).isEqualTo(player.email()));
+		controller.grantRole(adminToken, null, new AuthController.RoleRequest(player.email(), "author", true));
+		assertThat(controller.authorRequests(adminToken, null, new MockHttpServletResponse())).isEmpty();
+		assertThat(controller.authorRequestStatus(token, null, new MockHttpServletResponse())).containsEntry("status", "granted");
+		assertThat(controller.requestAuthorAccess(token, null)).containsEntry("status", "granted");
+		assertThat(jdbc.queryForObject("select count(*) from author_access_requests", Long.class)).isZero();
+	}
+
 	@Test
 	void existingUserCanReceiveNewLinkAndPreviousLinkIsInvalidated() {
 		String email = "existing@example.test";
@@ -85,7 +135,7 @@ class AuthControllerTests {
 		store.grantRole(admin.id(), "admin");
 		admin = store.userById(admin.id()).orElseThrow();
 		String adminEmail = admin.email();
-		String adminJwt = jwt.encode(admin, "admin-session", Instant.now().plusSeconds(900));
+		String adminJwt = authenticatedToken(admin);
 		Map<String, Object> adminResponse = controller.adminLoginLink("Bearer " + adminJwt, null,
 				new AuthController.AdminLoginLinkRequest(email, "/"), request);
 		String secondToken = tokenFromUrl((String) adminResponse.get("loginUrl"));
@@ -156,7 +206,7 @@ class AuthControllerTests {
 				.satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode().value()).isEqualTo(401));
 
 		User regularUser = store.user("regular@example.test", true).orElseThrow();
-		String regularJwt = jwt.encode(regularUser, "regular-session", Instant.now().plusSeconds(900));
+		String regularJwt = authenticatedToken(regularUser);
 		assertThatThrownBy(() -> controller.adminLoginLink("Bearer " + regularJwt, null,
 				new AuthController.AdminLoginLinkRequest(targetEmail, "/"), request()))
 				.isInstanceOf(ResponseStatusException.class)
@@ -174,7 +224,7 @@ class AuthControllerTests {
 		store.grantRole(admin.id(), "admin");
 		admin = store.userById(admin.id()).orElseThrow();
 		String adminEmail = admin.email();
-		String adminJwt = jwt.encode(admin, "admin-session", Instant.now().plusSeconds(900));
+		String adminJwt = authenticatedToken(admin);
 
 		Map<String, Object> response = controller.adminLoginLink("Bearer " + adminJwt, null,
 				new AuthController.AdminLoginLinkRequest(targetEmail, "/"), request());
@@ -193,7 +243,7 @@ class AuthControllerTests {
 		User admin = store.user("admin@example.test", true).orElseThrow();
 		store.grantRole(admin.id(), "admin");
 		admin = store.userById(admin.id()).orElseThrow();
-		String adminJwt = jwt.encode(admin, "admin-session", Instant.now().plusSeconds(900));
+		String adminJwt = authenticatedToken(admin);
 
 		assertThatThrownBy(() -> controller.adminLoginLink("Bearer " + adminJwt, null,
 				new AuthController.AdminLoginLinkRequest("missing@example.test", "/"), request()))
@@ -218,7 +268,7 @@ class AuthControllerTests {
 		User admin = store.user("admin@example.test", true).orElseThrow();
 		store.grantRole(admin.id(), "admin");
 		admin = store.userById(admin.id()).orElseThrow();
-		String adminJwt = jwt.encode(admin, "admin-session", Instant.now().plusSeconds(900));
+		String adminJwt = authenticatedToken(admin);
 
 		AuthController.AdminLoginRequestPage requests = controller.loginRequests("Bearer " + adminJwt, null, 0, 20, "future");
 
@@ -248,7 +298,7 @@ class AuthControllerTests {
 		User admin = store.user("admin-delete-request@example.test", true).orElseThrow();
 		store.grantRole(admin.id(), "admin");
 		admin = store.userById(admin.id()).orElseThrow();
-		String adminJwt = jwt.encode(admin, "admin-session", Instant.now().plusSeconds(900));
+		String adminJwt = authenticatedToken(admin);
 
 		Map<String, Object> response = controller.deleteLoginRequest("Bearer " + adminJwt, null,
 				new AuthController.DeleteLoginRequest(requestedEmail));
@@ -268,7 +318,7 @@ class AuthControllerTests {
 		store.grantRole(admin.id(), "admin");
 		admin = store.userById(admin.id()).orElseThrow();
 		String adminEmail = admin.email();
-		String adminJwt = jwt.encode(admin, "admin-session", Instant.now().plusSeconds(900));
+		String adminJwt = authenticatedToken(admin);
 		User target = store.user("delete-me@example.test", true).orElseThrow();
 		store.createSession("target-session", target.id(), Instant.now().plusSeconds(3600), "magic_link", Instant.now());
 		store.createRefresh("target-refresh", "target-session", sha256("refresh"), Instant.now().plusSeconds(3600));
@@ -456,6 +506,296 @@ class AuthControllerTests {
 		assertThat(jdbc.queryForObject(
 				"select count(*) from auth_audit_events where user_id = ? and event_type = 'passkey_deleted'",
 				Long.class, owner.id())).isEqualTo(1L);
+	}
+
+	@Test
+	void adminCanDeleteTelegramBoundAccountAndItsSession() {
+		String adminToken = "Bearer " + authenticatedToken(admin("telegram-delete-admin@example.test"));
+		User target = store.userForTelegram(8090102L, 8090102L, "delete_test");
+		String targetToken = authenticatedToken(target);
+		store.grantRole(target.id(), "moderator");
+		store.requestAuthorAccess(target.id());
+
+		assertThat(controller.deleteUser(adminToken, null, new AuthController.DeleteUserRequest(target.email())))
+				.containsEntry("deleted", true);
+		assertThat(store.userById(target.id())).isEmpty();
+		assertThat(jdbc.queryForObject("select count(*) from telegram_identities where user_id = ?", Long.class, target.id())).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from author_access_requests where user_id = ?", Long.class, target.id())).isZero();
+		assertThatThrownBy(() -> me(targetToken)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("401");
+	}
+
+	@Test
+	void moderatorAndAuthorRolesAreIndependentAndOnlyAuthorAccessResolvesRequests() throws Exception {
+		User admin = admin("roles-admin@example.test");
+		String adminToken = "Bearer " + authenticatedToken(admin);
+		User target = store.user("moderator@example.test", true).orElseThrow();
+		String targetToken = "Bearer " + authenticatedToken(target);
+		controller.requestAuthorAccess(targetToken, null);
+
+		controller.grantRole(adminToken, null, new AuthController.RoleRequest(target.email(), "moderator", true));
+		assertThat(store.userById(target.id()).orElseThrow().roles()).containsExactly("moderator", "player");
+		assertThat(controller.authorRequestStatus(targetToken, null, new MockHttpServletResponse())).containsEntry("status", "pending");
+		assertThat(controller.requestAuthorAccess(targetToken, null)).containsEntry("status", "pending");
+
+		controller.grantRole(adminToken, null, new AuthController.RoleRequest(target.email(), "author", true));
+		assertThat(store.userById(target.id()).orElseThrow().roles()).containsExactly("author", "moderator", "player");
+		assertThat(controller.authorRequestStatus(targetToken, null, new MockHttpServletResponse())).containsEntry("status", "granted");
+		controller.grantRole(adminToken, null, new AuthController.RoleRequest(target.email(), "author", false));
+		assertThat(store.userById(target.id()).orElseThrow().roles()).containsExactly("moderator", "player");
+		controller.grantRole(adminToken, null, new AuthController.RoleRequest(target.email(), "author", true));
+		controller.grantRole(adminToken, null, new AuthController.RoleRequest(target.email(), "moderator", false));
+		assertThat(store.userById(target.id()).orElseThrow().roles()).containsExactly("author", "player");
+
+		List<String> metadata = jdbc.queryForList("select metadata from auth_audit_events where event_type = 'role_changed'", String.class);
+		JsonNode grant = new ObjectMapper().readTree(metadata.get(0));
+		assertThat(grant.path("targetUserId").asText()).isEqualTo(target.id());
+		assertThat(grant.path("role").asText()).isEqualTo("moderator");
+		assertThat(grant.path("grant").asBoolean()).isTrue();
+	}
+
+	@Test
+	void moderatorCanBePreGrantedAndPlayerDemotionRemovesEveryElevatedRole() {
+		String adminToken = "Bearer " + authenticatedToken(admin("grant-admin@example.test"));
+		String email = "pre-granted@example.test";
+		controller.adminLoginLink(adminToken, null,
+				new AuthController.AdminLoginLinkRequest(email, "/", true, List.of("moderator", "author", "admin")), request());
+		User target = store.userByEmail(email).orElseThrow();
+		assertThat(target.roles()).containsExactly("admin", "author", "moderator", "player");
+		controller.grantRole(adminToken, null, new AuthController.RoleRequest(email, "player", true));
+		assertThat(store.userById(target.id()).orElseThrow().roles()).containsExactly("player");
+
+		controller.devRole(new AuthController.RoleRequest(email, "moderator", true));
+		assertThat(store.userById(target.id()).orElseThrow().roles()).containsExactly("moderator", "player");
+		controller.devRole(new AuthController.RoleRequest(email, "moderator", false));
+		assertThat(store.userById(target.id()).orElseThrow().roles()).containsExactly("player");
+		controller.devRole(new AuthController.RoleRequest(email, "moderator", true));
+		controller.devRole(new AuthController.RoleRequest(email, "player", true));
+		assertThat(store.userById(target.id()).orElseThrow().roles()).containsExactly("player");
+	}
+
+	@Test
+	void moderatorCannotUseAuthAdministrationEndpoints() {
+		User moderator = store.user("restricted-moderator@example.test", true).orElseThrow();
+		store.grantRole(moderator.id(), "moderator");
+		String token = "Bearer " + authenticatedToken(store.userById(moderator.id()).orElseThrow());
+		List<Runnable> adminCalls = List.of(
+				() -> controller.users(token, null, 0, 20, ""),
+				() -> controller.loginRequests(token, null, 0, 20, ""),
+				() -> controller.authorRequests(token, null, new MockHttpServletResponse()),
+				() -> controller.grantRole(token, null, new AuthController.RoleRequest(moderator.email(), "admin", true)),
+				() -> controller.blockUser(token, null, new AuthController.BlockRequest(moderator.email(), true)),
+				() -> controller.deleteUser(token, null, new AuthController.DeleteUserRequest(moderator.email())),
+				() -> controller.deleteLoginRequest(token, null, new AuthController.DeleteLoginRequest(moderator.email())),
+				() -> controller.adminLoginLink(token, null, new AuthController.AdminLoginLinkRequest(moderator.email(), "/"), request()));
+		for (Runnable call : adminCalls) {
+			assertThatThrownBy(call::run).isInstanceOf(ResponseStatusException.class).hasMessageContaining("403");
+		}
+	}
+
+	@Test
+	void currentSessionUsesDatabaseRolesAndIsPrivate() {
+		User target = admin("changed-admin@example.test");
+		admin("remaining-admin@example.test");
+		String token = authenticatedToken(target);
+		store.removeRole(target.id(), "admin");
+		store.grantRole(target.id(), "moderator");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		Map<String, Object> current = controller.me("Bearer " + token, null, response);
+		assertThat(current).containsEntry("id", target.id()).containsEntry("blocked", false)
+				.containsEntry("roles", List.of("moderator", "player"))
+				.containsEntry("sessionId", jwt.decode(token).sessionId());
+		assertThat(response.getHeader("Cache-Control")).isEqualTo("private, no-store");
+		assertThat(controller.me(null, token, new MockHttpServletResponse())).isEqualTo(current);
+		assertThatThrownBy(() -> controller.users("Bearer " + token, null, 0, 20, ""))
+				.isInstanceOf(ResponseStatusException.class).hasMessageContaining("403");
+	}
+
+	@Test
+	void currentSessionRejectsMissingRevokedExpiredAndMismatchedSessions() {
+		User user = store.user("session-user@example.test", true).orElseThrow();
+		User other = store.user("session-other@example.test", true).orElseThrow();
+		String token = authenticatedToken(user);
+		String sessionId = jwt.decode(token).sessionId();
+		assertThatThrownBy(() -> me(jwt.encode(user, "missing", Instant.now().plusSeconds(900))))
+				.isInstanceOf(ResponseStatusException.class).hasMessageContaining("401");
+		assertThatThrownBy(() -> me(jwt.encode(other, sessionId, Instant.now().plusSeconds(900))))
+				.isInstanceOf(ResponseStatusException.class).hasMessageContaining("401");
+		assertThatThrownBy(() -> me(jwt.encode(user, sessionId, Instant.now().minusSeconds(1))))
+				.isInstanceOf(ResponseStatusException.class).hasMessageContaining("401");
+		store.createSession("expired", user.id(), Instant.now().minusSeconds(1), "magic_link", Instant.now().minusSeconds(2));
+		assertThatThrownBy(() -> me(jwt.encode(user, "expired", Instant.now().plusSeconds(900))))
+				.isInstanceOf(ResponseStatusException.class).hasMessageContaining("401");
+		store.revokeSession(sessionId);
+		assertThatThrownBy(() -> me(token)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("401");
+	}
+
+	@Test
+	void logoutBlockingAndDeletionInvalidateCurrentSessionImmediately() {
+		User user = store.user("logout-user@example.test", true).orElseThrow();
+		String token = authenticatedToken(user);
+		store.createRefresh("logout-refresh", jwt.decode(token).sessionId(), sha256("logout-refresh-token"), Instant.now().plusSeconds(3600));
+		controller.logout("logout-refresh-token", new MockHttpServletResponse());
+		assertThatThrownBy(() -> me(token)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("401");
+		String blockedToken = authenticatedToken(user);
+		store.blockUser(user.id());
+		assertThatThrownBy(() -> me(blockedToken)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("401");
+		store.unblockUser(user.id());
+		assertThatThrownBy(() -> me(blockedToken)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("401");
+		String deletedToken = authenticatedToken(user);
+		store.deleteUser(user.id(), user.email());
+		assertThatThrownBy(() -> me(deletedToken)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("401");
+	}
+
+	@Test
+	void blockedUserIsRejectedEvenIfSessionWasNotRevoked() {
+		User user = store.user("blocked-current@example.test", true).orElseThrow();
+		String token = authenticatedToken(user);
+		jdbc.update("update users set blocked_at = current_timestamp where id = ?", user.id());
+		assertThatThrownBy(() -> me(token)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("403");
+	}
+
+	@Test
+	void lastActiveAdminCannotBeRevokedDemotedBlockedOrDeleted() {
+		User sole = admin("sole-admin@example.test");
+		String token = "Bearer " + authenticatedToken(sole);
+		List<Runnable> destructiveCalls = List.of(
+				() -> controller.grantRole(token, null, new AuthController.RoleRequest(sole.email(), "admin", false)),
+				() -> controller.grantRole(token, null, new AuthController.RoleRequest(sole.email(), "player", true)),
+				() -> controller.blockUser(token, null, new AuthController.BlockRequest(sole.email(), true)),
+				() -> controller.deleteUser(token, null, new AuthController.DeleteUserRequest(sole.email())),
+				() -> store.deleteUser(sole.id(), sole.email()),
+				() -> controller.devRole(new AuthController.RoleRequest(sole.email(), "admin", false)));
+		for (Runnable call : destructiveCalls) {
+			assertThatThrownBy(call::run).isInstanceOf(ResponseStatusException.class).hasMessageContaining("409");
+			assertThat(store.userById(sole.id()).orElseThrow().blockedAt()).isNull();
+			assertThat(store.userById(sole.id()).orElseThrow().roles()).contains("admin");
+		}
+		assertThat(controller.me(token, null, new MockHttpServletResponse())).containsEntry("blocked", false);
+	}
+
+	@Test
+	void blockedAdminsDoNotCountAndCanBeRemoved() {
+		User active = admin("active-admin@example.test");
+		User blocked = admin("blocked-admin@example.test");
+		store.blockUser(blocked.id());
+		assertThatThrownBy(() -> store.removeRole(active.id(), "admin"))
+				.isInstanceOf(ResponseStatusException.class).hasMessageContaining("409");
+		store.removeRole(blocked.id(), "admin");
+		store.deleteUser(blocked.id(), blocked.email());
+		assertThat(store.userById(blocked.id())).isEmpty();
+		assertThat(store.userById(active.id()).orElseThrow().roles()).contains("admin");
+	}
+
+	@Test
+	void concurrentAdminLossAcrossIndependentStoresAlwaysLeavesOneActiveAdmin() throws Exception {
+		List<String> actions = List.of("revoke", "demote", "block", "delete");
+		for (String firstAction : actions) {
+			for (String secondAction : actions) {
+				setUp();
+				User first = admin("first-admin@example.test");
+				User second = admin("second-admin@example.test");
+				AuthStore secondStore = new AuthStore(jdbc);
+				var executor = Executors.newFixedThreadPool(2);
+				CountDownLatch ready = new CountDownLatch(2);
+				CountDownLatch start = new CountDownLatch(1);
+				try {
+					var firstResult = executor.submit(() -> changeAdminConcurrently(store, firstAction, first, ready, start));
+					var secondResult = executor.submit(() -> changeAdminConcurrently(secondStore, secondAction, second, ready, start));
+					assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+					start.countDown();
+					assertThat(List.of(firstResult.get(10, TimeUnit.SECONDS), secondResult.get(10, TimeUnit.SECONDS)))
+							.as("%s racing %s", firstAction, secondAction).containsExactlyInAnyOrder(true, false);
+					assertThat(jdbc.queryForObject("select count(*) from users u join user_roles r on r.user_id=u.id where r.role_name='admin' and u.blocked_at is null", Long.class))
+							.isEqualTo(1L);
+				}
+				finally {
+					start.countDown();
+					executor.shutdownNow();
+				}
+			}
+		}
+	}
+
+	@Test
+	void bootstrapRolesAreNotRestoredAfterExplicitRemovalOrRestart() throws Exception {
+		String email = "bootstrap@example.test";
+		ReflectionTestUtils.setField(controller, "bootstrapAdminEmail", email);
+		var runner = new AuthServiceApplication().bootstrap(store, email);
+		runner.run(null);
+		User bootstrap = store.userByEmail(email).orElseThrow();
+		assertThat(bootstrap.roles()).containsExactly("admin", "author", "player");
+		admin("other-bootstrap-admin@example.test");
+		store.removeRole(bootstrap.id(), "admin");
+		store.removeRole(bootstrap.id(), "author");
+		store.grantRole(bootstrap.id(), "moderator");
+		verifyLinkFor(email);
+		runner.run(null);
+		assertThat(store.userByEmail(email).orElseThrow().roles()).containsExactly("moderator", "player");
+	}
+
+	@Test
+	void deletedBootstrapAccountIsNotRecreatedByStartupOrReprivilegedByLogin() throws Exception {
+		String email = "deleted-bootstrap@example.test";
+		ReflectionTestUtils.setField(controller, "bootstrapAdminEmail", email);
+		User bootstrap = store.bootstrapAdmin(email).orElseThrow();
+		admin("surviving-bootstrap-admin@example.test");
+		store.deleteUser(bootstrap.id(), email);
+		new AuthServiceApplication().bootstrap(store, email).run(null);
+		assertThat(store.userByEmail(email)).isEmpty();
+		verifyLinkFor(email);
+		assertThat(store.userByEmail(email).orElseThrow().roles()).containsExactly("player");
+	}
+
+	@Test
+	void migrationPreservesRolesOfExistingManagedAccounts() {
+		User existing = store.user("existing-managed@example.test", true).orElseThrow();
+		jdbc.execute("drop table bootstrap_admin_initializations");
+		jdbc.update("delete from roles where name = 'moderator'");
+		new ResourceDatabasePopulator(new ClassPathResource("db/migration/V8__moderator_and_bootstrap_initialization.sql"))
+				.execute(jdbc.getDataSource());
+		assertThat(store.bootstrapAdmin(existing.email()).orElseThrow().roles()).containsExactly("player");
+		assertThat(store.bootstrapAdmin("new-bootstrap@example.test").orElseThrow().roles()).containsExactly("admin", "author", "player");
+	}
+
+	private boolean changeAdminConcurrently(AuthStore targetStore, String action, User user, CountDownLatch ready, CountDownLatch start) throws Exception {
+		ready.countDown();
+		if (!start.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Concurrent test did not start");
+		try {
+			switch (action) {
+				case "revoke" -> targetStore.removeRole(user.id(), "admin");
+				case "demote" -> targetStore.demoteToPlayer(user.id());
+				case "block" -> targetStore.blockUser(user.id());
+				case "delete" -> targetStore.deleteUser(user.id(), user.email());
+				default -> throw new IllegalArgumentException(action);
+			}
+			return true;
+		}
+		catch (ResponseStatusException ex) {
+			assertThat(ex.getStatusCode().value()).isEqualTo(409);
+			return false;
+		}
+	}
+
+	private User admin(String email) {
+		User user = store.user(email, true).orElseThrow();
+		store.grantRole(user.id(), "admin");
+		return store.userById(user.id()).orElseThrow();
+	}
+
+	private String authenticatedToken(User user) {
+		String sessionId = UUID.randomUUID().toString();
+		store.createSession(sessionId, user.id(), Instant.now().plusSeconds(3600), "magic_link", Instant.now());
+		return jwt.encode(user, sessionId, Instant.now().plusSeconds(900));
+	}
+
+	private Map<String, Object> me(String token) {
+		return controller.me("Bearer " + token, null, new MockHttpServletResponse());
+	}
+
+	private void verifyLinkFor(String email) {
+		String rawToken = UUID.randomUUID().toString();
+		store.createMagicLink(email, sha256(rawToken), "/", Instant.now().plusSeconds(900));
+		controller.verify(new AuthController.VerifyRequest(rawToken), new MockHttpServletResponse());
 	}
 
 	private MockHttpServletRequest request() {

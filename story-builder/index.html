@@ -3,14 +3,18 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
     <title>FraerApp Story Builder</title>
-    <link rel="stylesheet" href="styles.css?v=builder-31">
+    <link rel="stylesheet" href="styles.css?v=builder-32">
+    <link rel="stylesheet" href="/typography.css?v=1">
+    <link rel="stylesheet" href="theme.css?v=9">
   </head>
   <body>
     <main class="builder">
       <header class="topbar">
         <div>
-          <p class="eyebrow">FraerApp</p>
+          <a class="builder-home" href="/"><img src="assets/figma/back.svg" alt=""><span data-i18n="backToSite">На главную</span></a>
+          <a class="builder-home" href="/my-stories/" data-i18n="myStories">Мои истории</a>
           <h1 data-i18n="builderTitle">Конструктор историй</h1>
         </div>
         <div class="runtime-settings">
@@ -35,7 +39,6 @@
       </header>
 
       <section class="actions">
-        <a class="file-button" href="/" data-i18n="backToSite">На сайт / войти</a>
         <a class="file-button nav-link" href="board.html" data-i18n="boardView">Карта сценария</a>
         <button id="load-example" type="button" data-i18n="loadExample">Загрузить пример</button>
         <button id="copy-json" type="button" data-i18n="copyJson">Копировать JSON</button>
@@ -82,6 +85,7 @@
               <label><span data-i18n="startSceneLabel">Стартовая сцена</span> <select data-meta="startSceneId"></select></label>
             </div>
             <label><span data-i18n="descriptionLabel">Описание</span> <textarea data-meta="description" rows="3"></textarea></label>
+            <label><span data-i18n="genreLabel">Жанр</span> <input data-meta="genre" maxlength="80"></label>
           </section>
 
           <section class="band">
@@ -116,6 +120,8 @@
             <div class="actions tight">
               <button id="refresh-author" type="button" class="secondary">Обновить</button>
             </div>
+            <label><span data-i18n="myStories">Мои истории</span><input id="author-search" type="search" placeholder="Поиск по названию или ключу"></label>
+            <label><span data-i18n="storyStatusFilter">Состояние работы</span><select id="author-filter"></select></label>
             <label class="author-story-picker">
               <span data-i18n="authorStoryPicker">История автора</span>
               <select id="author-story-select"></select>
@@ -126,10 +132,11 @@
 
           <section class="band">
             <h2 data-i18n="runtimeActions">Действия с runtime</h2>
+            <p id="server-draft-state" role="status" aria-live="polite"></p>
             <div class="actions tight">
-              <button id="import-runtime" type="button" data-i18n="importToRuntime">Импортировать в Runtime</button>
+              <button id="import-runtime" type="button" data-i18n="importToRuntime">Сохранить черновик на сервере</button>
               <button id="validate-runtime" type="button" data-i18n="validateLastImport">Проверить последний импорт</button>
-              <button id="publish-runtime" type="button" data-i18n="publishLastImport">Опубликовать последний импорт</button>
+              <button id="publish-runtime" type="button" data-i18n="publishLastImport">Отправить на проверку</button>
             </div>
             <pre id="api-result"></pre>
           </section>
@@ -164,6 +171,6 @@
       <button id="quick-add-scene" type="button" title="Добавить сцену">+ Сцена</button>
     </div>
 
-    <script src="app.js?v=builder-34" type="module"></script>
+    <script src="app.js?v=builder-38" type="module"></script>
   </body>
 </html>

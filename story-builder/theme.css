@@ -1,0 +1,157 @@
+/* Shared builder surfaces from Figma 221:130. Geometry stays responsive. */
+:root {
+  color-scheme: dark;
+  --bg: #644f82;
+  --ink: #fee3e2;
+  --muted: #fee3e2cc;
+  --line: #ffffff94;
+  --panel: #5a427c;
+  --accent: #f5a279;
+  --accent-soft: #f5a2792b;
+  --selected: #f5a2796e;
+  background: var(--bg);
+  color: var(--ink);
+}
+body { background: var(--bg); color: var(--ink); }
+body, input, select, textarea, button, .file-button, .button-link { font-family: var(--font-control); font-weight: 500; }
+.builder, .board-shell { width: min(1680px, calc(100% - 112px)); padding-top: 52px; }
+.builder-home { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 22px; color: var(--ink); text-decoration: none; }
+.builder-home img { transform: rotate(180deg); }
+.topbar { grid-template-columns: minmax(0, 1fr) minmax(440px, .95fr); margin-bottom: 48px; gap: 32px; }
+.topbar h1 { font-size: clamp(24px, 2.8vw, 40px); line-height: 1.375; }
+.topbar .runtime-settings { grid-template-columns: minmax(180px, 260px) auto; align-items: end; }
+.topbar label > span { padding-left: 12px; }
+.builder > .actions { flex-wrap: wrap; gap: 8px; margin-bottom: 24px; padding: 4px 0; }
+.builder > .actions > :is(button, .file-button) { flex-shrink: 0; min-height: 36px; padding: 7px 10px; font-size: clamp(12px, 1vw, 15px); line-height: 20px; white-space: nowrap; border-radius: 11px; }
+.band, .active-context, .form-panel, .nested-panel, .compact-panel, .subitem,
+.collapsible-summary, .story-picker-item, .switch-field, .board-summary,
+.board-card[data-kind], .choice-row, .quick-actions, .empty-state {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 15px; color: var(--ink);
+  box-shadow: none;
+}
+.active-context { background: var(--panel); }
+.band h2, .project-panel h2 { font-size: 24px; font-weight: 400; }
+input, select, textarea, .note-editor {
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 14px;
+  font-weight: 500;
+}
+input::placeholder, textarea::placeholder { color: #fee3e299; }
+select option { background: #644f82; color: var(--ink); }
+button, button.secondary, .file-button, .button-link, .secondary-link {
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  border-radius: 14px; font-weight: 500; box-shadow: none;
+}
+button:not(:disabled):hover, .file-button:hover, .button-link:hover { background: var(--accent-soft); }
+button:focus-visible, a:focus-visible, summary:focus-visible,
+input:focus, select:focus, textarea:focus, .switch-field:focus-within {
+  outline: 2px solid var(--accent); outline-offset: 3px; border-color: var(--line); box-shadow: none;
+}
+#author-login, #apply-paste {
+  background: linear-gradient(106deg, #ac708ab5, #784a72b5);
+  box-shadow: inset 0 -19px 16px #00000026, inset 1px 1px 6.8px #d6828c, 0 0 24px #ac708a66;
+}
+button.danger, .summary-actions .danger, .story-picker-item button.danger, .danger-button, #quick-add-scene,
+button.add-button, button[id^="add-"], button.add-button:hover, button[id^="add-"]:hover {
+  color: #33214a; background: linear-gradient(117deg, #f5a279b8, #9c6285b8);
+  box-shadow: inset 0 -19px 16px #00000026, inset 1px 1px 6.8px #d6828c;
+}
+#paste-json { font-weight: 700; }
+input[type="file"]::file-selector-button {
+  margin-right: 6px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px;
+  font: inherit; line-height: 1.2; color: #33214a; cursor: pointer;
+  background: linear-gradient(117deg, #f5a279b8, #9c6285b8);
+  box-shadow: inset 0 -19px 16px #00000026, inset 1px 1px 6.8px #d6828c;
+}
+input[type="file"]:disabled::file-selector-button { cursor: not-allowed; opacity: .58; }
+label:not(.file-button) > span:not(.switch-control):not(.switch-text),
+.project-group > strong, .active-context strong, .active-context span:last-child,
+.summary-subtitle, .summary-state, .muted-hint, #author-state, .story-picker-item span, .switch-text,
+.eyebrow, .card-link, #validation.ok { color: var(--ink); font-weight: 500; }
+.tree-folder > summary, .outline-link, button.outline-link.depth-2, button.outline-move {
+  border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: transparent;
+  font-weight: 500; box-shadow: none;
+}
+.tree-folder > summary { background: var(--accent-soft); }
+.tree-folder > summary .outline-link { border: 0; border-radius: 7px; }
+.outline-children { border-left: 1px solid var(--line); }
+.tree-row:hover, .outline-move:hover { background: var(--accent-soft); color: var(--ink); }
+.tree-folder > summary::before { content: ""; width: 8px; height: 7px; background: url('assets/figma/chevron.svg') center / contain no-repeat; transform: rotate(-90deg); }
+.tree-folder[open] > summary::before { transform: none; }
+.outline-item > button.outline-move { font-size: 0; }
+.outline-item > button.outline-move::before { content: ""; width: 13px; height: 17px; background: url('assets/figma/move.svg') center / contain no-repeat; transform: rotate(-90deg); }
+.outline-item > button.outline-move:last-child::before { transform: rotate(90deg); }
+.tree-folder.is-active-branch > summary { background: var(--accent-soft); }
+button.outline-link.is-active, .tree-folder > summary .outline-link.is-active,
+.language-switch button.is-active, button.is-active, button.secondary.is-active {
+  background: var(--selected); color: var(--ink); border-color: var(--ink); box-shadow: none;
+}
+.active-context-kicker, .pill { background: var(--accent-soft); color: var(--ink); border: 1px solid var(--line); }
+.status-badge { background: var(--panel); color: var(--ink) !important; border: 1px solid var(--line); }
+.status-review { background: var(--accent-soft); }
+.status-published { background: #386958; }
+.switch-control { background: #33214a80; }
+.switch-control::after { background: var(--ink); }
+.switch-field input:checked + .switch-control { background: var(--selected); }
+pre { background: #33214a80; color: var(--ink); border-radius: 14px; }
+dialog { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 24px; box-shadow: 0 18px 50px #21152d80; padding: 28px; }
+dialog::backdrop { background: #21152d80; backdrop-filter: blur(6px); }
+#paste-error { color: #ffc4b5; }
+dialog textarea { margin-block: 12px; }
+::selection { background: var(--selected); color: var(--ink); }
+/* Scenario-map surfaces share the same palette while retaining type labels. */
+.board-stage { background-image: radial-gradient(circle, #fee3e22b 1px, transparent 1px); background-color: #594471; border-color: var(--line); }
+.board-card[data-kind] { background: var(--panel); }
+.board-card.is-connect-source, .board-card.is-dragging, .board-card.is-resizing {
+  background: #957087; outline: 2px solid var(--accent); outline-offset: 3px;
+}
+.card-head { border-bottom-color: var(--line); }
+.lane-label, .card-kind { background: #594471; color: var(--ink); border: 1px solid var(--line); }
+.target-pin, .fallback-pin { color: var(--ink); border-color: var(--line); }
+.resize-handle { background: linear-gradient(135deg, transparent 50%, var(--selected) 50%), var(--panel); border-color: var(--line); }
+/* One row rhythm for folders, leaves and scene controls. */
+.project-tree-scroll, .project-group, .outline-tree, .outline-list, .outline-branch, .outline-children { gap: 4px; padding-right: 0; }
+.project-tree-scroll { grid-auto-rows: max-content; }
+.project-group { border-top: 0; }
+.tree-folder > :not(summary) { margin-top: 4px; }
+.project-panel .tree-row { grid-template-columns: minmax(0, 1fr); padding: 0; min-height: 36px; }
+.project-panel .outline-link { min-height: 36px; padding: 6px 10px; border-radius: 9px; font-size: 14px; line-height: 20px; font-weight: 500; }
+.project-panel .tree-folder > summary { grid-template-columns: 28px minmax(0, 1fr); gap: 0; padding: 0; min-height: 36px; background: transparent; }
+.project-panel .tree-folder > summary::before { justify-self: center; }
+.project-panel .tree-folder > summary .outline-link { min-height: 34px; background: var(--accent-soft); border: 0; }
+.project-panel .tree-folder > summary .outline-link.is-active { background: var(--selected); }
+.project-panel .tree-folder > summary:has(.tree-row) { position: relative; border: 0; }
+.project-panel .tree-folder > summary:has(.tree-row)::after { content: ""; position: absolute; inset: 0 68px 0 0; border: 1px solid var(--line); border-radius: 9px; pointer-events: none; }
+.project-panel summary > .tree-row { grid-template-columns: minmax(0, 1fr) 28px 28px; gap: 6px; background: transparent; }
+.project-panel .outline-move { width: 28px; height: 36px; min-height: 36px; padding: 0; background: var(--accent-soft); }
+.project-panel .outline-children { margin-left: 14px; padding-left: 10px; }
+.layout { grid-template-columns: minmax(280px, 1fr) minmax(0, 2fr) minmax(260px, 1fr); }
+.layout > *, .board-topbar > *, .runtime-settings > *, .form-grid > * { min-width: 0; }
+.layout > .project-panel { position: static; align-self: stretch; display: block; max-height: none; overflow: visible; }
+.project-panel > .band { position: sticky; top: 12px; max-height: calc(100dvh - 24px); }
+dialog { max-height: calc(100dvh - 32px); overflow: auto; }
+@media (max-width: 1380px) {
+  .layout { grid-template-columns: minmax(260px, 310px) minmax(0, 1fr); }
+  .project-panel { position: static; }
+}
+@media (min-width: 701px) and (max-width: 900px) {
+  .layout { grid-template-columns: 260px minmax(0, 1fr); grid-template-areas: "project editor" "preview editor"; }
+}
+@media (max-width: 700px) {
+  .layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "project" "editor" "preview"; }
+  .project-panel { position: static; width: min(380px, 100%); max-height: none; }
+  .project-panel > .band { max-height: min(560px, 75dvh); }
+}
+.floating-tools .scroll-top-button { opacity: 1; pointer-events: auto; transform: none; }
+@media (max-width: 1180px) {
+  .builder, .board-shell { width: calc(100% - 48px); padding-top: 28px; }
+  .topbar { grid-template-columns: 1fr; gap: 24px; margin-bottom: 32px; }
+  .topbar .runtime-settings { max-width: 650px; }
+}
+@media (max-width: 600px) {
+  .builder, .board-shell { width: calc(100% - 28px); padding-top: 20px; }
+  .topbar .runtime-settings { grid-template-columns: minmax(0, 1fr); }
+  .builder > .actions { gap: 8px; }
+  .builder > .actions > :is(button, .file-button) { font-size: 13px; min-height: 44px; }
+  dialog { padding: 18px; }
+  .band h2 { font-size: 21px; }
+}

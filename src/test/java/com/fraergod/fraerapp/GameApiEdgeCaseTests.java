@@ -23,7 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 		"spring.jpa.hibernate.ddl-auto=validate",
 		"app.admin-token=test-token"
 })
-class GameApiEdgeCaseTests {
+class GameApiEdgeCaseTests extends ApiTestSupport {
 
 	private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
 	};
@@ -33,6 +33,9 @@ class GameApiEdgeCaseTests {
 
 	@LocalServerPort
 	private int port;
+
+	@org.junit.jupiter.api.BeforeEach
+	void approveRuntimeFixture() { approveSeed(port); }
 
 	@Test
 	void publishRequiresAdminToken() {

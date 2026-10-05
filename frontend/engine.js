@@ -5,6 +5,12 @@ import {
   passkeysSupported,
 } from "./passkeys.js";
 
+import { enhanceFilterSelect } from "./filter-select.js?v=1";
+import { observeHomeFit } from "./home-fit.js?v=3";
+import { createAccountUI } from "./account-ui.js?v=3";
+
+observeHomeFit();
+
 const loginScreen = document.querySelector("#login-screen");
 const authLoadingScreen = document.querySelector("#auth-loading-screen");
 const storyScreen = document.querySelector("#story-screen");
@@ -61,6 +67,9 @@ const passkeyNudge = document.querySelector("#passkey-nudge");
 const passkeyNudgeOpen = document.querySelector("#passkey-nudge-open");
 const passkeyNudgeDismiss = document.querySelector("#passkey-nudge-dismiss");
 const homeSearchButton = document.querySelector("#home-search");
+const homeSearchInput = document.querySelector("#home-search-input");
+const catalogSelect = enhanceFilterSelect(storySort);
+const homeSearchStatus = document.querySelector("#home-search-status");
 const homeSettingsButton = document.querySelector("#home-settings");
 const homeProfileButton = document.querySelector("#home-profile");
 const homeReadButton = document.querySelector("#home-read");
@@ -82,13 +91,23 @@ const profileLogoutButton = document.querySelector("#profile-logout");
 const modalLangRuButton = document.querySelector("#modal-lang-ru");
 const modalLangEnButton = document.querySelector("#modal-lang-en");
 const modalSoundToggle = document.querySelector("#modal-sound-toggle");
+const modalNotificationsToggle = document.querySelector("#modal-notifications-toggle");
+const modalSettingsStatus = document.querySelector("#modal-settings-status");
+const modalPasskeyButton = document.querySelector("#modal-passkey");
 
 const translations = {
   ru: {
+    myStories: "Мои истории", moderationButton: "Модерация",
+    viewsLabel: "Просмотры", ratingLabel: "Оценка", rateStory: "Ваша оценка:", noRatings: "Пока нет оценок",
+    genreUnknown: "Без жанра", favoritesOnly: "Избранное", addFavorite: "Добавить в избранное", removeFavorite: "Удалить из избранного",
+    favoriteGuest: "Чтобы сохранить историю в избранном и легко найти её позже, войдите в аккаунт или зарегистрируйтесь через Telegram.",
+    ratingGuest: "Чтобы оценить историю, войдите в аккаунт или зарегистрируйтесь через Telegram.",
+    engagementTitle: "Ваши истории", engagementLogin: "Войти или зарегистрироваться",
+    engagementFailed: "Не удалось сохранить изменение. Попробуйте ещё раз немного позже.",
     loginEyebrow: "FraerApp Stories",
     authLoadingEyebrow: "FraerApp Stories",
-    authLoadingTitle: "Проверяем вход",
-    authLoadingText: "Подождите несколько секунд. Если сессия активна, мы сразу откроем библиотеку.",
+    authLoadingTitle: "Пробуждаем истории…",
+    authLoadingText: "Ещё мгновение — и воображение оживёт.",
     loginTitle: "Истории,\nкоторые оживают\nв твоем воображении",
     loginSubtitle: "Читай. Создавай. Твори.",
     homeReadStories: "Читать истории",
@@ -96,6 +115,13 @@ const translations = {
     catalogLoadFailed: "Не удалось загрузить истории. Обновите страницу, чтобы повторить попытку.",
     homeCreateStory: "Создать свою",
     homeSearchLabel: "Поиск историй",
+    homeAllStories: "Все истории",
+    homeDefaultOrder: "По умолчанию",
+    homeTitleOrder: "По названию: А–Я",
+    homeNewest: "Сначала новые",
+    homeUpdated: "Недавно обновлённые",
+    homeFound: "Найдено историй: {count}",
+    homeNoMatches: "Ничего не найдено. Попробуйте другой запрос.",
     homeSettingsLabel: "Настройки",
     homeProfileGuestLabel: "Войти в профиль",
     homeProfileAccountLabel: "Открыть аккаунт",
@@ -105,6 +131,21 @@ const translations = {
     settingsLanguage: "Язык",
     settingsSound: "Звук",
     profileModalTitle: "Аккаунт",
+    settingsNotifications: "Уведомления",
+    notificationsHint: "Уведомления доступны в личном кабинете. Push-уведомления появятся позже.",
+    settingsSupport: "Поддержка",
+    settingsPasskey: "Привязать passkey",
+    supportSoon: "Контакт поддержки скоро появится здесь.",
+    settingsPasskeyFailed: "Не удалось привязать passkey. Попробуйте снова или заново войдите через Telegram.",
+    authorAccessRequired: "Чтобы создавать истории, нужно получить права автора. Отправьте заявку — администратор рассмотрит её и откроет доступ к конструктору.",
+    demoWelcomeTitle: "Первый шаг в историю",
+    demoWelcomeText: "Каждая история начинается с первого шага. Гостям доступны три демоистории — познакомьтесь с миром FraerApp, попробуйте делать выбор и узнайте, как он меняет сюжет. Зарегистрируйтесь, чтобы открыть всю библиотеку и сохранять свой путь.",
+    demoWelcomeContinue: "Продолжить", demoWelcomeRegister: "Зарегистрироваться",
+    authorRequestTitle: "Создавайте свои истории", becomeAuthor: "Стать автором",
+    authorSessionRefreshFailed: "Не удалось обновить права доступа. Войдите снова, чтобы открыть конструктор.",
+    authorRequestPending: "Заявка отправлена. Администратор рассмотрит ваш запрос.",
+    authorRequestSent: "Заявка отправлена", authorRequestFailed: "Не удалось отправить заявку. Попробуйте ещё раз.",
+    ratingSort: "По рейтингу",
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
     loginButton: "Получить ссылку",
@@ -122,7 +163,7 @@ const translations = {
     passkeyOr: "или",
     passkeyLogin: "Войти с passkey",
     telegramLogin: "Войти через Telegram",
-    telegramLoginUnavailable: "Вход через Telegram пока недоступен.",
+    telegramLoginUnavailable: "Вход через Telegram временно недоступен. Попробуйте позже.",
     passkeyUnavailable: "Вход по passkey недоступен в этом браузере",
     passkeySettingsTitle: "Безопасный вход",
     passkeySettingsHint: "Добавьте Touch ID, Face ID, Windows Hello или ключ безопасности для входа без email-ссылки.",
@@ -137,9 +178,12 @@ const translations = {
     passkeyLastUsed: "Последний вход: {date}",
     passkeySynced: "Синхронизируемый ключ",
     passkeyLocal: "Ключ устройства",
-    passkeyLoginFailed: "Не удалось войти с passkey: {message}",
+    passkeyLoginFailed: "Не удалось войти. Попробуйте позже или войдите через Telegram.",
+    passkeyLoginFirst: "Сначала войдите через Telegram, затем добавьте passkey в настройках аккаунта.",
+    passkeyPreview: "На этом адресе passkey недоступен. Войдите через Telegram — ссылка из бота откроет рабочий сайт, где можно зарегистрироваться.",
     passkeyRegistrationFailed: "Не удалось добавить passkey: {message}",
-    passkeyRecentAuthRequired: "Чтобы добавить passkey, заново войдите по ссылке и сразу повторите привязку.",
+    passkeyRecentAuthRequired: "Для защиты аккаунта подтвердите вход заново: нажмите «Войти через Telegram» и откройте новую ссылку из бота в этом браузере. Затем нажмите «Привязать passkey» в настройках.",
+    passkeyReadyToRegister: "Вход подтверждён. Нажмите «Привязать passkey» и подтвердите создание ключа на устройстве.",
     passkeyNotAllowed: "Браузер отменил или запретил операцию passkey. Откройте fraerapp.ru в Safari или Chrome по HTTPS, разрешите Face ID, Touch ID или ключ безопасности и попробуйте еще раз.",
     passkeyCredentialMissing: "Браузер не вернул passkey. Повторите попытку и завершите подтверждение Face ID, Touch ID или ключом безопасности.",
     passkeyAlreadyRegistered: "Этот passkey уже добавлен. Используйте другое устройство или удалите старый passkey в настройках.",
@@ -153,9 +197,9 @@ const translations = {
     storyJsonPlaceholder: "Вставьте сюда JSON истории",
     importButton: "Импортировать",
     publishLastImportButton: "Опубликовать последний импорт",
-    storyScreenEyebrow: "Библиотека FraerApp",
+    storyScreenEyebrow: "Библиотека историй",
     storyScreenTitle: "Выберите историю",
-    storyScreenSubtitle: "Интерактивные истории с сохранением прогресса, концовками и персональными маршрутами",
+    storyScreenSubtitle: "Интерактивные истории с сохранением прогресса,\nнесколькими концовками и персональными маршрутами",
     storyDetailEyebrow: "История FraerApp",
     storyDetailBack: "Все истории",
     storySearchLabel: "Поиск историй",
@@ -169,6 +213,9 @@ const translations = {
     nextPage: "Далее",
     pageLabel: "Страница {page} из {pages}",
     noSearchResults: "По этому поиску историй нет.",
+    noFavorites: "В избранном пока пусто. Избранных историй не найдено.",
+    favoritesSort: "Избранные",
+    noFavoriteMatches: "Избранных историй по этим фильтрам не найдено.",
     continueButton: "Продолжить",
     startButton: "Начать",
     newRunButton: "Новая игра",
@@ -177,6 +224,7 @@ const translations = {
     menuButton: "Истории",
     settingsButton: "Настройки",
     builderButton: "Конструктор",
+    profileAdmin: "Администратор",
     adminButton: "Админ",
     settingsEyebrow: "Настройки",
     settingsTitle: "Аккаунт и безопасность",
@@ -210,14 +258,21 @@ const translations = {
     importFirst: "Сначала импортируйте историю.",
     errorPrefix: "Ошибка: {message}",
     cookieBannerTitle: "Мы используем cookie",
-    cookieBannerText: "Cookie нужны для входа, сохранения сессии и стабильной работы игры.",
+    cookieBannerText: "Cookie используются для входа, сохранения сессии и подсчёта просмотров историй.",
     cookieAccept: "Понятно",
   },
   en: {
+    myStories: "My stories", moderationButton: "Moderation",
+    viewsLabel: "Views", ratingLabel: "Rating", rateStory: "Your rating:", noRatings: "No ratings yet",
+    genreUnknown: "No genre", favoritesOnly: "Favorites", addFavorite: "Add to favorites", removeFavorite: "Remove from favorites",
+    favoriteGuest: "Sign in or register through Telegram to save this story to your favorites and find it easily later.",
+    ratingGuest: "Sign in or register through Telegram to rate this story.",
+    engagementTitle: "Your stories", engagementLogin: "Sign in or register",
+    engagementFailed: "Could not save your change. Please try again shortly.",
     loginEyebrow: "FraerApp Stories",
     authLoadingEyebrow: "FraerApp Stories",
-    authLoadingTitle: "Checking sign-in",
-    authLoadingText: "Please wait a few seconds. If your session is active, we will open the library.",
+    authLoadingTitle: "Awakening stories…",
+    authLoadingText: "Just a moment — let your imagination come alive.",
     loginTitle: "Stories,\nthat come alive\nin your imagination",
     loginSubtitle: "Read. Create. Imagine.",
     homeReadStories: "Read stories",
@@ -225,6 +280,13 @@ const translations = {
     catalogLoadFailed: "Could not load stories. Reload the page to try again.",
     homeCreateStory: "Create yours",
     homeSearchLabel: "Search stories",
+    homeAllStories: "All stories",
+    homeDefaultOrder: "Default order",
+    homeTitleOrder: "Title: A–Z",
+    homeNewest: "Newest first",
+    homeUpdated: "Recently updated",
+    homeFound: "Stories found: {count}",
+    homeNoMatches: "No matches. Try another search.",
     homeSettingsLabel: "Settings",
     homeProfileGuestLabel: "Sign in",
     homeProfileAccountLabel: "Open account",
@@ -234,6 +296,21 @@ const translations = {
     settingsLanguage: "Language",
     settingsSound: "Sound",
     profileModalTitle: "Account",
+    settingsNotifications: "Notifications",
+    notificationsHint: "Notifications are available in your account. Push notifications are coming later.",
+    settingsSupport: "Support",
+    settingsPasskey: "Add passkey",
+    supportSoon: "Support contact details will appear here soon.",
+    settingsPasskeyFailed: "Could not add a passkey. Try again or sign in again through Telegram.",
+    authorAccessRequired: "To create stories, you need author access. Submit a request and an administrator will review it and enable the builder.",
+    demoWelcomeTitle: "Your first step into a story",
+    demoWelcomeText: "Every story begins with a first step. Guests can explore three demo stories — discover the world of FraerApp, make choices and see how they shape the plot. Register to unlock the full library and save your journey.",
+    demoWelcomeContinue: "Continue", demoWelcomeRegister: "Register",
+    authorRequestTitle: "Create your own stories", becomeAuthor: "Become an author",
+    authorSessionRefreshFailed: "Could not refresh your access. Sign in again to open the builder.",
+    authorRequestPending: "Request sent. An administrator will review it.",
+    authorRequestSent: "Request sent", authorRequestFailed: "Could not send your request. Please try again.",
+    ratingSort: "Highest rated",
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
     loginButton: "Get link",
@@ -251,7 +328,7 @@ const translations = {
     passkeyOr: "or",
     passkeyLogin: "Sign in with a passkey",
     telegramLogin: "Sign in with Telegram",
-    telegramLoginUnavailable: "Telegram sign-in is not available yet.",
+    telegramLoginUnavailable: "Telegram sign-in is temporarily unavailable. Please try again later.",
     passkeyUnavailable: "Passkeys are unavailable in this browser or the connection is not secure.",
     passkeySettingsTitle: "Secure sign-in",
     passkeySettingsHint: "Add Touch ID, Face ID, Windows Hello, or a security key to sign in without an email link.",
@@ -266,9 +343,12 @@ const translations = {
     passkeyLastUsed: "Last sign-in: {date}",
     passkeySynced: "Synced passkey",
     passkeyLocal: "Device passkey",
-    passkeyLoginFailed: "Passkey sign-in failed: {message}",
+    passkeyLoginFailed: "Could not sign in. Try again later or sign in with Telegram.",
+    passkeyLoginFirst: "Sign in with Telegram first, then add a passkey in your account settings.",
+    passkeyPreview: "Passkeys are unavailable at this address. Sign in with Telegram — the bot's link opens the live website where you can create an account.",
     passkeyRegistrationFailed: "Could not add passkey: {message}",
-    passkeyRecentAuthRequired: "To add a passkey, sign in again with an email link and bind the passkey right after that.",
+    passkeyRecentAuthRequired: "To protect your account, confirm sign-in again: choose Sign in with Telegram and open a new link from the bot in this browser. Then choose Add passkey in settings.",
+    passkeyReadyToRegister: "Sign-in confirmed. Choose Add passkey and approve key creation on your device.",
     passkeyNotAllowed: "The browser cancelled or blocked the passkey operation. Open fraerapp.ru in Safari or Chrome over HTTPS, allow Face ID, Touch ID, or your security key, and try again.",
     passkeyCredentialMissing: "The browser did not return a passkey. Try again and complete the Face ID, Touch ID, or security key prompt.",
     passkeyAlreadyRegistered: "This passkey is already added. Use another device or remove the old passkey in settings.",
@@ -282,9 +362,9 @@ const translations = {
     storyJsonPlaceholder: "Paste Story JSON here",
     importButton: "Import",
     publishLastImportButton: "Publish last import",
-    storyScreenEyebrow: "FraerApp Library",
+    storyScreenEyebrow: "Story library",
     storyScreenTitle: "Choose a story",
-    storyScreenSubtitle: "Interactive stories with saved progress, endings and personal routes.",
+    storyScreenSubtitle: "Interactive stories with saved progress,\nmultiple endings and personal routes.",
     storyDetailEyebrow: "FraerApp story",
     storyDetailBack: "All stories",
     storySearchLabel: "Search",
@@ -298,6 +378,9 @@ const translations = {
     nextPage: "Next",
     pageLabel: "Page {page} of {pages}",
     noSearchResults: "No stories match this search.",
+    noFavorites: "Your favorites are empty. No favorite stories found.",
+    favoritesSort: "Favorites",
+    noFavoriteMatches: "No favorite stories match these filters.",
     continueButton: "Continue",
     startButton: "Start",
     newRunButton: "New game",
@@ -306,6 +389,7 @@ const translations = {
     menuButton: "Stories",
     settingsButton: "Settings",
     builderButton: "Builder",
+    profileAdmin: "Administrator",
     adminButton: "Admin",
     settingsEyebrow: "Settings",
     settingsTitle: "Account and security",
@@ -339,7 +423,7 @@ const translations = {
     importFirst: "Import a story first.",
     errorPrefix: "Error: {message}",
     cookieBannerTitle: "We use cookies",
-    cookieBannerText: "Cookies are required for sign-in, session storage, and stable game operation.",
+    cookieBannerText: "Cookies are used for sign-in, session storage, and counting story views.",
     cookieAccept: "Got it",
   },
 };
@@ -417,7 +501,6 @@ let builderButton = null;
 let adminButton = null;
 let homeCarouselIndex = 0;
 
-const storiesPerPage = 4;
 
 const api = {
   loginLink(email, consent) {
@@ -462,8 +545,12 @@ const api = {
   deletePasskey(credentialId) {
     return request(`/auth/passkeys/${encodeURIComponent(credentialId)}`, { method: "DELETE" });
   },
-  stories() {
-    return request("/api/catalog/stories");
+  async stories() {
+    const [stories, metrics] = await Promise.all([
+      request("/api/catalog/stories"), request("/api/catalog/engagement"),
+    ]);
+    const bySlug = new Map(metrics.map((item) => [item.slug, item]));
+    return stories.map((story) => ({ ...story, ...bySlug.get(story.slug) }));
   },
   createSession(storyKey) {
     return request("/api/sessions", { method: "POST", body: { storyKey } });
@@ -491,11 +578,23 @@ function applyTranslations() {
   document.documentElement.lang = currentLanguage;
   document.querySelectorAll("[data-i18n]").forEach((node) => {
     node.textContent = t(node.dataset.i18n);
+    if (node.dataset.i18n === "loginTitle") {
+      const [display, ...lines] = t("loginTitle").split("\n");
+      const first = document.createElement("span");
+      first.className = "hero-display";
+      first.textContent = display;
+      const rest = document.createElement("span");
+      rest.className = "hero-heading";
+      rest.textContent = lines.join("\n");
+      node.replaceChildren(first, rest);
+    }
   });
   document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
     node.placeholder = t(node.dataset.i18nPlaceholder);
   });
   updateLanguageButtons();
+  catalogSelect.refresh();
+  homeSearchInput.setAttribute("aria-label", t("homeSearchLabel"));
   syncRoleActionButtons();
   renderHomeCarousel();
 }
@@ -505,6 +604,8 @@ function updateLanguageButtons() {
   langEnButton.classList.toggle("is-active", currentLanguage === "en");
   modalLangRuButton.classList.toggle("is-active", currentLanguage === "ru");
   modalLangEnButton.classList.toggle("is-active", currentLanguage === "en");
+  modalLangRuButton.setAttribute("aria-pressed", String(currentLanguage === "ru"));
+  modalLangEnButton.setAttribute("aria-pressed", String(currentLanguage === "en"));
 }
 
 function setLanguage(language) {
@@ -557,7 +658,10 @@ async function requestAttempt(path, options, allowRefresh) {
     }
   }
   if (!response.ok) {
-    throw new Error(payload.message || payload.detail || `HTTP ${response.status}`);
+    const error = new Error(payload.message || payload.detail || `HTTP ${response.status}`);
+    error.code = payload.code;
+    error.status = response.status;
+    throw error;
   }
   return payload;
 }
@@ -574,6 +678,7 @@ function showOnly(screen) {
   loginScreen.classList.toggle("hidden", screen !== loginScreen);
   storyScreen.classList.toggle("hidden", screen !== storyScreen);
   storyDetailScreen.classList.toggle("hidden", screen !== storyDetailScreen);
+  document.body.classList.toggle("modal-open", Boolean(document.querySelector(".modal-layer:not(.hidden)")));
   settingsScreen.classList.toggle("hidden", screen !== settingsScreen);
   sceneScreen.classList.toggle("hidden", screen !== sceneScreen);
   document.body.classList.toggle("is-public-home", screen === loginScreen);
@@ -592,12 +697,14 @@ function updateTopActions(screen) {
   homeSearchButton.setAttribute("aria-label", t("homeSearchLabel"));
   homeSettingsButton.setAttribute("aria-label", t("homeSettingsLabel"));
   homeProfileButton.setAttribute("aria-label", loggedIn ? t("homeProfileAccountLabel") : t("homeProfileGuestLabel"));
-  homeCreateButton.classList.toggle("hidden", loggedIn && !hasAnyRole(roles, ["author", "admin"]));
+  homeCreateButton.classList.remove("hidden");
   builderButton?.classList.toggle("hidden", !loggedIn || !hasAnyRole(roles, ["author", "admin"]));
   adminButton?.classList.toggle("hidden", !loggedIn || !hasRole(roles, "admin"));
   soundControl.classList.toggle("hidden", !inScene);
   logoutButton.classList.toggle("hidden", !loggedIn);
   storyScreen.classList.toggle("is-guest-catalog", !loggedIn);
+  document.querySelector("#home-all-stories").classList.toggle("hidden", !loggedIn);
+  accountUI.refresh();
 }
 
 function hasRole(roles, role) {
@@ -729,6 +836,7 @@ async function showLoginLinkResult(email) {
 }
 
 async function afterLogin() {
+  catalogStories = [];
   closeModals();
   const passkeyItems = await loadPasskeys().catch((error) => {
     passkeyStatus.textContent = t("errorPrefix", { message: error.message });
@@ -737,6 +845,25 @@ async function afterLogin() {
   });
   updatePasskeyNudge(passkeyItems);
   await handleRoute();
+  resumePasskeyRegistration();
+}
+
+function resumePasskeyRegistration() {
+  const expiresAt = Number(localStorage.getItem("fraerapp.passkeyRegistrationPending"));
+  localStorage.removeItem("fraerapp.passkeyRegistrationPending");
+  if (expiresAt > Date.now()) {
+    openSettingsModal();
+    modalSettingsStatus.textContent = t("passkeyReadyToRegister");
+  }
+}
+
+function requestPasskeyReauthentication(error) {
+  if (error?.message !== "Recent authentication required" && error?.status !== 401) return false;
+  localStorage.setItem("fraerapp.passkeyRegistrationPending", String(Date.now() + 30 * 60 * 1000));
+  openAuthModal();
+  setLoginStatus(t("passkeyRecentAuthRequired"));
+  telegramLoginButton.focus();
+  return true;
 }
 
 async function signInWithPasskey() {
@@ -759,10 +886,8 @@ async function initTelegramLogin() {
   try {
     const config = await api.telegramLogin();
     telegramBotUrl = config.enabled ? config.botUrl || "" : "";
-    telegramLoginButton.classList.toggle("hidden", !telegramBotUrl);
   } catch (error) {
     telegramBotUrl = "";
-    telegramLoginButton.classList.add("hidden");
   }
 }
 
@@ -790,6 +915,7 @@ async function registerPasskey() {
 }
 
 function passkeyRegistrationErrorMessage(error) {
+  if (error?.code === "AUTH_PREVIEW") return t("passkeyPreview");
   if (error.message === "Recent authentication required") {
     return t("passkeyRecentAuthRequired");
   }
@@ -797,7 +923,11 @@ function passkeyRegistrationErrorMessage(error) {
 }
 
 function passkeyLoginErrorMessage(error) {
-  return passkeyErrorMessage(error, "passkeyLoginFailed");
+  if (error?.code === "AUTH_PREVIEW") return t("passkeyPreview");
+  if (isPasskeyNotAllowedError(error) || error?.message === "Passkey credential was not returned") {
+    return t("passkeyLoginFirst");
+  }
+  return t("passkeyLoginFailed");
 }
 
 function passkeyErrorMessage(error, fallbackKey) {
@@ -810,7 +940,7 @@ function passkeyErrorMessage(error, fallbackKey) {
   if (String(error?.message || "").includes("Passkey credential was not returned")) {
     return t("passkeyCredentialMissing");
   }
-  return t(fallbackKey, { message: error?.message || t("passkeyCredentialMissing") });
+  return t(fallbackKey, { message: t("settingsPasskeyFailed") });
 }
 
 function isPasskeyNotAllowedError(error) {
@@ -901,16 +1031,26 @@ function storyRoute(story) {
 function navigateTo(path, { replace = false } = {}) {
   if (window.location.pathname !== path) {
     const method = replace ? "replaceState" : "pushState";
-    window.history[method]({}, document.title, path);
+    const detailFrom = path.startsWith("/history/")
+      ? (window.location.pathname.startsWith("/history/") ? window.history.state?.detailFrom : window.location.pathname)
+      : undefined;
+    window.history[method]({ detailFrom }, document.title, path);
   }
   return handleRoute().catch((error) => setStatus(t("errorPrefix", { message: error.message })));
 }
 
 async function handleRoute() {
+  closeModals();
   appNotice.classList.add("hidden");
   try {
     const path = normalizePath(window.location.pathname);
     if (path === "/history") {
+      if (!storage.email) {
+        window.history.replaceState({}, document.title, "/");
+        await showPublicHome();
+        openAuthModal();
+        return;
+      }
       await renderHistoryRoute();
       return;
     }
@@ -944,33 +1084,129 @@ async function renderStoryDetailRoute(rawSlug) {
   stopSound({ resetPreference: true });
   const slug = decodeURIComponent(rawSlug || "");
   const stories = await ensureCatalogStories();
-  const story = stories.find((item) => [item.slug, item.key, item.storyId].includes(slug));
-  if (!story) {
-    navigateTo("/history", { replace: true });
+  const catalogStory = stories.find((item) => [item.slug, item.key, item.storyId].includes(slug));
+  let story;
+  try {
+    story = await loadPublicStoryDetail(catalogStory?.slug || slug);
+    if (catalogStory) Object.assign(catalogStory, story);
+  } catch (error) {
+    if (![401, 403, 404].includes(error.status)) throw error;
+    await navigateTo(storage.email ? "/history" : "/", { replace: true });
+    if (!storage.email) openAuthModal();
     return;
   }
+  if (loginScreen.classList.contains("hidden") && storyScreen.classList.contains("hidden")) {
+    if (storage.email) await renderHistoryRoute();
+    else { showOnly(loginScreen); renderHomeCarousel(); }
+  }
   renderStoryDetail(story);
+  try {
+    await request(`/api/catalog/engagement/${encodeURIComponent(story.slug)}/view`, { method: "POST" });
+    await refreshStoryMetrics(story);
+    if (window.location.pathname === storyRoute(story)) renderStoryDetail(story);
+  } catch { /* Keep the story readable when statistics are temporarily unavailable. */ }
+}
+
+async function loadPublicStoryDetail(slug) {
+  // Direct links can refer to unlisted publications. Never insert them into the catalogue.
+  const story = await request(`/api/catalog/stories/${encodeURIComponent(slug)}`);
+  const [metrics, saves] = await Promise.all([
+    request(`/api/catalog/engagement/${encodeURIComponent(story.slug)}`),
+    storage.email ? request(`/api/stories/${encodeURIComponent(story.key)}/sessions`) : Promise.resolve([]),
+  ]);
+  const latest = saves[0];
+  return { ...story, ...metrics,
+    lastSessionId: latest?.sessionId || null, lastSessionStatus: latest?.status || null,
+    lastSaveName: latest?.saveName || null, lastSceneTitle: latest?.sceneTitle || null,
+    lastPlayedAt: latest?.updatedAt || null, completionRate: latest?.completionRate || 0,
+  };
+}
+
+async function refreshStoryMetrics(story) {
+  const metrics = await request(`/api/catalog/engagement/${encodeURIComponent(story.slug)}`);
+  Object.assign(story, metrics);
+  const listed = catalogStories.find(entry => entry.slug === story.slug);
+  if (listed) Object.assign(listed, metrics);
 }
 
 function renderStoryDetail(story) {
-  showOnly(storyDetailScreen);
+  document.querySelector("#story-interaction-status").textContent = "";
+  const opening = storyDetailScreen.classList.contains("hidden");
+  if (opening) storyDetailReturnFocus = document.activeElement;
+  storyDetailScreen.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  if (opening) storyDetailBack.focus();
   storyDetailCover.style.backgroundImage = `url("${storyCoverAsset(story)}")`;
   storyDetailTitle.textContent = story.title;
   storyDetailDescription.textContent = story.description || story.key;
+  const completionLabels = currentLanguage === "en"
+    ? { completed: "Completed", in_development: "In development", abandoned: "On hold" }
+    : { completed: "Завершена", in_development: "В разработке", abandoned: "Приостановлено" };
+  const completionBadge = document.querySelector("#story-detail-status");
+  completionBadge.textContent = completionLabels[story.completionStatus] || "";
+  completionBadge.classList.toggle("hidden", !completionBadge.textContent);
+  const discovered = Math.min(story.endingCount ?? 0, story.discoveredEndings ?? 0);
+  const completed = discovered > 0 || story.lastSessionStatus === "finished";
+  const progress = completed ? 100 : Math.min(99, Math.max(0, Math.round(story.completionRate || 0)));
+  document.querySelector("#story-reader-progress").classList.toggle("hidden", story.completionStatus !== "completed");
+  document.querySelector("#story-reader-progress-bar").value = progress;
+  document.querySelector("#story-reader-progress-label").textContent = currentLanguage === "en"
+    ? `Your progress: ${progress > 0 && progress < 100 ? "≈ " : ""}${progress}%`
+    : `Ваш прогресс: ${progress > 0 && progress < 100 ? "≈ " : ""}${progress}%`;
+  document.querySelector("#story-detail-favorite").replaceChildren(favoriteButton(story));
   storyDetailMeta.replaceChildren(
-    metric(t("storyRuns", { runs: "" }).replace(":", "").trim(), story.totalRuns ?? 0),
-    metric(t("finishedRuns", { runs: "" }).replace(":", "").trim(), story.finishedRuns ?? 0),
+    metric(t("viewsLabel"), story.views ?? 0),
+    metric(t("ratingLabel"), story.rating == null ? "—" : story.rating.toFixed(1)),
+    metric(currentLanguage === "en" ? "Endings discovered" : "Пройдено концовок", `${discovered} ${currentLanguage === "en" ? "of" : "из"} ${story.endingCount ?? "—"}`),
     metric(t("publishedDate", { date: "" }).replace(":", "").trim(), formatDate(story.publishedAt)),
   );
-  storyDetailAction.textContent = story.lastSessionId ? t("continueButton") : t("startButton");
+  const interactions = document.querySelector("#story-interactions");
+  interactions.replaceChildren();
+  const ratingLabel = document.createElement("span");
+  ratingLabel.textContent = t("rateStory");
+  interactions.append(ratingLabel);
+  for (let score = 1; score <= 5; score++) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = score <= (story.myRating || 0) ? "★" : "☆";
+    button.setAttribute("aria-label", `${t("ratingLabel")}: ${score} / 5`);
+    button.setAttribute("aria-pressed", String(story.myRating === score));
+    button.onclick = async () => {
+      if (!storage.email) return openEngagementLogin("ratingGuest");
+      interactions.querySelectorAll("button").forEach((item) => item.disabled = true);
+      try {
+        await request(`/api/catalog/engagement/${encodeURIComponent(story.slug)}/rating`, { method: "PUT", body: { score } });
+        await refreshStoryMetrics(story);
+        if (window.location.pathname === storyRoute(story)) renderStoryDetail(story);
+      } catch (error) {
+        if (error.status === 401) openEngagementLogin("ratingGuest");
+        else document.querySelector("#story-interaction-status").textContent = t("engagementFailed");
+      } finally { interactions.querySelectorAll("button").forEach((item) => item.disabled = false); }
+    };
+    interactions.append(button);
+  }
+  const canContinue = story.lastSessionId && story.lastSessionStatus !== "finished";
+  const restartLabel = currentLanguage === "en" ? "Start again" : "Начать сначала";
+  storyDetailAction.textContent = canContinue ? t("continueButton") : completed ? restartLabel : t("startButton");
   storyDetailAction.onclick = () => {
     if (!storage.email) {
       openAuthModal();
       return;
     }
-    const action = story.lastSessionId ? continueStory(story.lastSessionId) : startStoryRun(story.key);
+    const action = canContinue ? continueStory(story.lastSessionId) : startStoryRun(story.key);
     action.catch((error) => setStatus(t("errorPrefix", { message: error.message })));
   };
+  const restartButton = document.querySelector("#story-detail-restart");
+  restartButton.textContent = restartLabel;
+  restartButton.classList.toggle("hidden", !canContinue);
+  restartButton.onclick = () => {
+    if (!storage.email) return openAuthModal();
+    startStoryRun(story.key).catch((error) => setStatus(t("errorPrefix", { message: error.message })));
+  };
+  if (opening && !storage.email) {
+    openModal(document.querySelector("#demo-welcome-modal"));
+    storyDetailScreen.inert = true;
+  }
 }
 
 async function startStory(storyKey) {
@@ -1029,10 +1265,14 @@ function openModal(modal) {
 }
 
 function closeModals() {
+  document.querySelector("#demo-welcome-modal").classList.add("hidden");
+  storyDetailScreen.inert = false;
+  document.querySelector("#author-request-modal").classList.add("hidden");
+  document.querySelector("#engagement-modal").classList.add("hidden");
   authModal.classList.add("hidden");
   settingsModal.classList.add("hidden");
   profileModal.classList.add("hidden");
-  document.body.classList.remove("modal-open");
+  document.body.classList.toggle("modal-open", !storyDetailScreen.classList.contains("hidden"));
   if (modalReturnFocus?.isConnected) modalReturnFocus.focus();
   modalReturnFocus = null;
 }
@@ -1042,6 +1282,8 @@ function openAuthModal() {
 }
 
 function openSettingsModal() {
+  modalNotificationsToggle.setAttribute("aria-checked", String(localStorage.getItem("fraerapp.notifications") === "true"));
+  modalSettingsStatus.textContent = "";
   openModal(settingsModal);
 }
 
@@ -1051,7 +1293,53 @@ function openProfileModal() {
     return;
   }
   profileModalEmail.textContent = storage.email;
+  accountUI.refresh(true);
+  document.querySelector("#profile-builder").classList.toggle("hidden", !hasAnyRole(storage.roles, ["author", "admin"]));
+  document.querySelector("#profile-moderation").classList.toggle("hidden", !hasAnyRole(storage.roles, ["moderator", "admin"]));
+  document.querySelector("#profile-admin").classList.toggle("hidden", !hasRole(storage.roles, "admin"));
   openModal(profileModal);
+}
+
+function createHomeStory() {
+  if (!storage.email) {
+    openAuthModal();
+    return;
+  }
+  if (hasAnyRole(storage.roles, ["author", "admin"])) {
+    return openBuilder();
+  }
+  openAuthorRequestModal();
+}
+
+async function openBuilder() {
+  try {
+    const result = await request("/auth/refresh", { method: "POST" });
+    storage.setUser(result.user);
+    if (hasAnyRole(storage.roles, ["author", "admin"])) window.location.href = "/builder/";
+    else await openAuthorRequestModal();
+  } catch {
+    openAuthModal();
+    setLoginStatus(t("authorSessionRefreshFailed"), "error");
+  }
+}
+
+async function openAuthorRequestModal() {
+  const modal = document.querySelector("#author-request-modal");
+  const button = document.querySelector("#author-request-submit");
+  const status = document.querySelector("#author-request-status");
+  openModal(modal);
+  button.disabled = true;
+  button.textContent = t("becomeAuthor");
+  status.textContent = "";
+  try {
+    const result = await request("/auth/author-request");
+    if (result.status === "granted") {
+      await openBuilder();
+      return;
+    }
+    button.disabled = result.status === "pending";
+    if (result.status === "pending") { button.textContent = t("authorRequestSent"); status.textContent = t("authorRequestPending"); }
+  } catch { button.disabled = false; status.textContent = t("authorRequestFailed"); }
 }
 
 async function showPublicHome() {
@@ -1065,18 +1353,31 @@ async function showPublicHome() {
     setStatus(t("errorPrefix", { message: t("catalogLoadFailed") }));
   }
   homeCarouselIndex = catalogStories.length > 2 ? 1 : 0;
+  catalogSelect.refresh();
   showOnly(loginScreen);
   renderHomeCarousel();
+}
+
+function getHomeStories() {
+  const query = homeSearchInput.value.trim().toLowerCase();
+  const demoKeys = ["kak_shodit_v_tualet_pravilno", "kak_pogladit_kota_ne_ubiv", "night_train"];
+  const stories = catalogStories.filter((story) => storyMatchesQuery(story, query)
+    && (storage.email || demoKeys.includes(story.key)));
+  if (storage.email) stories.sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)));
+  else stories.sort((a, b) => demoKeys.indexOf(a.key) - demoKeys.indexOf(b.key));
+  return stories;
 }
 
 function renderHomeCarousel() {
   if (!homeStories) return;
   homeStories.replaceChildren();
-  const stories = catalogStories.slice(0, 12);
+  const stories = getHomeStories();
+  homeSearchStatus.textContent = homeSearchInput.value.trim()
+    ? t("homeFound", { count: stories.length }) : "";
   if (stories.length === 0) {
     const empty = document.createElement("article");
     empty.className = "home-story-card home-story-empty";
-    empty.textContent = t("noStories");
+    empty.textContent = t(catalogStories.length ? "homeNoMatches" : "noStories");
     homeStories.append(empty);
     homePrevButton.disabled = true;
     homeNextButton.disabled = true;
@@ -1087,22 +1388,15 @@ function renderHomeCarousel() {
   stories.forEach((story, index) => {
     let offset = (index - homeCarouselIndex + stories.length) % stories.length;
     if (offset > stories.length / 2) offset -= stories.length;
-    const card = document.createElement("button");
-    card.type = "button";
+    const card = document.createElement("article");
     card.className = "home-story-card";
     card.dataset.offset = String(offset);
     card.classList.toggle("is-active", offset === 0);
     card.classList.toggle("is-outside-view", Math.abs(offset) > 2);
-    card.tabIndex = offset === 0 ? 0 : -1;
     card.setAttribute("aria-hidden", String(Math.abs(offset) > 2));
     card.style.setProperty("--story-offset", String(offset));
-    const cover = document.createElement("span");
-    cover.className = "home-story-cover";
-    cover.style.backgroundImage = `url("${storyCoverAsset(story)}")`;
-    const title = document.createElement("strong");
-    title.textContent = story.title;
-    card.append(cover, title);
-    card.addEventListener("click", () => activateHomeStory(story));
+    fillStoryCard(card, story, "home-story-cover");
+    card.querySelectorAll("a, button").forEach((control) => control.tabIndex = offset === 0 ? 0 : -1);
     homeStories.append(card);
   });
   homePrevButton.disabled = stories.length <= 1;
@@ -1110,19 +1404,10 @@ function renderHomeCarousel() {
 }
 
 function moveHomeCarousel(direction) {
-  const stories = catalogStories.slice(0, 12);
+  const stories = getHomeStories();
   if (stories.length <= 1) return;
   homeCarouselIndex = (homeCarouselIndex + direction + stories.length) % stories.length;
   renderHomeCarousel();
-}
-
-function activateHomeStory(story) {
-  if (!storage.email) {
-    openAuthModal();
-    return;
-  }
-  const action = story.lastSessionId ? continueStory(story.lastSessionId) : startStoryRun(story.key);
-  action.catch((error) => setStatus(t("errorPrefix", { message: error.message })));
 }
 
 function renderGameStats(state) {
@@ -1204,98 +1489,126 @@ function formatNumber(value) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
+function favoriteEmptyMessage() {
+  return storage.email && catalogStories.some((story) => story.favorite) ? "noFavoriteMatches" : "noFavorites";
+}
+
 function renderStoryPage() {
   showOnly(storyScreen);
   storiesList.replaceChildren();
   const query = storySearch.value.trim().toLowerCase();
-  const filtered = sortStories(catalogStories.filter((story) => storyMatchesQuery(story, query)));
+  const filtered = sortStories(catalogStories.filter((story) => storyMatchesQuery(story, query)
+    && (storySort.value !== "favorites" || (storage.email && story.favorite))));
   if (catalogStories.length === 0) {
-    storiesList.append(emptyCatalogMessage(t("noStories")));
+    storiesList.append(emptyCatalogMessage(t(storySort.value === "favorites" ? favoriteEmptyMessage() : "noStories")));
     storyPagination.classList.add("hidden");
     return;
   }
   if (filtered.length === 0) {
-    storiesList.append(emptyCatalogMessage(t("noSearchResults")));
+    storiesList.append(emptyCatalogMessage(t(storySort.value === "favorites" ? favoriteEmptyMessage() : "noSearchResults")));
     storyPagination.classList.add("hidden");
     return;
   }
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / storiesPerPage));
-  catalogPage = Math.min(Math.max(catalogPage, 1), pageCount);
-  const pageStories = filtered.slice((catalogPage - 1) * storiesPerPage, catalogPage * storiesPerPage);
-  for (const story of pageStories) {
+  for (const story of filtered) {
     const card = document.createElement("article");
     card.className = "story-card";
-    card.tabIndex = 0;
-    card.addEventListener("click", () => navigateTo(storyRoute(story)));
-    card.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        navigateTo(storyRoute(story));
-      }
-    });
-    const cover = document.createElement("div");
-    cover.className = "story-cover";
-    cover.style.backgroundImage = `url("${storyCoverAsset(story)}")`;
-    const author = story.authorName ? story.authorName : "";
-    const progress = Math.round(story.completionRate ?? 0);
-    const titleRow = document.createElement("div");
-    titleRow.className = "story-title-row";
-    const title = document.createElement("strong");
-    title.textContent = story.title;
-    const key = document.createElement("span");
-    key.className = "story-key";
-    key.textContent = author;
-    titleRow.append(title, key);
-
-    const description = document.createElement("p");
-    description.className = "story-description";
-    description.textContent = story.description || story.key;
-
-    const meta = document.createElement("div");
-    meta.className = "story-meta";
-    meta.append(
-      metric(t("storyRuns", { runs: "" }).replace(":", "").trim(), story.totalRuns ?? 0),
-      metric(t("finishedRuns", { runs: "" }).replace(":", "").trim(), story.finishedRuns ?? 0),
-      metric(t("updatedDate", { date: "" }).replace(":", "").trim(), formatDate(story.updatedAt)),
-    );
-
-    const saveContext = document.createElement("p");
-    saveContext.className = "save-context";
-    saveContext.textContent = story.lastSessionId
-      ? `${t("saveScene", { scene: story.lastSceneTitle || story.lastSaveName || story.key })} · ${t("lastPlayedDate", { date: formatDate(story.lastPlayedAt) })}`
-      : t("publishedDate", { date: formatDate(story.publishedAt) });
-
-    const progressRow = document.createElement("div");
-    progressRow.className = "progress-row";
-    const progressLabel = document.createElement("div");
-    progressLabel.className = "progress-label";
-    const progressText = document.createElement("span");
-    progressText.textContent = t("completionPercent", { percent: progress });
-    const slotText = document.createElement("strong");
-    slotText.textContent = story.lastSaveName || "";
-    progressLabel.append(progressText, slotText);
-    const track = document.createElement("span");
-    track.className = "progress-track";
-    track.style.setProperty("--completion-color", completionColor(story.completionRate));
-    track.style.setProperty("--completion-width", `${progress}%`);
-    progressRow.append(progressLabel, track);
-    const actions = document.createElement("div");
-    actions.className = "story-actions";
-    if (story.lastSessionId) {
-      actions.append(actionButton(t("continueButton"), () => continueStory(story.lastSessionId), "", true));
-      actions.append(actionButton(t("newRunButton"), () => startStory(story.key), "secondary", true));
-    } else {
-      actions.append(actionButton(t("startButton"), () => storage.email ? startStory(story.key) : openAuthModal(), "", true));
-    }
-    card.append(cover, titleRow, description, meta, saveContext, progressRow, actions);
+    fillStoryCard(card, story, "story-cover");
     storiesList.append(card);
   }
-  storyPagination.classList.toggle("hidden", pageCount <= 1);
-  storiesPage.textContent = t("pageLabel", { page: catalogPage, pages: pageCount });
-  storiesPrev.disabled = catalogPage <= 1;
-  storiesNext.disabled = catalogPage >= pageCount;
+  storyPagination.classList.add("hidden");
 }
+
+function fillStoryCard(card, story, coverClass) {
+  card.classList.add("engagement-card");
+  const link = document.createElement("a");
+  link.href = storyRoute(story);
+  link.className = "story-card-link";
+  link.setAttribute("aria-label", story.title);
+  link.onclick = (event) => {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault(); navigateTo(storyRoute(story));
+  };
+  const cover = document.createElement("div");
+  cover.className = coverClass;
+  cover.style.backgroundImage = `url("${storyCoverAsset(story)}")`;
+  const genre = document.createElement("span");
+  genre.className = "story-genre";
+  genre.textContent = story.genre || t("genreUnknown");
+  cover.append(genre);
+  const info = document.createElement("div");
+  info.className = "story-card-info";
+  const title = document.createElement("strong");
+  title.textContent = story.title;
+  const stats = document.createElement("div");
+  stats.className = "story-card-stats";
+  const views = document.createElement("span");
+  views.textContent = `◉ ${new Intl.NumberFormat(currentLanguage, { notation: "compact", maximumFractionDigits: 1 }).format(story.views ?? 0)}`;
+  views.setAttribute("aria-label", `${t("viewsLabel")}: ${story.views ?? 0}`);
+  const rating = document.createElement("span");
+  rating.textContent = `☆ ${story.rating == null ? "—" : story.rating.toFixed(1)}`;
+  rating.setAttribute("aria-label", `${t("ratingLabel")}: ${story.rating == null ? t("noRatings") : story.rating.toFixed(1)}, ${story.ratingCount || 0}`);
+  stats.append(views, rating); info.append(title, stats); link.append(cover, info);
+  card.append(link, favoriteButton(story));
+}
+
+function openEngagementLogin(message) {
+  document.querySelector("#engagement-message").textContent = t(message);
+  document.querySelector("#engagement-login").hidden = message === "engagementFailed";
+  openModal(document.querySelector("#engagement-modal"));
+}
+
+let favoriteGradientId = 0;
+function favoriteButton(story) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "story-favorite";
+  button.dataset.storySlug = story.slug;
+  button.setAttribute("aria-label", t(story.favorite ? "removeFavorite" : "addFavorite"));
+  button.setAttribute("aria-pressed", String(Boolean(story.favorite)));
+  const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  icon.setAttribute("viewBox", "0 0 24 24");
+  icon.setAttribute("width", "22"); icon.setAttribute("height", "22");
+  icon.setAttribute("aria-hidden", "true");
+  const gradient = document.createElementNS("http://www.w3.org/2000/svg", "linearGradient");
+  const gradientId = `favorite-gradient-${++favoriteGradientId}`;
+  gradient.setAttribute("id", gradientId);
+  gradient.setAttribute("x1", "0%"); gradient.setAttribute("y1", "36%");
+  gradient.setAttribute("x2", "100%"); gradient.setAttribute("y2", "64%");
+  ["#f5a279b8", "#9c6285b8"].forEach((color, index) => {
+    const stop = document.createElementNS("http://www.w3.org/2000/svg", "stop");
+    stop.setAttribute("offset", `${index * 100}%`);
+    stop.setAttribute("stop-color", color);
+    gradient.append(stop);
+  });
+  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+  defs.append(gradient);
+  icon.append(defs);
+  icon.style.setProperty("--favorite-fill", `url(#${gradientId})`);
+  const heart = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  heart.setAttribute("d", "M12 21 3.4 12.5C-2 7.2 5.1-.8 12 6.2 18.9-.8 26 7.2 20.6 12.5Z");
+  icon.append(heart);
+  button.append(icon);
+  button.onclick = async (event) => {
+    event.stopPropagation();
+    if (!storage.email) return openEngagementLogin("favoriteGuest");
+    button.disabled = true;
+    try {
+      const result = await request(`/api/catalog/engagement/${encodeURIComponent(story.slug)}/favorite`, { method: "PUT", body: { selected: !story.favorite } });
+      story.favorite = result.favorite;
+      // Update in place: re-sorting favorites here changes the active carousel card.
+      document.querySelectorAll(".story-favorite").forEach((control) => {
+        if (control.dataset.storySlug !== story.slug) return;
+        control.setAttribute("aria-pressed", String(Boolean(story.favorite)));
+        control.setAttribute("aria-label", t(story.favorite ? "removeFavorite" : "addFavorite"));
+      });
+    } catch (error) {
+      openEngagementLogin(error.status === 401 ? "favoriteGuest" : "engagementFailed");
+    } finally { button.disabled = false; }
+  };
+  return button;
+}
+
 
 function storyCoverAsset(story) {
   const explicitCover = story.coverUrl || story.imageUrl || story.backgroundUrl;
@@ -1362,6 +1675,9 @@ function actionButton(label, action, variant = "", stopCardClick = false) {
 
 function sortStories(stories) {
   const sortMode = storySort.value;
+  if (sortMode === "default" || sortMode === "favorites") return [...stories].sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)));
+  if (sortMode === "title") return [...stories].sort(compareStoryTitle);
+  if (sortMode === "rating") return [...stories].sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1) || compareStoryTitle(a, b));
   return [...stories].sort((first, second) => {
     if (sortMode === "completion") {
       return compareNumber(second.completionRate, first.completionRate)
@@ -1426,12 +1742,13 @@ function storyMatchesQuery(story, query) {
   if (!query) {
     return true;
   }
-  return [story.title, story.key, story.description, story.authorName]
+  return [story.title, story.key, story.description, story.authorName, story.genre]
     .filter(Boolean)
     .some((value) => String(value).toLowerCase().includes(query));
 }
 
 function render(state) {
+  catalogStories = []; // Reload personal progress and endings when returning from gameplay.
   currentState = state;
   releaseChoices();
   const scene = state.scene;
@@ -1519,8 +1836,7 @@ function updateSoundLabel() {
   soundToggle.dataset.soundState = state;
   soundToggle.textContent = t(soundRequested ? "soundOn" : "soundOff");
   modalSoundToggle.dataset.soundState = state;
-  modalSoundToggle.textContent = t(soundRequested ? "soundOn" : "soundOff");
-  modalSoundToggle.setAttribute("aria-pressed", String(soundRequested));
+  modalSoundToggle.setAttribute("aria-checked", String(soundRequested));
   volumeSlider.value = String(soundVolume);
   volumeSlider.style.setProperty("--volume-level", `${soundVolume}%`);
 }
@@ -1677,6 +1993,7 @@ passkeyRegisterButton.addEventListener("click", async () => {
     passkeyStatus.dataset.tone = "info";
     await registerPasskey();
   } catch (error) {
+    requestPasskeyReauthentication(error);
     passkeyStatus.textContent = passkeyRegistrationErrorMessage(error);
     passkeyStatus.dataset.tone = "error";
   } finally {
@@ -1756,37 +2073,113 @@ passkeyNudgeDismiss.addEventListener("click", () => {
 });
 
 homeReadButton.addEventListener("click", () => {
-  navigateTo("/history");
+  if (!storage.email) openAuthModal();
+  else navigateTo("/history");
 });
 
-homeCreateButton.addEventListener("click", () => {
-  if (hasAnyRole(storage.roles, ["author", "admin"])) {
-    window.location.href = "/builder/";
-    return;
-  }
-  openAuthModal();
-});
+homeCreateButton.addEventListener("click", createHomeStory);
 
-homeSearchButton.addEventListener("click", async () => {
-  await navigateTo("/history");
-  storySearch.focus();
+function updateHomeSearch() {
+  homeCarouselIndex = 0;
+  renderHomeCarousel();
+}
+document.querySelector("#home-search-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  homeSearchInput.focus();
+  updateHomeSearch();
+});
+homeSearchInput.addEventListener("input", updateHomeSearch);
+document.querySelector("#author-request-submit").addEventListener("click", async () => {
+  const button = document.querySelector("#author-request-submit");
+  const status = document.querySelector("#author-request-status");
+  button.disabled = true;
+  try {
+    const result = await request("/auth/author-request", { method: "POST" });
+    if (result.status === "granted") { await openAuthorRequestModal(); return; }
+    button.textContent = t("authorRequestSent");
+    status.textContent = t("authorRequestPending");
+  } catch { button.disabled = false; status.textContent = t("authorRequestFailed"); }
 });
 
 homeSettingsButton.addEventListener("click", openSettingsModal);
+document.querySelector("#engagement-close").addEventListener("click", closeModals);
+document.querySelector("#engagement-login").addEventListener("click", openAuthModal);
+document.querySelector("#profile-favorites").addEventListener("click", () => {
+  storySearch.value = "";
+  storySort.value = "favorites";
+  catalogSelect.refresh();
+  closeModals();
+  navigateTo("/history");
+});
+document.querySelector("#library-settings").addEventListener("click", openSettingsModal);
+document.querySelector("#library-profile").addEventListener("click", openProfileModal);
 homeProfileButton.addEventListener("click", openProfileModal);
+document.querySelector("#profile-builder").addEventListener("click", () => {
+  if (storage.email && hasAnyRole(storage.roles, ["author", "admin"])) openBuilder();
+});
+document.querySelector("#profile-my-stories").addEventListener("click", () => {
+  if (storage.email) window.location.href = "/my-stories/";
+});
+document.querySelector("#profile-moderation").addEventListener("click", () => {
+  if (storage.email && hasAnyRole(storage.roles, ["moderator", "admin"])) window.location.href = "/moderation/";
+});
+document.querySelector("#profile-admin").addEventListener("click", () => {
+  if (storage.email && hasRole(storage.roles, "admin")) window.location.href = "/auth/admin";
+});
 homePrevButton.addEventListener("click", () => moveHomeCarousel(-1));
 homeNextButton.addEventListener("click", () => moveHomeCarousel(1));
-storyDetailBack.addEventListener("click", () => navigateTo("/history"));
+let storyDetailReturnFocus = null;
+function closeStoryDetail() {
+  const destination = !storage.email || window.history.state?.detailFrom === "/" ? "/" : "/history";
+  storyDetailScreen.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+  window.history.replaceState({}, document.title, destination);
+  if (storyDetailReturnFocus?.isConnected) storyDetailReturnFocus.focus();
+  storyDetailReturnFocus = null;
+}
+storyDetailBack.addEventListener("click", closeStoryDetail);
+document.querySelector("#story-detail-backdrop").addEventListener("click", closeStoryDetail);
 authModalClose.addEventListener("click", closeModals);
 settingsModalClose.addEventListener("click", closeModals);
 profileModalClose.addEventListener("click", closeModals);
 document.querySelectorAll("[data-modal-close]").forEach((node) => {
   node.addEventListener("click", closeModals);
 });
-modalLangRuButton.addEventListener("click", () => setLanguage("ru"));
-modalLangEnButton.addEventListener("click", () => setLanguage("en"));
+document.querySelector("#demo-welcome-register").addEventListener("click", openAuthModal);
+function toggleModalLanguage() {
+  setLanguage(currentLanguage === "ru" ? "en" : "ru");
+}
+modalLangRuButton.addEventListener("click", toggleModalLanguage);
+modalLangEnButton.addEventListener("click", toggleModalLanguage);
 modalSoundToggle.addEventListener("click", () => {
   toggleSoundPreference();
+});
+modalNotificationsToggle.addEventListener("click", () => {
+  const enabled = modalNotificationsToggle.getAttribute("aria-checked") !== "true";
+  localStorage.setItem("fraerapp.notifications", String(enabled));
+  modalNotificationsToggle.setAttribute("aria-checked", String(enabled));
+});
+document.querySelector("#modal-support").addEventListener("click", () => {
+  modalSettingsStatus.textContent = t("supportSoon");
+});
+modalPasskeyButton.addEventListener("click", async () => {
+  if (!storage.email) {
+    openAuthModal();
+    setLoginStatus(t("passkeyLoginFirst"));
+    return;
+  }
+  modalPasskeyButton.disabled = true;
+  modalSettingsStatus.textContent = t("loading");
+  try {
+    await registerPasskey();
+    modalSettingsStatus.textContent = t("passkeyRegistered");
+  } catch (error) {
+    if (!requestPasskeyReauthentication(error)) {
+      modalSettingsStatus.textContent = passkeyRegistrationErrorMessage(error);
+    }
+  } finally {
+    modalPasskeyButton.disabled = false;
+  }
 });
 profileLogoutButton.addEventListener("click", async () => {
   try {
@@ -1806,11 +2199,13 @@ window.addEventListener("popstate", () => {
 
 document.querySelector("#app-notice-close").addEventListener("click", () => appNotice.classList.add("hidden"));
 document.addEventListener("keydown", (event) => {
-  const modal = document.querySelector(".modal-layer:not(.hidden)");
+  const modal = document.querySelector(".modal-layer:not(#story-detail-screen):not(.hidden)")
+    || document.querySelector("#story-detail-screen:not(.hidden)");
   if (!modal) return;
   if (event.key === "Escape") {
     event.preventDefault();
-    closeModals();
+    if (modal === storyDetailScreen) closeStoryDetail();
+    else closeModals();
   } else if (event.key === "Tab") {
     const controls = [...modal.querySelectorAll("button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex='0']")]
       .filter(node => node.getClientRects().length > 0);
@@ -1840,6 +2235,7 @@ function updatePasskeyAvailability() {
 }
 
 sound = createSound();
+const accountUI = createAccountUI({ request, email: () => storage.email, language: () => storage.language });
 applyTranslations();
 updateSoundLabel();
 updateConsentState();

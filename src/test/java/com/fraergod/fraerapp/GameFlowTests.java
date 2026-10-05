@@ -24,7 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 		"spring.jpa.hibernate.ddl-auto=validate",
 		"app.admin-token=test-token"
 })
-class GameFlowTests {
+class GameFlowTests extends ApiTestSupport {
 
 	private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
 	};
@@ -37,8 +37,11 @@ class GameFlowTests {
 	@LocalServerPort
 	private int port;
 
+	@org.junit.jupiter.api.BeforeEach
+	void approveRuntimeFixture() { approveSeed(port); }
+
 	@Test
-	void seedStoryIsPublished() {
+	void explicitlyApprovedSeedIsPublished() {
 		ApiResponse response = request("GET", "/api/stories", null, null, null);
 
 		assertThat(response.status()).isEqualTo(HttpStatus.OK.value());
@@ -56,7 +59,7 @@ class GameFlowTests {
 		assertThat(validation.status()).isEqualTo(HttpStatus.OK.value());
 		assertThat(validation.body()).containsEntry("valid", true);
 
-		ApiResponse published = request("POST", "/api/admin/stories/" + storyId + "/publish", null, null, admin);
+		ApiResponse published = publishStory(storyId);
 		assertThat(published.status()).isEqualTo(HttpStatus.OK.value());
 		assertThat(published.body()).containsEntry("status", "published");
 	}
@@ -92,7 +95,7 @@ class GameFlowTests {
 		ApiResponse imported = request("POST", "/api/admin/stories/import", variableMusicStory(key), null, admin);
 		assertThat(imported.status()).isEqualTo(HttpStatus.OK.value());
 		String storyId = imported.body().get("storyId").toString();
-		assertThat(request("POST", "/api/admin/stories/" + storyId + "/publish", null, null, admin).status()).isEqualTo(HttpStatus.OK.value());
+		assertThat(publishStory(storyId).status()).isEqualTo(HttpStatus.OK.value());
 
 		String playerId = login("media-" + UUID.randomUUID());
 		ApiResponse session = createSession(playerId, key);
@@ -169,6 +172,10 @@ class GameFlowTests {
 
 		assertThat(ending.body()).containsEntry("status", "finished");
 		assertThat(((Map<?, ?>) ending.body().get("scene")).get("ending")).isNotNull();
+	}
+
+	private ApiResponse publishStory(String id) {
+		var r=approveAndPublish(port,id,null);return new ApiResponse(r.statusCode(),readMap(r.body()),r.body());
 	}
 
 	private String login(String username) {

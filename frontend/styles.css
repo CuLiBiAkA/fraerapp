@@ -2345,7 +2345,7 @@ body.is-public-home .top-actions {
   align-items: center;
 }
 
-body:not(.is-authenticated) .home-actions {
+.home-actions {
   max-width: 560px;
 }
 

@@ -1,6 +1,98 @@
 # FraerApp deploy and ops runbook
 
-Last updated: 2026-09-22.
+Last updated: 2026-10-05.
+
+Builder theme v9/app builder-37 Add gradients: backup `backups/builder-add-buttons-20261005-132036`. Four public files match local after builder rebuild and edge reload; six services healthy, health/catalog 200, recent API/auth errors zero. Eight builder tests and browser checks at 1440/1024/390px pass, including Add colors after new scene creation and on the scenario map. No commit/push.
+
+Builder theme v8 bounded sticky structure: backup `backups/builder-sticky-tree-20261005-131115`; theme and both HTML entrypoints deployed, builder rebuilt, edge reloaded. Three public files match local; six services healthy, health/catalog 200, recent API/auth errors zero. Browser regression at 12 widths verifies sticky top=12px in side-by-side layouts, no overlap with author workspace, bounded tree width, and working back-to-top. git diff --check passes. No commit/push.
+
+Builder theme v7 compact file selector: backup `backups/builder-file-button-20261005-130638`. Theme and HTML entrypoints published, builder rebuilt, edge reloaded. Three public files match local, six services healthy, health/catalog 200, recent API/auth errors zero. Browser checks at 1440/390px confirm compact padding and retained gradient; git diff --check passes. No commit/push.
+
+Builder theme v6 scrolling fix: backup `backups/builder-scroll-layout-20261005-130316`. Theme and HTML entrypoints published; builder rebuilt, edge reloaded. Three public files match local, six services healthy, health/catalog 200, no recent API/auth errors. Eight builder tests pass. Browser regression scrolls until author workspace reaches viewport y=200 at 1440/1380/1024/901/900/850/768/701/700/600/390/320 widths: no intersecting sidebar boxes, structure <=390px, no page overflow, visible back-to-top click returns scrollY to zero. No commit/push.
+
+Builder theme v5 toolbar wrapping: backup `backups/builder-toolbar-wrap-20261005-125554`. Theme and both HTML files published; builder rebuilt and edge reloaded. Public files match local, six services healthy, health/catalog 200, recent API/auth errors zero. Browser checks at 1440/1024/768/390/320px confirm wrapping with no horizontal toolbar overflow. git diff --check passes. No commit/push.
+
+Builder theme v4: backup `backups/builder-scene-button-20261005-125204`; published theme.css and both HTML entrypoints, rebuilt builder and reloaded edge. Public files match local, six services healthy, health/catalog 200, recent API/auth errors zero. Browser checks at 1440/390 verify dark nested panels and identical Delete/+ Scene gradients. git diff --check passes. No commit/push.
+
+Builder tree/surfaces theme v3: backup `backups/builder-tree-20261005-124752`. Published theme.css and both HTML entrypoints; rebuilt builder and reloaded edge. All three public files match local, six services healthy, health/catalog 200, recent API/auth errors zero. Eight builder tests passed. Browser checks cover ten viewports from 320x568 through 2560x1080, including 480x320 and 1920x600: tree rows 36px with 4px gaps, no editor/map page overflow, working selection/filters and JSON dialog. Additional 1440/390 checks confirm all nested panels dark and file selectors gradient. No commit/push.
+
+Builder compact/darker theme v2: backup `backups/builder-compact-20261004-205534`; deployed theme.css and both HTML entrypoints, rebuilt story-builder and reloaded edge. Three public files match local, six services healthy, health/catalog 200, no recent API/auth errors. Eight builder tests and browser checks passed: all seven toolbar actions fit one row without scrolling at 1024/1440px; 390px scrolls the toolbar without page overflow; panels are #5A427C and scene subtitles #FEE3E2. No commit/push.
+
+Builder Figma theme release: backup `backups/builder-theme-20261004-204120`; publish theme.css v1, three assets/figma arrows, app.js builder-36 and both HTML entrypoints. Rebuild/recreate story-builder and reload edge as for the background release. All seven public files match local; six services healthy, health/catalog 200, recent API/auth error count zero. 35 frontend/builder tests, production validation and browser checks at 1440/1024/390px passed (editor, JSON dialog, selected tree objects, scenario map and active filters). No commit/push.
+
+Builder background release (builder-32): backup `backups/builder-background-20261004-162515` includes story-builder/styles.css and index.html. Builder assets are baked into its nginx image: rebuild/recreate only story-builder, then reload edge nginx to refresh the upstream address. Both public files match local bytes, six services healthy, health/catalog 200, recent API/auth errors zero. Eight builder tests and desktop/mobile browser previews passed. No commit/push.
+
+Reader action visibility release (engine-68/index): backup `backups/reader-actions-20261002-162944`; no rebuild. Browser fixtures verify untouched, first active run, finished and active replay at 1440/390/320px. 35 frontend/builder tests pass. Public files match local, six services healthy, health/catalog 200 and recent API/auth errors zero. No commit/push.
+
+Reader card layout release: engine-67, story-dialog v5 and index published with backup `backups/reader-layout-20261002-162213`. No rebuild. Public files match local bytes; six services healthy, health/catalog 200 and recent API/auth error count zero. 35 frontend/builder tests, production validation and browser fixtures at 1440/390/320px passed. Fixtures verify four metrics, compact progress left/rating right, and identical restart-left/continue-right buttons. No commit/push.
+
+Refined icon release: back up and publish search-neon.png, arrow-neon.png, account-neon.png, settings-neon.png, account-ui.js/css v2, library v8, engine-66 and index last. No backend migration/rebuild. Verify home/library, all three account states, notification read clearing the dot, no character picker, search/carousel/settings actions, and 320/390/1440px fit. Retain legacy avatar data/assets for rollback.
+
+Published with backup backups/neon-icons-20261002-161259. All nine public files match local bytes; health/catalog 200, six services healthy, recent API/auth errors zero. 35 frontend/builder tests, syntax and production validation pass. Browser fixtures verify guest/signed/unread at 1440/390/320px, settings, profile, library and notification clearing without real account mutations. No commit/push.
+
+Reader completion release: back up API database and runtime files before V14. Deploy GameService, StoryEngagementService and V14__reader_endings.sql; rebuild/recreate api, wait for health, reload edge, then publish engine-65/story-dialog v4/index. Validate three demos completed, Новая история in development, anonymous discoveredEndings=0 and no private-response caching. Existing finished saves seed discoveries; old resets cannot be reconstructed. Keep the additive ledger on code rollback to preserve new discoveries. Tests cover duplicate endings, reset persistence and reader isolation; browser fixtures cover statuses, 0/100%, active replay, restart and 320/390/1440px.
+
+Published with backup backups/reader-completion-20261002-155101 (API dump and source/frontend files, restricted permissions). API rebuilt; all six services healthy; public engine/CSS/index match local bytes, health/catalog return 200, recent API/auth errors zero. Public metrics confirm three completed demos (2/6/5 endings), New Story in development and anonymous discoveries zero. 25 API tests, 19 auth tests and 35 frontend/builder tests pass. Browser fixtures verify new-save restart, signed-in completion, personal counts and all three statuses at three widths. No commit/push.
+
+Guest story introduction release: back up engine.js, home.css and index; deploy engine-64/cosmos-27 and index last. Verify guest card opening, Continue returning to details, Register opening authentication, Escape/back cleanup, and signed-in bypass. Check desktop and 390/320px layouts. No service rebuild.
+
+Published with backup backups/demo-welcome-20261002-144751. Public files match local; health/catalog 200, all six services healthy, recent API/auth errors zero. All 35 frontend/builder checks, syntax, production validation and diff checks pass. Browser checks cover three widths and signed-in fixture; view POST is mocked to avoid test analytics writes. No commit or push.
+
+Homepage navigation artwork release: back up home.css/index and any existing search-magic.png/carousel-arrow-magic.png; publish the two assets, home.css cosmos-26 and index last. No service rebuild. Verify images load with transparent backgrounds, both carousel directions and search still work, and no horizontal overflow at 320/390/1024/1440px. Run standard frontend checks and compare public asset bytes after deployment.
+
+Published with backup backups/navigation-icons-20261002-004732. Both PNGs, CSS and index match public bytes; health/catalog 200, six services healthy, recent API/auth errors zero. All 35 frontend/builder tests and production validation pass. Local browser checks cover four viewport widths, search submission, carousel next/previous and no overflow. No commit/push; existing worktree changes preserved.
+
+Cookie artwork/H3 release: back up home.css/index and any existing cookie-frame.png/cookie-magic.png; publish both new assets, home.css cosmos-25 and index last. No backend rebuild. Verify the shared notice on home/library, readable text and 28px desktop tagline, no overflow at 320/390/1024/1440px, and acknowledgement remaining hidden after reload.
+
+Published with backup backups/cookie-frame-20261002-003808. Both assets, CSS and index match public bytes; health/catalog return 200, all six services healthy, recent API/auth errors zero. All 35 frontend/builder tests and production validation pass. Browser checks cover the four widths, persisted dismissal, live desktop heading and matching library notice. No commit/push; existing worktree changes preserved.
+
+Guest catalogue/author-request release: back up auth database and changed runtime files; install GuestDemoStories, PublicCatalogController, GameController, auth AuthServiceApplication and auth migration V7. Rebuild/recreate api and auth-service, wait for healthy services, then reload edge. Publish engine-63, cosmos-24, library v7 and index last. Verify guest catalogue contains exactly the three demo keys, non-demo details and author-request endpoints reject anonymous access, and private/no-store prevents shared caching. Test player submission, duplicates, admin-only listing/grant and clearing with isolated accounts/fixtures; never issue trial grants to real users. Backup: backups/guest-authors-20261002-001142 (auth DB and runtime files; backup directory restricted). Local checks: 24 API, 19 auth and 35 frontend/builder tests pass; browser fixtures cover guest/player/author/admin, request submission/pending/approval, refreshed-role Builder entry and sidebar clearing. Rollback restores previous code/frontend while retaining the additive author_access_requests table.
+
+Avatar/inbox deployment: back up API database and runtime files; deploy V13, AccountController/AccountService, StoryAdminService, and auth AuthServiceApplication. Rebuild/recreate api and auth-service, wait for both healthy and reload edge to resolve container addresses. Then install account-ui.js/css, avatar-fairy/fae PNGs, engine-61, privacy page and index last. Verify guest account GET/PUT return 401, public files match, health/catalog and services are healthy. Test authenticated selection, cross-account isolation, admin-only messages, read ownership and publication deduplication in isolated integration tests; never send test messages to real users. Additive migration rollback retains preferences/inbox data. Generated assets derive from the user's supplied reference.
+
+Guest/author release published and verified 2026-10-02: all six services healthy; public engine-63/cosmos-24/library-7/index match local files. Both catalogue APIs return exactly three demo keys to guests, published non-demo detail returns 401, and author request/list endpoints reject anonymous callers. Live guest browser verifies no full-library link or homepage filters, both CTA buttons opening sign-in, direct /history redirecting to sign-in, mobile fit and no page errors. A check during API restart hit a transient failure; final checks were repeated after health recovery and edge reload. Authenticated request/approval and role refresh are covered by isolated tests/browser fixtures without modifying real users. Changes remain local in Git, uncommitted and unpushed; production is updated.
+
+Avatar/inbox backup: `backups/account-icons-20261001-233412`, including API database dump. Validation: 24 API tests, 18 auth tests and 34 frontend/builder tests pass. Browser fixtures verify both avatars, guest/authenticated/unread states, persistence after reload, clearing unread and desktop/mobile dialog fit. Production messages are not exercised against real accounts.
+
+The same release includes the user's follow-up settings icon: settings-magic.png and home.css cosmos-23, with old home.css added to the backup before installation. Mobile browser verified 48px icon, working settings dialog and no horizontal overflow.
+
+Published and verified: all six services healthy, health/catalog 200, guest `/api/account` 401, recent API/auth error count zero. Index and all new/versioned assets match local bytes. Public privacy HTML includes the new disclosure (CDN-served HTML is not byte-identical). Production guest browser loads both new icons, opens Settings and reports no page errors. Changes remain uncommitted/unpushed.
+
+Account spacing release: home.css cosmos-22 plus index; back up both before install. At 1440px and 390px, title top inset is 37px including border and account name/button gap is 20px. Production validation and diff checks pass.
+
+Heart shape correction: deploy story-cards v6 and index together after backup. Selected gradient is path-only; root SVG has no fill/filter, glow sits on the transparent button. Visually checked Chromium and computed styles; native Safari verification remains unavailable locally.
+
+Favorite gradient release: deploy engine-60, story-cards v5 and index together after backup. Browser verified gradient stops, unique SVG IDs and stronger glow; all 34 frontend/builder tests and syntax/diff checks pass.
+
+Story dialog cover release: `story-dialog.css?v=3` and `index.html`, backup `backups/dialog-cover-20261001-213147`. Browser verified enlarged cover, reduced gap before Start, and visible action at 1440×900, 390×844 and 320×568. Short windows scroll information internally. Syntax, production validation and diff checks pass.
+
+Sort/typography release: backup `backups/sort-typography-20261001-212612`; engine-59, library v6, story-cards v4, index. Verified five widths 320–1440px, matching input/select font sizes, no horizontal overflow and guest favorites empty state. 34 tests, syntax, production validation and diff checks pass. Public files match; health/catalog return 200; all six services healthy, recent logs error-free.
+
+Profile style correction (`cosmos-21`, home.css/index): backup `backups/profile-style-20261001-211912`. Browser computed styles confirm all four account actions match. Syntax/diff checks pass; public files match local, health/catalog return 200, six services healthy, no recent API/auth errors.
+
+Metadata post-deploy verification: API startup took about 77 seconds with transient 502 responses, then all six services became healthy. Public health/catalog/engagement return 200 and recent API/auth logs have no errors. Confirmed ending counts: Train 404=2, cat=5, toilet=6, new-story=1. Completion statuses remain null pending owner input.
+
+Account/favorites UI release: backup `backups/account-favorites-20261001-205524`; engine-58, story-cards v3, story-dialog v2 and index. Verified player/author/admin visibility with local fixtures, favorite toggle persistence response without carousel movement, four current story descriptions fitting the desktop dialog. 34 frontend tests and Java auth/API suites pass. Metadata API release backup `backups/story-metadata-20261001-205609`, StoryEngagementService and V12; only API is rebuilt. completion_status must be assigned from the owner's explicit classification, never inferred from PUBLISHED. No Git commit/push; existing unrelated worktree changes preserved.
+
+Carousel gap correction deployed (`cosmos-20`, home.css/index): backup `backups/carousel-gaps-20261001-191158`. Four browser viewport checks confirm 36px mobile link gaps and preserved landscape geometry. Baseline 17 tests, syntax, production validation and diff checks pass; public assets match, health/catalog return 200, six services healthy and recent logs error-free.
+
+Story dialog release: `engine-57`, new `story-dialog.css?v=1`, index; backup `backups/story-dialog-20261001-190837`. Browser verified 470×600 desktop and 358×600 mobile, home/library origins, direct route, guest auth overlay and Escape return. 34 tests, syntax, production validator and diff check passed. Public assets match local; health/catalog return 200, all six services healthy, recent API/auth logs error-free. Deploy CSS before index; no backend rebuild.
+
+Compact carousel spacing release (`cosmos-19`): deployed `home.css` and `index.html`; backup `backups/compact-spacing-20261001-185951`. Checked six viewport sizes, frontend syntax, 17 baseline tests, production validator and diff whitespace. Public files match local bytes; homepage, health and catalog return 200, six services healthy, recent API/auth logs contain no errors. No rebuild needed.
+
+Fairy loader release: `engine-56`, `loading.css?v=1`, `assets/home/loading-fairy.png`; backup `backups/fairy-loader-20261001-184126`. Deploy asset/CSS/engine before index. Browser preview verified desktop 35px ring/190px stage and mobile 26px ring/114px stage; 1440×1024 and 390×844 screens have no overflow. Reduced-motion has static fallback. 34 tests, syntax, production validator and diff checks passed; public files matched local; homepage, health and engagement returned 200. No backend rebuild or artificial auth delay.
+
+Typography rollout 2026-10-01: backup `backups/typography-20261001-181025`; `cosmos-18`, `engine-55`, `home-fit.js?v=3`, shared `typography.css?v=1`. Publish new font files/licenses and stylesheet before frontend/legal/Builder HTML. Builder index/map both reference the root-served shared stylesheet; rebuild/recreate story-builder after changing their HTML. Public font/CSS/JS bytes matched local; all seven frontend/legal/editor routes returned 200 with the shared stylesheet. 34 tests, JS syntax, production validator and diff checks passed. Browser verified Figma-sized homepage geometry, wide viewport fit, mobile text wrapping, library font roles and Settings dialog. Core auth/API behavior unchanged.
+
+Wide homepage release: `cosmos-17`, `engine-54`, imported `home-fit.js?v=2`; backup `backups/home-wide-20261001-162405`. Publish home CSS/fit script/engine before index. Public assets matched local; health, homepage and engagement endpoints returned 200. Syntax and 34 frontend/builder checks passed. Browser measured footer within viewport at 1728×974 and 1000×924, plus checked unchanged mobile geometry at 390px. No backend rebuild.
+
+Library Favorites dropdown release: `engine-53`, `library.css?v=5`; backup `backups/favorites-sort-20261001-154029`. Published library CSS, engine and index; public files match local and health/catalog endpoints return 200. 34 frontend/builder checks passed. Verify “Избранные” in Sort, guest empty state, and Profile Favorites selecting that option. Library Filters markup/styles/listeners were removed.
+
+Modal close focus fix deployed with `home.css?v=cosmos-16`; backup `backups/modal-close-20261001-152833`. Public CSS/index match local, health 200, browser computed styles confirm identical transparent 44px controls with no border/outline for account and settings. Keyboard focus remains visible through thicker cross strokes and shadow.
+
+Cookie/favorites UI release: back up and publish frontend `home.css`, `library.css`, `story-cards.css`, `engine.js`, `privacy-policy.html`, then `index.html` last. Asset versions: cosmos-15, library 4, story-cards 2, engine-52. No service rebuild or migration. Verify identical cookie styling on home/library, guest Favorites empty state, compact gradient guest-login button, and profile Favorites shortcut. Cookie acknowledgement still does not gate view analytics; do not describe this release as implementing consent management or server retention.
+
+Published 2026-10-01; backup `backups/cookie-favorites-ui-20261001-152357`. Validation: 34 frontend/builder checks, engine syntax, production validator, and diff whitespace checks passed. Browser verified shared notice styling, guest empty results, and dialog button. Profile shortcut covered by a handler test without modifying a real account.
 
 This file is a practical checklist for production operations. Read `PROJECT_CONTEXT.md` first.
 
@@ -151,9 +243,47 @@ curl -k --resolve "$FRAERAPP_DOMAIN:443:<CURRENT_PUBLIC_IP>" "https://$FRAERAPP_
 
 ## Frontend deploy
 
+Deployed story-card release: backup `backups/story-cards-20261001-145923` includes changed runtime files and an API database dump. API and builder rebuilt successfully; frontend `engine-51`, new card stylesheet, heart and regular Inter font served with matching SHA-256 hashes. Public metrics returns 200 with `private, no-store`; guests receive no account favorite/rating state. API tests (including anonymous view deduplication, rating replacement, authorization and private favorites) pass, as do 32 frontend/builder tests. Verified guest dialog on production: no heading, larger text, compact outlined button. Actual account preference mutations were tested in isolated test data, not production accounts.
+
+Story engagement release (2026-10-01): back up changed Java, frontend and builder files plus the API database before deploying V11. Build/recreate `api` and `story-builder`, wait for healthy containers, reload edge after builder recreation, and verify `/api/catalog/engagement` before installing `engine-51`/`story-cards.css?v=1`. Include `assets/home/favorite.svg` and `inter-regular.ttf`. Do not exercise votes/favorites against real accounts as a deployment smoke test. Rollback can restore frontend and API files; additive V11 tables may remain without losing collected data. Verify public metrics are zero/null initially, anonymous favorite/rating writes return 401, assets match local hashes, and the guest heart opens the shared dialog. Local preview proxies only the public metrics GET; authenticated writes are never proxied.
+
+Passkey recovery revision (2026-09-28, deployed): `engine.js` and `index.html` (`engine-50`), backup `backups/passkey-recovery-20260928-180024`. All 32 frontend/builder tests, syntax, production validation and diff checks pass. Public hashes match; health/catalog return 200, six services healthy, no recent API/auth errors. Expired registration opens reauthentication and successful explicit login reopens settings without automatically invoking WebAuthn. Keep the server's recent-auth protection enabled. Actual device key creation requires the user's confirmation and was not exercised by the agent.
+
+Library spacing deployment (2026-09-28): `index.html`, `library.css` (`v=3`), backup `backups/library-spacing-20260928-175137`. Browser measured Figma y positions 187/271/444/572 at 1440×1024; document height remains 1024. Diff check passes. Public hashes match; history/health/catalog return 200, all six services healthy, recent API/auth logs error-free.
+
+Library Figma revision deployment (2026-09-28): `index.html`, `library.css` (`v=2`), `engine.js` (`engine-49`), backup `backups/library-update-20260928-174519`. Measured design geometry at 1440×1024, footer fit at 1440×800 and no horizontal overflow at 390px. All 31 tests and production validation pass. Public hashes match; history/health/catalog return 200, core services healthy and recent API/auth logs error-free.
+
+Library deployment (2026-09-28): `index.html`, `home.css` (`cosmos-14`), `engine.js` (`engine-48`), new `library.css` (`v=1`); backup `backups/library-20260928-170821`. Include the new stylesheet before installing index. Public hashes match; `/history`, health and catalog return 200; core services healthy, no recent API/auth errors. Browser checked sorting, settings, desktop footer fit, mobile two-column layout and a temporary 15-story fixture showing natural scrolling. Syntax, frontend/builder tests, production validation and diff checks passed.
+
+Spacing deployment (2026-09-28): `index.html` and `home.css` (`cosmos-13`), backup `backups/spacing-20260928-164917`. Browser at 1728×965 measured a 53px carousel gap, 44px link gap and document/footer height 965px. Public hashes match; health/catalog return 200, core services healthy, no recent API/auth errors.
+
+Viewport-fit deployment (2026-09-28): `index.html`, `home.css` (`cosmos-12`), `engine.js` (`engine-47`), new `home-fit.js` (`v=1`); backup `backups/fit-20260928-163933`. Deploy the new module before engine/index. Public asset hashes match, health/catalog return 200, six core services healthy and no recent API/auth errors. Thirty frontend/builder tests pass. Browser layout checks at 1728×965, 1440×800 and 1024×768 confirm document height equals viewport height and footer bottom remains visible. Recheck after fonts load and after search results change.
+
+Filter dropdown deployment (2026-09-27): `index.html`, `home.css` (`cosmos-11`), `engine.js` (`engine-46`) and new `filter-select.js` (`v=1`), backup `backups/select-20260927-225255`. Always deploy the new module before engine/index; verify its versioned URL returns JavaScript and matches local bytes. All four public hashes match; 30 tests and production validation pass. Health/catalog return 200, six core services healthy, no recent API/auth errors. Browser checked both dropdowns, keyboard selection, reset, and mobile width.
+
+Filter panel deployment (2026-09-27): `index.html`, `home.css` (`cosmos-10`), `engine.js` (`engine-45`), backup `backups/filters-20260927-221739`. Browser confirms side placement, viewport fit at 390px and preserved filtered carousel after Show stories. Frontend syntax, public-surface tests and diff checks pass. Public asset hashes match, health/catalog return 200, core services healthy and no recent API/auth errors.
+
+Homepage search deployment (2026-09-27): `index.html`, `home.css` (`cosmos-9`), `engine.js` (`engine-44`), backup `backups/search-20260927-221303`. Verified search stays on `/`, focuses the input, filters results, handles no matches and resets; mobile width 390px has no horizontal overflow. Regression coverage combines text and author filters, sorting, and matches beyond twelve cards. Public asset hashes match, health/catalog return 200, core services healthy and no recent API/auth errors.
+
+Interaction deployment (2026-09-27): `index.html`, `home.css` (`cosmos-8`), `engine.js` (`engine-43`), backup `backups/interaction-20260927-220312`. Verified selected RU switches to EN and selected EN switches to RU in the browser; dialog closes normally. All 29 relevant tests pass. Public asset hashes match, health/catalog return 200, core services healthy and no recent API/auth errors.
+
+Control geometry deployment (2026-09-27): `index.html` and `home.css` (`cosmos-7`), backup `backups/controls-20260927-215930`. Browser measured equal 78×38px track outer sizes and 37×34px handles for the three controls. Public hashes match; health/catalog return 200, all six core services healthy, no recent API/auth errors.
+
+Language control deployment (2026-09-27): `index.html` and `home.css` (`cosmos-6`), backup `backups/language-20260927-214631`. Public hashes match; health/catalog return 200, six core services healthy, no recent API/auth errors. Browser confirms RU/EN background-image is none.
+
+Switch refinement deployment (2026-09-27): `index.html` and `home.css` (`cosmos-5`), backup `backups/switch-20260927-214534`. Both public files match local hashes; health/catalog return 200, all six services healthy, no recent API/auth errors. Browser computed styles confirm no background gradient on sound/notification tracks.
+
+Settings dialog deployment (2026-09-27): installed `index.html`, `home.css` (`cosmos-4`) and `engine.js` (`engine-42`), backed up to `backups/settings-20260927-214253`. Public asset bytes match local files, all six core services are healthy, health/catalog/Telegram endpoints return 200, and recent API/auth logs have no errors. Browser checks cover RU/EN, sound, notification preference and guest passkey onboarding, including 390×844 layout. Actual credential creation still requires the user's device interaction; do not treat the guest onboarding check as completed credential registration. Support contact and notification delivery remain unconfigured.
+
+Latest deployment (2026-09-27): `index.html`, `styles.css` (`game-25`), `home.css` (`cosmos-3`), and `engine.js` (`engine-41`). Backup: `backups/home-20260927-211043` under the runtime directory. All four public asset hashes match local files. Public health, catalog and Telegram configuration checks passed; all core containers were healthy, with no recent API/auth errors. Loopback port 8443 was not reachable because the service binds the configured LAN address; public `/healthz` returned 200. The published page now includes the responsive and account-dialog changes previously available only in local preview.
+
+When comparing guest and signed-in views, use the same origin and viewport and verify loaded asset versions. Telegram sign-in returns to the public domain; a localhost preview and an older production release are not equivalent. Never use real account cookies in a local fixture. A temporary preview with a fictional player `/auth/me` response can verify layout without granting production access.
+
 Frontend files are mounted into nginx. Rebuild is usually not required.
 
-The cosmic homepage also requires `frontend/home.css` and the complete `frontend/assets/home/` directory (background, exported SVGs, local fonts). Back up existing versions and install these alongside `index.html` and `engine.js`; deploying only the legacy file list below is insufficient. Verify `/home.css?v=cosmos-1` and `/assets/home/cosmos.png` return 200, and inspect the homepage at desktop and mobile widths. Keep the legal footer links functional.
+The cosmic homepage also requires `frontend/home.css` and the complete `frontend/assets/home/` directory (background, exported SVGs, local fonts). Back up existing versions and install these alongside `index.html` and `engine.js`; deploying only the legacy file list below is insufficient. Verify the versioned `home.css` URL referenced by `index.html` and `/assets/home/cosmos.png` return 200, and inspect the homepage at desktop and mobile widths. Keep the legal footer links functional.
+
+For the responsive homepage revision, deploy `index.html` and `home.css` together and verify the served `/home.css?v=cosmos-2` bytes match the local file. Check 1440×1024, 1024×768, 768×1024, 390×844, 320×568 and a short landscape window. Confirm no horizontal overflow, search height 48px at the design size (44px minimum), readable text, carousel navigation, and settings. Below 701px verify a smaller central card with one visible neighbor on each side (when enough stories exist), including after cycling through the ends of the catalog. Medium windows retain larger headings and cards with more vertical spacing. Vertical scrolling in short windows is expected.
 
 1. Check local git status:
 
@@ -279,6 +409,10 @@ ssh "$FRAERAPP_SSH" "cd '$FRAERAPP_REMOTE_DIR' && docker compose ps && curl -skS
 
 ## Telegram login deploy
 
+For the account dialog frontend revision, deploy `frontend/index.html`, `frontend/engine.js` (version `engine-41`) and `frontend/home.css` (version `cosmos-3`) together. Verify profile-icon click for guests and signed-in users opens a centered translucent dialog over the blurred homepage at desktop and mobile widths; both surfaces use Figma `171:2` fill #7F64A4 at 68% opacity while retaining the responsive 400px maximum width. Check small legal links, Escape/focus restoration and internal scrolling in short windows. "Create yours" must stay visible after sign-in: author/admin accounts open the builder; player accounts see editor-access guidance without being asked to sign in again. Failed passkey requests must display short localized guidance, never HTML or raw server details.
+
+Local frontend preview: `python3 scripts/preview-frontend.py`, then open `http://localhost:8765`. This reads only the public catalog and Telegram configuration using the same browser User-Agent as the public checks above; Cloudflare may reject Python's default User-Agent with 403. The Telegram button opens the real bot, whose login link returns to production. The preview does not proxy authentication or production cookies; production passkeys cannot authenticate localhost. Confirm new-account registration by following the bot's link on the public origin, then register a passkey there. A successful configuration request alone does not prove the complete personal login flow.
+
 Telegram login runs through `auth-service`, is the public sign-in path, and uses the same temporary-link verification as recovery/admin email login. Public email login is intentionally hidden from the main frontend.
 
 Required environment variables:
@@ -350,20 +484,18 @@ python3 -m json.tool story-builder/scenarios/<story>.json >/tmp/story.validated.
 
 For repository validation, also check scene/asset references with a small script or builder tests.
 
-### Publish as system/admin
+### Draft, review and publication
 
-Use `/api/admin/stories/import` only when a system-owned story is acceptable.
-
-### Publish under an author account
-
-Use `/api/author/stories/import` and `/api/author/stories/{storyId}/publish` with that author's authenticated context, so `owner_player_id` is set correctly.
-
-If a temporary JWT is explicitly authorized for a production action:
-
-- generate it inside the remote shell;
-- do not print it;
-- use the shortest practical expiration;
-- use only for the requested import/publish action.
+Use Builder or `/api/author/stories/import` with the author's active session to save
+a private draft. Send the returned revision/generation through `/review`. Inspect
+the exact submitted revision in `/moderation/` before an explicit decision. Only
+moderator/admin can approve, publish, restrict or restore availability. New admin
+HTTP imports belong to the importing administrator; existing ownership is retained.
+Admin self-approval requires the visible override and reason. Direct author publish
+is forbidden; the legacy admin publish route returns 409. Do not use those old
+routes or generate a standalone JWT: API authorization requires an actual active
+auth session and fresh roles. Test mutations use isolated fixtures, never real
+production accounts/stories.
 
 After publication, verify:
 
@@ -371,7 +503,47 @@ After publication, verify:
 curl -sS -A 'Mozilla/5.0' "https://$FRAERAPP_DOMAIN/api/catalog/stories"
 ```
 
-Check owner with a parameterized SQL query in the remote runtime. Do not print database passwords or tokens.
+Check owner/revision with a parameterized SQL query in the remote runtime. Do not
+print database passwords, tokens, emails or raw auth logs.
+
+### Moderation rollout (V15 API / V8 auth)
+
+1. Run full API/auth tests, frontend/Builder tests, production validator and diff
+   check. Run moderation races and legacy published/archived migration fixtures
+   against an isolated PostgreSQL 16 database. Verify role/UI behavior on desktop
+   and mobile with synthetic users. Commit/push the exact release dependencies.
+2. Reinspect all six production services, recent sanitized logs, live domain/origin
+   DNS and current publication manifest. Confirm the four publications still match
+   the owner's approved set before using the one-time legacy approval policy.
+3. Back up both databases, `.env`, compose/nginx configs, API/auth source and
+   frontend/Builder files to a restricted timestamped runtime backup. Verify dumps
+   are nonempty/readable; never include backups or private env in Git.
+4. Install release sources and build `auth-service`, `api`, `story-builder`.
+   Deploy auth first and wait for health. Before the API cutover briefly stop old
+   API writes, take a final API dump and compare the approved manifest. Set
+   `MODERATION_LEGACY_POLICY=approve` only for this owner-approved migration and
+   recreate API. Default remains `review` for all other environments.
+5. Wait for API readiness, then deploy Builder and frontend assets, reload/recreate
+   edge so upstream addresses and protected private routes take effect. Frontend
+   and nginx configuration are mounted; Builder files are baked into its image.
+   Test nginx configuration before reloading/recreating edge; no edge build is needed.
+6. Verify V15/V8 success; exactly four baseline `migration_approved` events; published
+   slugs/owners/content preserved; every legacy save pinned; no unexpected public
+   seed; workspace records not duplicated on restart. Reset the runtime legacy
+   policy to `review` after successful initialization (existing workspaces are not
+   reprocessed). Preserve all audit, revision, upload and save data.
+7. Verify six healthy services, API readiness, public domain, three guest demo
+   catalogue entries, non-demo protection, anonymous workspace/API denial,
+   no-store/noindex headers, protected upload routes and matching public asset
+   hashes. Inspect recent logs without printing secrets. Remove the disposable
+   PostgreSQL fixture and its SSH tunnel after checks.
+
+Rollback after V15 must keep publication enforcement. Do not start the old API,
+which can publish drafts directly and ignores revision pointers. Fix forward or
+keep story/API access temporarily unavailable while restoring a coordinated backup
+under maintenance. Retain both database dumps and immutable upload bytes. Restoring
+a database after new writes requires a separate recovery decision to avoid losing
+users' work. Frontend rollback alone must not re-enable direct publication.
 
 ## Git handoff checklist
 
@@ -387,7 +559,7 @@ git diff --check
 If pushed, verify the remote ref:
 
 ```bash
-git ls-remote origin refs/heads/codex/passkey-auth-compliance
+git ls-remote origin refs/heads/main
 ```
 
 Report:

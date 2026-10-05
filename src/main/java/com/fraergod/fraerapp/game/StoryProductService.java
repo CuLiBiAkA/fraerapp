@@ -24,10 +24,12 @@ class StoryProductService {
 	private final JsonSupport json;
 	private final StoryAdminService admin;
 	private final StoryAssetStorageService assetStorage;
+	private final StoryWorkflowService workflow;
+	private final StoryAccessService access;
 
 	StoryProductService(PlayerRepository players, StoryRepository stories, SceneRepository scenes, ChoiceRepository choices,
 			StoryAssetRepository assets, GameSessionRepository sessions, JsonSupport json, StoryAdminService admin,
-			StoryAssetStorageService assetStorage) {
+			StoryAssetStorageService assetStorage,StoryWorkflowService workflow,StoryAccessService access) {
 		this.players = players;
 		this.stories = stories;
 		this.scenes = scenes;
@@ -37,6 +39,8 @@ class StoryProductService {
 		this.json = json;
 		this.admin = admin;
 		this.assetStorage = assetStorage;
+		this.workflow = workflow;
+		this.access = access;
 	}
 
 	@Transactional(readOnly = true)
@@ -54,47 +58,6 @@ class StoryProductService {
 						sessions.countByStoryId(story.getId()),
 						sessions.countByStoryIdAndStatus(story.getId(), SessionStatus.FINISHED)))
 				.toList();
-	}
-
-	@Transactional
-	StoryAdminService.ImportResponse importForAuthor(String playerId, String body) {
-		player(playerId);
-		return admin.importStory(body, playerId);
-	}
-
-	@Transactional
-	StoryAdminService.ImportResponse publishForAuthor(String playerId, String storyId) {
-		player(playerId);
-		Story story = ownedStory(playerId, storyId);
-		return admin.publish(story.getId(), playerId);
-	}
-
-	@Transactional
-	StoryAdminService.ImportResponse submitForReview(String playerId, String storyId) {
-		player(playerId);
-		Story story = ownedStory(playerId, storyId);
-		return admin.submitForReview(story.getId(), playerId);
-	}
-
-	@Transactional
-	StoryAdminService.ImportResponse archiveForAuthor(String playerId, String storyId) {
-		player(playerId);
-		Story story = ownedStory(playerId, storyId);
-		return admin.archive(story.getId(), playerId);
-	}
-
-	@Transactional
-	StoryAdminService.ImportResponse rollbackForAuthor(String playerId, String storyId, int versionNumber) {
-		player(playerId);
-		Story story = ownedStory(playerId, storyId);
-		return admin.rollback(story.getId(), versionNumber, playerId);
-	}
-
-	@Transactional
-	void deleteForAuthor(String playerId, String storyId) {
-		player(playerId);
-		Story story = ownedStory(playerId, storyId);
-		admin.deleteStory(story.getId(), playerId);
 	}
 
 	@Transactional(readOnly = true)
@@ -163,6 +126,7 @@ class StoryProductService {
 	@Transactional
 	UploadedAsset uploadAssetForAuthor(String playerId, String storyId, MultipartFile file, String assetKey, String type, String scope) {
 		Story story = ownedStory(playerId, storyId);
+		if ("deleted".equals(story.getVisibility())) throw new ResponseStatusException(HttpStatus.CONFLICT, "Restore the story before uploading");
 		StoryAssetStorageService.StoredAsset stored = assetStorage.store(story.getId(), file);
 		String resolvedType = normalizeAssetType(type, stored.contentType());
 		String resolvedKey = uniqueAssetKey(story.getId(), assetKey, file.getOriginalFilename(), resolvedType);
@@ -176,47 +140,28 @@ class StoryProductService {
 			return new UploadedAsset(resolvedKey, resolvedType, stored.url(), metadata);
 		}
 
-		StoryAsset asset = assets.findByStoryIdAndAssetKey(story.getId(), resolvedKey)
-				.orElseGet(() -> new StoryAsset(story.getId(), resolvedKey, resolvedType, stored.url(), "{}"));
-		asset.update(resolvedType, stored.url(), json.write(metadata));
-		assets.save(asset);
-		story.touch();
-		stories.save(story);
+		workflow.putDraftAsset(storyId,playerId,resolvedKey,resolvedType,stored.url(),metadata);
 		return new UploadedAsset(resolvedKey, resolvedType, stored.url(), metadata);
 	}
 
 	@Transactional
 	DeletedAsset deleteAssetForAuthor(String playerId, String storyId, String assetKey, String url) {
 		Story story = ownedStory(playerId, storyId);
-		String cleanKey = assetKey == null ? "" : assetKey.trim();
-		String cleanUrl = url == null ? "" : url.trim();
-		StoryAsset asset = cleanKey.isBlank()
-				? null
-				: assets.findByStoryIdAndAssetKey(story.getId(), cleanKey).orElse(null);
-		if (asset != null && cleanUrl.isBlank()) {
-			cleanUrl = asset.getUrl();
-		}
-		if (!assetStorage.isStoryUploadUrl(story.getId(), cleanUrl)) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only story upload assets can be deleted");
-		}
-		boolean fileDeleted = assetStorage.deleteStoryFileByPublicUrl(story.getId(), cleanUrl);
-		if (asset != null) {
-			assets.deleteByStoryIdAndAssetKey(story.getId(), cleanKey);
-			story.touch();
-			stories.save(story);
-		}
-		return new DeletedAsset(true, cleanKey.isBlank() ? null : cleanKey, cleanUrl, fileDeleted);
+		workflow.removeDraftAsset(storyId,playerId,assetKey,url);
+		return new DeletedAsset(true,assetKey,url,false);
 	}
 
 	@Transactional(readOnly = true)
 	List<PublishedStorySummary> publishedCatalog(String playerId) {
 		Map<String, GameSession> lastSessionByStoryId = lastSessionByStoryId(playerId);
-		return stories.findByStatusAndPublishedSlugIsNotNullOrderByPublishedAtDesc(StoryStatus.PUBLISHED).stream()
+		return stories.findByStatusAndPublishedSlugIsNotNullOrderByPublishedAtDesc(StoryStatus.PUBLISHED).stream().filter(StoryAccessService::listed)
 				.map(story -> {
 					long totalRuns = sessions.countByStoryId(story.getId());
 					long finishedRuns = sessions.countByStoryIdAndStatus(story.getId(), SessionStatus.FINISHED);
-					GameSession lastSession = lastSessionByStoryId.get(story.getId());
-					Scene lastScene = lastSession == null ? null : scenes.findByStoryIdAndSceneKey(story.getId(), lastSession.getCurrentSceneKey()).orElse(null);
+					GameSession recent = lastSessionByStoryId.get(story.getId());
+					GameSession lastSession = recent!=null&&access.supportsRevision(story,recent.getStoryRevision())?recent:null;
+					Story snapshot=lastSession==null?null:access.atRevision(story,lastSession.getStoryRevision());
+					StoryDocument.SceneDocument lastScene = snapshot==null?null:snapshot.getRuntimeDocument().scenes().stream().filter(sc->sc.id().equals(lastSession.getCurrentSceneKey())).findFirst().orElse(null);
 					return new PublishedStorySummary(
 						story.getPublishedSlug(),
 						story.getKey(),
@@ -225,14 +170,14 @@ class StoryProductService {
 						playerName(story.getOwnerPlayerId()),
 						totalRuns,
 						finishedRuns,
-						storyProgress(story.getId(), lastSession),
+						storyProgress(snapshot, lastSession),
 						story.getPublishedAt(),
 						story.getUpdatedAt(),
 						lastSession == null ? null : lastSession.getUpdatedAt(),
 						lastSession == null ? null : lastSession.getId(),
 						lastSession == null ? null : lastSession.getSaveName(),
 						lastSession == null ? null : lastSession.getStatus().name().toLowerCase(),
-						lastScene == null ? null : lastScene.getTitle());
+						lastScene == null ? null : lastScene.title());
 				})
 				.toList();
 	}
@@ -240,7 +185,7 @@ class StoryProductService {
 	@Transactional(readOnly = true)
 	PublishedStoryDetails publishedStory(String slug) {
 		Story story = stories.findByPublishedSlug(slug)
-				.filter(candidate -> candidate.getStatus() == StoryStatus.PUBLISHED)
+				.filter(StoryAccessService::available)
 				.orElseThrow(StoryNotFoundException::new);
 		return new PublishedStoryDetails(
 				story.getPublishedSlug(),
@@ -265,19 +210,19 @@ class StoryProductService {
 						(first, ignored) -> first));
 	}
 
-	private double storyProgress(String storyId, GameSession session) {
+	private double storyProgress(Story story, GameSession session) {
 		if (session == null) {
 			return 0.0;
 		}
 		if (session.getStatus() == SessionStatus.FINISHED) {
 			return 100.0;
 		}
-		List<Scene> storyScenes = scenes.findByStoryIdOrderByOrderIndexAsc(storyId);
+		List<StoryDocument.SceneDocument> storyScenes = story.getRuntimeDocument().scenes();
 		if (storyScenes.isEmpty()) {
 			return 0.0;
 		}
 		for (int index = 0; index < storyScenes.size(); index++) {
-			if (storyScenes.get(index).getSceneKey().equals(session.getCurrentSceneKey())) {
+			if (storyScenes.get(index).id().equals(session.getCurrentSceneKey())) {
 				return ((index + 1) * 100.0) / storyScenes.size();
 			}
 		}

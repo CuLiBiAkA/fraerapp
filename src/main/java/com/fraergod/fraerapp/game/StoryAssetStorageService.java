@@ -157,14 +157,6 @@ public class StoryAssetStorageService {
 	}
 
 	private String extension(String filename, String contentType) {
-		String clean = StringUtils.cleanPath(filename == null ? "" : filename);
-		int dot = clean.lastIndexOf('.');
-		if (dot >= 0 && dot < clean.length() - 1) {
-			String candidate = clean.substring(dot).toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9.]", "");
-			if (!candidate.isBlank() && candidate.length() <= 12) {
-				return candidate;
-			}
-		}
 		return switch (contentType) {
 			case "image/jpeg" -> ".jpg";
 			case "image/png" -> ".png";

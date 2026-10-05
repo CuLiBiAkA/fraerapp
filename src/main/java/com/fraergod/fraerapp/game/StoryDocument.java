@@ -9,6 +9,8 @@ record StoryDocument(
 		String key,
 		String title,
 		String description,
+		String genre,
+		String completionStatus,
 		int version,
 		String startSceneId,
 		Map<String, JsonNode> variables,

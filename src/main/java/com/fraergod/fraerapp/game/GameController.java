@@ -14,6 +14,7 @@ import com.fraergod.fraerapp.game.GameService.StorySummary;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
 class GameController {
@@ -27,8 +28,11 @@ class GameController {
 	}
 
 	@GetMapping("/api/stories")
-	List<StorySummary> stories() {
-		return game.publishedStories();
+	List<StorySummary> stories(HttpServletResponse response) {
+		response.setHeader("Cache-Control", "private, no-store");
+		var stories = game.publishedStories();
+		return currentUser.optionalIdentity().isPresent() ? stories
+				: stories.stream().filter(story -> GuestDemoStories.includes(story.key())).toList();
 	}
 
 	@PostMapping("/api/sessions")

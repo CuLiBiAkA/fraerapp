@@ -28,7 +28,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 		"app.admin-token=test-token",
 		"app.assets.storage-path=build/test-uploads/author-workflow"
 })
-class AuthorWorkflowTests {
+class AuthorWorkflowTests extends ApiTestSupport {
 
 	private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
 	};
@@ -54,7 +54,7 @@ class AuthorWorkflowTests {
 		assertThat(validation.status()).isEqualTo(HttpStatus.OK.value());
 		assertThat(validation.body()).containsEntry("valid", true);
 
-		ApiResponse published = request("POST", "/api/author/stories/" + storyId + "/publish", null, authorId, null);
+		ApiResponse published = publishStory(storyId,authorId);
 		assertThat(published.status()).isEqualTo(HttpStatus.OK.value());
 
 		ApiResponse home = request("GET", "/api/author/home", null, authorId, null);
@@ -71,14 +71,23 @@ class AuthorWorkflowTests {
 				.orElseThrow()
 				.get("publishedSlug").toString();
 
-		ApiResponse catalog = request("GET", "/api/catalog/stories", null, null, null);
+		ApiResponse catalog = request("GET", "/api/catalog/stories", null, authorId, null);
 		assertThat(catalog.status()).isEqualTo(HttpStatus.OK.value());
 		assertThat(readList(catalog.rawBody())).anySatisfy(story -> assertThat(story).containsEntry("slug", slug));
 
-		ApiResponse details = request("GET", "/api/catalog/stories/" + slug, null, null, null);
+		ApiResponse details = request("GET", "/api/catalog/stories/" + slug, null, authorId, null);
 		assertThat(details.status()).isEqualTo(HttpStatus.OK.value());
 		assertThat(details.body()).containsEntry("slug", slug);
 		assertThat(details.body()).containsEntry("authorName", home.body().get("username"));
+		ApiResponse guestCatalog = request("GET", "/api/catalog/stories", null, null, null);
+		assertThat(guestCatalog.status()).isEqualTo(200);
+		assertThat(readList(guestCatalog.rawBody())).allSatisfy(story ->
+			assertThat(story.get("key")).isIn("kak_shodit_v_tualet_pravilno", "kak_pogladit_kota_ne_ubiv", "night_train"));
+		assertThat(request("GET", "/api/catalog/stories/" + slug, null, null, null).status()).isEqualTo(401);
+		assertThat(readList(request("GET", "/api/stories", null, null, null).rawBody()))
+			.allSatisfy(story -> assertThat(story.get("key")).isIn("kak_shodit_v_tualet_pravilno", "kak_pogladit_kota_ne_ubiv", "night_train"));
+		assertThat(readList(request("GET", "/api/stories", null, authorId, null).rawBody()))
+			.anySatisfy(story -> assertThat(story).containsEntry("key", storyKey));
 	}
 
 	@Test
@@ -121,7 +130,7 @@ class AuthorWorkflowTests {
 
 		assertThat(deleted.status()).isEqualTo(HttpStatus.OK.value());
 		assertThat(deleted.body()).containsEntry("deleted", true);
-		assertThat(deleted.body()).containsEntry("fileDeleted", true);
+		assertThat(deleted.body()).containsEntry("fileDeleted", false);
 		ApiResponse document = request("GET", "/api/author/stories/" + storyId + "/document", null, authorId, null);
 		assertThat(castList(document.body().get("assets"))).noneSatisfy(asset -> assertThat(asset).containsEntry("id", "cover"));
 	}
@@ -156,11 +165,11 @@ class AuthorWorkflowTests {
 		assertThat(imported.body()).containsEntry("status", "draft");
 		String storyId = imported.body().get("storyId").toString();
 
-		ApiResponse review = request("POST", "/api/author/stories/" + storyId + "/review", null, authorId, null);
+		ApiResponse review = request("POST", "/api/author/stories/" + storyId + "/review", "{\"generation\":1}", authorId, null);
 		assertThat(review.status()).isEqualTo(HttpStatus.OK.value());
-		assertThat(review.body()).containsEntry("status", "review");
+		assertThat(review.body()).containsEntry("reviewState", "in_review");
 
-		ApiResponse published = request("POST", "/api/author/stories/" + storyId + "/publish", null, authorId, null);
+		ApiResponse published = publishStory(storyId,authorId);
 		assertThat(published.status()).isEqualTo(HttpStatus.OK.value());
 		assertThat(published.body()).containsEntry("status", "published");
 
@@ -170,15 +179,15 @@ class AuthorWorkflowTests {
 				.findFirst()
 				.orElseThrow()
 				.get("publishedSlug").toString();
-		assertThat(readList(request("GET", "/api/catalog/stories", null, null, null).rawBody()))
+		assertThat(readList(request("GET", "/api/catalog/stories", null, authorId, null).rawBody()))
 				.anySatisfy(story -> assertThat(story).containsEntry("slug", slug));
 
 		ApiResponse draftUpdate = request("POST", "/api/author/stories/import",
 				validStory(storyKey).replace("Author runtime test", "Changed unpublished title"), authorId, null);
 		assertThat(draftUpdate.status()).isEqualTo(HttpStatus.OK.value());
-		assertThat(draftUpdate.body()).containsEntry("status", "draft");
-		assertThat(readList(request("GET", "/api/catalog/stories", null, null, null).rawBody()))
-				.noneSatisfy(story -> assertThat(story).containsEntry("slug", slug));
+		assertThat(draftUpdate.body()).containsEntry("hasDraft", true).containsEntry("status", "published");
+		assertThat(readList(request("GET", "/api/catalog/stories", null, authorId, null).rawBody()))
+				.anySatisfy(story -> assertThat(story).containsEntry("slug", slug));
 
 		ApiResponse preview = request("GET", "/api/author/stories/" + storyId + "/preview", null, authorId, null);
 		assertThat(preview.status()).isEqualTo(HttpStatus.OK.value());
@@ -188,25 +197,21 @@ class AuthorWorkflowTests {
 		ApiResponse versions = request("GET", "/api/author/stories/" + storyId + "/versions", null, authorId, null);
 		assertThat(versions.status()).isEqualTo(HttpStatus.OK.value());
 		List<Map<String, Object>> versionList = readList(versions.rawBody());
-		assertThat(versionList).hasSizeGreaterThanOrEqualTo(4);
-		int publishedVersion = ((Number) versionList.stream()
-				.filter(version -> "publish".equals(version.get("note")))
-				.findFirst()
-				.orElseThrow()
-				.get("versionNumber")).intValue();
+		assertThat(versionList).hasSizeGreaterThanOrEqualTo(2);
+		int publishedVersion = ((Number) published.body().get("publishedRevision")).intValue();
 
 		ApiResponse rollback = request("POST", "/api/author/stories/" + storyId + "/versions/" + publishedVersion + "/rollback", null, authorId, null);
 		assertThat(rollback.status()).isEqualTo(HttpStatus.OK.value());
 		assertThat(rollback.body()).containsEntry("status", "published");
 		assertThat(request("GET", "/api/author/stories/" + storyId + "/document", null, authorId, null).body())
 				.containsEntry("title", "Author runtime test");
-		assertThat(readList(request("GET", "/api/catalog/stories", null, null, null).rawBody()))
+		assertThat(readList(request("GET", "/api/catalog/stories", null, authorId, null).rawBody()))
 				.anySatisfy(story -> assertThat(story).containsEntry("slug", slug));
 
 		ApiResponse archived = request("POST", "/api/author/stories/" + storyId + "/archive", null, authorId, null);
 		assertThat(archived.status()).isEqualTo(HttpStatus.OK.value());
 		assertThat(archived.body()).containsEntry("status", "archived");
-		assertThat(readList(request("GET", "/api/catalog/stories", null, null, null).rawBody()))
+		assertThat(readList(request("GET", "/api/catalog/stories", null, authorId, null).rawBody()))
 				.noneSatisfy(story -> assertThat(story).containsEntry("slug", slug));
 	}
 
@@ -216,18 +221,17 @@ class AuthorWorkflowTests {
 		String storyKey = "delete_story_" + UUID.randomUUID().toString().replace("-", "");
 		ApiResponse imported = request("POST", "/api/author/stories/import", validStory(storyKey), authorId, null);
 		String storyId = imported.body().get("storyId").toString();
-		request("POST", "/api/author/stories/" + storyId + "/publish", null, authorId, null);
 
 		ApiResponse deleted = request("DELETE", "/api/author/stories/" + storyId, null, authorId, null);
 		assertThat(deleted.status()).isEqualTo(HttpStatus.OK.value());
-		assertThat(deleted.body()).containsEntry("deleted", true);
+		assertThat(deleted.body()).containsEntry("visibility", "deleted");
 
 		ApiResponse home = request("GET", "/api/author/home", null, authorId, null);
 		List<Map<String, Object>> stories = castList(home.body().get("stories"));
-		assertThat(stories).noneSatisfy(story -> assertThat(story).containsEntry("storyId", storyId));
+		assertThat(stories).anySatisfy(story -> assertThat(story).containsEntry("storyId", storyId));
 
 		ApiResponse document = request("GET", "/api/author/stories/" + storyId + "/document", null, authorId, null);
-		assertThat(document.status()).isEqualTo(HttpStatus.NOT_FOUND.value());
+		assertThat(document.status()).isEqualTo(HttpStatus.OK.value());
 	}
 
 	@Test
@@ -246,8 +250,121 @@ class AuthorWorkflowTests {
 		assertThat(stories).anySatisfy(story -> assertThat(story).containsEntry("storyId", storyId));
 	}
 
+	private ApiResponse publishStory(String id,String owner) {
+		var r=approveAndPublish(port,id,owner);return new ApiResponse(r.statusCode(),readMap(r.body()),r.body());
+	}
+
 	private String login(String username) {
 		return TestJwtFactory.author(username + "@example.test");
+	}
+
+	@Test
+	void endingsAreUniquePrivateAndSurviveRestart() {
+		String reader = login("endings-" + UUID.randomUUID());
+		String other = login("other-endings-" + UUID.randomUUID());
+		String key = "endings_" + UUID.randomUUID().toString().replace("-", "");
+		String id = request("POST", "/api/author/stories/import", validStory(key), reader, null).body().get("storyId").toString();
+		assertThat(publishStory(id,reader).status()).isEqualTo(200);
+		String slug = readList(request("GET", "/api/catalog/stories", null, reader, null).rawBody()).stream()
+			.filter(s -> key.equals(s.get("key"))).findFirst().orElseThrow().get("slug").toString();
+		assertThat(engagement(slug,reader)).containsEntry("discoveredEndings",0);
+		String session = request("POST", "/api/sessions", "{\"storyKey\":\""+key+"\"}", reader, null).body().get("sessionId").toString();
+		for (int attempt=0; attempt<2; attempt++) {
+			assertThat(request("POST", "/api/sessions/"+session+"/choice", "{\"choiceId\":\"go\"}", reader, null).status()).isEqualTo(200);
+			assertThat(engagement(slug,reader)).containsEntry("discoveredEndings",1);
+			assertThat(request("POST", "/api/sessions/"+session+"/reset", null, reader, null).status()).isEqualTo(200);
+			assertThat(engagement(slug,reader)).containsEntry("discoveredEndings",1);
+		}
+		assertThat(engagement(slug,other)).containsEntry("discoveredEndings",0);
+		assertThat(request("GET","/api/catalog/engagement",null,null,null).rawBody()).doesNotContain(slug);
+	}
+
+	@Test
+	void publicStatisticsAndPrivateFavoritesPersistWithoutDuplicateVotes() throws Exception {
+		String owner = login("engagement-" + UUID.randomUUID());
+		String other = login("reader-" + UUID.randomUUID());
+		String key = "engagement_" + UUID.randomUUID().toString().replace("-", "");
+		String body = validStory(key).replace("\"version\": 1", "\"genre\": \"Драма\", \"version\": 1");
+		String id = request("POST", "/api/author/stories/import", body, owner, null).body().get("storyId").toString();
+		assertThat(publishStory(id,owner).status()).isEqualTo(200);
+		String slug = readList(request("GET", "/api/catalog/stories", null, owner, null).rawBody()).stream()
+			.filter(item -> key.equals(item.get("key"))).findFirst().orElseThrow().get("slug").toString();
+		String path = "/api/catalog/engagement/"+slug;
+		assertThat(request("PUT", path+"/favorite", "{\"selected\":true}", null, null).status()).isEqualTo(401);
+		assertThat(request("PUT", path+"/rating", "{\"score\":5}", null, null).status()).isEqualTo(401);
+		assertThat(request("PUT", path+"/rating", "{\"score\":6}", owner, null).status()).isEqualTo(400);
+		for (int i=0; i<2; i++) {
+			assertThat(request("POST", path+"/view", null, owner, null).status()).isEqualTo(200);
+			assertThat(request("PUT", path+"/favorite", "{\"selected\":true}", owner, null).status()).isEqualTo(200);
+		}
+		assertThat(request("PUT", path+"/rating", "{\"score\":5}", owner, null).status()).isEqualTo(200);
+		assertThat(request("PUT", path+"/rating", "{\"score\":3}", owner, null).status()).isEqualTo(200);
+		assertThat(request("PUT", path+"/rating", "{\"score\":5}", other, null).status()).isEqualTo(200);
+		Map<String,Object> publicMetrics = engagement(slug, TestJwtFactory.player("new-metrics@example.test"));
+		assertThat(publicMetrics).containsEntry("views",1).containsEntry("rating",4.0).containsEntry("ratingCount",2)
+			.containsEntry("favorite",false).containsEntry("myRating",null).containsEntry("genre","Драма")
+			.containsEntry("endingCount",1).containsEntry("completionStatus",null);
+		assertThat(engagement(slug,owner)).containsEntry("favorite",true).containsEntry("myRating",3);
+		assertThat(engagement(slug,other)).containsEntry("favorite",false).containsEntry("myRating",5);
+		HttpResponse<String> anonymous = client.send(HttpRequest.newBuilder(URI.create("http://localhost:"+port+path+"/view"))
+			.POST(HttpRequest.BodyPublishers.noBody()).build(), HttpResponse.BodyHandlers.ofString());
+		assertThat(anonymous.statusCode()).isEqualTo(401);
+		assertThat(request("GET","/api/catalog/engagement",null,null,null).rawBody()).doesNotContain(slug);
+		assertThat(engagement(slug,owner)).containsEntry("views",1);
+		assertThat(request("PUT", path+"/favorite", "{\"selected\":false}", owner, null).status()).isEqualTo(200);
+		assertThat(engagement(slug,owner)).containsEntry("favorite",false);
+		assertThat(request("POST", "/api/catalog/engagement/missing/view", null, owner, null).status()).isEqualTo(404);
+	}
+
+	@Test
+	void accountPreferencesAndNoticesArePrivateAndPersist() {
+		String email = "avatar-" + UUID.randomUUID() + "@example.test";
+		String user = TestJwtFactory.player(email);
+		String other = TestJwtFactory.player("other-" + email);
+		String admin = TestJwtFactory.admin("admin-" + email);
+		String id = UUID.nameUUIDFromBytes(email.getBytes(StandardCharsets.UTF_8)).toString();
+		assertThat(request("GET", "/api/account", null, null, null).status()).isEqualTo(401);
+		assertThat(request("PUT", "/api/account/avatar", "{\"avatar\":\"fae\"}", null, null).status()).isEqualTo(401);
+		assertThat(request("PUT", "/api/account/avatar", "{\"avatar\":\"invalid\"}", user, null).status()).isEqualTo(400);
+		assertThat(request("PUT", "/api/account/avatar", "{\"avatar\":\"fae\"}", user, null).status()).isEqualTo(200);
+		assertThat(request("GET", "/api/account", null, user, null).body()).containsEntry("avatar", "fae");
+		assertThat(request("GET", "/api/account", null, other, null).body()).containsEntry("avatar", "fairy");
+		String message = "{\"userId\":\"" + id + "\",\"message\":\"Hello from administration\"}";
+		assertThat(request("POST", "/api/account/admin/messages", message, user, null).status()).isEqualTo(403);
+		assertThat(request("POST", "/api/account/admin/messages", message, admin, null).status()).isEqualTo(200);
+		Map<String,Object> account = request("GET", "/api/account", null, user, null).body();
+		assertThat(account).containsEntry("unreadCount", 1);
+		String notice = castList(account.get("notifications")).get(0).get("id").toString();
+		request("POST", "/api/account/notifications/" + notice + "/read", null, other, null);
+		assertThat(request("GET", "/api/account", null, user, null).body()).containsEntry("unreadCount", 1);
+		assertThat(request("GET", "/api/account", null, other, null).body()).containsEntry("unreadCount", 0);
+		request("POST", "/api/account/notifications/" + notice + "/read", null, user, null);
+		assertThat(request("GET", "/api/account", null, user, null).body()).containsEntry("unreadCount", 0);
+	}
+
+	@Test
+	void publishedNewScenesNotifyFavoritesOnce() {
+		String owner = login("release-" + UUID.randomUUID());
+		String reader = login("subscriber-" + UUID.randomUUID());
+		String key = "release_" + UUID.randomUUID().toString().replace("-", "");
+		String body = validStory(key);
+		String id = request("POST", "/api/author/stories/import", body, owner, null).body().get("storyId").toString();
+		publishStory(id,owner);
+		String slug = readList(request("GET", "/api/catalog/stories", null, owner, null).rawBody()).stream().filter(s -> key.equals(s.get("key"))).findFirst().orElseThrow().get("slug").toString();
+		request("PUT", "/api/catalog/engagement/" + slug + "/favorite", "{\"selected\":true}", reader, null);
+		publishStory(id,owner);
+		assertThat(request("GET", "/api/account", null, reader, null).body()).containsEntry("unreadCount", 0);
+		String updated = body.replace("\"id\": \"end\"", "\"id\": \"new-ending\"").replace("\"target\": \"end\"", "\"target\": \"new-ending\"");
+		request("POST", "/api/author/stories/import", updated, owner, null);
+		assertThat(publishStory(id,owner).status()).isEqualTo(200);
+		assertThat(request("GET", "/api/account", null, reader, null).body()).containsEntry("unreadCount", 1);
+		publishStory(id,owner);
+		assertThat(request("GET", "/api/account", null, reader, null).body()).containsEntry("unreadCount", 1);
+	}
+
+	private Map<String,Object> engagement(String slug, String token) {
+		return readList(request("GET", "/api/catalog/engagement", null, token, null).rawBody()).stream()
+			.filter(item -> slug.equals(item.get("slug"))).findFirst().orElseThrow();
 	}
 
 	private ApiResponse request(String method, String path, String body, String playerId, String adminToken) {

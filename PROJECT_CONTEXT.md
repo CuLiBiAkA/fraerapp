@@ -1,6 +1,110 @@
 # FraerApp project context
 
-Last updated: 2026-09-22.
+Last updated: 2026-10-05.
+
+Builder theme v9/app builder-37: all Add actions use the peach/pink gradient, including nested choices, conditions, effects, local variables/assets and scenario-map Add controls. Dynamic controls use the add-button class through addButton; language and creation behavior are unchanged.
+
+Builder theme v8: structure's outer grid item stretches within its own grid row; the inner band is sticky at top 12px. It stays visible during editor scrolling and stops at the row boundary before the author workspace, avoiding the previous cross-row overlap. Tree height remains viewport bounded. Browser checks verify sticky top in side-by-side layouts and collision-free scrolling at 12 widths.
+
+Builder theme v7: native file-selector buttons retain their gradient but return to compact proportions (2px vertical / 6px horizontal padding, 1.2 line-height, 6px radius).
+
+Builder theme v6 fixes scrolling layout: at two-column widths the structure panel stays in document flow, preventing its sticky box from overlapping the author workspace below it. Side-by-side structure/editor persists down to 701px; at <=700px structure is capped at 380px wide with a bounded scrolling tree. Back-to-top is always visible. Regression reproduced at 1024px when the author workspace reaches y=200, then verified fixed with working back-to-top at 12 widths from 320 to 1440px including breakpoint edges.
+
+Builder theme v5: toolbar actions wrap to additional rows whenever needed; horizontal scrolling is removed per owner preference. Compact desktop sizing is retained. Browser checks at 1440/1024/768/390/320px confirm all actions remain within the toolbar width.
+
+Builder theme v4: floating + Scene action shares the Delete gradient styling. Browser checks reconfirm nested Choices/local-variable/asset panels use #5A427C and light text; both HTML entrypoints bump the theme cache version.
+
+Builder theme v3: tree rows share 36px height and 4px spacing; leaves use the full row width, disclosure icons have a dedicated inset column, and scene move buttons have separate borders/fills. Tree scrolling no longer compresses groups in short viewports. Flexible editor columns avoid intermediate-width overflow; dialogs scroll in short windows. Nested scene panels explicitly use #5A427C, and native file-selector buttons use the same gradient as Delete.
+
+Builder theme v2: editor/map panels, fields and JSON dialog use opaque #5A427C against #644F82. Scene summary subtitles now use light #FEE3E2. Main editor toolbar uses compact 12–15px text and 36px buttons in one row; verified all seven fit at 1024px and 1440px. Narrow screens retain one horizontally scrollable toolbar with 44px touch targets.
+
+Builder design from Figma 221:130: shared story-builder/theme.css v1 covers editor, JSON dialog and scenario map. Tokens: background #644f82, text #fee3e2, white 58% borders, lavender 11% surfaces, peach #f5a279 at 43% for selected items and 17% for grouping. Home link moved above title; app builder-36 updates its RU/EN label. Downloaded Figma arrow assets live under story-builder/assets/figma. Theme loads after shared typography; existing responsive layout, auth and editing behavior are retained. Native browser confirm/prompt dialogs remain browser-controlled.
+
+Builder visual foundation (builder-32): the /builder/ editor page uses the account dialog's translucent purple gradient, composited over a stable #33214a base. Header text is light for contrast. This is the first background change; editor panels and the separate scenario board retain their existing styling.
+
+Reader actions (engine-68): any active save offers Restart left and Continue right, including the first run before discovering an ending. A finished save offers only Restart; an untouched story offers only Start. Restart creates a fresh save, retaining personal ending discoveries.
+
+Reader card layout (engine-67, story-dialog v5): removed the redundant total-endings tile; personal endings discovered retains the total. A compact progress bar sits left of the rating in one responsive row. Restart sits left of Continue in a shared action row with identical button styling; existing save/visibility behavior is unchanged.
+
+Refined navigation icons (engine-66, account-ui v2, library v8): search, carousel arrows, settings and generic account silhouette now use the owner's newer thin pink neon references, extracted as transparent assets. Home and library share search/settings/account artwork. Character picker removed from the profile; existing stored avatar preferences are retained server-side but no longer affect the icon. Guest silhouette is pale, signed-in full color, unread notifications add a small peach/pink dot. Existing inbox/read actions and role links remain.
+
+Reader completion (engine-65, story-dialog v4, API V14): cover-top-left status labels are Завершена / В разработке / Приостановлено. Only completed stories show personal progress (existing scene-order completionRate, explicitly approximate until a final; capped at 99 before a final). Any discovered ending makes completion 100%. reader_endings stores distinct player/story/ending keys, seeded from existing finished saves; discovery is serialized by a player lock and survives save reset/new runs. Metrics expose private discoveredEndings filtered to currently published ending scenes. The card replaces global run counts with personal endings discovered, retains total endings, and offers Start again after completion; active replays retain Continue plus Start again. Restart creates a new save. Gameplay clears cached catalogue progress. V14 marks the three named demos completed and Новая история in development, per owner instruction.
+
+Guest story introduction (engine-64, cosmos-27): opening a story detail as a guest shows a compact lilac dialog over the card with a 4px backdrop blur, explaining the three demo stories. Continue dismisses only this introduction, Register opens existing authentication. Signed-in users skip it. Card is inert until dismissal, Escape and route navigation clean up the overlay, and metric refreshes do not reopen it. Existing gameplay authentication remains unchanged.
+
+Homepage navigation artwork (cosmos-26): transparent search-magic.png (40px) and carousel-arrow-magic.png (48×64px) follow the user's pink glass/sparkle references. The previous arrow mirrors the same image. Existing search submission and carousel handlers, accessible button names and focus outlines remain. Library search is unchanged.
+
+Cookie artwork/H3 (cosmos-25): shared cookie notice uses the supplied magical frame as an alpha PNG with nine-slice borders, plus a small transparent cookie illustration before the copy. Content determines height: 600×120px desktop, 350×185px at 390px viewport, 280×205px at 320px. Mobile actions occupy a separate row. Existing acknowledgement, policy link and wording are retained. Homepage tagline uses the heading family at 28px on full desktop, with existing responsive scaling. Assets were extracted from the user's references using imagegen.
+
+Guest catalogue and author requests (engine-63, cosmos-24, library v7): homepage filters removed; library adds descending rating sort (unrated last). Guests see only the three demo cards with keys kak_shodit_v_tualet_pravilno, kak_pogladit_kota_ne_ubiv and night_train; full catalogue and non-demo details require sign-in. Catalogue responses are private/no-store. Guest Read/Create opens registration; author/admin Create opens Builder. Players can send an idempotent author access request from a shared glass dialog with outlined action. Auth migration V7 stores pending requests by user ID. Admin-only request listing powers a right sidebar, highlighted user row and role-grant action; granting author/admin clears pending request, with user-row locks serializing request/grant. Admin page refreshes while visible every 30 seconds. The legacy /api/stories list applies the same guest whitelist and private/no-store. Builder entry refreshes the session first so newly granted roles reach the API immediately. Existing demo card preview and gameplay sign-in behavior remain.
+
+Settings icon (`cosmos-23`): home/library now use transparent settings-magic.png extracted from the user's pink gear/orbit reference; 48px button and artwork, with existing settings action unchanged.
+
+Account avatars and inbox (`engine-61`, account-ui v1, V13): transparent fairy/fae assets replace account icons on home/library. Guest is dimmed; authenticated icon has a pink ring; unread notices add a dot. Avatar is stored by authenticated user ID in API account_preferences, shared across devices. `/api/account` returns private/no-store avatar, unread count and latest 100 notices (unread first); avatar PUT accepts only fairy/fae, per-notice read POST scopes by user. `/api/account/admin/messages` requires admin; auth admin user table has a message action. New scene keys on publication notify current favorites once per publication change; initial snapshot is seeded during migration and initial/repeated publications do not notify. There is no chapter entity: these are explicitly labelled new scenes. Profile inbox provides explicit read actions, polling every 60s while visible and refresh on focus/open. No push/email delivery. Privacy page describes avatar/inbox data.
+
+Account spacing (`cosmos-22`): profile-only top padding reduced from 52px to 36px; account name has 20px bottom margin before Favorites. Other dialogs retain their existing spacing. Verified desktop/mobile geometry.
+
+Heart rendering correction (story-cards v6): gradient/stroke apply only to the SVG path; SVG root has no paint/filter and is transparent. Glow is applied to the transparent button to avoid the reported rectangular SVG filter artifact. Chromium preview verified; local Playwright WebKit is unavailable.
+
+Favorite appearance (`engine-60`, story-cards v5): selected heart uses the Create Yours peach/rose gradient (#f5a279b8 to #9c6285b8), peach outline and stronger 4px/9px peach glow. Each inline SVG has a unique gradient ID, shared across home/library/detail rendering. This replaces the earlier purple selected fill.
+
+Story dialog cover spacing (`story-dialog.css?v=3`): cover takes spare vertical space while information uses its content height, bringing statistics within 36px of Start on desktop. At 1440×900 the current toilet story cover is 235px high; narrow/short windows preserve the visible action and internally scroll long information.
+
+Sort/typography correction (`engine-59`, library v6, story-cards v4): homepage Favorites checkbox removed; favorites is now the second sort mode, matching library modes/order and guest empty-state behavior. Figma 176:13 verified Montserrat Regular 18/25 for search and sort values (16px responsive floor), Medium for labels/description, Inter Medium for back navigation. Sort column has a 240px minimum and no wrapping; mobile stacks full-width fields. Selected heart fill and stroke are both #33214A with the existing small peach halo.
+
+Profile button styling (`cosmos-21`): Builder and Administrator now share the existing Favorites/Logout selector and identical 260×44px geometry, 15px type, light border/text and translucent lilac fill. Role visibility and navigation are unchanged.
+
+Account/favorites/detail refinement (`engine-58`, `story-cards.css?v=3`, `story-dialog.css?v=2`): profile shows Builder for author/admin, Administrator for admin, with existing server authorization unchanged. Favorite toggles update matching controls in place instead of re-sorting the visible carousel. Selected hearts use #33214A fill and a small #F5A279 halo with no circular button background. Story dialog is now 640×660 max with heart beside title, rating after description, and six metrics in three columns; all four current stories fit a 1440×900 viewport. V12 adds nullable completion_status (completed/in_development/abandoned), separate from publication state; values await owner classification. Engagement metadata counts actual ending scenes using the same JSON interpretation as gameplay.
+
+Carousel gap correction (`cosmos-20`): mobile carousel window now matches engagement cards at 1.14× card width, removing the legacy extra empty height. Mobile links sit 36px below cards and carousel top spacing gains 12px. Portrait windows 701–1399px gain 24px above the carousel; landscape/tablet and full-desktop spacing stays unchanged. Verified 1024×846, 803×923, 630×913 and 320×943 without horizontal overflow.
+
+Story detail dialog (`engine-57`, `story-dialog.css?v=1`): public `/history/<slug>` routes now open a centered 470×600 maximum dialog over the current home/library, with shared blur/glass styling. Direct links use the library underneath. Cover, description, all statistics, favorites and rating remain; the start/continue action is outside the internally scrolling information area. Close/backdrop/Escape restore the originating route and focus. Guest auth/engagement dialogs layer above details; closing them preserves the story and scroll lock. Actual play still uses the scene screen.
+
+Compact homepage spacing (`cosmos-19`): below 1400px the carousel receives up to 36px additional height-dependent top spacing (mobile up to 28px); catalog links use a 52px gap. Extra space tapers to zero in short viewports. Existing desktop fit reserves the gaps before sizing cards. Verified 909×930, 1000×924, 768×1024 and 1024×768 retain a visible footer without overflow; 1440×1024 composition is unchanged. Mobile retains natural vertical scrolling.
+
+Fairy loading screen (`engine-56`, `loading.css?v=1`): existing auth-loading state now uses homepage cosmic background, a transparent fairy sprite prepared from the user's reference, an irregular alternating CSS flight path and separate pollen ring with fading tail. Desktop ring diameter is 35px; mobile 26px. Flight stage scales from 114 to 190px (roughly 3–5 CSS cm). RU copy: “Пробуждаем истории…” / “Ещё мгновение — и воображение оживёт.” EN equivalent is localized. Loading exposes a polite status; decorative graphics are aria-hidden; reduced-motion disables animation. No minimum loading delay or authentication behavior changes. Toolbar/footer/cookie notice are hidden only while loading.
+
+Figma 84:293 typography revision (`cosmos-18`, `engine-55`, `home-fit.js?v=3`, shared `typography.css?v=1`): local Playfair Display SC Regular/Bold for heading roles, Montserrat variable for body/card titles/footer, Inter Regular/Medium for controls and captions. All frontend/legal pages and Builder/map documents load the shared stylesheet. Homepage display is 60/94 bold with 3px tracking; remaining heading 40/55 regular with 4.4px tracking; subtitle 35/57 regular with 3.85px tracking. Local Google Fonts binaries include Cyrillic and OFL licenses. At 1440×1024 browser measures hero y103, actions y399, active card y512 at 285×325, links y873 and footer y953; larger/smaller viewports remain responsive. Hero translation splits the first display line into a separate span in both languages. Existing live story data, legal links and dynamic imagery remain intact.
+
+Wide homepage composition (`cosmos-17`, `engine-54`, `home-fit.js?v=2`): at widths >=1400px the home canvas uses full width, putting hero text/buttons at an 8.47% left inset instead of centering a capped 1440px column. Wide-only heading line spacing is tighter and the carousel scale ceiling increases; measured remaining height still reserves footer/links. At 1728×974 hero x146px and active card 307×350px with footer bottom974px/no vertical overflow. At 1000×924 previous layout fits without overflow. Mobile layout rules remain unchanged.
+
+Library Favorites now lives in the existing Sort dropdown (`engine-53`, `library.css?v=5`). The library-only Filters disclosure and checkbox were removed. Favorites mode shows only the signed-in account's favorites (guests see the empty state), combines with search, and preserves default order. Profile Favorites shortcut selects this mode and refreshes the styled dropdown. Homepage filters are unchanged.
+
+Modal close controls (`cosmos-16`) share a transparent, borderless 44px hit area. Keyboard/programmatic visible focus emphasizes the cross strokes and shadow instead of drawing a circular outline. Hover/press animations remain shared with Settings.
+
+Cookie/favorites UI follow-up (`engine-52`, `cosmos-15`, `library.css?v=4`, `story-cards.css?v=2`): the cookie notice uses the same purple styling on every app route. Library favorites moved into a Filters disclosure, available to guests with an explicit empty state. Profile has a Favorites shortcut between account name and logout; it clears old search text and opens the filtered library. Guest favorite dialog uses the compact Support-style gradient button. Privacy policy now describes the view identifier and account favorites/ratings; the notice mentions view counting. Legal follow-up remains: determine/document the basis and server retention period for view analytics, and implement separate consent before collection if relying on consent. The existing “Понятно” action is acknowledgement only; no analytics opt-in or automatic view-record expiry was added in this UI change.
+
+Story cards Figma `192:27`: shared `story-cards.css`, regular Inter 18/25, larger information panel, genre badge, exported heart icon and live server metrics. V11 adds optional story genre plus daily views, per-account ratings (1–5, replaceable), and favorites. `/api/catalog/engagement` returns public totals and only the current account's favorite/rating, with private/no-store caching. Viewing a published detail records one view per UTC day per account or anonymous secure HttpOnly `fraer_viewer` cookie; carousel impressions do not count. Metrics start at zero, unrated stories show a dash. Favorites persist across devices, appear first in default order, and can be filtered on home/library. Guests see the shared blurred dialog; the revised dialog has no heading, 17px body and a compact login button. Genre is editable in Builder and round-trips through imports/exports; existing stories without a genre show «Без жанра». No existing story genre or rating is fabricated.
+
+Passkey registration recovery (`engine-50`): production registration options returned 401 then 403 while existing passkey authentications succeeded. The 600-second recent-auth requirement remains enforced. Registration now opens Telegram reauthentication on expired/recent-auth errors and remembers a 30-minute UI-only intent in localStorage; after an explicit successful login it reopens settings, requiring a new user click for WebAuthn. Device/server errors are normalized in both settings surfaces. No credentials or account identifiers are stored in the intent.
+
+Latest library spacing (deployed, `library.css?v=3`): Figma `176:13` now places the main heading at y187, description at y271 and fields at y444; cards remain at y572 at 1440×1024. Increased heading/description gaps and reduced the gap below the fields accordingly. Browser geometry matches these positions with no desktop overflow.
+
+Updated library Figma revision (deployed, `library.css?v=2`, `engine.js?v=engine-49`): title at y171, 22px two-line description at y239, search/sort at y412 with 55px height and 623/255px widths at 1440×1024; card row starts y572. Typography, white input borders and spacing now follow the latest `176:13` frame. Mobile fields stack; four stories still fit a 1440×800 viewport without scrolling.
+
+Library redesign (deployed, `home.css?v=cosmos-14`, `library.css?v=1`, `engine.js?v=engine-48`): `/history` follows Figma `176:13`, reusing cosmic artwork, fonts and navigation icons. Compact glass cards retain real covers/titles; details and play actions remain on story-detail routes. Guest and authenticated catalogs share this visual grid. All matching stories render in wrapping rows instead of four-card pagination. Default preserves catalog order; the other modes are title, newest publication and latest update, using the shared styled dropdown. At 1440×1024 and 1440×800 four cards fit without scrolling; a local 15-story fixture renders three rows with normal page scrolling. Mobile uses two columns. The active and two left carousel cards additionally receive `-11px 0 12.3px #4f3a68` shadows.
+
+Homepage spacing refinement (deployed, `home.css?v=cosmos-13`): desktop carousel gap is now 40–56px based on viewport height, mobile 56–68px. Links sit 44px below the carousel. The viewport-fit calculation reserves these larger gaps before sizing cards; browser verified the footer remains visible without scrolling at 1728×965.
+
+Desktop viewport fit (deployed, `home.css?v=cosmos-12`, `engine.js?v=engine-47`): `home-fit.js?v=1` measures the actual header/copy, footer, links and result count and allocates remaining viewport height to the carousel above 700px width. Cards are capped at 85% of the former scale; carousel spacing and bottom padding are reduced. ResizeObserver, window resizing and font readiness recalculate the budget. Confirmed no page overflow and a visible footer at 1728×965, 1440×800 and 1024×768. Mobile layout is unchanged; extremely short windows/enlarged text retain a minimum card size and may scroll instead of clipping content. This supersedes earlier desktop sizing notes.
+
+Filter dropdown styling (deployed, `home.css?v=cosmos-11`, `engine.js?v=engine-46`): author and sorting use custom listbox popups from `frontend/filter-select.js?v=1`, with solid #45305D surfaces and #F5A279 peach selection/hover. Native select elements remain hidden value/option sources for existing filter logic. The wrapper refreshes after author loading, translation and reset. Supports mouse, arrows, Home/End, Enter/Space, Escape, Tab and outside-click dismissal. Browser verified selection, keyboard use, reset and 390px viewport fit.
+
+Filter panel placement (deployed, `home.css?v=cosmos-10`, `engine.js?v=engine-45`): filters open above the links on the right, overlapping the carousel without shifting the page. Show stories closes the panel and retains the filtered carousel. Clicking outside or pressing Escape also closes it. Verified at desktop and 390px width, including a two-story filtered carousel.
+
+Homepage search (deployed, `home.css?v=cosmos-9`, `engine.js?v=engine-44`): the search bar is a real search input. Submitting or clicking the magnifier focuses it and filters the home carousel without navigating. Search matches title/key/description/author across the complete loaded catalog, without the former twelve-card limit. Links below the carousel open `/history` (All stories) and a native details panel (Filters). Filters offer actual catalog authors and default/title/newest/recently-updated sorting, plus reset and a result count. Guest and signed-in users share these controls. This supersedes the older note that search opens the catalog.
+
+Settings interaction refinement (deployed, `home.css?v=cosmos-8`, `engine.js?v=engine-43`): clicking either RU or EN in the modal toggles the current language, including clicking the selected segment. The separate top-level language controls retain direct selection. Dialog close buttons scale to 1.25 with a slight rotation and stronger dark shadow while pressed; reduced-motion preferences suppress transforms.
+
+Unified settings control geometry (deployed, `home.css?v=cosmos-7`): sound, language and notifications have identical 78×38px visible tracks and 37×34px lilac handles/selected segments. Sound and notification buttons retain a 44px hit area. Language was reduced to the existing sound track height.
+
+Language control refinement (deployed, `home.css?v=cosmos-6`): RU/EN now uses the same solid translucent dark-purple background as sound and notifications, with no gradient.
+
+Switch appearance refinement (deployed, `home.css?v=cosmos-5`): sound and notification tracks now use solid translucent dark purple instead of the Figma gradient, with the language control's softer border and lilac handle styling. Behavior is unchanged.
+
+Settings dialog update (2026-09-27, deployed): `home.css?v=cosmos-4` and `engine.js?v=engine-42`. All three dialogs share the compact Figma surface and interaction animations with reduced-motion support. Settings show sound, RU/EN and notification preference rows. Switch styling follows Figma `174:7`. Notifications only persist a device preference (`fraerapp.notifications`); delivery is not implemented and the UI explains this. The passkey button uses existing registration for signed-in accounts and opens Telegram onboarding for guests. Support currently shows a placeholder pending the owner's contact URL. No browser notification permissions are requested.
+
+Production homepage update (2026-09-27): deployed the shared guest/account homepage and dialog revision using `styles.css?v=game-25`, `home.css?v=cosmos-3`, and `engine.js?v=engine-41`. Earlier local-only notes below are superseded by this deployment. Both user states share the same search, heading, actions and carousel geometry; the create button remains visible for player accounts. Compared guest and simulated player DOM geometry at 1440×1024: identical. Public asset hashes match local files; health/catalog/Telegram configuration return 200 and all six core services are healthy. Git changes are still uncommitted.
 
 FraerApp is an interactive story/game platform with:
 
@@ -10,8 +114,9 @@ FraerApp is an interactive story/game platform with:
 - admin/auth panel;
 - production Docker deployment behind nginx and Cloudflare.
 
-The public homepage is a Figma-aligned story preview screen for both guests and signed-in users. Guests can browse real published story cards with titles and cover visuals, but starting a story or creating one opens the authorization modal. Signed-in users keep the same homepage shell with an active profile icon: story cards start/continue stories, "Read stories" opens the catalog, search is available, and "Create yours" is shown only to author/admin users. The in-story runtime keeps the darker immersive game presentation.
+The public homepage is a Figma-aligned story preview screen for both guests and signed-in users. Guests can browse real published story cards with titles and cover visuals, but starting a story or creating one opens the authorization modal. Signed-in users keep the same homepage shell with an active profile icon: story cards start/continue stories, "Read stories" opens the catalog, search is available, and "Create yours" remains visible for everyone. Author/admin accounts open the builder; other signed-in accounts see guidance to ask an administrator for editor access in the profile dialog, without reopening sign-in. Server-side author permissions remain required. The in-story runtime keeps the darker immersive game presentation.
 The homepage visual reference is Figma `5vh1st4bxxI1OoGHTp4tcw`, frame `84:293` on page `3:3`: a cosmic background, Playfair Display SC heading, glass navigation and buttons, and an overlapping five-position carousel. Its scoped styles live in `frontend/home.css`; original exported artwork/icons and locally served fonts live in `frontend/assets/home/`. Actual catalog covers replace the design's placeholders. Search opens the public catalog for guests too; the guest create button opens sign-in, while signed-in creation remains restricted to author/admin roles. On small screens the carousel displays one card with previous/next controls. Existing legal links are retained.
+The homepage responsive styles (`home.css?v=cosmos-2`) scale the toolbar with viewport width and height, capped at the 1440 × 1024 design size. Search is 48px tall at that size, with a 44px minimum for controls. Headings and cards use a gentler width-based scale so medium or short windows retain substantial content. Heading line spacing includes an extra 3px; larger action and carousel gaps place these elements lower. Below 701px the carousel shows a smaller central card with one overlapping neighbor visible on each side; the farther cards are hidden. Readable minimum sizes take priority over fitting short windows without vertical scrolling. The footer follows the content and stays at the bottom on taller windows. This responsive revision is local until explicitly deployed.
 Story browsing has stable public routes: `/history` renders the catalog, and `/history/<published-slug>` renders a story detail page. nginx static fallback serves the SPA for these routes, while the frontend loads data from `/api/catalog/stories`.
 
 This file is safe to commit. Concrete SSH targets, private IPs, and other operator-only values belong in `LOCAL_OPERATOR_NOTES.private.md`, which is ignored by git.
@@ -141,8 +246,8 @@ Builder correctness fixes (2026-09-22):
 
 - Global variables/assets and scene-local definitions may intentionally share names; import/export preserves both scopes. Scene/asset renames update references in their applicable scope.
 - The editor's saved server identity is stored with its local draft as `runtimeStory` (`storyId`, `key`, API `base`). Analytics, preview, version lists and actions on another story never rebind the editor. Changing the key/runtime or replacing the draft invalidates its binding. The old separate `storyBuilderLastStoryId` value is ignored because it could refer to a different story; existing drafts remain intact and can be reopened or explicitly imported to establish a binding.
-- “Validate last import” calls validation only and cannot import/unpublish a story. Explicit import and publish retain their existing save semantics. Local unsaved content is checked continuously in the editor's validation panel.
-- Publishing/uploading checks the initiating draft, story key and runtime after asynchronous requests; switching context stops the follow-up action instead of targeting the newly opened story. Publication uses the ID returned by its own import.
+- “Validate last import” calls validation only and cannot import/unpublish a story. Import saves a draft; review is an explicit separate action. Local unsaved content is checked continuously in the editor's validation panel.
+- Review/upload checks the initiating draft, story key and runtime after asynchronous requests; switching context stops the follow-up action instead of targeting the newly opened story. Submission uses the ID and generation returned by its own import.
 - JSON parse/shape failures display an error and preserve the active draft. The public website is reachable from the builder even when its author controls are locked.
 - `story-builder/workflow.test.js` exercises these regressions against the actual app functions.
 
@@ -229,6 +334,20 @@ Known homelab exception: `homeassistant.home.arpa` is retained in Nginx Proxy Ma
 
 ## Auth and users
 
+Moderation release (2026-10-05): current authorization comes from `/auth/me`, which
+checks the actual active, unexpired, unrevoked session and returns current database
+roles. The API verifies this per request through `CurrentSessionClient`; a stale
+JWT role cannot retain access. Auth outages fail closed with 503. Role changes,
+blocking, session revocation and last-active-admin protection are enforced by auth.
+V8 adds `moderator` and a persistent bootstrap marker so revoked bootstrap roles
+are not silently granted again on login/restart. Only administrators manage roles;
+moderator does not imply author or admin. Author plus moderator is an explicit
+combination. The auth admin page links to the single moderation workspace.
+
+The public sign-in and profile dialogs share a 400px maximum width and the surface from Figma `171:2`: #7F64A4 fill at 68% opacity and horizontal gradient, 58% white border, 26px radius, 6px background blur and four layered shadows. The backdrop blurs the recognizable homepage. On narrow/short screens dialogs fit the viewport and scroll internally. Sign-in legal links and errors use smaller text. Telegram remains visible even when its configuration endpoint is unavailable; clicking it then explains that sign-in is temporarily unavailable. Passkey sign-in maps browser cancellations/missing credentials to Telegram onboarding guidance, and unknown server/network failures to a short localized message without raw response bodies. These dialog changes are local until deployed. Current asset versions are `home.css?v=cosmos-3` and `engine.js?v=engine-41`.
+
+Use `python3 scripts/preview-frontend.py` for the local frontend preview at `http://localhost:8765`. It reads the real public catalog and Telegram entrypoint, replacing the old temporary fixture that disabled Telegram. The bot's one-time link completes registration/sign-in on `https://fraerapp.ru`; local preview sessions remain unauthenticated. Production cookies/tokens and authenticated mutations are never proxied. Passkey requests return `AUTH_PREVIEW` with clear Telegram guidance because production passkeys belong to the production origin. For a new account, Telegram establishes the identity before a passkey can be registered.
+
 Auth lives in a separate Postgres database (`auth-postgres`).
 
 Main app players live in the main Postgres database (`postgres`) and are linked by:
@@ -242,6 +361,7 @@ Roles used:
 ```text
 player
 author
+moderator
 admin
 ```
 
@@ -251,7 +371,66 @@ Author story ownership is:
 stories.owner_player_id -> players.id
 ```
 
-If a story must belong to a user, prefer importing through `/api/author/stories/import` using that user's authorized session. Admin import creates system-owned stories unless ownership is set through the author path.
+Import through `/api/author/stories/import` with the author's actual session. New
+stories imported through `/api/admin/stories/import` belong to that administrator;
+updates preserve existing ownership. Only internal seed creation is system-owned.
+
+`/my-stories/` remains readable to an active owner after author-role removal, with
+all editing/submission actions disabled. `/moderation/` requires moderator/admin.
+nginx checks access before serving either private page; the recovery page refreshes
+an expired access session once and rechecks current roles. Private pages, APIs and
+uploads are no-store/noindex. Cookie-authenticated writes require a same-origin
+signal; bearer API clients keep their existing transport.
+
+## Story moderation and publication
+
+`StoryWorkflowService` is the sole owner of import, submission, decisions and
+availability. V15 stores workspace state and audit events, reuses immutable
+`story_versions` documents, adds `stories.published_revision` and pins each saved
+game to `game_sessions.story_revision`. Draft JSON never replaces the live story.
+Submitted, published and newer working drafts can coexist. Saving edits after
+submission does not change the reviewed revision. Replacing a submission requires
+explicit confirmation. Rollback creates a new private draft.
+
+The author sees every own story in `/my-stories/`, including pending, rejected,
+hidden, archived and deleted work, with the exact revision labels, reason and audit.
+Builder saves drafts and sends them for review; authors cannot publish directly.
+Reviewers use `/moderation/` to search/filter all stories, inspect a complete private
+snapshot and its diff, approve, publish, reject, hide, archive, soft-delete, restore
+and change visibility. Internal notes never reach the author. Decisions serialize
+on the story and check revision plus generation; concurrent/stale requests receive
+409 and create no duplicate decision or notification.
+
+Review status (draft/in_review/approved/rejected) is separate from visibility
+(private/public/unlisted/hidden/archived/deleted). Approval alone stays private;
+approval-and-publication selects public or unlisted. Unlisted stories open by direct
+link for signed-in readers but never enter the catalogue. Hidden/archived/deleted
+stories require explicit restoration to private before publication. Moderator
+self-approval/restoration is forbidden; an administrator's own story requires an
+explicit override and nonempty reason. No real moderator role is granted by deploy.
+
+Public catalogues, direct details, gameplay, saves, engagement and media share the
+same availability rules. Guests retain only the three demo stories. Existing runs
+read their immutable approved snapshot even after a new version is published;
+hidden content cannot be read through an old save. Upload bytes are immutable and
+served through authorized `/uploads/` checks, not a public static handler. Drafts
+allow an empty upload placeholder; review requires valid same-origin media.
+Private previews create no views, sessions, ratings or saves.
+
+Migration is idempotent. Default `MODERATION_LEGACY_POLICY=review` sends legacy
+publications to private review; all legacy saves (including archived stories) keep
+their original baseline revision. A save whose old revision was never approved is
+preserved but unavailable (409); a new run uses the newly approved publication.
+For this rollout, the owner explicitly approved retaining the four current
+publications: Train 404, cat, toilet and New Story. One-time `approve` creates an
+audited approved baseline and preserves their identifiers, links and active saves.
+Seed data is private and cannot revive an archived/deleted story on restart.
+
+Compatibility `/api/admin/stories` and `/api/author/stories` routes delegate to the
+same workflow. Direct author publish is forbidden; legacy admin publish returns
+409 requesting a revision-aware decision. The old inline admin story editor has
+been removed. `StoryAdminService` retains validation/export/apply utilities only;
+it is not a publication authority.
 
 ## Story engine
 

@@ -1,115 +1,72 @@
 package com.fraergod.fraerapp.game;
 
-import java.util.List;
-import java.util.Map;
-
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import java.util.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/author")
 class AuthorStoryController {
-
-	private final StoryProductService product;
-	private final CurrentUserService currentUser;
-
-	AuthorStoryController(StoryProductService product, CurrentUserService currentUser) {
-		this.product = product;
-		this.currentUser = currentUser;
-	}
-
-	@GetMapping("/home")
-	Map<String, Object> home() {
-		return product.authorHome(currentUser.requireAuthorPlayerId());
-	}
-
-	@GetMapping("/stories")
-	List<StoryProductService.AuthorStorySummary> stories() {
-		return product.authoredStories(currentUser.requireAuthorPlayerId());
-	}
-
-	@GetMapping("/stories/{storyId}")
-	StoryProductService.AuthorStoryDetails story(@PathVariable String storyId) {
-		return product.authoredStory(currentUser.requireAuthorPlayerId(), storyId);
-	}
-
-	@GetMapping("/stories/{storyId}/document")
-	Map<String, Object> storyDocument(@PathVariable String storyId) {
-		return product.authoredStoryDocument(currentUser.requireAuthorPlayerId(), storyId);
-	}
-
-	@GetMapping("/stories/{storyId}/preview")
-	Map<String, Object> preview(@PathVariable String storyId) {
-		return product.previewForAuthor(currentUser.requireAuthorPlayerId(), storyId);
-	}
-
-	@GetMapping("/stories/{storyId}/versions")
-	List<StoryAdminService.StoryVersionSummary> versions(@PathVariable String storyId) {
-		return product.versionsForAuthor(currentUser.requireAuthorPlayerId(), storyId);
-	}
-
-	@GetMapping("/stories/{storyId}/analytics")
-	StoryProductService.StoryAnalytics analytics(@PathVariable String storyId) {
-		return product.analytics(currentUser.requireAuthorPlayerId(), storyId);
-	}
-
-	@DeleteMapping("/stories/{storyId}")
-	Map<String, Object> deleteStory(@PathVariable String storyId) {
-		product.deleteForAuthor(currentUser.requireAuthorPlayerId(), storyId);
-		return Map.of("deleted", true, "storyId", storyId);
-	}
-
-	@PostMapping("/stories/{storyId}/validate")
-	StoryValidationResult validate(@PathVariable String storyId) {
-		return product.validateForAuthor(currentUser.requireAuthorPlayerId(), storyId);
-	}
-
-	@PostMapping("/stories/{storyId}/assets")
-	StoryProductService.UploadedAsset uploadAsset(@PathVariable String storyId,
-			@RequestParam("file") MultipartFile file,
-			@RequestParam(name = "assetKey", required = false) String assetKey,
-			@RequestParam(name = "type", required = false) String type,
-			@RequestParam(name = "scope", required = false) String scope) {
-		return product.uploadAssetForAuthor(currentUser.requireAuthorPlayerId(), storyId, file, assetKey, type, scope);
-	}
-
-	@DeleteMapping("/stories/{storyId}/assets")
-	StoryProductService.DeletedAsset deleteAsset(@PathVariable String storyId,
-			@RequestParam(name = "assetKey", required = false) String assetKey,
-			@RequestParam(name = "url", required = false) String url) {
-		return product.deleteAssetForAuthor(currentUser.requireAuthorPlayerId(), storyId, assetKey, url);
-	}
-
-	@PostMapping("/stories/import")
-	StoryAdminService.ImportResponse importStory(@RequestBody String body) {
-		return product.importForAuthor(currentUser.requireAuthorPlayerId(), body);
-	}
-
-	@PostMapping("/stories/{storyId}/publish")
-	StoryAdminService.ImportResponse publish(@PathVariable String storyId) {
-		return product.publishForAuthor(currentUser.requireAuthorPlayerId(), storyId);
-	}
-
-	@PostMapping("/stories/{storyId}/review")
-	StoryAdminService.ImportResponse review(@PathVariable String storyId) {
-		return product.submitForReview(currentUser.requireAuthorPlayerId(), storyId);
-	}
-
-	@PostMapping("/stories/{storyId}/archive")
-	StoryAdminService.ImportResponse archive(@PathVariable String storyId) {
-		return product.archiveForAuthor(currentUser.requireAuthorPlayerId(), storyId);
-	}
-
-	@PostMapping("/stories/{storyId}/versions/{versionNumber}/rollback")
-	StoryAdminService.ImportResponse rollback(@PathVariable String storyId,
-			@PathVariable int versionNumber) {
-		return product.rollbackForAuthor(currentUser.requireAuthorPlayerId(), storyId, versionNumber);
-	}
+ private final StoryProductService product;
+ private final StoryWorkflowService workflow;
+ private final CurrentUserService currentUser;
+ AuthorStoryController(StoryProductService product,StoryWorkflowService workflow,CurrentUserService currentUser) {
+  this.product=product;this.workflow=workflow;this.currentUser=currentUser;
+ }
+ // Ownership remains readable when author privileges are revoked.
+ @GetMapping("/home") Object home() {
+  String id=currentUser.requireOwnerReaderPlayerId();
+  var home=new LinkedHashMap<String,Object>(product.authorHome(id));
+  home.put("stories",workflow.mine(id));return home;
+ }
+ @GetMapping("/stories") Object stories() {return workflow.mine(currentUser.requireOwnerReaderPlayerId());}
+ @GetMapping("/stories/{id}") Object story(@PathVariable String id) {return workflow.details(id,currentUser.requireOwnerReaderPlayerId(),false);}
+ @GetMapping("/stories/{id}/document") Object document(@PathVariable String id) {
+  return workflow.details(id,currentUser.requireOwnerReaderPlayerId(),false).get("draftDocument");
+ }
+ @GetMapping("/stories/{id}/preview") Object preview(@PathVariable String id,@RequestParam(defaultValue="draft") String revision) {
+  return workflow.preview(id,currentUser.requireOwnerReaderPlayerId(),false,revision);
+ }
+ @GetMapping("/stories/{id}/versions") Object versions(@PathVariable String id) {
+  return workflow.details(id,currentUser.requireOwnerReaderPlayerId(),false).get("versions");
+ }
+ @GetMapping("/stories/{id}/analytics") Object analytics(@PathVariable String id) {
+  return product.analytics(currentUser.requireOwnerReaderPlayerId(),id);
+ }
+ @PostMapping("/stories/{id}/validate") Object validate(@PathVariable String id) {
+  return workflow.validateDraft(id,currentUser.requireAuthorPlayerId());
+ }
+ @PostMapping("/stories/{id}/assets") Object upload(@PathVariable String id,@RequestParam("file") MultipartFile file,
+  @RequestParam(required=false) String assetKey,@RequestParam(required=false) String type,@RequestParam(required=false) String scope) {
+  return product.uploadAssetForAuthor(currentUser.requireAuthorPlayerId(),id,file,assetKey,type,scope);
+ }
+ @DeleteMapping("/stories/{id}/assets") Object removeAsset(@PathVariable String id,
+  @RequestParam(required=false) String assetKey,@RequestParam(required=false) String url) {
+  return product.deleteAssetForAuthor(currentUser.requireAuthorPlayerId(),id,assetKey,url);
+ }
+ @PostMapping("/stories/import") Object importStory(@RequestBody String body) {
+  return workflow.importDraft(body,currentUser.requireAuthorPlayerId());
+ }
+ @PostMapping("/stories/{id}/publish") Object publish(@PathVariable String id) {
+  currentUser.requireAuthorPlayerId();
+  throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Submit the story for moderation before publication");
+ }
+ record Submission(int generation,Boolean replaceReview) {}
+ @PostMapping("/stories/{id}/review") Object review(@PathVariable String id,@RequestBody Submission command) {
+  return workflow.submit(id,currentUser.requireAuthorPlayerId(),command.generation(),Boolean.TRUE.equals(command.replaceReview()),currentUser.requireIdentity());
+ }
+ @PostMapping("/stories/{id}/withdraw") Object withdraw(@PathVariable String id,@RequestBody Submission command) {
+  return workflow.withdraw(id,currentUser.requireAuthorPlayerId(),command.generation(),currentUser.requireIdentity());
+ }
+ @PostMapping("/stories/{id}/archive") Object archive(@PathVariable String id) {
+  return workflow.takeDown(id,currentUser.requireAuthorPlayerId(),false,currentUser.requireIdentity());
+ }
+ @DeleteMapping("/stories/{id}") Object delete(@PathVariable String id) {
+  return workflow.takeDown(id,currentUser.requireAuthorPlayerId(),true,currentUser.requireIdentity());
+ }
+ @PostMapping("/stories/{id}/versions/{number}/rollback") Object rollback(@PathVariable String id,@PathVariable int number) {
+  return workflow.rollback(id,currentUser.requireAuthorPlayerId(),number);
+ }
 }

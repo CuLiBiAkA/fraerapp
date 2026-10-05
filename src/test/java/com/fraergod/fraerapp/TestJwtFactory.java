@@ -32,6 +32,9 @@ final class TestJwtFactory {
 		return token(email, List.of("admin", "author", "player"));
 	}
 
+	static String moderator(String email) { return token(email, List.of("moderator","player")); }
+	static String authorModerator(String email) { return token(email,List.of("moderator","author","player")); }
+
 	private static String token(String email, List<String> roles) {
 		try {
 			String normalized = email.toLowerCase();

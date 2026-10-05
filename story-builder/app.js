@@ -1,3 +1,5 @@
+import { authorActions, authorFilters, canEditStories, filterAfterSubmit, matchesAuthorFilter, storyLabels, workflowLabel } from "../story-workflow.js?v=1";
+
 const els = {
   runtimeUrl: document.querySelector("#runtime-url"),
   adminToken: document.querySelector("#admin-token"),
@@ -42,7 +44,7 @@ const translations = {
     importJsonFile: "Импорт JSON-файла",
     pasteJson: "Вставить JSON",
     clearDraft: "Очистить черновик",
-    backToSite: "На сайт / войти",
+    backToSite: "На главную",
     invalidJson: "Не удалось открыть JSON: {message}",
     draftChanged: "История или сервер изменились во время операции. Действие остановлено; повторите его для нужной истории.",
     storyMetadata: "Метаданные истории",
@@ -51,6 +53,7 @@ const translations = {
     versionLabel: "Версия",
     startSceneLabel: "Стартовая сцена",
     descriptionLabel: "Описание",
+    genreLabel: "Жанр",
     variablesTitle: "Переменные",
     addVariable: "Добавить переменную",
     assetsTitle: "Ассеты",
@@ -58,9 +61,20 @@ const translations = {
     scenesTitle: "Сцены",
     addScene: "Добавить сцену",
     runtimeActions: "Действия с runtime",
-    importToRuntime: "Импортировать в Runtime",
+    importToRuntime: "Сохранить черновик на сервере",
     validateLastImport: "Проверить последний импорт",
-    publishLastImport: "Опубликовать последний импорт",
+    publishLastImport: "Отправить на проверку",
+    myStories: "Мои истории",
+    storyStatusFilter: "Состояние работы",
+    unsavedChanges: "Есть несохранённые изменения. Они хранятся только в этом браузере.",
+    savedOnServer: "Сохранено на сервере · редакция v{revision}",
+    changeSaved: "Изменение сохранено.",
+    reviewSent: "Редакция v{revision} отправлена на согласование. Публикация не меняется.",
+    replaceReviewConfirm: "Заменить заявку v{revision} новым сохранённым черновиком? Старую заявку больше нельзя будет одобрить.",
+    staleStory: "История изменилась. Список обновлён: проверьте текущую редакцию и повторите действие.",
+    withdrawConfirm: "Отозвать заявку «{title}»? Черновик и предыдущая публикация сохранятся.",
+    archiveConfirm: "Архивировать «{title}»? История станет недоступна читателям. Данные и прогресс сохранятся.",
+    switchUnsaved: "В текущей истории есть изменения только в этом браузере. Открыть другую историю и заменить их?",
     validationTitle: "Проверка",
     storyJsonTitle: "JSON истории",
     pasteStoryJson: "Вставить JSON истории",
@@ -174,13 +188,12 @@ const translations = {
     authorStoryPicker: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0430\u0432\u0442\u043e\u0440\u0430",
     authorStoryPickerEmpty: "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0438\u0441\u0442\u043e\u0440\u0438\u044e",
     uploadSceneAsset: "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0430\u0441\u0441\u0435\u0442 \u0432 \u0441\u0446\u0435\u043d\u0443",
-    authorLoggedIn: "\u0410\u0432\u0442\u043e\u0440: {name}. \u041c\u043e\u0436\u043d\u043e \u0440\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0438 \u043f\u0443\u0431\u043b\u0438\u043a\u043e\u0432\u0430\u0442\u044c.",
+    authorLoggedIn: "Автор: {name}. Сохраняйте черновик и отправляйте его на проверку.",
     authorRoleMissing: "\u0412\u0445\u043e\u0434 \u0435\u0441\u0442\u044c, \u043d\u043e \u043d\u0443\u0436\u043d\u0430 \u0440\u043e\u043b\u044c author.",
     newAuthorStory: "\u041d\u043e\u0432\u0430\u044f \u0438\u0441\u0442\u043e\u0440\u0438\u044f",
     editStoryButton: "\u041f\u0440\u0430\u0432\u0438\u0442\u044c",
     storyStatsButton: "\u0421\u0442\u0430\u0442\u044b",
     submitReviewButton: "\u041d\u0430 review",
-    publishStoryButton: "\u041e\u043f\u0443\u0431\u043b.",
     archiveStoryButton: "\u0412 \u0430\u0440\u0445\u0438\u0432",
     previewStoryButton: "\u041f\u0440\u0435\u0432\u044c\u044e",
     versionsButton: "\u0412\u0435\u0440\u0441\u0438\u0438",
@@ -191,7 +204,7 @@ const translations = {
     statusPublished: "\u041e\u043f\u0443\u0431\u043b.",
     statusArchived: "\u0410\u0440\u0445\u0438\u0432",
     deleteStoryButton: "\u0423\u0434\u0430\u043b\u0438\u0442\u044c",
-    deleteStoryConfirm: "\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0438\u0441\u0442\u043e\u0440\u0438\u044e \"{title}\"? \u042d\u0442\u043e \u0443\u0431\u0435\u0440\u0435\u0442 \u043f\u0443\u0431\u043b\u0438\u043a\u0430\u0446\u0438\u044e, \u0441\u0446\u0435\u043d\u044b, \u0430\u0441\u0441\u0435\u0442\u044b \u0438 \u0432\u0441\u0435 \u043f\u0440\u043e\u0445\u043e\u0436\u0434\u0435\u043d\u0438\u044f.",
+    deleteStoryConfirm: "Переместить «{title}» в корзину? Данные и решения сохранятся. Восстановление доступно через модерацию.",
     deleteStoryDone: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0443\u0434\u0430\u043b\u0435\u043d\u0430: {title}",
     deleteStoryCurrentDraft: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0443\u0434\u0430\u043b\u0435\u043d\u0430. \u0422\u0435\u043a\u0443\u0449\u0438\u0439 draft \u043e\u0441\u0442\u0430\u043b\u0441\u044f \u0432 \u0440\u0435\u0434\u0430\u043a\u0442\u043e\u0440\u0435.",
     authorLoggedOut: "Общая сессия FraerApp не найдена. Войдите по выданной администратором ссылке.",
@@ -209,7 +222,7 @@ const translations = {
     importJsonFile: "Import JSON File",
     pasteJson: "Paste JSON",
     clearDraft: "Clear draft",
-    backToSite: "Website / sign in",
+    backToSite: "Home",
     invalidJson: "Could not open JSON: {message}",
     draftChanged: "The story or server changed during the operation. It was stopped; retry for the intended story.",
     storyMetadata: "Story metadata",
@@ -218,6 +231,7 @@ const translations = {
     versionLabel: "Version",
     startSceneLabel: "Start scene",
     descriptionLabel: "Description",
+    genreLabel: "Genre",
     variablesTitle: "Variables",
     addVariable: "Add variable",
     assetsTitle: "Assets",
@@ -225,9 +239,20 @@ const translations = {
     scenesTitle: "Scenes",
     addScene: "Add scene",
     runtimeActions: "Runtime actions",
-    importToRuntime: "Import to Runtime",
+    importToRuntime: "Save draft to server",
     validateLastImport: "Validate Last Import",
-    publishLastImport: "Publish Last Import",
+    publishLastImport: "Submit for review",
+    myStories: "My stories",
+    storyStatusFilter: "Work status",
+    unsavedChanges: "Unsaved changes. They exist only in this browser.",
+    savedOnServer: "Saved on server · revision v{revision}",
+    changeSaved: "Change saved.",
+    reviewSent: "Revision v{revision} submitted for review. Publication is unchanged.",
+    replaceReviewConfirm: "Replace submission v{revision} with the new saved draft? The old submission can no longer be approved.",
+    staleStory: "The story changed. The list has been refreshed: inspect the current revision and try again.",
+    withdrawConfirm: "Withdraw submission for “{title}”? The draft and previous publication are retained.",
+    archiveConfirm: "Archive “{title}”? Readers will lose access. Data and progress are retained.",
+    switchUnsaved: "The current story has changes stored only in this browser. Open another story and replace them?",
     validationTitle: "Validation",
     storyJsonTitle: "Story JSON",
     pasteStoryJson: "Paste Story JSON",
@@ -342,14 +367,13 @@ const translations = {
     authorStoryPicker: "Author story",
     authorStoryPickerEmpty: "Choose a story",
     uploadSceneAsset: "Upload asset to scene",
-    authorLoggedIn: "Author: {name}. Editing and publishing are available.",
+    authorLoggedIn: "Author: {name}. Save drafts and submit them for review.",
     authorLoggedOut: "No shared FraerApp session was found. Use the sign-in link provided by an administrator.",
     authorRoleMissing: "You are signed in, but the author role is required.",
     newAuthorStory: "New story",
     editStoryButton: "Edit",
     storyStatsButton: "Stats",
     submitReviewButton: "To review",
-    publishStoryButton: "Publish",
     archiveStoryButton: "Archive",
     previewStoryButton: "Preview",
     versionsButton: "Versions",
@@ -360,7 +384,7 @@ const translations = {
     statusPublished: "Published",
     statusArchived: "Archived",
     deleteStoryButton: "Delete",
-    deleteStoryConfirm: "Delete \"{title}\"? This removes the publication, scenes, assets, and all runs.",
+    deleteStoryConfirm: "Move “{title}” to trash? Data and decisions are retained. Moderation can restore it.",
     deleteStoryDone: "Story deleted: {title}",
     deleteStoryCurrentDraft: "Story deleted. The current draft stayed in the editor.",
   },
@@ -388,7 +412,11 @@ function t(key, params = {}) {
 
 let draft = loadDraft() || emptyDraft();
 draft = localizeDraftDefaults(draft);
-let authorSession = loadAuthorSession();
+let authorSession = null;
+let authorHomeCache = null;
+let authorFilter = "all";
+let authorQuery = "";
+let builderWorkflowBusy = false;
 
 els.runtimeUrl.value = initialRuntimeUrl();
 localStorage.setItem(runtimeUrlStorageKey, els.runtimeUrl.value);
@@ -568,6 +596,7 @@ function setLanguage(language) {
   draft = localizeDraftDefaults(draft);
   applyTranslations();
   render();
+  renderAuthorWorkspace();
 }
 
 function render(options = {}) {
@@ -885,7 +914,7 @@ function choicesEditor(scene, sceneIndex) {
     depth: 1,
     path: `${scenePath} -> ${t("choicesTitle")}`,
   });
-  const add = button(t("addChoice"), () => {
+  const add = addButton(t("addChoice"), () => {
     scene.choices.push({
       id: `${t("choicePrefix")}_${scene.choices.length + 1}`,
       label: t("choiceDefaultLabel"),
@@ -936,7 +965,7 @@ function conditionsEditor(conditions, scene, context = {}) {
   const hint = document.createElement("p");
   hint.className = "summary-subtitle";
   hint.textContent = t("conditionRuntimeHint");
-  wrap.append(rowTitle(t("conditionsTitle"), button(t("addCondition"), () => {
+  wrap.append(rowTitle(t("conditionsTitle"), addButton(t("addCondition"), () => {
     const variable = firstVariable(scene);
     conditions.push({ variable, op: "==", value: defaultValue(variableType(variable, scene)) });
     render({ preserveScroll: true });
@@ -985,7 +1014,7 @@ function effectsEditor(effects, title, scene = null, context = {}) {
     depth: context.scope === "choice" ? 3 : 1,
     path: `${parentPath} -> ${title}`,
   });
-  wrap.append(rowTitle(title, button(t("addEffect"), () => {
+  wrap.append(rowTitle(title, addButton(t("addEffect"), () => {
     const variable = firstVariable(scene);
     effects.push({ kind: "set", variable, value: defaultValue(variableType(variable, scene)) });
     render({ preserveScroll: true });
@@ -1092,6 +1121,7 @@ function toStoryJson() {
     key: draft.key,
     title: draft.title,
     description: draft.description,
+    genre: draft.genre || "",
     version: Number(draft.version || 1),
     startSceneId: draft.startSceneId,
     variables: Object.fromEntries(draft.variables.filter((variable) => variable.name).map((variable) => [variable.name, serializeVariable(variable)])),
@@ -1144,7 +1174,7 @@ function localVariablesEditor(scene, sceneIndex) {
     depth: 1,
     path: `${scenePath} -> ${t("sceneLocalVariables")}`,
   });
-  wrap.append(rowTitle(t("sceneLocalVariables"), button(t("addVariable"), () => {
+  wrap.append(rowTitle(t("sceneLocalVariables"), addButton(t("addVariable"), () => {
     scene.variables ||= [];
     scene.variables.push({ name: `${scene.id || t("scenePrefix")}_${t("variablePrefix")}_${scene.variables.length + 1}`, type: "string", value: "", showInStats: false });
     render({ preserveScroll: true });
@@ -1188,7 +1218,7 @@ function localAssetsEditor(scene, sceneIndex) {
     depth: 1,
     path: `${scenePath} -> ${t("sceneLocalAssets")}`,
   });
-  wrap.append(rowTitle(t("sceneLocalAssets"), button(t("addAsset"), () => {
+  wrap.append(rowTitle(t("sceneLocalAssets"), addButton(t("addAsset"), () => {
     scene.assets ||= [];
     scene.assets.push({ id: `${scene.id || t("scenePrefix")}_${t("assetPrefix")}_${scene.assets.length + 1}`, type: "image", url: "", metadata: "" });
     render({ preserveScroll: true });
@@ -1300,6 +1330,7 @@ function fromStoryJson(story) {
     key: story.key || t("newStoryKey"),
     title: story.title || t("newStoryTitle"),
     description: story.description || "",
+    genre: story.genre || "",
     version: story.version || 1,
     startSceneId: story.startSceneId || "",
     variables: Object.entries(story.variables || {}).map(([name, definition]) => {
@@ -1729,6 +1760,10 @@ function rowTitle(title, action) {
   return row;
 }
 
+function addButton(text, onClick) {
+  return button(text, onClick, "secondary small add-button");
+}
+
 function button(text, onClick, className = "secondary small") {
   const el = document.createElement("button");
   el.type = "button";
@@ -2059,13 +2094,23 @@ function getDraftStoryId() {
     ? binding.storyId : null;
 }
 
-function bindDraftStory(storyId) {
-  draft.runtimeStory = { storyId, key: draft.key, base: els.runtimeUrl.value.replace(/\/$/, "") };
+function bindDraftStory(storyId, savedDocument = null, revision = null) {
+  draft.runtimeStory = { storyId, key: draft.key, base: els.runtimeUrl.value.replace(/\/$/, ""), savedDocument, revision };
   saveDraft();
 }
 
 function saveDraft() {
   localStorage.setItem(storageKey, JSON.stringify(draft));
+  updateServerDraftState();
+}
+
+function hasUnsavedChanges() {
+  return !getDraftStoryId() || draft.runtimeStory?.savedDocument !== JSON.stringify(toStoryJson());
+}
+
+function updateServerDraftState() {
+  const status = document.querySelector("#server-draft-state");
+  if (status) status.textContent = hasUnsavedChanges() ? t("unsavedChanges") : t("savedOnServer", { revision: draft.runtimeStory?.revision || "—" });
 }
 
 function loadDraft() {
@@ -2078,6 +2123,7 @@ function loadDraft() {
 }
 
 function saveAuthorSession(session) {
+  if (!session || (authorSession?.id || authorSession?.email) !== (session.id || session.email)) authorHomeCache = null;
   authorSession = session;
   els.authorName.value = session?.email || "";
   if (session) {
@@ -2130,7 +2176,7 @@ function loadOutlineState() {
 }
 
 function authorHeaders(contentType = false) {
-  const headers = {};
+  const headers = { "X-Fraer-Request": "same-origin" };
   if (contentType) {
     headers["Content-Type"] = "application/json";
   }
@@ -2151,6 +2197,7 @@ async function authorFetchAttempt(path, options = {}, allowRefresh = true) {
       ...(options.headers || {}),
     },
     credentials: "include",
+    cache: "no-store",
     body: options.body,
   });
   if (response.status === 401 && allowRefresh && shouldRefreshAuth(path)) {
@@ -2160,7 +2207,9 @@ async function authorFetchAttempt(path, options = {}, allowRefresh = true) {
   const text = await response.text();
   const payload = text ? JSON.parse(text) : {};
   if (!response.ok) {
-    throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
+    const error = new Error(payload.message || payload.detail || payload.error || `HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
   }
   return payload;
 }
@@ -2168,7 +2217,7 @@ async function authorFetchAttempt(path, options = {}, allowRefresh = true) {
 async function refreshAuth(base = els.runtimeUrl.value.replace(/\/$/, "")) {
   const response = await fetch(`${base}/auth/refresh`, {
     method: "POST",
-    headers: { Accept: "application/json" },
+    headers: { Accept: "application/json", "X-Fraer-Request": "same-origin" },
     credentials: "include",
   });
   if (!response.ok) {
@@ -2262,27 +2311,31 @@ async function loadAuthorHome() {
     renderAuthorWorkspace();
     return null;
   }
-  if (!canAuthor()) {
-    renderAuthorWorkspace();
-    return null;
-  }
   const home = await authorFetch("/api/author/home");
+  authorHomeCache = home;
   renderAuthorWorkspace(home);
   return home;
 }
 
-function renderAuthorWorkspace(home = null) {
+function renderAuthorWorkspace(home = authorHomeCache) {
   const authorName = authorSession?.email || "не выбран";
   els.authorState.textContent = canAuthor()
     ? t("authorLoggedIn", { name: authorName })
     : (authorSession ? t("authorRoleMissing") : t("authorLoggedOut"));
   els.authorStorySelect.replaceChildren();
-  els.authorStorySelect.disabled = !canAuthor() || !home?.stories?.length;
+  els.authorStorySelect.disabled = !canAuthor() || !home?.stories?.length || builderWorkflowBusy;
   const emptyOption = document.createElement("option");
   emptyOption.value = "";
   emptyOption.textContent = t("authorStoryPickerEmpty");
   els.authorStorySelect.append(emptyOption);
   els.authorStories.replaceChildren();
+  const filterSelect = document.querySelector("#author-filter");
+  filterSelect.replaceChildren();
+  for (const value of authorFilters) {
+    const option = document.createElement("option");
+    option.value = value; option.textContent = workflowLabel(value, currentLanguage); option.selected = value === authorFilter;
+    filterSelect.append(option);
+  }
   if (canAuthor()) {
     const topActions = div("actions tight");
     topActions.append(button(t("newAuthorStory"), createNewAuthorStory, "secondary small"));
@@ -2290,73 +2343,47 @@ function renderAuthorWorkspace(home = null) {
   }
   if (!home?.stories?.length) {
     els.authorAnalytics.textContent = canAuthor()
-      ? "У автора пока нет сценариев. Импортируйте текущий draft."
+      ? (currentLanguage === "en" ? "No stories yet. Save your current draft to the server." : "Пока нет историй. Сохраните текущий черновик на сервере.")
       : "";
     updateAuthorGate();
     return;
   }
-  els.authorAnalytics.textContent = home.stats
-    ? JSON.stringify(home.stats, null, 2)
-    : "";
+  els.authorAnalytics.textContent = "";
   for (const story of home.stories) {
     const option = document.createElement("option");
     option.value = story.storyId;
-    option.textContent = `${story.title} (${story.status})`;
+    option.textContent = `${story.title} (${storyLabels(story, currentLanguage).join(" · ")})`;
     option.selected = story.storyId === getDraftStoryId();
     els.authorStorySelect.append(option);
+    if (!matchesAuthorFilter(story, authorFilter, authorQuery)) continue;
     const item = div("story-picker-item");
     const summary = document.createElement("div");
     const title = document.createElement("strong");
     title.textContent = story.title;
     const meta = document.createElement("span");
-    meta.textContent = `${story.key} - ${story.totalRuns} runs`;
+    meta.textContent = `${story.key}${story.submittedAt ? ` · ${new Date(story.submittedAt).toLocaleString(currentLanguage === "en" ? "en-GB" : "ru-RU")}` : ""}`;
     const status = document.createElement("span");
-    status.className = `status-badge status-${story.status}`;
-    status.textContent = statusLabel(story.status);
+    status.className = "status-badge";
+    status.textContent = storyLabels(story, currentLanguage).join(" · ");
     summary.append(title, status, meta);
+    if (story.reason) { const reason = document.createElement("p"); reason.textContent = story.reason; summary.append(reason); }
     const actions = div("actions tight");
-    actions.append(
-      button(t("editStoryButton"), () => {
-        openAuthorStory(story.storyId).catch((error) => {
-          els.authorAnalytics.textContent = error.message;
-        });
-      }, "secondary small"),
-      button(t("submitReviewButton"), () => {
-        authorWorkflow(story.storyId, "review").catch((error) => {
-          els.authorAnalytics.textContent = error.message;
-        });
-      }, "secondary small"),
-      button(t("publishStoryButton"), () => {
-        authorWorkflow(story.storyId, "publish").catch((error) => {
-          els.authorAnalytics.textContent = error.message;
-        });
-      }, "secondary small"),
-      button(t("archiveStoryButton"), () => {
-        authorWorkflow(story.storyId, "archive").catch((error) => {
-          els.authorAnalytics.textContent = error.message;
-        });
-      }, "secondary small"),
-      button(t("previewStoryButton"), () => {
-        showAuthorPreview(story.storyId).catch((error) => {
-          els.authorAnalytics.textContent = error.message;
-        });
-      }, "secondary small"),
-      button(t("versionsButton"), () => {
-        showAuthorVersions(story.storyId).catch((error) => {
-          els.authorAnalytics.textContent = error.message;
-        });
-      }, "secondary small"),
-      button(t("storyStatsButton"), () => {
-        showAuthorAnalytics(story.storyId).catch((error) => {
-          els.authorAnalytics.textContent = error.message;
-        });
-      }, "secondary small"),
-      button(t("deleteStoryButton"), () => {
-        deleteAuthorStory(story).catch((error) => {
-          els.authorAnalytics.textContent = error.message;
-        });
-      }, "danger small"),
-    );
+    for (const action of authorActions(story, authorSession)) {
+      const control = button(workflowLabel(action, currentLanguage), async () => {
+        try {
+          if (action === "edit") await openAuthorStory(story.storyId);
+          else if (action === "delete") await deleteAuthorStory(story);
+          else await authorWorkflow(story.storyId, action === "submit" ? "review" : action, story);
+        } catch (error) { els.authorAnalytics.textContent = error.message; }
+      }, action === "delete" ? "danger small" : "secondary small");
+      control.dataset.authorMutation = "true";
+      actions.append(control);
+    }
+    const privateLink = document.createElement("a");
+    privateLink.className = "file-button";
+    privateLink.href = `/my-stories/?story=${encodeURIComponent(story.storyId)}`;
+    privateLink.textContent = currentLanguage === "en" ? "Revisions, preview and decisions" : "Редакции, превью и решения";
+    actions.append(privateLink);
     item.append(summary, actions);
     els.authorStories.append(item);
   }
@@ -2384,7 +2411,7 @@ function updateAuthorGate() {
       control.disabled = false;
       return;
     }
-    control.disabled = !loggedIn;
+    control.disabled = !loggedIn || (builderWorkflowBusy && (control.dataset.authorMutation === "true" || ["import-runtime", "validate-runtime", "publish-runtime", "author-story-select", "refresh-author", "runtime-url"].includes(control.id)));
   });
   document.querySelectorAll("a.nav-link").forEach((link) => {
     link.classList.toggle("is-disabled", !loggedIn);
@@ -2405,20 +2432,24 @@ function createNewAuthorStory() {
 }
 
 async function deleteAuthorStory(story) {
+  if (builderWorkflowBusy) return;
   const title = story.title || story.key || story.storyId;
   if (!confirm(t("deleteStoryConfirm", { title }))) {
     return;
   }
-  await authorFetch(`/api/author/stories/${story.storyId}`, { method: "DELETE" });
-  if (getDraftStoryId() === story.storyId) {
-    delete draft.runtimeStory;
-    saveDraft();
-    els.apiResult.textContent = t("deleteStoryCurrentDraft");
-  } else {
-    els.apiResult.textContent = t("deleteStoryDone", { title });
-  }
-  els.authorAnalytics.textContent = t("deleteStoryDone", { title });
-  await loadAuthorHome();
+  builderWorkflowBusy = true; updateAuthorGate();
+  try {
+    await authorFetch(`/api/author/stories/${story.storyId}`, { method: "DELETE" });
+    if (getDraftStoryId() === story.storyId) {
+      delete draft.runtimeStory;
+      saveDraft();
+      els.apiResult.textContent = t("deleteStoryCurrentDraft");
+    } else {
+      els.apiResult.textContent = t("deleteStoryDone", { title });
+    }
+    els.authorAnalytics.textContent = t("deleteStoryDone", { title });
+    await loadAuthorHome();
+  } finally { builderWorkflowBusy = false; updateAuthorGate(); }
 }
 
 function addSceneAndFocus() {
@@ -2764,11 +2795,12 @@ function focusContext(targetContextId, fallback = null) {
 }
 
 async function openAuthorStory(storyId) {
-  const story = await authorFetch(`/api/author/stories/${storyId}/document`);
+  if (hasUnsavedChanges() && getDraftStoryId() && !confirm(t("switchUnsaved"))) return;
+  const detail = await authorFetch(`/api/author/stories/${storyId}`);
+  const story = detail.draftDocument;
   fromStoryJson(story);
-  bindDraftStory(storyId);
+  bindDraftStory(storyId, JSON.stringify(toStoryJson()), detail.draftRevision);
   els.apiResult.textContent = `Opened: ${story.title}`;
-  await showAuthorAnalytics(storyId);
 }
 
 async function showAuthorAnalytics(storyId) {
@@ -2777,26 +2809,34 @@ async function showAuthorAnalytics(storyId) {
 }
 
 async function showAuthorPreview(storyId) {
-  const preview = await authorFetch(`/api/author/stories/${storyId}/preview`);
-  els.authorAnalytics.textContent = JSON.stringify(preview, null, 2);
+  window.location.href = `/my-stories/?story=${encodeURIComponent(storyId)}`;
 }
 
 async function showAuthorVersions(storyId) {
-  const versions = await authorFetch(`/api/author/stories/${storyId}/versions`);
-  els.authorAnalytics.textContent = JSON.stringify(versions, null, 2);
-  const value = prompt(t("rollbackPrompt"));
-  if (!value) return;
-  const versionNumber = Number(value);
-  if (!Number.isInteger(versionNumber) || versionNumber <= 0) return;
-  await authorWorkflow(storyId, `versions/${versionNumber}/rollback`);
-  els.authorAnalytics.textContent = t("rollbackDone", { version: versionNumber });
+  window.location.href = `/my-stories/?story=${encodeURIComponent(storyId)}`;
 }
 
-async function authorWorkflow(storyId, action) {
-  const payload = await authorFetch(`/api/author/stories/${storyId}/${action}`, { method: "POST" });
-  els.apiResult.textContent = JSON.stringify(payload, null, 2);
-  await loadAuthorHome();
-  return payload;
+async function authorWorkflow(storyId, action, knownStory = null, alreadyBusy = false) {
+  if (builderWorkflowBusy && !alreadyBusy) return;
+  if (!["review", "withdraw", "archive"].includes(action)) throw new Error(t("authorRoleMissing"));
+  builderWorkflowBusy = true; updateAuthorGate();
+  try {
+    const story = knownStory || authorHomeCache?.stories?.find(item => item.storyId === storyId) || await authorFetch(`/api/author/stories/${storyId}`);
+    const replaceReview = action === "review" && story.reviewState === "in_review";
+    if (replaceReview && !confirm(t("replaceReviewConfirm", { revision: story.submittedRevision }))) return null;
+    if (action === "withdraw" && !confirm(t("withdrawConfirm", { title: story.title }))) return null;
+    if (action === "archive" && !confirm(t("archiveConfirm", { title: story.title }))) return null;
+    const payload = await authorFetch(`/api/author/stories/${storyId}/${action}`, {
+      method: "POST", ...(["review", "withdraw"].includes(action) ? { body: JSON.stringify({ generation: story.generation, replaceReview }) } : {}),
+    });
+    if (action === "review") authorFilter = filterAfterSubmit(authorFilter);
+    await loadAuthorHome();
+    els.apiResult.textContent = action === "review" ? t("reviewSent", { revision: payload.submittedRevision }) : t("changeSaved");
+    return payload;
+  } catch (error) {
+    if (error.status === 409) { await loadAuthorHome(); throw new Error(t("staleStory")); }
+    throw error;
+  } finally { if (!alreadyBusy) { builderWorkflowBusy = false; updateAuthorGate(); } }
 }
 
 document.querySelector("#add-variable").onclick = () => {
@@ -2867,46 +2907,51 @@ document.querySelector("#clear-draft").onclick = () => {
 
 document.querySelector("#import-runtime").onclick = () => runtimeCall("import");
 document.querySelector("#validate-runtime").onclick = () => runtimeCall("validate");
-document.querySelector("#publish-runtime").onclick = () => runtimeCall("publish");
+document.querySelector("#publish-runtime").onclick = () => runtimeCall("review");
 
 async function importDraftToRuntime(base = els.runtimeUrl.value.replace(/\/$/, "")) {
   const importedDraft = draft;
   const importedKey = draft.key;
+  const savedDocument = JSON.stringify(toStoryJson());
   const payload = await fetchJson(`${base}/api/author/stories/import`, {
     method: "POST",
     headers: {
       ...authorHeaders(true),
       Accept: "application/json",
     },
-    body: JSON.stringify(toStoryJson()),
+    body: savedDocument,
   });
   if (payload.storyId && draft === importedDraft && draft.key === importedKey && base === els.runtimeUrl.value.replace(/\/$/, "")) {
-    bindDraftStory(payload.storyId);
+    bindDraftStory(payload.storyId, savedDocument, payload.draftRevision);
   }
   await loadAuthorHome();
   return payload;
 }
 
 async function runtimeCall(action) {
+  if (builderWorkflowBusy) return;
+  builderWorkflowBusy = true; updateAuthorGate();
   try {
     const base = els.runtimeUrl.value.replace(/\/$/, "");
     if (canAuthor()) {
       let payload;
       if (action === "import") {
         payload = await importDraftToRuntime(base);
-        els.apiResult.textContent = JSON.stringify(payload, null, 2);
+        els.apiResult.textContent = t("savedOnServer", { revision: payload.draftRevision });
         return;
       }
-      if (action === "validate" || action === "publish") {
+      if (action === "validate" || action === "review") {
         let storyId = getDraftStoryId();
-        if (action === "publish") {
-          const publishingDraft = draft;
-          const publishingKey = draft.key;
+        if (action === "review") {
+          const submittingDraft = draft;
+          const submittingKey = draft.key;
+          const submittingDocument = JSON.stringify(toStoryJson());
           const imported = await importDraftToRuntime(base);
-          if (draft !== publishingDraft || draft.key !== publishingKey || base !== els.runtimeUrl.value.replace(/\/$/, "")) {
+          if (draft !== submittingDraft || draft.key !== submittingKey || JSON.stringify(toStoryJson()) !== submittingDocument || base !== els.runtimeUrl.value.replace(/\/$/, "")) {
             throw new Error(t("draftChanged"));
           }
-          storyId = imported.storyId;
+          await authorWorkflow(imported.storyId, "review", imported, true);
+          return;
         }
         if (!storyId) throw new Error(t("importFirst"));
         payload = await fetchJson(`${base}/api/author/stories/${storyId}/${action}`, {
@@ -2925,6 +2970,9 @@ async function runtimeCall(action) {
     throw new Error(t("authorRoleMissing"));
   } catch (error) {
     els.apiResult.textContent = error.message;
+  } finally {
+    builderWorkflowBusy = false;
+    updateAuthorGate();
   }
 }
 
@@ -2933,7 +2981,7 @@ async function fetchJson(url, options) {
 }
 
 async function fetchJsonAttempt(url, options, allowRefresh) {
-  const response = await fetch(url, { credentials: "include", ...options });
+  const response = await fetch(url, { credentials: "include", cache: "no-store", ...options });
   if (response.status === 401 && allowRefresh) {
     const base = els.runtimeUrl.value.replace(/\/$/, "");
     await refreshAuth(base);
@@ -2942,7 +2990,9 @@ async function fetchJsonAttempt(url, options, allowRefresh) {
   const text = await response.text();
   const payload = text ? JSON.parse(text) : {};
   if (!response.ok) {
-    throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
+    const error = new Error(payload.message || payload.detail || payload.error || `HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
   }
   return payload;
 }
@@ -2966,10 +3016,12 @@ els.authorStorySelect.onchange = () => {
   });
 };
 els.refreshAuthor.onclick = () => {
-  loadAuthorHome().catch((error) => {
+  bootstrapAuth().catch((error) => {
     els.authorState.textContent = error.message;
   });
 };
+document.querySelector("#author-filter").onchange = event => { authorFilter = event.target.value; renderAuthorWorkspace(); };
+document.querySelector("#author-search").oninput = event => { authorQuery = event.target.value; renderAuthorWorkspace(); };
 els.authorName.value = authorSession?.email || "";
 
 window.addEventListener("hashchange", () => {
@@ -2995,7 +3047,7 @@ function hasRole(role) {
 }
 
 function canAuthor() {
-  return hasRole("author") || hasRole("admin");
+  return canEditStories(authorSession);
 }
 
 async function bootstrapAuth() {
@@ -3022,4 +3074,10 @@ async function bootstrapAuth() {
   const user = await authorFetch("/auth/me");
   saveAuthorSession(user);
   await loadAuthorHome();
+  const requestedStory = params.get("story");
+  if (requestedStory && canAuthor()) {
+    params.delete("story");
+    window.history.replaceState({}, document.title, `${window.location.pathname}${params.size ? `?${params}` : ""}${window.location.hash}`);
+    await openAuthorStory(requestedStory);
+  }
 }

@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,11 +23,14 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.stereotype.Component;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -59,13 +63,11 @@ public class AuthServiceApplication {
 		SpringApplication.run(AuthServiceApplication.class, args);
 	}
 
+	@Bean
 	ApplicationRunner bootstrap(AuthStore store, @Value("${auth.bootstrap-admin-email:}") String adminEmail) {
 		return args -> {
 			if (adminEmail != null && !adminEmail.isBlank()) {
-				store.user(normalizeEmail(adminEmail), true).ifPresent(user -> {
-					store.grantRole(user.id(), "admin");
-					store.grantRole(user.id(), "author");
-				});
+				store.bootstrapAdmin(normalizeEmail(adminEmail));
 			}
 		};
 	}
@@ -197,10 +199,13 @@ class AuthController {
 			throw new ResponseStatusException(HttpStatus.CONFLICT, "User is blocked");
 		}
 		for (String role : request.safeGrantRoles()) {
-			if (!List.of("author", "admin").contains(role)) {
-				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only author/admin can be pre-granted");
+			if (!List.of("author", "moderator", "admin").contains(role)) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only author/moderator/admin can be pre-granted");
 			}
+		}
+		for (String role : request.safeGrantRoles()) {
 			store.grantRole(user.id(), role);
+			store.audit(admin.id(), admin.email(), "role_changed", roleChangeMetadata(user, role, true));
 		}
 		checkRate("admin-login:" + admin.id(), devMode ? 200 : 20, Duration.ofMinutes(15));
 		CreatedLoginLink generated = createLoginLink(
@@ -333,12 +338,9 @@ class AuthController {
 		if (link.usedAt() != null || link.expiresAt().isBefore(Instant.now())) {
 			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Login link expired");
 		}
-		User user = store.user(link.email(), true).orElseThrow();
-		if (isBootstrapAdmin(user.email())) {
-			store.grantRole(user.id(), "admin");
-			store.grantRole(user.id(), "author");
-			user = store.userById(user.id()).orElseThrow();
-		}
+		User user = isBootstrapAdmin(link.email())
+				? store.bootstrapAdmin(link.email()).orElseGet(() -> store.user(link.email(), true).orElseThrow())
+				: store.user(link.email(), true).orElseThrow();
 		if (user.blockedAt() != null) {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is blocked");
 		}
@@ -360,7 +362,8 @@ class AuthController {
 		if (token.revokedAt() != null || token.expiresAt().isBefore(Instant.now())) {
 			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expired");
 		}
-		User user = store.userBySession(token.sessionId()).orElseThrow();
+		User user = store.userBySession(token.sessionId())
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Session expired or revoked"));
 		if (user.blockedAt() != null) {
 			store.revokeSession(token.sessionId());
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is blocked");
@@ -375,9 +378,12 @@ class AuthController {
 
 	@GetMapping("/me")
 	Map<String, Object> me(@RequestHeader(name = "Authorization", required = false) String authorization,
-			@CookieValue(name = "fraer_access", required = false) String accessToken) {
-		User user = currentUser(authorization, accessToken);
-		return userView(user);
+			@CookieValue(name = "fraer_access", required = false) String accessToken, HttpServletResponse response) {
+		response.setHeader("Cache-Control", "private, no-store");
+		JwtClaims claims = currentClaims(authorization, accessToken);
+		User user = userForClaims(claims);
+		return Map.of("id", user.id(), "email", user.email(), "roles", user.roles(),
+				"blocked", false, "sessionId", claims.sessionId());
 	}
 
 	@PostMapping("/logout")
@@ -471,8 +477,8 @@ class AuthController {
 		if (!admin.roles().contains("admin")) {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
 		}
-		if (!List.of("player", "author", "admin").contains(request.role())) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only player/author/admin can be changed");
+		if (!List.of("player", "author", "moderator", "admin").contains(request.role())) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only player/author/moderator/admin can be changed");
 		}
 		User user = store.user(AuthServiceApplication.normalizeEmail(request.email()), true).orElseThrow();
 		if ("player".equals(request.role()) && request.grant()) {
@@ -484,7 +490,7 @@ class AuthController {
 		else {
 			store.removeRole(user.id(), request.role());
 		}
-		store.audit(admin.id(), admin.email(), "role_changed", "{\"target\":\"" + user.email() + "\"}");
+		store.audit(admin.id(), admin.email(), "role_changed", roleChangeMetadata(user, request.role(), request.grant()));
 		return userView(store.user(user.email(), true).orElseThrow());
 	}
 
@@ -499,6 +505,30 @@ class AuthController {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
 		}
 		return store.adminUsers(page, size, query);
+	}
+
+	@GetMapping("/author-request")
+	Map<String, String> authorRequestStatus(@RequestHeader(name = "Authorization", required = false) String authorization,
+			@CookieValue(name = "fraer_access", required = false) String accessToken, HttpServletResponse response) {
+		response.setHeader("Cache-Control", "private, no-store");
+		User user = currentUser(authorization, accessToken);
+		return Map.of("status", store.authorRequestStatus(user));
+	}
+
+	@PostMapping("/author-request")
+	Map<String, String> requestAuthorAccess(@RequestHeader(name = "Authorization", required = false) String authorization,
+			@CookieValue(name = "fraer_access", required = false) String accessToken) {
+		User user = currentUser(authorization, accessToken);
+		return Map.of("status", store.requestAuthorAccess(user.id()));
+	}
+
+	@GetMapping("/admin/author-requests")
+	List<AuthStore.AuthorRequest> authorRequests(@RequestHeader(name = "Authorization", required = false) String authorization,
+			@CookieValue(name = "fraer_access", required = false) String accessToken, HttpServletResponse response) {
+		response.setHeader("Cache-Control", "private, no-store");
+		User admin = currentUser(authorization, accessToken);
+		if (!admin.roles().contains("admin")) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
+		return store.authorRequests();
 	}
 
 	@GetMapping("/admin/login-requests")
@@ -625,6 +655,16 @@ class AuthController {
 				    td.actions button { display: block; width: 100%; margin: 0 0 6px; padding: 7px 9px; }
 				    .badge { display: inline-block; padding: 3px 7px; border-radius: 999px; background: #e8e0d4; font-size: 12px; }
 				    .hidden { display: none; }
+				    .author-access-pending { background: #f1e5ff; }
+				    .author-request-label { display: block; margin-top: 6px; color: #66358c; font-size: 12px; }
+				    #author-requests { padding: 18px; border: 1px solid #b993d3; border-radius: 12px; background: #faf3ff; }
+				    #author-requests h2 { margin: 0 0 12px; font-size: 20px; }
+				    .author-request { padding: 12px 0; border-top: 1px solid #dac4e8; overflow-wrap: anywhere; }
+				    .author-request p { margin: 0 0 6px; }
+				    @media (min-width: 1200px) {
+				      body.has-author-requests main { margin-right: 310px; }
+				      #author-requests { position: fixed; right: 18px; top: 32px; width: 250px; max-height: calc(100vh - 100px); overflow-y: auto; }
+				    }
 				    .muted { color: #6f665d; }
 				    a { color: #1f5f46; }
 				    @media (max-width: 680px) {
@@ -637,6 +677,10 @@ class AuthController {
 				</head>
 				<body>
 				  <main>
+				    <aside id="author-requests" class="hidden" aria-label="Заявки на права автора">
+				      <h2>Заявки авторов</h2>
+				      <div id="author-requests-list"></div>
+				    </aside>
 				    <h1>FraerApp права</h1>
 				    <p class="muted">Общая сессия FraerApp. Для этой панели нужна роль admin.</p>
 
@@ -655,6 +699,7 @@ class AuthController {
 				    <section id="me-section" class="hidden">
 				      <h2>Текущий вход</h2>
 				      <p id="me-line"></p>
+				      <p><a id="moderation-link" class="hidden" href="/moderation/">Модерация историй</a></p>
 				      <button id="logout" type="button" class="secondary">Выйти</button>
 				      <h3>Passkeys</h3>
 				      <label for="passkey-name">Название устройства</label>
@@ -735,6 +780,7 @@ class AuthController {
 				            <label for="role">Роль</label>
 				            <select id="role">
 				              <option value="author">author</option>
+				              <option value="moderator">moderator</option>
 				              <option value="admin">admin</option>
 				              <option value="player">player only</option>
 				            </select>
@@ -804,56 +850,7 @@ class AuthController {
 
 				    <section id="stories-section" class="hidden">
 				      <h2>Истории</h2>
-				      <div class="toolbar">
-				        <label>Статус
-				          <select id="story-status">
-				            <option value="all">Все</option>
-				            <option value="draft">draft</option>
-				            <option value="review">review</option>
-				            <option value="published">published</option>
-				            <option value="archived">archived</option>
-				          </select>
-				        </label>
-				        <label>На странице
-				          <select id="story-size">
-				            <option value="10">10</option>
-				            <option value="20" selected>20</option>
-				            <option value="50">50</option>
-				          </select>
-				        </label>
-				        <button id="refresh-stories" type="button" class="secondary">Обновить</button>
-				      </div>
-				      <div class="table-wrap">
-				        <table class="stories-table">
-				          <colgroup>
-				            <col style="width: 22%">
-				            <col style="width: 22%">
-				            <col style="width: 9%">
-				            <col style="width: 16%">
-				            <col style="width: 7%">
-				            <col style="width: 10%">
-				            <col style="width: 14%">
-				          </colgroup>
-				          <thead>
-				            <tr>
-				              <th>Название</th>
-				              <th>Ключ</th>
-				              <th>Статус</th>
-				              <th>Автор</th>
-				              <th>Запуски</th>
-				              <th>Обновлено</th>
-				              <th>Действия</th>
-				            </tr>
-				          </thead>
-				          <tbody id="stories-body"></tbody>
-				        </table>
-				      </div>
-				      <div class="pager">
-				        <button id="stories-prev" type="button" class="secondary">Назад</button>
-				        <span id="stories-page"></span>
-				        <button id="stories-next" type="button" class="secondary">Вперед</button>
-				      </div>
-				      <pre id="stories-result"></pre>
+				      <p><a href="/moderation/">Открыть модерацию: заявки, редакции и видимость историй</a></p>
 				    </section>
 				  </main>
 
@@ -872,7 +869,7 @@ class AuthController {
 				    const copyManualLink = document.querySelector("#copy-manual-link");
 				    const roleResult = document.querySelector("#role-result");
 				    const usersResult = document.querySelector("#users-result");
-				    const storiesResult = document.querySelector("#stories-result");
+
 				    const meLine = document.querySelector("#me-line");
 				    const passkeyResult = document.querySelector("#passkey-result");
 				    const passkeyList = document.querySelector("#passkey-list");
@@ -880,9 +877,46 @@ class AuthController {
 				    let requestTotalPages = 0;
 				    let userPage = 0;
 				    let userTotalPages = 0;
-				    let storyPage = 0;
-				    let storyTotalPages = 0;
+
+
 				    let currentManualLoginUrl = "";
+				    let authorRequests = new Map();
+				    setInterval(() => {
+				      if (!document.hidden && !usersSection.classList.contains("hidden")) {
+				        loadUsers().catch((error) => { usersResult.textContent = error.message; });
+				      }
+				    }, 30000);
+
+				    function renderAuthorRequests(items) {
+				      authorRequests = new Map(items.map((item) => [item.userId, item]));
+				      document.querySelector("#author-requests").classList.toggle("hidden", !items.length);
+				      document.body.classList.toggle("has-author-requests", !!items.length);
+				      const list = document.querySelector("#author-requests-list");
+				      list.replaceChildren();
+				      for (const item of items) {
+				        const card = document.createElement("div");
+				        card.className = "author-request";
+				        const message = document.createElement("p");
+				        message.textContent = item.email + " запрашивает права автора";
+				        const date = document.createElement("small");
+				        date.textContent = formatDate(item.requestedAt);
+				        const grant = document.createElement("button");
+				        grant.type = "button";
+				        grant.textContent = "Выдать права автора";
+				        grant.addEventListener("click", async () => {
+				          grant.disabled = true;
+				          try {
+				            await json("/auth/admin/roles", { method: "POST", body: { email: item.email, role: "author", grant: true } });
+				            await loadUsers();
+				          } catch (error) {
+				            grant.disabled = false;
+				            usersResult.textContent = error.message;
+				          }
+				        });
+				        card.append(message, date, grant);
+				        list.append(card);
+				      }
+				    }
 
 				    async function json(path, options = {}, allowRefresh = true) {
 				      const response = await fetch(path, {
@@ -913,9 +947,11 @@ class AuthController {
 				    }
 
 				    async function loadMe() {
+				      renderAuthorRequests([]);
 				      try {
 				        const me = await json("/auth/me");
 				        meLine.textContent = `${me.email} / ${me.roles.join(", ")}`;
+				        document.querySelector("#moderation-link").classList.toggle("hidden", !me.roles.some((role) => role === "admin" || role === "moderator"));
 				        meSection.classList.remove("hidden");
 				        loginSection.classList.add("hidden");
 				        loadPasskeys().catch((error) => { passkeyResult.textContent = error.message; });
@@ -927,14 +963,14 @@ class AuthController {
 				          storiesSection.classList.remove("hidden");
 				          loadLoginRequests();
 				          loadUsers();
-				          loadStories();
+
 				        } else {
 				          loginRequestsSection.classList.add("hidden");
 				          manualLinkSection.classList.add("hidden");
 				          rolesSection.classList.add("hidden");
 				          usersSection.classList.add("hidden");
 				          storiesSection.classList.add("hidden");
-				          roleResult.textContent = "Нужна роль admin. Проверь AUTH_BOOTSTRAP_ADMIN_EMAIL или выдайте admin в dev.";
+				          roleResult.textContent = "Нужна роль admin. Обратитесь к действующему администратору.";
 				        }
 				      } catch {
 				        loginSection.classList.remove("hidden");
@@ -1003,12 +1039,18 @@ class AuthController {
 				      authorLink.textContent = "Ссылка + author";
 				      authorLink.disabled = request.blocked;
 				      authorLink.addEventListener("click", () => createLoginLinkForRequest(request, ["author"]));
+				      const moderatorLink = document.createElement("button");
+				      moderatorLink.type = "button";
+				      moderatorLink.className = "secondary";
+				      moderatorLink.textContent = "Ссылка + moderator";
+				      moderatorLink.disabled = request.blocked;
+				      moderatorLink.addEventListener("click", () => createLoginLinkForRequest(request, ["moderator"]));
 				      const remove = document.createElement("button");
 				      remove.type = "button";
 				      remove.className = "danger";
 				      remove.textContent = "Удалить заявку";
 				      remove.addEventListener("click", () => deleteLoginRequest(request));
-				      stack.append(loginLink, authorLink, remove);
+				      stack.append(loginLink, authorLink, moderatorLink, remove);
 				      cell.append(stack);
 				      return cell;
 				    }
@@ -1039,7 +1081,11 @@ class AuthController {
 				    async function loadUsers() {
 				      const size = document.querySelector("#user-size").value;
 				      const query = document.querySelector("#user-query").value.trim();
-				      const page = await json(`/auth/admin/users?page=${userPage}&size=${size}&query=${encodeURIComponent(query)}`);
+				      const [page, requests] = await Promise.all([
+				        json(`/auth/admin/users?page=${userPage}&size=${size}&query=${encodeURIComponent(query)}`),
+				        json("/auth/admin/author-requests"),
+				      ]);
+				      renderAuthorRequests(requests);
 				      const runtime = await runtimeStats(page.items || []);
 				      userPage = page.page;
 				      userTotalPages = page.totalPages;
@@ -1077,6 +1123,7 @@ class AuthController {
 				      for (const user of items) {
 				        const runtime = runtimeByUserId.get(user.id) || {};
 				        const row = document.createElement("tr");
+				        row.classList.toggle("author-access-pending", authorRequests.has(user.id));
 				        row.append(
 				          td(user.email || ""),
 				          td((user.roles || []).join(", ")),
@@ -1087,6 +1134,12 @@ class AuthController {
 				          td(formatDate(user.createdAt)),
 				          userActionCell(user)
 				        );
+				        if (authorRequests.has(user.id)) {
+				          const label = document.createElement("span");
+				          label.className = "author-request-label";
+				          label.textContent = "Запрашивает права автора";
+				          row.firstElementChild.append(label);
+				        }
 				        body.append(row);
 				      }
 				    }
@@ -1100,7 +1153,7 @@ class AuthController {
 				      block.type = "button";
 				      block.className = user.blocked ? "secondary" : "danger";
 				      block.textContent = user.blocked ? "Разблокировать" : "Блокировать";
-				      block.addEventListener("click", () => blockUser(user, !user.blocked));
+				      block.addEventListener("click", () => blockUser(user, !user.blocked).catch((error) => { usersResult.textContent = error.message; }));
 					      const loginLink = document.createElement("button");
 					      loginLink.type = "button";
 					      loginLink.className = "secondary";
@@ -1111,8 +1164,23 @@ class AuthController {
 				      remove.type = "button";
 				      remove.className = "danger";
 				      remove.textContent = "Удалить";
-				      remove.addEventListener("click", () => deleteUser(user));
-					      stack.append(loginLink, block, remove);
+				      remove.addEventListener("click", () => deleteUser(user).catch((error) => { usersResult.textContent = error.message; }));
+				      const message = document.createElement("button");
+				      message.type = "button";
+				      message.className = "secondary";
+				      message.textContent = "Сообщение в личный кабинет";
+				      message.addEventListener("click", async () => {
+				        const text = window.prompt(`Сообщение для ${user.email} (до 2000 символов):`);
+				        if (!text?.trim()) return;
+				        if (text.trim().length > 2000) { usersResult.textContent = "Сообщение слишком длинное: максимум 2000 символов."; return; }
+				        message.disabled = true;
+				        try {
+				          await json("/api/account/admin/messages", { method: "POST", body: { userId: user.id, message: text.trim() } });
+				          usersResult.textContent = "Сообщение отправлено в личный кабинет.";
+				        } catch (error) { usersResult.textContent = error.message; }
+				        finally { message.disabled = false; }
+				      });
+				      stack.append(loginLink, message, block, remove);
 					      cell.append(stack);
 					      return cell;
 					    }
@@ -1158,46 +1226,6 @@ class AuthController {
 				      await Promise.all([loadUsers(), loadLoginRequests()]);
 				    }
 
-				    async function loadStories() {
-				      const status = document.querySelector("#story-status").value;
-				      const size = document.querySelector("#story-size").value;
-				      const page = await json(`/api/admin/stories?page=${storyPage}&size=${size}&status=${encodeURIComponent(status)}`);
-				      storyPage = page.page;
-				      storyTotalPages = page.totalPages;
-				      renderStories(page.items || []);
-				      document.querySelector("#stories-page").textContent =
-				        `Страница ${page.totalPages === 0 ? 0 : page.page + 1} из ${page.totalPages}, всего ${page.totalElements}`;
-				      document.querySelector("#stories-prev").disabled = page.page <= 0;
-				      document.querySelector("#stories-next").disabled = page.page + 1 >= page.totalPages;
-				    }
-
-				    function renderStories(items) {
-				      const body = document.querySelector("#stories-body");
-				      body.replaceChildren();
-				      if (!items.length) {
-				        const row = document.createElement("tr");
-				        const cell = document.createElement("td");
-				        cell.colSpan = 7;
-				        cell.textContent = "Историй нет.";
-				        row.append(cell);
-				        body.append(row);
-				        return;
-				      }
-				      for (const story of items) {
-				        const row = document.createElement("tr");
-				        row.append(
-				          td(story.title || ""),
-				          td(story.key || ""),
-				          tdBadge(story.status || ""),
-				          td(story.ownerName || ""),
-				          td(String(story.totalRuns ?? 0)),
-				          td(formatDate(story.updatedAt)),
-				          actionCell(story)
-				        );
-				        body.append(row);
-				      }
-				    }
-
 				    function td(text) {
 				      const cell = document.createElement("td");
 				      cell.textContent = text;
@@ -1211,39 +1239,6 @@ class AuthController {
 				      badge.textContent = text;
 				      cell.append(badge);
 				      return cell;
-				    }
-
-				    function actionCell(story) {
-				      const cell = document.createElement("td");
-				      cell.className = "actions";
-				      cell.append(
-				        actionButton("Опубликовать", "publish", story),
-				        actionButton("В архив", "archive", story),
-				        actionButton("Удалить", "delete", story, "danger")
-				      );
-				      return cell;
-				    }
-
-				    function actionButton(label, action, story, className = "secondary") {
-				      const button = document.createElement("button");
-				      button.type = "button";
-				      button.className = className;
-				      button.textContent = label;
-				      button.addEventListener("click", () => runStoryAction(story, action));
-				      return button;
-				    }
-
-				    async function runStoryAction(story, action) {
-				      if (action === "delete" && !confirm(`Удалить историю "${story.title}"? Это удалит сессии, сцены, версии и ассеты.`)) {
-				        return;
-				      }
-				      const method = action === "delete" ? "DELETE" : "POST";
-				      const path = action === "delete"
-				        ? `/api/admin/stories/${story.storyId}`
-				        : `/api/admin/stories/${story.storyId}/${action}`;
-				      const result = await json(path, { method });
-				      storiesResult.textContent = JSON.stringify(result, null, 2);
-				      await loadStories();
 				    }
 
 				    function formatDate(value) {
@@ -1353,9 +1348,11 @@ class AuthController {
 				        role: document.querySelector("#role").value,
 				        grant: document.querySelector("#grant").value === "true",
 				      };
-				      const result = await json("/auth/admin/roles", { method: "POST", body: payload });
-				      roleResult.textContent = JSON.stringify(result, null, 2);
-				      await loadUsers();
+				      try {
+				        const result = await json("/auth/admin/roles", { method: "POST", body: payload });
+				        roleResult.textContent = JSON.stringify(result, null, 2);
+				        await loadUsers();
+				      } catch (error) { roleResult.textContent = error.message; }
 				    });
 
 				    document.querySelector("#manual-link-form").addEventListener("submit", async (event) => {
@@ -1417,26 +1414,6 @@ class AuthController {
 				      loadUsers().catch((error) => { usersResult.textContent = error.message; });
 				    });
 
-				    document.querySelector("#story-status").addEventListener("change", () => {
-				      storyPage = 0;
-				      loadStories().catch((error) => { storiesResult.textContent = error.message; });
-				    });
-				    document.querySelector("#story-size").addEventListener("change", () => {
-				      storyPage = 0;
-				      loadStories().catch((error) => { storiesResult.textContent = error.message; });
-				    });
-				    document.querySelector("#refresh-stories").addEventListener("click", () => {
-				      loadStories().catch((error) => { storiesResult.textContent = error.message; });
-				    });
-				    document.querySelector("#stories-prev").addEventListener("click", () => {
-				      if (storyPage > 0) storyPage -= 1;
-				      loadStories().catch((error) => { storiesResult.textContent = error.message; });
-				    });
-				    document.querySelector("#stories-next").addEventListener("click", () => {
-				      if (storyPage + 1 < storyTotalPages) storyPage += 1;
-				      loadStories().catch((error) => { storiesResult.textContent = error.message; });
-				    });
-
 				    document.querySelector("#logout").addEventListener("click", async () => {
 				      await json("/auth/logout", { method: "POST" });
 				      location.href = "/auth/admin";
@@ -1465,8 +1442,8 @@ class AuthController {
 		if (!devMode) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND);
 		}
-		if (!List.of("player", "author", "admin").contains(request.role())) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only player/author/admin can be changed in dev");
+		if (!List.of("player", "author", "moderator", "admin").contains(request.role())) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only player/author/moderator/admin can be changed in dev");
 		}
 		User user = store.user(AuthServiceApplication.normalizeEmail(request.email()), true).orElseThrow();
 		if ("player".equals(request.role()) && request.grant()) {
@@ -1478,7 +1455,7 @@ class AuthController {
 		else {
 			store.removeRole(user.id(), request.role());
 		}
-		store.audit(user.id(), user.email(), "dev_role_changed", "{\"role\":\"" + request.role() + "\"}");
+		store.audit(user.id(), user.email(), "dev_role_changed", roleChangeMetadata(user, request.role(), request.grant()));
 		return userView(store.user(user.email(), true).orElseThrow());
 	}
 
@@ -1517,7 +1494,9 @@ class AuthController {
 	}
 
 	private User userForClaims(JwtClaims claims) {
-		User user = store.userById(claims.userId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+		User user = store.userBySession(claims.sessionId())
+				.filter(sessionUser -> sessionUser.id().equals(claims.userId()))
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Session expired or revoked"));
 		if (user.blockedAt() != null) {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is blocked");
 		}
@@ -1557,6 +1536,16 @@ class AuthController {
 
 	private Map<String, Object> userView(User user) {
 		return Map.of("id", user.id(), "email", user.email(), "roles", user.roles(), "blocked", user.blockedAt() != null);
+	}
+
+	private String roleChangeMetadata(User user, String role, boolean grant) {
+		try {
+			return new ObjectMapper().writeValueAsString(Map.of(
+					"target", user.email(), "targetUserId", user.id(), "role", role, "grant", grant));
+		}
+		catch (Exception ex) {
+			throw new IllegalStateException("Cannot record role change", ex);
+		}
 	}
 
 	private void sendMail(String email, String link) {
@@ -1835,9 +1824,27 @@ class JwtCodec {
 class AuthStore {
 
 	private final JdbcTemplate jdbc;
+	private final TransactionTemplate transactions;
 
 	AuthStore(JdbcTemplate jdbc) {
 		this.jdbc = jdbc;
+		this.transactions = new TransactionTemplate(new DataSourceTransactionManager(Objects.requireNonNull(jdbc.getDataSource())));
+	}
+
+	Optional<User> bootstrapAdmin(String email) {
+		return transactions.execute(status -> {
+			lockAdminRole();
+			if (jdbc.queryForObject("select count(*) from bootstrap_admin_initializations where email = ?", Long.class, email) > 0) {
+				return userByEmail(email);
+			}
+			User user = user(email, true).orElseThrow();
+			rememberBootstrapInitialization(email);
+			if (user.blockedAt() == null) {
+				grantRole(user.id(), "admin");
+				grantRole(user.id(), "author");
+			}
+			return userById(user.id());
+		});
 	}
 
 	Optional<User> user(String email, boolean create) {
@@ -2076,46 +2083,128 @@ class AuthStore {
 	}
 
 	void blockUser(String userId) {
-		Instant now = Instant.now();
-		jdbc.update("update users set blocked_at = ?, updated_at = ? where id = ?", timestamp(now), timestamp(now), userId);
-		revokeAllSessions(userId);
+		transactions.executeWithoutResult(status -> {
+			lockAdminRole();
+			lockUser(userId);
+			requireAnotherActiveAdmin(userId);
+			Instant now = Instant.now();
+			jdbc.update("update users set blocked_at = ?, updated_at = ? where id = ?", timestamp(now), timestamp(now), userId);
+			revokeAllSessions(userId);
+		});
 	}
 
 	void unblockUser(String userId) {
-		jdbc.update("update users set blocked_at = null, updated_at = ? where id = ?", timestamp(Instant.now()), userId);
+		transactions.executeWithoutResult(status -> {
+			lockAdminRole();
+			lockUser(userId);
+			jdbc.update("update users set blocked_at = null, updated_at = ? where id = ?", timestamp(Instant.now()), userId);
+		});
 	}
 
 	void deleteUser(String userId, String email) {
-		jdbc.update("delete from passkey_challenges where user_id = ?", userId);
-		jdbc.update("delete from passkey_credentials where user_id = ?", userId);
-		jdbc.update("""
-				delete from refresh_tokens
-				where session_id in (select id from sessions where user_id = ?)
-				""", userId);
-		jdbc.update("delete from sessions where user_id = ?", userId);
-		jdbc.update("delete from user_roles where user_id = ?", userId);
-		jdbc.update("delete from personal_data_consents where email = ?", email);
-		jdbc.update("delete from email_login_tokens where email = ?", email);
-		jdbc.update("delete from auth_audit_events where user_id = ? or email = ?", userId, email);
-		jdbc.update("delete from users where id = ?", userId);
+		transactions.executeWithoutResult(status -> {
+			lockAdminRole();
+			lockUser(userId);
+			requireAnotherActiveAdmin(userId);
+			rememberBootstrapInitialization(email);
+			jdbc.update("delete from passkey_challenges where user_id = ?", userId);
+			jdbc.update("delete from passkey_credentials where user_id = ?", userId);
+			jdbc.update("delete from telegram_identities where user_id = ?", userId);
+			jdbc.update("""
+					delete from refresh_tokens
+					where session_id in (select id from sessions where user_id = ?)
+					""", userId);
+			jdbc.update("delete from sessions where user_id = ?", userId);
+			jdbc.update("delete from user_roles where user_id = ?", userId);
+			jdbc.update("delete from personal_data_consents where email = ?", email);
+			jdbc.update("delete from email_login_tokens where email = ?", email);
+			jdbc.update("delete from auth_audit_events where user_id = ? or email = ?", userId, email);
+			jdbc.update("delete from users where id = ?", userId);
+		});
 	}
 
 	void grantRole(String userId, String role) {
-		jdbc.update("""
-				insert into user_roles(user_id, role_name, created_at)
-				select ?, ?, ? where not exists (select 1 from user_roles where user_id = ? and role_name = ?)
-				""", userId, role, timestamp(Instant.now()), userId, role);
+		transactions.executeWithoutResult(status -> {
+			lockAdminRole();
+			lockUser(userId);
+			jdbc.update("""
+					insert into user_roles(user_id, role_name, created_at)
+					select ?, ?, ? where not exists (select 1 from user_roles where user_id = ? and role_name = ?)
+					""", userId, role, timestamp(Instant.now()), userId, role);
+			if ("admin".equals(role)) userById(userId).ifPresent(user -> rememberBootstrapInitialization(user.email()));
+			if (List.of("author", "admin").contains(role)) jdbc.update("delete from author_access_requests where user_id=?", userId);
+		});
+	}
+
+	record AuthorRequest(String userId, String email, Instant requestedAt) {}
+	List<AuthorRequest> authorRequests() {
+		return jdbc.query("select r.user_id,u.email,r.requested_at from author_access_requests r join users u on u.id=r.user_id order by r.requested_at",
+			(r,n) -> new AuthorRequest(r.getString(1),r.getString(2),r.getTimestamp(3).toInstant()));
+	}
+	String authorRequestStatus(User user) {
+		if (user.roles().contains("author") || user.roles().contains("admin")) return "granted";
+		return jdbc.queryForObject("select count(*) from author_access_requests where user_id=?",Long.class,user.id()) > 0 ? "pending" : "none";
+	}
+	String requestAuthorAccess(String userId) {
+		return transactions.execute(transaction -> {
+			lockUser(userId);
+			User user = userById(userId).orElseThrow();
+			String status = authorRequestStatus(user);
+			if (!"none".equals(status)) return status;
+			jdbc.update("insert into author_access_requests(user_id,requested_at) values (?,?)",userId,timestamp(Instant.now()));
+			audit(userId,user.email(),"author_access_requested","{}");
+			return "pending";
+		});
 	}
 
 	void removeRole(String userId, String role) {
-		if (!"player".equals(role)) {
+		if ("player".equals(role)) return;
+		transactions.executeWithoutResult(status -> {
+			lockAdminRole();
+			lockUser(userId);
+			if ("admin".equals(role)) requireAnotherActiveAdmin(userId);
+			userById(userId).ifPresent(user -> rememberBootstrapInitialization(user.email()));
 			jdbc.update("delete from user_roles where user_id = ? and role_name = ?", userId, role);
-		}
+		});
 	}
 
 	void demoteToPlayer(String userId) {
-		grantRole(userId, "player");
-		jdbc.update("delete from user_roles where user_id = ? and role_name in ('author', 'admin')", userId);
+		transactions.executeWithoutResult(status -> {
+			lockAdminRole();
+			lockUser(userId);
+			requireAnotherActiveAdmin(userId);
+			userById(userId).ifPresent(user -> rememberBootstrapInitialization(user.email()));
+			grantRole(userId, "player");
+			jdbc.update("delete from user_roles where user_id = ? and role_name in ('author', 'moderator', 'admin')", userId);
+		});
+	}
+
+	private void lockAdminRole() {
+		// One durable row serializes all changes that can affect the active-admin count.
+		jdbc.queryForObject("select name from roles where name = 'admin' for update", String.class);
+	}
+
+	private void lockUser(String userId) {
+		jdbc.queryForList("select id from users where id = ? for update", userId);
+	}
+
+	private void requireAnotherActiveAdmin(String userId) {
+		User target = userById(userId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+		if (target.blockedAt() != null || !target.roles().contains("admin")) return;
+		long activeAdmins = jdbc.queryForObject("""
+				select count(*) from users u join user_roles r on r.user_id = u.id
+				where r.role_name = 'admin' and u.blocked_at is null
+				""", Long.class);
+		if (activeAdmins <= 1) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "At least one active admin must remain");
+		}
+	}
+
+	private void rememberBootstrapInitialization(String email) {
+		if (jdbc.queryForObject("select count(*) from bootstrap_admin_initializations where email = ?", Long.class, email) == 0) {
+			jdbc.update("insert into bootstrap_admin_initializations(email, initialized_at) values (?, ?)",
+					email, timestamp(Instant.now()));
+		}
 	}
 
 	void audit(String userId, String email, String eventType, String metadata) {

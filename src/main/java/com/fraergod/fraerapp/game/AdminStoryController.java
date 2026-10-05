@@ -1,89 +1,48 @@
 package com.fraergod.fraerapp.game;
 
-import java.util.Map;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-
+/** Compatibility routes require the same revision-aware decisions as the moderation page. */
 @RestController
 @RequestMapping("/api/admin/stories")
 class AdminStoryController {
-
-	private final StoryAdminService admin;
-	private final CurrentUserService currentUser;
-
-	AdminStoryController(StoryAdminService admin, CurrentUserService currentUser) {
-		this.admin = admin;
-		this.currentUser = currentUser;
-	}
-
-	@PostMapping("/import")
-	Object importStory(@RequestBody String body) {
-		currentUser.requireAdmin();
-		return admin.importStory(body);
-	}
-
-	@GetMapping
-	StoryAdminService.AdminStoryPage stories(@RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "20") int size,
-			@RequestParam(defaultValue = "all") String status) {
-		currentUser.requireAdmin();
-		return admin.adminStories(page, size, status);
-	}
-
-	@PostMapping("/{storyId}/validate")
-	StoryValidationResult validate(@PathVariable String storyId) {
-		currentUser.requireAdmin();
-		return admin.validateStory(storyId);
-	}
-
-	@GetMapping("/{storyId}/preview")
-	Object preview(@PathVariable String storyId) {
-		currentUser.requireAdmin();
-		return admin.preview(storyId, null);
-	}
-
-	@GetMapping("/{storyId}/versions")
-	Object versions(@PathVariable String storyId) {
-		currentUser.requireAdmin();
-		return admin.versions(storyId, null);
-	}
-
-	@PostMapping("/{storyId}/publish")
-	Object publish(@PathVariable String storyId) {
-		currentUser.requireAdmin();
-		return admin.publish(storyId);
-	}
-
-	@PostMapping("/{storyId}/review")
-	Object review(@PathVariable String storyId) {
-		currentUser.requireAdmin();
-		return admin.submitForReview(storyId, null);
-	}
-
-	@PostMapping("/{storyId}/archive")
-	Object archive(@PathVariable String storyId) {
-		currentUser.requireAdmin();
-		return admin.archive(storyId, null);
-	}
-
-	@DeleteMapping("/{storyId}")
-	Map<String, Object> delete(@PathVariable String storyId) {
-		currentUser.requireAdmin();
-		admin.deleteStory(storyId, null);
-		return Map.of("deleted", true, "storyId", storyId);
-	}
-
-	@PostMapping("/{storyId}/versions/{versionNumber}/rollback")
-	Object rollback(@PathVariable String storyId,
-			@PathVariable int versionNumber) {
-		currentUser.requireAdmin();
-		return admin.rollback(storyId, versionNumber, null);
-	}
+ private final StoryWorkflowService workflow;
+ private final CurrentUserService currentUser;
+ AdminStoryController(StoryWorkflowService workflow,CurrentUserService currentUser) {
+  this.workflow=workflow;this.currentUser=currentUser;
+ }
+ @PostMapping("/import") Object importStory(@RequestBody String body) {
+  currentUser.requireAdmin();return workflow.importAdminDraft(body,currentUser.requireAuthorPlayerId());
+ }
+ @GetMapping Object stories(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size,
+  @RequestParam(defaultValue="all") String status) {
+  currentUser.requireAdmin();return workflow.list(page,size,"",status,"all");
+ }
+ @GetMapping("/{id}/preview") Object preview(@PathVariable String id,@RequestParam(defaultValue="draft") String revision) {
+  currentUser.requireAdmin();return workflow.preview(id,null,true,revision);
+ }
+ @GetMapping("/{id}/versions") Object versions(@PathVariable String id) {
+  currentUser.requireAdmin();return workflow.details(id,null,true).get("versions");
+ }
+ @PostMapping("/{id}/validate") Object validate(@PathVariable String id) {
+  currentUser.requireAdmin();return workflow.validateDraft(id,null);
+ }
+ @PostMapping("/{id}/review") Object review(@PathVariable String id,@RequestBody AuthorStoryController.Submission command) {
+  currentUser.requireAdmin();return workflow.submit(id,null,command.generation(),Boolean.TRUE.equals(command.replaceReview()),currentUser.requireIdentity());
+ }
+ @PostMapping("/{id}/publish") Object publish(@PathVariable String id) {
+  currentUser.requireAdmin();
+  throw new ResponseStatusException(HttpStatus.CONFLICT,"Use a revision-aware moderation decision");
+ }
+ @PostMapping("/{id}/archive") Object archive(@PathVariable String id,@RequestBody StoryWorkflowService.Decision command) {
+  currentUser.requireAdmin();return workflow.decide(id,"archive",command,currentUser.requireIdentity());
+ }
+ @DeleteMapping("/{id}") Object delete(@PathVariable String id,@RequestBody StoryWorkflowService.Decision command) {
+  currentUser.requireAdmin();return workflow.decide(id,"delete",command,currentUser.requireIdentity());
+ }
+ @PostMapping("/{id}/versions/{number}/rollback") Object rollback(@PathVariable String id,@PathVariable int number) {
+  currentUser.requireAdmin();return workflow.rollback(id,null,number);
+ }
 }
