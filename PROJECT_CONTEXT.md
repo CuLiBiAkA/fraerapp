@@ -1,6 +1,16 @@
 # FraerApp project context
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-06.
+
+Moderation is deployed (2026-10-06, implementation `ecac99b`, engine-69,
+builder-38, workspace modules v1). `/my-stories/` and `/moderation/` are available
+through current-role checks; auth administration grants/revokes the independent
+moderator role. All four owner-approved legacy publications, their content,
+owners, links and saved runs were preserved. Runtime migration policy is back to
+`review`; a second API startup created no duplicate migration records. All six
+services are healthy, public guest/privacy checks and release asset hashes pass,
+and recent API/auth logs have no errors. Production mutating smoke tests did not
+use real accounts. See the moderation rollout section in DEPLOY_RUNBOOK.md.
 
 Builder theme v9/app builder-37: all Add actions use the peach/pink gradient, including nested choices, conditions, effects, local variables/assets and scenario-map Add controls. Dynamic controls use the add-button class through addButton; language and creation behavior are unchanged.
 

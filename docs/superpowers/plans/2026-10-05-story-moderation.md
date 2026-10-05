@@ -63,7 +63,7 @@ responsibilities belong in focused classes/modules. No general RBAC framework.
 
 - Completed: auth, story workflow, immutable runtime revisions, protected media,
   author workspace, moderation UI and Builder submission. Independent auth/story/UI
-  spec and quality reviews completed; supported issues fixed, final narrow review active.
+  spec and quality reviews completed; supported issues fixed and re-reviewed.
 - Verified: 69 frontend/Builder tests; 33 auth tests on H2 and isolated PostgreSQL;
   42 API tests on H2 and 14 workflow/migration tests on isolated PostgreSQL after
   all review corrections. Production validator, JS syntax (including auth admin)
@@ -73,15 +73,26 @@ responsibilities belong in focused classes/modules. No general RBAC framework.
   and 409 recovery. All mutation checks use isolated fixtures, not real accounts.
 - All supported independent review findings are resolved. No unresolved code review
   blocker remains. Native Safari/device passkeys have not been exercised.
-- Active: scoped commit, context/runbook updates and production deployment.
+- Production verified 2026-10-06: six healthy services, V8/V15 applied, four
+  unchanged publications and all legacy saves preserved, repeat initialization
+  idempotent, strict default restored, guest/role/privacy routes checked, public
+  asset bytes and image labels verified. Live guest recovery works. Backup and
+  restricted receipt: `backups/moderation-20261006-000143`.
+- Packaging used verified local Java 17 JARs after an outbound server Gradle TLS
+  failure. Static file modes and nginx redirect/mounted-config issues discovered
+  during deployment were corrected and production checks repeated successfully.
 - Git scope: the requested complete release includes necessary deployed but
   previously uncommitted account/engagement/author-request dependencies, their
   migrations, tests and referenced theme assets. This is needed for a reproducible
   commit of the verified release. Their provenance is the saved pre-task snapshot,
   not new moderation work. Unrelated legal pages, old artwork, map HTML and local
   preview script remain outside the release and are not overwritten.
-- Remaining: final checks; scoped commit and push; fresh production inspection,
-  backups, deployment and post-deployment verification. No production release or
-  Git commit for this moderation feature has happened yet.
-- Completion requires full accepted behavior, real checks, a commit and verified
-  production deployment; a green local slice is not completion.
+- Git: implementation committed as `ecac99b` on main; the follow-up nginx fix and
+  deployment closeout are committed with this record. Nine unrelated existing
+  files remain outside the commits and match the pre-task snapshot.
+- Push is not performed: automatic approval review required explicit authorization
+  for pushing main (including five pre-existing local commits). A separate user
+  question is pending. This does not block the explicitly authorized deployment.
+- Required implementation, testing, commit and production deployment are complete.
+  No real moderator account was assigned and no real user mutation was used as a
+  smoke test. The temporary database and SSH tunnel were removed after verification.

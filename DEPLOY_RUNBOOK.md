@@ -1,6 +1,26 @@
 # FraerApp deploy and ops runbook
 
-Last updated: 2026-10-05.
+Last updated: 2026-10-06.
+
+Moderation release verified 2026-10-06: implementation `ecac99b`, backup
+`backups/moderation-20261006-000143` includes initial and cutover dumps of both
+databases, runtime files, private env and a restricted `release-receipt.json`.
+V8/V15 applied successfully. Four unchanged publications received audited migration
+approval from the owner's explicit instruction; all legacy saves were pinned.
+The runtime policy is now `review`, and restart idempotence was verified. API/auth
+images use locally verified Java 17 artifacts because server Gradle download hit
+an outbound TLS error; transferred SHA-256 and running commit labels matched.
+Builder and edge were rebuilt/recreated as appropriate. Public engine-69,
+Builder-38, 16 JS/CSS files and four Builder entry/assets matched local bytes.
+All six services are healthy, guest catalogue contains exactly three demos,
+private APIs return 401, private pages redirect with Location/no-store/noindex,
+missing uploads return 404, and recent API/auth errors are zero. Live browser
+confirms the guest recovery page; privileged workflows use isolated fixtures.
+Validation: 42 API, 33 auth, 69 frontend/Builder tests; additionally 14 workflow/
+migration tests and all 33 auth tests on isolated PostgreSQL. Temporary PostgreSQL
+and its tunnel were removed. Git push was separately blocked by automatic approval
+review pending explicit user authorization; deployment used the verified local
+commit under the user's explicit deployment instruction.
 
 Builder theme v9/app builder-37 Add gradients: backup `backups/builder-add-buttons-20261005-132036`. Four public files match local after builder rebuild and edge reload; six services healthy, health/catalog 200, recent API/auth errors zero. Eight builder tests and browser checks at 1440/1024/390px pass, including Add colors after new scene creation and on the scenario map. No commit/push.
 
@@ -518,6 +538,11 @@ print database passwords, tokens, emails or raw auth logs.
 3. Back up both databases, `.env`, compose/nginx configs, API/auth source and
    frontend/Builder files to a restricted timestamped runtime backup. Verify dumps
    are nonempty/readable; never include backups or private env in Git.
+   Restrict backups with `umask 077`, then restore `umask 022` before extracting
+   application files. Static files must be 0644 and their directories 0755 so nginx
+   can read them. Never apply those public modes to `.env`, certificates, uploads
+   or backups. A copied static index with mode 0600 makes Builder return 403 and
+   fail its healthcheck even when nginx itself starts normally.
 4. Install release sources and build `auth-service`, `api`, `story-builder`.
    Deploy auth first and wait for health. Before the API cutover briefly stop old
    API writes, take a final API dump and compare the approved manifest. Set
@@ -538,12 +563,33 @@ print database passwords, tokens, emails or raw auth logs.
    hashes. Inspect recent logs without printing secrets. Remove the disposable
    PostgreSQL fixture and its SSH tunnel after checks.
 
+Private-page 401/403 handling must use a named nginx error handler that explicitly
+returns 302 with a `Location` header to the recovery page. An internal
+`error_page ... =302 /workspace-access.html` serves that page at the original URL,
+so the browser cannot read its `next` parameter. Verify the Location header and the
+actual browser URL, not only the response status or nginx syntax.
+Because nginx.conf is mounted as a single file, replacing it by extraction can
+leave the container bound to the previous inode. Recreate edge after replacing
+the file; a reload alone may still read the old configuration. Verify the mounted
+file or effective configuration in the running container before the URL smoke test.
+
 Rollback after V15 must keep publication enforcement. Do not start the old API,
 which can publish drafts directly and ignores revision pointers. Fix forward or
 keep story/API access temporarily unavailable while restoring a coordinated backup
 under maintenance. Retain both database dumps and immutable upload bytes. Restoring
 a database after new writes requires a separate recovery decision to avoid losing
 users' work. Frontend rollback alone must not re-enable direct publication.
+
+If the server cannot download Gradle because of an outbound TLS failure, do not
+disable TLS checks. Build `:bootJar :auth-service:bootJar` locally with Java 17 from
+the verified release, transfer the two artifacts and compare SHA-256 before use.
+Build runtime images using the unchanged final stages of the existing Dockerfiles
+(replace only `COPY --from=build ...` with the respective prebuilt JAR). Preserve
+the API entrypoint, upload ownership, memory options and Java runtime; add the
+release commit image label. Rebuild Builder normally. Record artifact hashes in
+the restricted deployment receipt and still perform every migration/health check.
+This is an operational packaging alternative, not permission to change dependency
+versions, omit tests or replace an image with an unverified artifact.
 
 ## Git handoff checklist
 
