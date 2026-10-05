@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "kind": "fraerapp-work-package",
+  "root": {"kind": "collection", "key": "example_catalog"},
+  "scenarios": [
+    {
+      "key": "example_ticket", "title": "Билет", "description": "Первая глава: решение читателя влияет на продолжение.",
+      "version": 1, "completionStatus": "completed", "startSceneId": "start",
+      "variables": {"courage": {"value": 1, "showInStats": true}, "helpedConductor": false}, "assets": [],
+      "scenes": [
+        {"id": "start", "title": "На платформе", "text": "Проводник просит помочь с чемоданом.", "choices": [
+          {"id": "help", "label": "Помочь", "target": "end", "effects": [{"inc": "courage", "value": 2}, {"set": "helpedConductor", "value": true}]},
+          {"id": "pass", "label": "Пройти в вагон", "target": "end"}
+        ]},
+        {"id": "end", "title": "Билет получен", "text": "Поезд отправляется.", "ending": {"type": "ending", "title": "В путь"}, "choices": []}
+      ]
+    },
+    {
+      "key": "example_carriage", "title": "Вагон", "description": "Вторая глава получает только выбранные параметры.",
+      "version": 1, "completionStatus": "completed", "startSceneId": "start",
+      "variables": {"initialCourage": {"value": 0, "showInStats": true}, "metAlly": false}, "assets": [],
+      "metadata": {
+        "schemaVersion": 1,
+        "inputContract": {"version": 1, "allowIndependentStart": false, "fields": [
+          {"name": "initialCourage", "type": "number", "required": true, "min": 0, "max": 10},
+          {"name": "metAlly", "type": "boolean", "required": false, "defaultValue": false}
+        ]},
+        "relations": [{"id": "visit_keeper", "type": "sequel", "target": {"kind": "scenario", "key": "example_keeper"}, "label": "Прочитать историю смотрителя", "stateTransfer": {"mode": "independent"}}]
+      },
+      "scenes": [{"id": "start", "title": "В купе", "text": "Смелость: {{initialCourage}}. Вы помогли проводнику: {{metAlly}}.", "ending": {"type": "ending", "title": "Ночь начинается"}, "choices": []}]
+    },
+    {
+      "key": "example_keeper", "title": "Смотритель", "description": "Самостоятельная история с независимым началом.",
+      "version": 1, "completionStatus": "completed", "startSceneId": "start", "variables": {}, "assets": [],
+      "scenes": [{"id": "start", "title": "На станции", "text": "Смотритель закрывает двери пустого вокзала.", "ending": {"type": "ending", "title": "До завтра"}, "choices": []}]
+    }
+  ],
+  "collections": [
+    {
+      "schemaVersion": 1, "key": "example_train", "type": "story", "title": "Ночной поезд", "description": "Две главы одного прохождения.", "completionStatus": "completed",
+      "items": [{"target": {"kind": "scenario", "key": "example_ticket"}}, {"target": {"kind": "scenario", "key": "example_carriage"}}],
+      "transitions": [{"id": "ticket_to_carriage", "from": {"kind": "scenario", "key": "example_ticket"}, "to": {"kind": "scenario", "key": "example_carriage"}, "stateTransfer": {"mode": "mapped", "contractVersion": 1, "mapping": [{"from": "courage", "to": "initialCourage", "type": "number"}, {"from": "helpedConductor", "to": "metAlly", "type": "boolean"}]}}]
+    },
+    {"schemaVersion": 1, "key": "example_volume", "type": "volume", "title": "Первый переход", "description": "История с главами и самостоятельный рассказ.", "completionStatus": "completed", "items": [{"target": {"kind": "collection", "key": "example_train"}}, {"target": {"kind": "scenario", "key": "example_keeper"}}], "transitions": []},
+    {"schemaVersion": 1, "key": "example_cycle", "type": "cycle", "title": "По ту сторону", "description": "Цикл историй.", "completionStatus": "in_development", "items": [{"target": {"kind": "collection", "key": "example_volume"}}], "transitions": []},
+    {"schemaVersion": 1, "key": "example_catalog", "type": "catalog", "title": "Фантастика", "description": "Пример тематического каталога.", "completionStatus": "in_development", "items": [{"target": {"kind": "collection", "key": "example_cycle"}}], "transitions": []}
+  ]
+}

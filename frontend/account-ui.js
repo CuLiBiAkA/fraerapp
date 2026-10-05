@@ -27,12 +27,16 @@ export function createAccountUI({ request, email, language }) {
       const text = document.createElement('p');
       text.textContent = notice.kind === 'story' ? `${ru() ? 'Новые сцены в истории' : 'New scenes in'} «${notice.message}»` : notice.message;
       row.append(text);
-      if ((notice.kind === 'moderation' && notice.storyId) || notice.slug) {
+      if ((notice.kind === 'moderation' && notice.storyId) || notice.slug || notice.collectionId) {
         const link = document.createElement('a');
-        link.href = notice.kind === 'moderation' && notice.storyId
+        link.href = notice.collectionId
+          ? (notice.kind === 'collection_moderation' || notice.kind === 'moderation'
+            ? `/my-stories/?view=collections&collection=${encodeURIComponent(notice.collectionId)}`
+            : `/collections/${encodeURIComponent(notice.collectionId)}`)
+          : notice.kind === 'moderation' && notice.storyId
           ? `/my-stories/?story=${encodeURIComponent(notice.storyId)}${notice.revision ? `&revision=${encodeURIComponent(notice.revision)}` : ''}`
           : `/history/${encodeURIComponent(notice.slug)}`;
-        link.textContent = notice.kind === 'moderation' ? (ru() ? 'Открыть решение' : 'View decision') : (ru() ? 'Открыть историю' : 'Open story'); row.append(link);
+        link.textContent = ['moderation','collection_moderation'].includes(notice.kind) ? (ru() ? 'Открыть решение' : 'View decision') : (ru() ? 'Открыть историю' : 'Open story'); row.append(link);
       }
       if (notice.unread) {
         const read = document.createElement('button'); read.type = 'button'; read.textContent = ru() ? 'Прочитано' : 'Mark as read';

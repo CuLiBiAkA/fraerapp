@@ -30,6 +30,15 @@ class JsonSupport {
 		}
 	}
 
+	CollectionDocument readCollection(String json) {
+		try { return mapper.readValue(json, CollectionDocument.class); }
+		catch (Exception ex) { throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Invalid collection JSON"); }
+	}
+	<T> T readValue(String json,Class<T> type) {
+		try { return mapper.readValue(json,type); }
+		catch(Exception ex) { throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Invalid request JSON"); }
+	}
+
 	String writeVariables(Map<String, JsonNode> variables) {
 		Map<String, Object> values = new LinkedHashMap<>();
 		if (variables != null) {

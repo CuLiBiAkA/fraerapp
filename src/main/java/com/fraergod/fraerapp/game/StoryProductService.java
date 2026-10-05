@@ -26,10 +26,11 @@ class StoryProductService {
 	private final StoryAssetStorageService assetStorage;
 	private final StoryWorkflowService workflow;
 	private final StoryAccessService access;
+	private final CollectionService collections;
 
 	StoryProductService(PlayerRepository players, StoryRepository stories, SceneRepository scenes, ChoiceRepository choices,
 			StoryAssetRepository assets, GameSessionRepository sessions, JsonSupport json, StoryAdminService admin,
-			StoryAssetStorageService assetStorage,StoryWorkflowService workflow,StoryAccessService access) {
+			StoryAssetStorageService assetStorage,StoryWorkflowService workflow,StoryAccessService access,CollectionService collections) {
 		this.players = players;
 		this.stories = stories;
 		this.scenes = scenes;
@@ -41,6 +42,7 @@ class StoryProductService {
 		this.assetStorage = assetStorage;
 		this.workflow = workflow;
 		this.access = access;
+		this.collections = collections;
 	}
 
 	@Transactional(readOnly = true)
@@ -153,8 +155,10 @@ class StoryProductService {
 
 	@Transactional(readOnly = true)
 	List<PublishedStorySummary> publishedCatalog(String playerId) {
+		var chapters=collections.listedChapterIds();
 		Map<String, GameSession> lastSessionByStoryId = lastSessionByStoryId(playerId);
 		return stories.findByStatusAndPublishedSlugIsNotNullOrderByPublishedAtDesc(StoryStatus.PUBLISHED).stream().filter(StoryAccessService::listed)
+				.filter(story -> !chapters.contains(story.getId()))
 				.map(story -> {
 					long totalRuns = sessions.countByStoryId(story.getId());
 					long finishedRuns = sessions.countByStoryIdAndStatus(story.getId(), SessionStatus.FINISHED);

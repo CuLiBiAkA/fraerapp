@@ -7,7 +7,8 @@ import {
 
 import { enhanceFilterSelect } from "./filter-select.js?v=1";
 import { observeHomeFit } from "./home-fit.js?v=3";
-import { createAccountUI } from "./account-ui.js?v=3";
+import { createAccountUI } from "./account-ui.js?v=4";
+import { createCollectionReader } from "./collection-reader.js?v=1";
 
 observeHomeFit();
 
@@ -613,7 +614,9 @@ function setLanguage(language) {
   storage.setLanguage(currentLanguage);
   applyTranslations();
   updateSoundLabel();
-  if (currentState) {
+  if (!document.querySelector("#collection-screen")?.classList.contains("hidden")) {
+    collectionReader.refresh();
+  } else if (currentState) {
     render(currentState);
   } else if (!storyScreen.classList.contains("hidden") && catalogStories.length > 0) {
     renderStoryPage();
@@ -674,6 +677,7 @@ function shouldRefreshAuth(path) {
 }
 
 function showOnly(screen) {
+  document.querySelector("#collection-screen")?.classList.toggle("hidden", screen !== document.querySelector("#collection-screen"));
   authLoadingScreen.classList.toggle("hidden", screen !== authLoadingScreen);
   loginScreen.classList.toggle("hidden", screen !== loginScreen);
   storyScreen.classList.toggle("hidden", screen !== storyScreen);
@@ -1044,6 +1048,16 @@ async function handleRoute() {
   appNotice.classList.add("hidden");
   try {
     const path = normalizePath(window.location.pathname);
+    if (path.startsWith("/collections/")) {
+      currentState = null;
+      await collectionReader.open(decodeURIComponent(path.slice("/collections/".length)));
+      return;
+    }
+    if (path.startsWith("/read/")) {
+      if (!storage.email) { await showPublicHome(); openAuthModal(); return; }
+      await continueStory(decodeURIComponent(path.slice("/read/".length)));
+      return;
+    }
     if (path === "/history") {
       if (!storage.email) {
         window.history.replaceState({}, document.title, "/");
@@ -1110,12 +1124,13 @@ async function renderStoryDetailRoute(rawSlug) {
 async function loadPublicStoryDetail(slug) {
   // Direct links can refer to unlisted publications. Never insert them into the catalogue.
   const story = await request(`/api/catalog/stories/${encodeURIComponent(slug)}`);
-  const [metrics, saves] = await Promise.all([
+  const [metrics, saves, entryContext] = await Promise.all([
     request(`/api/catalog/engagement/${encodeURIComponent(story.slug)}`),
     storage.email ? request(`/api/stories/${encodeURIComponent(story.key)}/sessions`) : Promise.resolve([]),
+    storage.email ? request(`/api/catalog/stories/${encodeURIComponent(story.slug)}/entry-context`) : Promise.resolve(null),
   ]);
   const latest = saves[0];
-  return { ...story, ...metrics,
+  return { ...story, ...metrics, entryContext,
     lastSessionId: latest?.sessionId || null, lastSessionStatus: latest?.status || null,
     lastSaveName: latest?.saveName || null, lastSceneTitle: latest?.sceneTitle || null,
     lastPlayedAt: latest?.updatedAt || null, completionRate: latest?.completionRate || 0,
@@ -1203,6 +1218,7 @@ function renderStoryDetail(story) {
     if (!storage.email) return openAuthModal();
     startStoryRun(story.key).catch((error) => setStatus(t("errorPrefix", { message: error.message })));
   };
+  collectionReader.storyEntry(story);
   if (opening && !storage.email) {
     openModal(document.querySelector("#demo-welcome-modal"));
     storyDetailScreen.inert = true;
@@ -1495,6 +1511,7 @@ function favoriteEmptyMessage() {
 
 function renderStoryPage() {
   showOnly(storyScreen);
+  collectionReader.catalog(storySearch.value.trim(), storySort.value === "favorites");
   storiesList.replaceChildren();
   const query = storySearch.value.trim().toLowerCase();
   const filtered = sortStories(catalogStories.filter((story) => storyMatchesQuery(story, query)
@@ -1750,6 +1767,7 @@ function storyMatchesQuery(story, query) {
 function render(state) {
   catalogStories = []; // Reload personal progress and endings when returning from gameplay.
   currentState = state;
+  collectionReader.session(state);
   releaseChoices();
   const scene = state.scene;
   showOnly(sceneScreen);
@@ -2236,6 +2254,12 @@ function updatePasskeyAvailability() {
 
 sound = createSound();
 const accountUI = createAccountUI({ request, email: () => storage.email, language: () => storage.language });
+const collectionReader = createCollectionReader({
+  screen:document.querySelector("#collection-screen"), sceneScreen,
+  catalogHost:document.querySelector("#collection-catalog"), showScreen:showOnly, navigate:navigateTo,
+  signedIn:()=>Boolean(storage.email), signIn:openAuthModal,
+  onSession:(session,runId)=>{stopSound({resetPreference:true});storage.setGame(session);history.pushState({},"",`/read/${encodeURIComponent(session.sessionId)}${runId?`?run=${encodeURIComponent(runId)}`:""}`);render(session);},
+});
 applyTranslations();
 updateSoundLabel();
 updateConsentState();

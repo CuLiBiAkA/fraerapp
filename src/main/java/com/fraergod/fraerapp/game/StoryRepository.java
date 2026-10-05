@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 interface StoryRepository extends JpaRepository<Story, String> {
 
 	Optional<Story> findByKey(String key);
+	List<Story> findByKeyIn(java.util.Collection<String> keys);
 
 	List<Story> findByStatusOrderByTitleAsc(StoryStatus status);
 

@@ -58,13 +58,16 @@ test("unlisted direct detail loads published metadata, per-story metrics and lat
       if(path==="/api/catalog/stories/secret-slug")return {slug:"secret-slug",key:"unlisted_key",title:"Published revision"};
       if(path==="/api/catalog/engagement/secret-slug")return {slug:"secret-slug",views:3,discoveredEndings:1};
       if(path==="/api/stories/unlisted_key/sessions")return [{sessionId:"latest",status:"active",completionRate:45,updatedAt:"2026-10-05"},{sessionId:"older",status:"finished"}];
+      if(path==="/api/catalog/stories/secret-slug/entry-context")return {allowIndependentStart:false,parents:[],sources:[{sourceSessionId:"previous",relationId:"sequel"}]};
       throw new Error(`Unexpected path ${path}`);
     },
   });
   const detail=await context.loadPublicStoryDetail("secret-slug");
   assert.equal(detail.title,"Published revision"); assert.equal(detail.lastSessionId,"latest");
   assert.equal(detail.lastSessionStatus,"active"); assert.equal(detail.completionRate,45); assert.equal(detail.discoveredEndings,1);
-  assert.equal(calls.length,3); assert.deepEqual(catalogStories,[{slug:"public-story"}]);
+  assert.equal(calls.length,4); assert.deepEqual(catalogStories,[{slug:"public-story"}]);
+  assert.equal(detail.entryContext.allowIndependentStart,false);
+  assert.equal(detail.entryContext.sources[0].sourceSessionId,"previous");
 });
 
 test("guest direct detail relies on server visibility check and does not request reader saves", async () => {

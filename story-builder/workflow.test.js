@@ -11,7 +11,7 @@ function harness(names, overrides = {}) {
   const context = vm.createContext({
     draft: { key: "story-a", variables: [], assets: [], scenes: [] },
     localStorage: { setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) },
-    storageKey: "draft", t: key => key, render() {}, saveDraft() {},
+    storageKey: "draft", t: key => key, render() {}, saveDraft() {}, structuredClone,
     els: { runtimeUrl: { value: "https://example.test" }, apiResult: {}, authorAnalytics: {} },
     canAuthor: () => true, authorHeaders: () => ({}), loadAuthorHome: async () => {},
     importDraftToRuntime: async () => { calls.push("import"); },
@@ -53,6 +53,21 @@ test("import/export preserves global definitions shadowed in one scene", () => {
   assert.equal(result.scenes[0].variables.score, "local");
   assert.equal(result.scenes[0].assets[0].url, "/local.png");
   assert.equal(result.scenes[1].background, "bg");
+});
+
+test("Builder keeps chapter input contracts, relations and completion through editing and export", () => {
+  const { context } = harness(["fromStoryJson", "toStoryJson", "serializeVariable", "variableValue", "detectType", "coerceValue", "parseMetadata"], {
+    serializeEffects: () => [], serializeConditions: () => [], parseEffects: () => [],
+  });
+  const metadata = {schemaVersion:1,relations:[{id:"next",type:"sequel",target:{kind:"scenario",key:"second"},stateTransfer:{mode:"mapped",contractVersion:1,mapping:[{from:"score",to:"courage",type:"number"}]}}],inputContract:{version:1,allowIndependentStart:true,fields:[{name:"score",type:"number",required:false,defaultValue:0}]}};
+  const story = {key:"first",title:"First",completionStatus:"completed",metadata,startSceneId:"end",variables:{score:7},assets:[],scenes:[{id:"end",title:"End",text:"End",choices:[],ending:{type:"ending"}}]};
+  context.fromStoryJson(story);
+  context.draft.title = "Edited title";
+  const result = JSON.parse(JSON.stringify(context.toStoryJson()));
+  assert.deepEqual(result.metadata,metadata);
+  assert.equal(result.completionStatus,"completed");
+  result.metadata.relations[0].id = "changed-copy";
+  assert.equal(context.draft.metadata.relations[0].id,"next");
 });
 
 test("checking a saved story never imports or changes publication", async () => {
@@ -126,7 +141,7 @@ test("renaming global artwork preserves a local shadow with the same name", () =
 test("malformed imports leave the current draft untouched", () => {
   const {context}=harness(["fromStoryJson"]);
   const original=context.draft;
-  for (const invalid of [null, [], {}, {scenes:[null]}]) {
+  for (const invalid of [null, [], {}, {scenes:[null]}, {scenes:[],metadata:[]}, {scenes:[],metadata:{relations:{}}}, {scenes:[],metadata:{relations:[{stateTransfer:{mapping:{}}}]}}, {scenes:[],metadata:{inputContract:{fields:{}}}}]) {
     assert.throws(()=>context.fromStoryJson(invalid));
     assert.equal(context.draft,original);
   }

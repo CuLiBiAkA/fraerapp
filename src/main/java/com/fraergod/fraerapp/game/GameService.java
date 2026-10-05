@@ -31,9 +31,10 @@ class GameService {
 	private final JsonSupport json;
 	private final StoryAccessService access;
 	private final org.springframework.jdbc.core.JdbcTemplate jdbc;
+	private final WorkLinksService links;
 
 	GameService(PlayerRepository players, StoryRepository stories, SceneRepository scenes, ChoiceRepository choices,
-			StoryAssetRepository assets, GameSessionRepository sessions, JsonSupport json, StoryAccessService access, org.springframework.jdbc.core.JdbcTemplate jdbc) {
+			StoryAssetRepository assets, GameSessionRepository sessions, JsonSupport json, StoryAccessService access, org.springframework.jdbc.core.JdbcTemplate jdbc, WorkLinksService links) {
 		this.players = players;
 		this.stories = stories;
 		this.scenes = scenes;
@@ -43,6 +44,7 @@ class GameService {
 		this.json = json;
 		this.access = access;
 		this.jdbc = jdbc;
+		this.links = links;
 	}
 
 	@Transactional
@@ -66,17 +68,27 @@ class GameService {
 
 	@Transactional
 	SessionState createSession(String playerId, String storyKey, String saveName) {
+		lockReader(playerId);
 		Player player = player(playerId);
 		Story story = stories.findByKey(storyKey)
 				.filter(StoryAccessService::available)
 				.orElseThrow(StoryNotFoundException::new);
 		story = access.atRevision(story, story.getPublishedRevision());
+		Map<String,Object> inputs=links.transfer(null,story.getRuntimeDocument(),null,Map.of());
+		return startTransferredSession(playerId,story,inputs,saveName);
+	}
+
+	void lockReader(String playerId) { jdbc.queryForObject("select id from players where id=? for update",String.class,playerId); }
+
+	SessionState startTransferredSession(String playerId, Story story, Map<String,Object> inputs, String saveName) {
+		Player player=player(playerId);
 		String resolvedSaveName = blank(saveName)
 				? "Save " + (sessions.countByPlayerIdAndStoryId(player.getId(), story.getId()) + 1)
 				: saveName;
 		GameSession session = sessions.save(new GameSession(player.getId(), story, resolvedSaveName));
 		Scene start = scene(story, story.getStartSceneId());
 		Map<String, Object> variables = json.readMap(session.getVariablesJson());
+		variables.putAll(inputs);
 		applySceneEffects(variables, start);
 		session.setVariablesJson(json.write(variables));
 		if (json.readObject(start.getEndingJson()) != null) {
@@ -123,6 +135,7 @@ class GameService {
 
 	@Transactional
 	SessionState choose(String playerId, String sessionId, String choiceId) {
+		lockReader(playerId);
 		GameSession session = session(playerId, sessionId);
 		if (session.getStatus() == SessionStatus.FINISHED) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Session is finished");
@@ -155,11 +168,14 @@ class GameService {
 
 	@Transactional
 	SessionState reset(String playerId, String sessionId) {
+		lockReader(playerId);
 		GameSession session = session(playerId, sessionId);
 		Story story = runtimeStory(session);
+		Map<String,Object> inputs=links.transfer(null,story.getRuntimeDocument(),null,Map.of());
 		session.reset(story);
 		Scene start = scene(story, story.getStartSceneId());
 		Map<String, Object> variables = json.readMap(session.getVariablesJson());
+		variables.putAll(inputs);
 		applySceneEffects(variables, start);
 		session.setVariablesJson(json.write(variables));
 		return state(session, story, start);

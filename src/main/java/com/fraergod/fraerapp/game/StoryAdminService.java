@@ -224,6 +224,7 @@ class StoryAdminService {
 		document.put("genre", story.getGenre());
 		document.put("completionStatus", story.getCompletionStatus());
 		document.put("version", story.getVersion());
+		if (story.getMetadataJson() != null) document.put("metadata", json.readMap(story.getMetadataJson()));
 		document.put("startSceneId", story.getStartSceneId());
 		document.put("variables", exportVariables(story));
 		document.put("assets", assets.findByStoryId(story.getId()).stream()
@@ -278,6 +279,7 @@ class StoryAdminService {
 			deleteChildren(story.getId());
 		}
 		story.setTitle(document.title());
+		story.setMetadataJson(document.metadata() == null ? null : json.write(document.metadata()));
 		story.setDescription(document.description());
 		story.setGenre(document.genre());
 		if (document.completionStatus() != null) story.setCompletionStatus(document.completionStatus());

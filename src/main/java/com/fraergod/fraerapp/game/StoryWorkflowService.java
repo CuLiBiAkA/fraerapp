@@ -19,14 +19,16 @@ class StoryWorkflowService {
  private final JdbcTemplate jdbc;
  private final JsonSupport json;
  private final AccountService accounts;
+ private final CollectionService collections;
+ private final WorkLinksService links;
  private final String legacyPolicy;
  @jakarta.persistence.PersistenceContext
  private jakarta.persistence.EntityManager entityManager;
  StoryWorkflowService(StoryRepository stories, StoryVersionRepository versions, StoryAdminService content,
-   PlayerRepository players, JdbcTemplate jdbc, JsonSupport json, AccountService accounts,
+   PlayerRepository players, JdbcTemplate jdbc, JsonSupport json, AccountService accounts, CollectionService collections, WorkLinksService links,
    @Value("${app.moderation.legacy-policy:review}") String legacyPolicy) {
   this.stories=stories;this.versions=versions;this.content=content;this.players=players;
-  this.jdbc=jdbc;this.json=json;this.accounts=accounts;this.legacyPolicy=legacyPolicy;
+  this.jdbc=jdbc;this.json=json;this.accounts=accounts;this.legacyPolicy=legacyPolicy;this.collections=collections;this.links=links;
  }
  record Workspace(String draftJson,int draftRevision,Integer submittedRevision,String reviewState,String reason,
    Instant submittedAt,Instant decidedAt,String reviewerId,boolean restricted,int generation) {}
@@ -105,7 +107,10 @@ class StoryWorkflowService {
   return importDraft(body,null,Objects.requireNonNull(creatorPlayerId));
  }
  private Map<String,Object> importDraft(String body,String playerId,String newOwnerPlayerId) {
+  collections.structureLock();
   StoryDocument doc=json.readStory(body);
+  doc=links.normalize(doc,newOwnerPlayerId,false);
+  if(doc.metadata()!=null)body=json.write(doc);
   var valid=content.validate(doc);
   if(!valid.valid())throw new ResponseStatusException(HttpStatus.BAD_REQUEST,String.join("; ",valid.errors()));
   checkMedia(doc,true);
@@ -130,11 +135,14 @@ class StoryWorkflowService {
  }
  @Transactional
  Map<String,Object> submit(String id,String playerId,int generation,boolean replaceReview,AuthIdentity actor) {
+  collections.structureLock();
   Story s=lock(id);if(playerId!=null)owner(s,playerId);editable(s);Workspace w=workspace(id);expected(w,generation);
   if("in_review".equals(w.reviewState())&&Objects.equals(w.submittedRevision(),w.draftRevision()))return summary(s,w);
   if("in_review".equals(w.reviewState())&&!replaceReview)throw conflict("Confirm replacement of the previous submission");
   if(Objects.equals(s.getPublishedRevision(),w.draftRevision()))throw conflict("This revision is already published");
   checkMedia(json.readStory(w.draftJson()));
+  var normalized=links.normalize(json.readStory(w.draftJson()),s.getOwnerPlayerId(),true);
+  if(normalized.metadata()!=null&&!json.readMap(json.write(normalized)).equals(json.readMap(w.draftJson()))){saveDraft(s,json.readMap(json.write(normalized)));w=workspace(id);}
   var valid=content.validate(json.readStory(w.draftJson()));
   if(!valid.valid())throw new ResponseStatusException(HttpStatus.BAD_REQUEST,String.join("; ",valid.errors()));
   if("in_review".equals(w.reviewState()))event(s,w.submittedRevision(),actor,"superseded","","",w.reviewState(),"superseded");
@@ -158,12 +166,13 @@ class StoryWorkflowService {
  }
  @Transactional
  Map<String,Object> decide(String id,String action,Decision command,AuthIdentity actor) {
+  collections.structureLock();
   if(!actor.hasRole("moderator")&&!actor.hasRole("admin"))throw new ForbiddenRoleException();
   Story s=lock(id);Workspace w=workspace(id);expected(w,command.generation());
   boolean self=owns(s,actor);
   boolean approving=List.of("approve","approve-publish").contains(action);
   boolean restoring=List.of("restore","visibility","publish-approved").contains(action);
-  if(self&&(approving||restoring)&&(!actor.hasRole("admin")||!Boolean.TRUE.equals(command.ownOverride())))throw new ForbiddenRoleException();
+  ModerationPolicy.authorizeDecision(actor,self,action,command.ownOverride());
   String why=reason(command.reason(),!approving||self);
   String note=reason(command.internalNote(),false);
   String before=s.getVisibility()+":"+w.reviewState();
@@ -177,6 +186,7 @@ class StoryWorkflowService {
    editable(s);
    if(approving) {
     StoryDocument doc=revision(id,command.revision());
+    links.normalize(doc,s.getOwnerPlayerId(),true);
     var valid=content.validate(doc);if(!valid.valid())throw new ResponseStatusException(HttpStatus.BAD_REQUEST,String.join("; ",valid.errors()));
     checkMedia(doc);
     if("approve-publish".equals(action)) {
@@ -200,7 +210,12 @@ class StoryWorkflowService {
   Workspace after=workspace(id);
   event(s,command.revision(),actor,action,why,note,before,s.getVisibility()+":"+after.reviewState());
   notifyAuthor(s,action,why,command.revision(),actor.userId());
+  collections.notifyNewChapters();
   return summary(s,after);
+ }
+ @Transactional
+ Map<String,Object> decideCollection(String id,String action,Decision command,AuthIdentity actor) {
+  return collections.decide(id,action,command,actor);
  }
  @Transactional
  Map<String,Object> takeDown(String id,String playerId,boolean delete,AuthIdentity actor) {
@@ -214,6 +229,7 @@ class StoryWorkflowService {
  private Story publishRevision(Story s,int revision,String visibility) {
   if(visibility!=null&&!List.of("public","unlisted").contains(visibility))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Publication visibility must be public or unlisted");
   StoryDocument doc=revision(s.getId(),revision);checkMedia(doc);checkMediaOwnership(doc,s.getId());
+  links.normalize(doc,s.getOwnerPlayerId(),true);
   var valid=content.validate(doc);if(!valid.valid())throw conflict(String.join("; ",valid.errors()));
   s=content.applyDocument(s,doc,StoryStatus.PUBLISHED);
   s.setPublishedRevision(revision);s.setVisibility("unlisted".equals(visibility)?"unlisted":"public");
@@ -226,8 +242,9 @@ class StoryWorkflowService {
  StoryValidationResult validateDraft(String id,String playerId) {
   Story s=stories.findById(id).orElseThrow(StoryNotFoundException::new);
   if(playerId!=null)owner(s,playerId);
-  return content.validate(json.readStory(workspace(id).draftJson()));
+  return validateWithLinks(json.readStory(workspace(id).draftJson()),s.getOwnerPlayerId());
  }
+ private StoryValidationResult validateWithLinks(StoryDocument doc,String owner){var errors=new ArrayList<>(content.validate(doc).errors());try{links.normalize(doc,owner,true);}catch(ResponseStatusException ex){errors.add(Objects.toString(ex.getReason(),"Invalid links or input contract"));}return StoryValidationResult.of(errors);}
  @Transactional(readOnly=true)
  Map<String,Object> preview(String id,String playerId,boolean moderation,String selection) {
   Story s=stories.findById(id).orElseThrow(StoryNotFoundException::new);
@@ -240,7 +257,7 @@ class StoryWorkflowService {
   Map<String,Object> result=new LinkedHashMap<>();
   result.put("storyId",id);result.put("revision",number);result.put("status",selection);result.put("privatePreview",true);
   result.put("document",document(id,number));result.put("publishedDocument",s.getPublishedRevision()==null?null:document(id,s.getPublishedRevision()));
-  result.put("validation",content.validate(revision(id,number)));return result;
+  result.put("validation",validateWithLinks(revision(id,number),s.getOwnerPlayerId()));return result;
  }
  @Transactional
  void putDraftAsset(String id,String playerId,String key,String type,String url,Map<String,Object> metadata) {

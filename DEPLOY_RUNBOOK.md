@@ -2,6 +2,55 @@
 
 Last updated: 2026-10-06.
 
+## Chapters and collections release (V16–V17)
+
+Release preparation is local; deployment verification is recorded separately after
+completion. User authorized implementation, commit and production deployment.
+This request does not authorize pushing the earlier unpushed commits; Git push is
+separate from runtime deployment.
+
+1. Verify local changes and retain unrelated legal/map/artwork changes. Run API and
+   auth suites, all frontend/Builder tests, JS syntax, production validator and
+   `git diff --check`. Run collection workflows, migration, request retry, parent
+   assignment and moderation races on isolated PostgreSQL 16. Run
+   `scripts/check-chapters-ui.mjs` with bundled Playwright exposed through NODE_PATH.
+2. Inspect all six runtime services and sanitized recent logs, confirm current
+   origin ingress and Cloudflare public response, and capture an identity/publication
+   manifest of existing stories. Do not import examples or use real user accounts
+   for mutation smoke tests.
+3. Commit the exact task-owned sources and accompanying context. Back up both
+   databases, runtime `.env`, compose and every replaced file to a restricted
+   timestamped directory. Check dumps with pg_restore --list. Preserve uploads,
+   old revisions and saved games. Take an additional API dump while API writes are
+   stopped immediately before cutover.
+4. Build verified API and Builder artifacts. API requires rebuild/recreate for V16–V17;
+   auth-service has no feature changes and need not be rebuilt. If origin Gradle
+   download still fails, use the existing verified-local-JAR packaging procedure:
+   Java 17 bootJar, transfer/hash comparison, unchanged runtime Dockerfile stage,
+   entrypoint/upload ownership/memory settings, image release label.
+5. Recreate API and wait for readiness, install public frontend files, reload edge,
+   then recreate Builder. Frontend additions include collection-ui.js,
+   collection-workspace.js, collection-reader.js and collections.css. Builder adds
+   relations-editor.js and uses the shared frontend collection controls. Deploy the
+   modules before serving entrypoints that reference them. Private workspace HTML
+   remains under the existing authenticated nginx locations.
+6. Verify V16–V17 applied, six healthy services, public health/catalog responses,
+   unchanged legacy publication manifest and zero unexpected seed/collection data.
+   Anonymous collection private endpoints must return 401; guest collection catalog
+   is empty and legacy demo catalog has three entries. Compare served JS/CSS/HTML
+   SHA-256 to the committed release and inspect recent API/auth errors. Verify
+   engine-70, builder-39 and account-ui v4 integration assets.
+7. Save a restricted release receipt with commit, backup, artifact hash and checks.
+   Remove only the labelled disposable PostgreSQL fixture and its tunnel after
+   final tests. Record deployment outcome in both context and runbook.
+
+Rollback: never run pre-V16 API after chapter data has been written: that version
+does not enforce incoming contracts and can lose metadata on export. Prefer fix
+forward; otherwise keep affected access unavailable and restore a coordinated
+backup under maintenance after explicitly assessing writes since that backup.
+Do not drop V16 tables or restore a dump over new reader/author work as an automatic
+rollback. Frontend rollback must also preserve access to pinned saved scenarios.
+
 Moderation release verified 2026-10-06: implementation `ecac99b`, backup
 `backups/moderation-20261006-000143` includes initial and cutover dumps of both
 databases, runtime files, private env and a restricted `release-receipt.json`.

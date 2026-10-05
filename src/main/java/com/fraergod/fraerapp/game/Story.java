@@ -48,6 +48,10 @@ class Story {
 
 	@Column(nullable = false, columnDefinition = "text")
 	private String statsVariablesJson = "[]";
+	@Column(columnDefinition = "text")
+	private String metadataJson;
+	String getMetadataJson() { return metadataJson; }
+	void setMetadataJson(String value) { metadataJson = value; }
 
 	@Column(length = 36)
 	private String ownerPlayerId;

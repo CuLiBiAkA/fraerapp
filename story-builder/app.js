@@ -1,4 +1,5 @@
 import { authorActions, authorFilters, canEditStories, filterAfterSubmit, matchesAuthorFilter, storyLabels, workflowLabel } from "../story-workflow.js?v=1";
+import { renderRelationsEditor } from "./relations-editor.js?v=1";
 
 const els = {
   runtimeUrl: document.querySelector("#runtime-url"),
@@ -603,6 +604,7 @@ function render(options = {}) {
   const scrollState = options.preserveScroll ? captureScrollState() : null;
   applyTranslations();
   renderMeta();
+  renderRelationsEditor(document.querySelector("#relations-editor"), {draft, storyId:getDraftStoryId(), documentValue:toStoryJson, changed:() => { renderPreview(); saveDraft(); }});
   renderVariables();
   renderAssets();
   renderScenes();
@@ -1122,6 +1124,8 @@ function toStoryJson() {
     title: draft.title,
     description: draft.description,
     genre: draft.genre || "",
+    ...(draft.completionStatus ? {completionStatus:draft.completionStatus} : {}),
+    ...(draft.metadata ? {metadata:structuredClone(draft.metadata)} : {}),
     version: Number(draft.version || 1),
     startSceneId: draft.startSceneId,
     variables: Object.fromEntries(draft.variables.filter((variable) => variable.name).map((variable) => [variable.name, serializeVariable(variable)])),
@@ -1326,11 +1330,22 @@ function fromStoryJson(story) {
   if (!story || typeof story !== "object" || Array.isArray(story) || !Array.isArray(story.scenes)) {
     throw new Error("Ожидается объект истории с массивом scenes / Expected a story object with a scenes array");
   }
+  if (story.metadata != null) {
+    const object = value => value != null && typeof value === "object" && !Array.isArray(value);
+    const optionalArray = value => value == null || (Array.isArray(value) && value.every(object));
+    const meta = story.metadata;
+    if (!object(meta) || !optionalArray(meta.relations) || (meta.inputContract != null && (!object(meta.inputContract) || !optionalArray(meta.inputContract.fields)))
+      || (meta.relations || []).some(relation => !object(relation.target) || (relation.stateTransfer != null && (!object(relation.stateTransfer) || !optionalArray(relation.stateTransfer.mapping))))) {
+      throw new Error("Неверная структура связей или входного контракта / Invalid relations or input contract shape");
+    }
+  }
   draft = {
     key: story.key || t("newStoryKey"),
     title: story.title || t("newStoryTitle"),
     description: story.description || "",
     genre: story.genre || "",
+    completionStatus: story.completionStatus || "",
+    ...(story.metadata ? {metadata:structuredClone(story.metadata)} : {}),
     version: story.version || 1,
     startSceneId: story.startSceneId || "",
     variables: Object.entries(story.variables || {}).map(([name, definition]) => {

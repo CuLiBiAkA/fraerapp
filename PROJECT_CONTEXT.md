@@ -2,6 +2,64 @@
 
 Last updated: 2026-10-06.
 
+## Chapters and collections (2026-10-06 release preparation)
+
+Implementation is local pending the deployment receipt below/in DEPLOY_RUNBOOK.
+V16 adds versioned `work_collections` of type story/volume/cycle/catalog, immutable
+collection versions, derived membership/title indexes, moderation audit, favorites,
+chapter release notices, pinned reading chains and transfer provenance. Existing
+Story records remain executable scenarios: standalone stories or chapters. Existing
+IDs, slugs, ownership, publications, saves and ratings are retained. A chapter has
+one main story; story/volume main-parent reservations cover both draft and published
+structure. Catalog memberships do not claim ownership. Collection structural writes
+serialize through a dedicated lock; reading writes serialize per reader.
+V17 records exact child revisions associated with a batch submission; replacing
+a child's submission does not rewrite the parent's historical dependency snapshot.
+
+Story JSON optionally includes `metadata.schemaVersion`, typed `relations`, and an
+`inputContract`. Transfers support independent defaults or an explicit typed field
+mapping from an owned completed save. Target defaults precede transferred values,
+then start-scene effects execute once. Scene-local fields and undeclared contract
+inputs do not transfer. Saves pin scenario revisions; reading chains pin their TOC
+revision until an explicit update. New chapter attempts fork the chain; existing
+later saves remain unchanged. Semantic continuations support explicit new attempts,
+and all transition writes use reader-scoped request IDs for safe retries.
+
+`StoryWorkflowService` remains the publication decision entrypoint; collection
+decisions use the shared ModerationPolicy. Collection publication never publishes
+child drafts. Only accessible public children appear in public TOCs/search/links;
+unlisted children are not promoted through public parents. Container hiding does
+not silently hide independently published children; moderator-selected descendant
+restrictions are explicit and audited. Guest access retains the three legacy demos.
+Collection covers use bundled `/assets/` resources, preserving the existing ban on
+mutable external publication media.
+Public catalog projections suppress a standalone entry after it becomes a published
+chapter, without changing another curator's stored collection document. Filtered
+reading TOCs expose only accessible actual predecessor IDs; independent chapters
+remain startable when an intervening chapter is unavailable.
+
+Author/moderator workspaces include the collections view at
+`/my-stories/?view=collections` and `/moderation/?view=collections`. Builder offers
+relations, incoming contracts and synthetic transfer tests. `/collections/<key-or-id>`
+opens a reader TOC; `/read/<sessionId>?run=<runId>` retains exact branch context.
+Collection APIs use `/api/author/collections`, `/api/moderation/collections`,
+`/api/catalog/collections`; reader APIs use `/api/collections/<id>/runs`,
+`/api/collection-runs/<id>`, and session relation endpoints. Direct story entry
+context exposes permitted prerequisites and the current reader's eligible saves.
+Package import is previewed before applying generations; changes create private
+drafts and stale/foreign conflicts cannot overwrite another author's work.
+
+New personal records are reader-owned chain membership, selected source-save
+provenance, target revision and the allowlisted transferred values. They extend the
+existing saved-progression data, remain private, and do not introduce external
+tracking or email delivery. Public views expose no private tree sizes or titles.
+Chapter release notifications are deduplicated independently of scene notifications.
+
+Synthetic examples: `docs/examples/chapters-package.json`. Browser regression:
+`scripts/check-chapters-ui.mjs` (isolated fixtures, bundled Playwright via NODE_PATH).
+Requirements: `docs/prompts/story-chapters-collections-codex.md`. No sample story is
+seeded or published during deployment.
+
 Moderation is deployed (2026-10-06, implementation `ecac99b`, engine-69,
 builder-38, workspace modules v1). `/my-stories/` and `/moderation/` are available
 through current-role checks; auth administration grants/revokes the independent
