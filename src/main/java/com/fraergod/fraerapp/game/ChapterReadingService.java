@@ -23,7 +23,7 @@ class ChapterReadingService {
  private Run run(String id,String player){return jdbc.query("select * from collection_runs where id=? and player_id=?",(r,n)->new Run(r.getString("id"),r.getString("player_id"),r.getString("collection_id"),r.getInt("collection_revision"),r.getInt("generation")),id,player).stream().findFirst().orElseThrow(SessionNotFoundException::new);}
  private void request(String id){if(id==null||id.isBlank()||id.length()>120)throw bad("A unique requestId (1–120 characters) is required");}
  @Transactional
- Map<String,Object> begin(String id,String player,String requestId){request(requestId);game.lockReader(player);var c=collections.accessible(id,false);if(!"story".equals(c.type()))throw bad("Start a story with chapters from this collection");
+ Map<String,Object> begin(String id,String player,String requestId){request(requestId);game.lockReader(player);var c=collections.accessible(id,false);
   var old=jdbc.queryForList("select id,collection_id from collection_runs where player_id=? and request_id=?",player,requestId);
   if(!old.isEmpty()){if(!c.id().equals(old.get(0).get("collection_id")))throw conflict("Request was already used for another collection");return detail((String)old.get(0).get("id"),player);}
   String runId=UUID.randomUUID().toString();jdbc.update("insert into collection_runs(id,player_id,collection_id,collection_revision,request_id) values (?,?,?,?,?)",runId,player,c.id(),c.published(),requestId);return detail(runId,player);
@@ -34,7 +34,7 @@ class ChapterReadingService {
  Map<String,Object> detail(String id,String player){Run r=run(id,player);var c=collections.accessible(r.collection(),false);var d=collections.document(c,r.revision());
   var m=new LinkedHashMap<String,Object>();m.put("id",r.id());m.put("runId",r.id());m.put("collectionId",c.id());m.put("title",d.title());m.put("key",c.key());m.put("revision",r.revision());m.put("generation",r.generation());m.put("availableRevision",c.published());m.put("completionStatus",d.completionStatus());
   var saves=new HashMap<String,Map<String,Object>>();for(var s:jdbc.queryForList("select t.story_id as target_story_id,t.session_id as target_session_id,g.status,g.story_revision from collection_run_saves t join game_sessions g on g.id=t.session_id where t.run_id=?",id))saves.put((String)s.get("target_story_id"),s);
-  var items=collections.publicItems(d,false);int finished=0;for(var item:items){var save=saves.get(item.get("id"));if(save!=null){item.put("sessionId",save.get("target_session_id"));String status=save.get("status").toString().toLowerCase(Locale.ROOT);item.put("status",status);item.put("storyRevision",save.get("story_revision"));if("finished".equals(status))finished++;}}
+  var items=collections.publicItems(d,false).stream().filter(item->"scenario".equals(item.get("kind"))).toList();int finished=0;for(var item:items){var save=saves.get(item.get("id"));if(save!=null){item.put("sessionId",save.get("target_session_id"));String status=save.get("status").toString().toLowerCase(Locale.ROOT);item.put("status",status);item.put("storyRevision",save.get("story_revision"));if("finished".equals(status))finished++;}}
   Set<Object> visibleIds=new HashSet<>();for(var item:items)visibleIds.add(item.get("id"));
   for(var item:items){String previous=null;for(int i=1;i<list(d.items()).size();i++)if(Objects.equals(item.get("id"),d.items().get(i).target().id())){String actual=d.items().get(i-1).target().id();if(visibleIds.contains(actual))previous=actual;break;}item.put("previousId",previous);}
   m.put("items",items);m.put("availableCount",items.size());m.put("completedCount",finished);m.put("allReleasedRead",!items.isEmpty()&&finished==items.size());return m;
@@ -61,7 +61,7 @@ class ChapterReadingService {
  private boolean relationTargets(WorkMetadata.Relation link,Story target){var t=link.target();return t!=null&&"scenario".equals(t.kind())&&(t.id()!=null?t.id().equals(target.getId()):Objects.equals(t.key(),target.getKey()));}
  @Transactional
  Map<String,Object> start(String id,String player,Start command){request(command.requestId());game.lockReader(player);Run r=run(id,player);var c=collections.accessible(r.collection(),false);var d=collections.document(c,r.revision());
-  if(collections.publicItems(d,false).stream().noneMatch(i->Objects.equals(i.get("id"),command.targetId())))throw new StoryNotFoundException();
+  if(collections.publicItems(d,false).stream().noneMatch(i->"scenario".equals(i.get("kind"))&&Objects.equals(i.get("id"),command.targetId())))throw new StoryNotFoundException();
   Story target=target(command.targetId());
   if(Boolean.TRUE.equals(command.newAttempt())) {
    String forkRequest="fork:"+UUID.nameUUIDFromBytes((id+":"+command.requestId()).getBytes(java.nio.charset.StandardCharsets.UTF_8));

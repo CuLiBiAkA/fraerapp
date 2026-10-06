@@ -127,23 +127,54 @@ class CollectionWorkflowTests extends ApiTestSupport {
   assertThat(call("POST","/api/moderation/folders/"+id+"/decision",cmd,own).statusCode()).isEqualTo(403);assertThat(call("POST","/api/moderation/folders/"+id+"/decision",cmd,admin).statusCode()).isEqualTo(403);cmd.put("ownOverride",true);cmd.put("reason","");assertThat(call("POST","/api/moderation/folders/"+id+"/decision",cmd,admin).statusCode()).isEqualTo(400);
   assertThat(jdbc.queryForObject("select published_revision from stories where id=?",Integer.class,sid(a))).isNull();cmd.put("reason","Explicit administrator review");ok(call("POST","/api/moderation/folders/"+id+"/decision",cmd,admin));assertThat(jdbc.queryForObject("select published_revision from stories where id=?",Integer.class,sid(a))).isEqualTo(1);
  }
- @Test void typedHierarchyPublicFilteringAndIndependentReview() {
+ @Test void foldersPublicFilteringAndIndependentReview() {
   var a=draft(scenario(key(),1));var b=draft(scenario(key(),2));var c=draft(scenario(key(),3));publishStory(a);
   var storyDoc=document("story",List.of(item("scenario",a),item("scenario",b),item("scenario",c)));var story=create(storyDoc);String id=cid(story);publish(id);
   var volume=create(document("volume",List.of(item("collection",story))));var cycle=create(document("cycle",List.of(item("collection",volume))));
-  publish(cid(volume));publish(cid(cycle));create(document("catalog",List.of(item("collection",cycle))));create(document("catalog",List.of(item("collection",cycle))));
+  publish(cid(volume));publish(cid(cycle));create(document("catalog",List.of(item("collection",cycle))));
+  assertThat(call("POST","/api/author/collections",Map.of("document",document("catalog",List.of(item("collection",cycle)))),author).statusCode()).isEqualTo(409);
   var pub=ok(call("GET","/api/catalog/collections/"+id,null,reader));assertThat((List<?>)pub.get("items")).hasSize(1);assertThat(body(pub)).contains(a.get("key").toString()).doesNotContain(b.get("key").toString(),c.get("key").toString());
   assertThat(call("GET","/api/catalog/collections",null,null).body()).isEqualTo("[]");assertThat(call("GET","/api/catalog/collections/"+id,null,null).statusCode()).isEqualTo(401);
   assertThat(call("GET","/api/catalog/stories",null,reader).body()).doesNotContain(a.get("key").toString());
   publishStory(b);pub=ok(call("GET","/api/catalog/collections/"+id,null,reader));assertThat((List<?>)pub.get("items")).hasSize(2);
   storyDoc.put("title","Unreviewed title");save(id,storyDoc);assertThat(call("GET","/api/catalog/collections/"+id,null,reader).body()).doesNotContain("Unreviewed title");
-  assertThat(call("POST","/api/author/collections",Map.of("document",document("story",List.of(item("collection",volume)))),author).statusCode()).isEqualTo(400);
+  assertThat(call("POST","/api/author/collections",Map.of("document",document("story",List.of(item("collection",volume)))),author).statusCode()).isEqualTo(409);
   assertThat(call("POST","/api/author/collections",Map.of("document",document("story",List.of(item("scenario",a)))),author).statusCode()).isEqualTo(409);
-  assertThat(call("POST","/api/author/collections",Map.of("document",document("catalog",List.of(item("scenario",a)))),author).statusCode()).isEqualTo(400);
+  assertThat(call("POST","/api/author/collections",Map.of("document",document("catalog",List.of(item("scenario",a)))),author).statusCode()).isEqualTo(409);
+ }
+ @Test void foldersNestWithoutTypeRanksAndKeepOneGroupedApplication() {
+  var story=draft(scenario(key(),1));var leafDoc=document("catalog",List.of(item("scenario",story)));var leaf=create(leafDoc);var parent=leaf;
+  // Former catalog/story ranks and the former four-level breadcrumb limit do not apply.
+  for(String type:List.of("catalog","story","story","volume","cycle","story"))parent=create(document(type,List.of(item("collection",parent))));
+  String root=cid(parent);batch(root);var application=folderReview(root);assertThat(maps(application.get("items"))).hasSize(8);
+  ok(call("POST","/api/moderation/folders/"+root+"/decision",folderDecision(application,"approve-publish"),reviewer));
+  assertThat(maps(ok(call("GET","/api/catalog/collections/"+cid(leaf),null,reader)).get("breadcrumbs"))).hasSize(6);
+  var reading=run(cid(leaf));assertThat(maps(reading.get("items"))).hasSize(1);start(reading.get("id").toString(),sid(story),null,key());
+  leafDoc.put("items",List.of(item("scenario",story),item("collection",parent)));
+  assertThat(call("PUT","/api/author/collections/"+cid(leaf),Map.of("generation",details(cid(leaf)).get("generation"),"document",leafDoc),author).statusCode()).isEqualTo(400);
+ }
+ @Test void mixedFoldersOnlyStartStoriesAndDoNotTransferAcrossNestedFolders() {
+  var a=draft(scenario(key(),3));var b=draft(scenario(key(),1));var nested=create(document("story",List.of()));
+  var doc=document("volume",List.of(item("scenario",a),item("collection",nested),item("scenario",b)));String id=cid(create(doc));batch(id);
+  ok(call("POST","/api/moderation/folders/"+id+"/decision",folderDecision(folderReview(id),"approve-publish"),reviewer));
+  var reading=run(id);var items=maps(reading.get("items"));assertThat(items).hasSize(2);assertThat(items.get(1).get("previousId")).isNull();
+  assertThat(call("POST","/api/collection-runs/"+reading.get("id")+"/start",Map.of("targetId",cid(nested),"requestId",key()),reader).statusCode()).isEqualTo(404);
+  doc.put("transitions",List.of(Map.of("id","skip-folder","from",item("scenario",a).get("target"),"to",item("scenario",b).get("target"),"stateTransfer",transfer())));
+  assertThat(call("PUT","/api/author/collections/"+id,Map.of("generation",details(id).get("generation"),"document",doc),author).statusCode()).isEqualTo(400);
+ }
+ @Test void folderPackagesResolveForwardNestingAndRejectCyclesAtomically() {
+  var child=document("story",List.of());var parent=document("story",List.of(Map.of("target",Map.of("kind","collection","key",child.get("key")))));
+  var pkg=Map.of("schemaVersion",1,"kind","fraerapp-work-package","scenarios",List.of(),"collections",List.of(parent,child));
+  ok(call("POST","/api/author/collections/import",pkg,author));ok(call("POST","/api/author/collections/import",pkg,author));
+  var saved=details(parent.get("key").toString());assertThat(body(saved.get("draftDocument"))).contains("\"id\"");batch(saved.get("collectionId").toString());
+  var x=document("story",List.of());var y=document("story",List.of(Map.of("target",Map.of("kind","collection","key",x.get("key")))));x.put("items",List.of(Map.of("target",Map.of("kind","collection","key",y.get("key")))));
+  var cyclic=Map.of("schemaVersion",1,"kind","fraerapp-work-package","scenarios",List.of(),"collections",List.of(x,y));
+  assertThat(call("POST","/api/author/collections/import",cyclic,author).statusCode()).isEqualTo(400);
+  assertThat(jdbc.queryForObject("select count(*) from work_collections where collection_key in (?,?)",Integer.class,x.get("key"),y.get("key"))).isZero();
  }
  @Test void mappedTransferUsesExactCompletedSavePinsRevisionsAndAppliesStartEffectOnce() {
   var aDoc=scenario(key(),7);var a=draft(aDoc);var bDoc=scenario(key(),1);bDoc.put("metadata",Map.of("schemaVersion",1,"inputContract",contract(false)));var b=draft(bDoc);publishStory(a);publishStory(b);
-  var cd=document("story",List.of(item("scenario",a),item("scenario",b)));cd.put("transitions",List.of(Map.of("id","next","from",((Map<?,?>)item("scenario",a)).get("target"),"to",((Map<?,?>)item("scenario",b)).get("target"),"stateTransfer",transfer())));String id=cid(create(cd));publish(id);
+  var cd=document("catalog",List.of(item("scenario",a),item("scenario",b)));cd.put("transitions",List.of(Map.of("id","next","from",((Map<?,?>)item("scenario",a)).get("target"),"to",((Map<?,?>)item("scenario",b)).get("target"),"stateTransfer",transfer())));String id=cid(create(cd));publish(id);
   assertThat(call("POST","/api/sessions",Map.of("storyKey",b.get("key")),reader).statusCode()).isEqualTo(409);
   String run=run(id).get("id").toString();String source=sessionId(start(run,sid(a),null,key()));
   assertThat(call("POST","/api/collection-runs/"+run+"/start",Map.of("targetId",sid(b),"sourceSessionId",source,"requestId",key()),reader).statusCode()).isEqualTo(409);

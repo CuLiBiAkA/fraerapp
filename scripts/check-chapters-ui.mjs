@@ -38,7 +38,7 @@ const server=http.createServer(async(req,res)=>{
     if(url.pathname==="/api/moderation/folders")return json({items:[tree()],page:0,total:1});
     if(url.pathname==="/api/moderation/folders/book/review"){const value=reviewGroup();if(reviewSelf)for(const item of value.items){item.self=true;item.approvalEligibility={canApprove:false,canOverride:true};}return json(value);}
     if(url.pathname==="/api/moderation/folders/book/decision"){if(decisionConflict){decisionConflict=false;return json({message:"Application changed"},409);}return json({items:body.items,atomic:true});}
-    if(url.pathname==="/api/author/collections/targets"){if(failTargets){failTargets=false;return json({message:"Target list unavailable"},503);}return json([target(1),target(2),target(3),{...target(99),owned:false,title:"Чужая история"}]);}
+    if(url.pathname==="/api/author/collections/targets"){if(failTargets){failTargets=false;return json({message:"Target list unavailable"},503);}return json([target(1),target(2),target(3),{id:"nested-folder",key:"nested-folder",kind:"collection",type:"story",owned:true,title:"Моя вложенная папка"},{...target(99),owned:false,title:"Чужая история"}]);}
     if(url.pathname==="/api/author/collections")return json([collection,{...collection,id:"other",collectionId:"other",key:"other",title:"Другое произведение"}]);
     if(url.pathname==="/api/author/collections/other")return json({...collection,id:"other",collectionId:"other",key:"other",title:"Другое произведение",draftDocument:{...documentValue,key:"other",title:"Другое произведение"}});
     if(url.pathname==="/api/moderation/collections")return json({items:[collection]});
@@ -81,6 +81,16 @@ try{
     page.on("pageerror",error=>errors.push(error.message));page.on("dialog",dialog=>dialog.accept());
     await page.goto(`${origin}/my-stories/?collection=book`);
     await page.locator(".collection-editor h2").waitFor();
+    assert.equal(await page.getByLabel("Вид папки",{exact:true}).count(),0);
+    assert.equal(await page.getByLabel("Тип",{exact:true}).count(),0);
+    const folderPicker=page.getByLabel("Добавить свою историю или папку",{exact:true});
+    await folderPicker.waitFor();
+    assert.equal(await folderPicker.locator('option').filter({hasText:"Папка · Моя вложенная папка"}).count(),1);
+    if(width===1440){
+      await folderPicker.selectOption("collection:nested-folder");await page.getByRole("button",{name:"+ Добавить в папку",exact:true}).click();
+      const nested=page.locator(".collection-item").filter({hasText:"Моя вложенная папка"});assert.equal(await nested.count(),1);
+      await nested.getByRole("button",{name:"Исключить",exact:true}).click();
+    }
     await page.locator(".collection-editor").getByLabel("Название",{exact:true}).fill(`Изменённое название ${width}`);
     if(width===1440){
       assert.equal(await page.getByRole("button",{name:"Отправить на проверку",exact:true}).count(),1);

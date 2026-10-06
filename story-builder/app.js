@@ -1,5 +1,5 @@
 import { authorActions, authorFilters, canEditStories, filterAfterSubmit, matchesAuthorFilter, storyLabels, workflowLabel } from "../story-workflow.js?v=1";
-import { renderRelationsEditor } from "./relations-editor.js?v=2";
+import { renderRelationsEditor } from "./relations-editor.js?v=3";
 
 const els = {
   runtimeUrl: document.querySelector("#runtime-url"),

@@ -51,7 +51,7 @@ class AccountService {
   jdbc.queryForList("select id from stories where id=? for update",storyId);
   Set<String> old=new HashSet<>(jdbc.query("select scene_key from story_release_scenes where story_id=?",(r,n)->r.getString(1),storyId));
   List<String> current=jdbc.query("select scene_key from scenes where story_id=?",(r,n)->r.getString(1),storyId);
-  boolean chapter=jdbc.queryForObject("select count(*) from collection_memberships m join work_collections c on c.id=m.parent_id where m.target_kind='scenario' and m.target_id=? and m.in_published=true and c.collection_type='story' and c.visibility='public'",Integer.class,storyId)>0;
+  boolean chapter=jdbc.queryForObject("select count(*) from collection_memberships m join work_collections c on c.id=m.parent_id join stories s on s.id=m.target_id and s.owner_player_id=c.owner_player_id where m.target_kind='scenario' and m.target_id=? and m.in_published=true and c.visibility='public'",Integer.class,storyId)>0;
   if (!chapter && !old.isEmpty() && current.stream().anyMatch(key->!old.contains(key))) {
    for (String user:jdbc.query("select user_id from story_favorites where story_id=?",(r,n)->r.getString(1),storyId))
     jdbc.update("insert into account_notifications(id,user_id,kind,message,story_id) values (?,?,'story',?,?)",UUID.randomUUID().toString(),user,title,storyId);

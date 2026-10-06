@@ -4,7 +4,9 @@
 published automatically. Import it through My folders and stories → Import folder
 from a file. This creates private drafts under the current author.
 
-The catalog contains a cycle, a volume and a two-chapter story. The ticket chapter
+The example contains ordinary nested folders and a two-chapter story. Legacy JSON
+type values are retained for compatibility; they impose no nesting rules and all
+appear as folders. Authors can use any folder names. The ticket chapter
 transfers `courage` → `initialCourage` and `helpedConductor` → `metAlly` to the
 carriage chapter. The carriage's sequel link starts the independent keeper story.
 Only explicit fields are transferred; the second chapter requires a prior save.

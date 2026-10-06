@@ -8,7 +8,7 @@ import {
 import { enhanceFilterSelect } from "./filter-select.js?v=1";
 import { observeHomeFit } from "./home-fit.js?v=3";
 import { createAccountUI } from "./account-ui.js?v=4";
-import { createCollectionReader } from "./collection-reader.js?v=2";
+import { createCollectionReader } from "./collection-reader.js?v=3";
 
 observeHomeFit();
 

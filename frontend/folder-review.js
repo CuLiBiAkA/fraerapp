@@ -1,4 +1,4 @@
-import {el,button,field,checkbox,words,request,errorMessage,typeName} from "./collection-ui.js?v=2";
+import {el,button,field,checkbox,words,request,errorMessage,typeName} from "./collection-ui.js?v=3";
 import {renderStoryDocument,renderDocumentDiff} from "./story-workflow.js?v=1";
 
 // One visible application; individual immutable decisions remain server-owned.

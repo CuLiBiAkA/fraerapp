@@ -1,7 +1,7 @@
 // Shared collection controls. All labels/content use textContent, never HTML.
 export const collectionTypes = {
-  story: ["История с главами", "Chaptered story"], volume: ["Том", "Volume"],
-  cycle: ["Цикл", "Series"], catalog: ["Подборка", "Collection"], scenario: ["История / глава", "Story / chapter"],
+  story: ["Папка", "Folder"], volume: ["Папка", "Folder"],
+  cycle: ["Папка", "Folder"], catalog: ["Папка", "Folder"], scenario: ["История / глава", "Story / chapter"],
 };
 export const language = () => document.documentElement.lang === "en" ? "en" : "ru";
 export const words = (ru, en) => language() === "en" ? en : ru;
@@ -33,6 +33,12 @@ export function checkbox(text, checked) {
   label.append(input, document.createTextNode(text)); return { label, input };
 }
 export function errorMessage(error) {
+  const folderErrors = {
+    "This work is already in another folder": words("Произведение уже находится в другой папке. Сначала уберите его оттуда; если папка опубликована, отправьте изменение на проверку.", "This work is already in another folder. Remove it there first; if that folder is published, submit the change for review."),
+    "A folder cannot contain itself or its parent": words("Нельзя вложить папку в саму себя или в одну из её вложенных папок.", "A folder cannot be placed inside itself or one of its descendants."),
+    "Collection cannot include itself": words("Нельзя вложить папку в саму себя.", "A folder cannot contain itself."),
+  };
+  if (folderErrors[error.message]) return folderErrors[error.message];
   if (error.status === 401) return words("Сессия завершена. Войдите на главной и повторите действие.", "Your session ended. Sign in on the home page and retry.");
   if (error.status === 403) return words("Нет доступа к этому действию. Проверьте свои права.", "You do not have permission for this action.");
   if (error.status === 409) return words("Данные или условия перехода изменились. Обновите сведения и проверьте их; ваш текст сохранён в форме.", "The data or transition requirements changed. Reload and inspect them; your text remains in the form.") + (error.message ? ` ${error.message}` : "");
@@ -62,12 +68,8 @@ export function moveItem(items, from, to) {
   if (from < 0 || to < 0 || from >= items.length || to >= items.length) return [...items];
   const result = [...items]; const [item] = result.splice(from, 1); result.splice(to, 0, item); return result;
 }
-export function allowedChild(type, target) {
-  if(target.owned===false)return false;
-  if (type === "story") return target.kind === "scenario" && target.owned !== false;
-  if (type === "volume") return target.owned !== false && (target.kind === "scenario" || target.type === "story");
-  if (type === "cycle") return target.owned !== false && (target.kind === "scenario" || ["story","volume"].includes(target.type));
-  return type === "catalog" && (target.kind === "scenario" || ["story","volume","cycle"].includes(target.type));
+export function allowedChild(target) {
+  return target.owned !== false && ["scenario", "collection"].includes(target.kind);
 }
 export function transferEditor(policy = {mode:"independent"}, changed = () => {}, {allowReference=false} = {}) {
   const value = structuredClone(policy || {mode:allowReference?"reference":"independent"}), root = el("fieldset", null, "collection-transfer");

@@ -26,7 +26,7 @@ class FolderWorkspaceService {
  }
  private Map<String,Work> works(String owner,boolean moderation){
   var result=new LinkedHashMap<String,Work>();var db=collections.database();
-  String collectionSql="select c.*,sv.document_json as submitted_json,pv.document_json as published_json from work_collections c left join collection_versions sv on sv.collection_id=c.id and sv.revision=c.submitted_revision left join collection_versions pv on pv.collection_id=c.id and pv.revision=c.published_revision"+(owner==null?"":" where c.owner_player_id=?")+" order by case when c.collection_type='catalog' then 1 else 0 end,c.updated_at desc,c.id";
+  String collectionSql="select c.*,sv.document_json as submitted_json,pv.document_json as published_json from work_collections c left join collection_versions sv on sv.collection_id=c.id and sv.revision=c.submitted_revision left join collection_versions pv on pv.collection_id=c.id and pv.revision=c.published_revision"+(owner==null?"":" where c.owner_player_id=?")+" order by c.updated_at desc,c.id";
   var collectionRows=owner==null?db.queryForList(collectionSql):db.queryForList(collectionSql,owner);
   for(var r:collectionRows){
    String id=(String)r.get("id"),review=(String)r.get("review_state");Integer submitted=(Integer)r.get("submitted_revision"),publishedRevision=(Integer)r.get("published_revision");boolean pending=submitted!=null&&!Objects.equals(submitted,publishedRevision)&&List.of("in_review","approved").contains(review);

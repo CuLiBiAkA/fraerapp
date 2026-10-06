@@ -1,4 +1,4 @@
-import {el, button, field, select, checkbox, request, words, errorMessage, link, transferEditor, targetRef} from "/collection-ui.js?v=2";
+import {el, button, field, select, checkbox, request, words, errorMessage, link, transferEditor, targetRef} from "/collection-ui.js?v=3";
 
 export function renderRelationsEditor(host, {draft, changed, storyId, documentValue}) {
   if (!host) return;

@@ -2,6 +2,25 @@
 
 Last updated: 2026-10-06.
 
+## Ordinary nested folders (2026-10-06)
+
+The owner clarified that volume/cycle names are only possible author-chosen names,
+not product types. The UI now has one Folder concept, a free title, ordered own
+stories and nested folders. Removed the kind selector, type filter and literary
+badges. No nesting ranks or four-level breadcrumb limit remain. The server checks
+the actual membership graph for cycles and reserves one parent per item across
+draft/published structure. Foreign links remain forbidden; one expandable moderation
+application and independent/mapped reading remain. Only neighboring direct scenarios
+can transfer values; nested folders are opened through their contents, never started
+as scenarios. Imports resolve forward folder references atomically and reject cycles.
+
+Existing immutable documents and DB `collection_type` values are retained for file
+compatibility, with identical folder behavior for story/volume/cycle/catalog. New UI
+folders use the existing story storage value, which is not a user choice. No schema
+migration or history rewrite. Release assets: engine-72, builder-41, collection
+modules v3, folder-review/workspace-entry v2. Deployment verification follows below
+when released; the previous deployed release is 782ab67.
+
 ## Public folders correction (deployed 2026-10-06)
 
 Correction `782ab67` is deployed (engine-71, builder-40, collection modules v2).

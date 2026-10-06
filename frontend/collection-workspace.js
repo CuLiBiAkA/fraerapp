@@ -1,6 +1,6 @@
-import {el,link,button,field,select,checkbox,words,typeName,collectionTypes,request,errorMessage,download,targetRef,targetKey,moveItem,allowedChild,transferEditor} from "./collection-ui.js?v=2";
+import {el,link,button,field,select,checkbox,words,typeName,request,errorMessage,download,targetRef,targetKey,moveItem,allowedChild,transferEditor} from "./collection-ui.js?v=3";
 import {workflowLabel, renderDocumentDiff} from "./story-workflow.js?v=1";
-import {renderFolderReview} from "./folder-review.js?v=1";
+import {renderFolderReview} from "./folder-review.js?v=2";
 
 const params = new URLSearchParams(location.search);
 document.documentElement.lang = localStorage.getItem("fraerapp.language") === "en" ? "en" : "ru";
@@ -29,13 +29,12 @@ async function start(root) {
   const status = el("p","","collection-status"); status.setAttribute("role","status");
   const toolbar = el("form",null,"collection-toolbar");
   const query = field(words("Поиск", "Search"),"","search");
-  const type = select(words("Тип", "Type"), [["all",words("Все типы", "All types")],...Object.keys(collectionTypes).filter(k=>k!=="scenario").map(k=>[k,typeName(k)])],"all");
   const state = select(words("Состояние", "Status"),["all","in_review","draft","approved","rejected","hidden","archived","deleted"].map(k=>[k,workflowLabel(k,document.documentElement.lang)]),moderation?"in_review":"all");
   const refresh = button(words("Обновить список", "Refresh list"),()=>work(loadList));
-  toolbar.append(query.label,type.label,state.label,refresh);
+  toolbar.append(query.label,state.label,refresh);
   const grid = el("div",null,"collection-grid"), list = el("section",null,"collection-list"), editor = el("section",null,"collection-editor");
   list.id = "folder-list"; document.querySelector(".skip-link")?.setAttribute("href","#folder-list");list.setAttribute("aria-label",words("Папки и истории", "Folders and stories"));
-  editor.append(el("h2",words("Всё устроено как папки", "Organized as folders")),el("p",moderation?words("Откройте заявку-папку. Внутри находятся новые и изменённые части, которые нужно проверить. Уже опубликованные части остаются на месте.","Open a folder application to review its new and changed parts. Previously published parts stay in place."):words("Создайте папку и добавьте свои истории. Папка «История» объединяет главы, «Том» — истории, «Цикл» — истории и тома. Читатель увидит это же оглавление после проверки.","Create a folder and add your own stories. A Story folder holds chapters, a Volume holds stories, and a Series holds stories and volumes. Readers see these contents after review.")));
+  editor.append(el("h2",words("Всё устроено как папки", "Organized as folders")),el("p",moderation?words("Откройте заявку-папку. Внутри находятся новые и изменённые части, которые нужно проверить. Уже опубликованные части остаются на месте.","Open a folder application to review its new and changed parts. Previously published parts stay in place."):words("Создайте папку с любым названием. Добавляйте свои истории и другие папки, расставляйте их по порядку. После проверки читатель увидит это же оглавление.","Create a folder with any name. Add your own stories and other folders, then arrange them in order. Readers see these contents after review.")));
   const pagination=el("nav",null,"collection-actions");pagination.setAttribute("aria-label",words("Страницы произведений", "Work pages"));
   const previous=button(words("← Назад", "← Previous"),()=>work(async()=>{pageIndex--;await loadList();}));
   const next=button(words("Далее →", "Next →"),()=>work(async()=>{pageIndex++;await loadList();}));const pageLabel=el("span");pagination.append(previous,pageLabel,next);
@@ -52,7 +51,7 @@ async function start(root) {
   }
   async function loadList() {
     const visibility=["hidden","archived","deleted"].includes(state.input.value)?state.input.value:"all";
-    const searchParams=new URLSearchParams({page:pageIndex,size:20,q:query.input.value,type:type.input.value,status:moderation&&visibility!=="all"?"all":state.input.value,visibility});
+    const searchParams=new URLSearchParams({page:pageIndex,size:20,q:query.input.value,type:"all",status:moderation&&visibility!=="all"?"all":state.input.value,visibility});
     const data=await request(`/api/${moderation?"moderation":"author"}/folders?${searchParams}`);all=data.items||[];totalPages=Math.ceil((data.total||all.length)/20);
     previous.disabled=pageIndex===0;next.disabled=pageIndex+1>=totalPages;pageLabel.textContent=words(`Страница ${pageIndex+1}`,`Page ${pageIndex+1}`);pagination.hidden=pageIndex===0&&all.length<20;
     renderList(); status.textContent="";
@@ -108,10 +107,8 @@ async function start(root) {
       const f=field(words(ru,en),doc[key]||"",inputType);f.input.disabled=key==="key"&&Boolean(current);f.input.maxLength=key==="description"?5000:key==="coverUrl"?500:200;
       f.input.oninput=()=>{doc[key]=f.input.value;changed();};(key==="key"||key==="coverUrl"?advanced:fields).append(f.label);
     }
-    const kind=select(words("Вид папки", "Folder kind"),[["story",words("История — главы по порядку", "Story — chapters in order")],["volume",words("Том — несколько историй", "Volume — several stories")],["cycle",words("Цикл — истории и тома", "Series — stories and volumes")],["catalog",words("Подборка своих произведений", "Collection of my own works")]],doc.type);kind.input.disabled=Boolean(current);
-    kind.input.onchange=()=>{doc.type=kind.input.value;changed();renderEditor();};
     const completion=select(words("Завершённость", "Completion"),[["in_development",words("В разработке", "In progress")],["completed",words("Завершено", "Completed")],["abandoned",words("Приостановлено", "Paused")]],doc.completionStatus||"in_development");completion.input.onchange=()=>{doc.completionStatus=completion.input.value;changed();};
-    fields.append(kind.label,completion.label);editor.append(fields);
+    advanced.append(completion.label);editor.append(fields);
     editor.append(el("h3",words("В этой папке", "In this folder")),el("p",words("Расставьте части в порядке чтения. Убрать из папки — не значит удалить историю. Читатель увидит изменения после проверки.", "Arrange the parts in reading order. Removing a part from a folder keeps its story. Readers see changes after review.")));
     const items=el("ol",null,"collection-items");
     (doc.items||[]).forEach((item,i)=>{
@@ -124,19 +121,17 @@ async function start(root) {
       const up=button(words("↑ Выше", "↑ Up"),()=>{doc.items=moveItem(doc.items,i,i-1);changed();renderEditor();});up.disabled=i===0;
       const down=button(words("↓ Ниже", "↓ Down"),()=>{doc.items=moveItem(doc.items,i,i+1);changed();renderEditor();});down.disabled=i===doc.items.length-1;
       actions.append(up,down,button(words("Исключить", "Remove"),()=>{doc.items.splice(i,1);changed();renderEditor();}));
-      if(item.target.kind==="scenario"&&(found?.id||item.target.id))actions.append(link(words("Редактировать главу", "Edit chapter"),`/builder/?story=${encodeURIComponent(found?.id||item.target.id)}`));
+      if(item.target.kind==="scenario"&&(found?.id||item.target.id))actions.append(link(words("Редактировать историю", "Edit story"),`/builder/?story=${encodeURIComponent(found?.id||item.target.id)}`));
       else if(item.target.kind==="collection")actions.append(button(words("Открыть состав", "Open contents"),()=>{if(discard())work(()=>open(found?.id||item.target.id));}));
       row.append(caption.label,actions);items.append(row);
     });editor.append(items);
     const targetQuery=field(words("Найти своё произведение", "Find my work"),targetSearch,"search");
     const searchTargets=async(more=false)=>{targetSearch=targetQuery.input.value;targetPage=more?targetPage+1:0;const found=await request(`/api/author/collections/targets?q=${encodeURIComponent(targetSearch)}&page=${targetPage}&size=100`);targets=more?[...targets,...found.filter(t=>!targets.some(old=>targetKey(old)===targetKey(t)))]:found;renderEditor();};
     editor.append(targetQuery.label,button(words("Найти произведения", "Find works"),()=>work(()=>searchTargets())),button(words("Показать ещё варианты", "Load more options"),()=>work(()=>searchTargets(true))));
-    const picker=select(words("Добавить свою историю или папку", "Add my story or folder"),[["",words("Выберите…", "Select…")],...targets.filter(t=>t.owned!==false&&allowedChild(doc.type,t)&&t.id!==current?.collectionId&&!doc.items.some(i=>targetKey(i.target)===targetKey(t))).map(t=>[targetKey(t),`${typeName(t.type)} · ${t.title}`])],"");
+    const picker=select(words("Добавить свою историю или папку", "Add my story or folder"),[["",words("Выберите…", "Select…")],...targets.filter(t=>allowedChild(t)&&t.id!==current?.collectionId&&!doc.items.some(i=>targetKey(i.target)===targetKey(t))).map(t=>[targetKey(t),`${typeName(t.type)} · ${t.title}`])],"");
     editor.append(picker.label,button(words("+ Добавить в папку", "+ Add to folder"),()=>{const target=targets.find(t=>t.owned!==false&&targetKey(t)===picker.input.value);if(target){doc.items.push({target:targetRef(target)});changed();renderEditor();}},"add-button"));
-    if(doc.type==="story"){
-      editor.append(button(words("+ Создать новую главу", "+ Create a chapter"),()=>work(createChapter),"add-button"));
-      renderTransitions();
-    }
+    editor.append(button(words("+ Создать историю", "+ Create story"),()=>work(createChapter),"add-button"));
+    renderTransitions();
     const actions=el("div",null,"collection-actions");
     actions.append(button(words("Сохранить", "Save"),()=>work(save),"add-button"));
     if(current){
@@ -167,6 +162,7 @@ async function start(root) {
     doc.transitions ||= [];
     for(let i=1;i<doc.items.length;i++){
       const from=doc.items[i-1].target,to=doc.items[i].target;
+      if(from.kind!=="scenario"||to.kind!=="scenario")continue;
       const existing=doc.transitions.find(t=>targetKey(t.from)===targetKey(from)&&targetKey(t.to)===targetKey(to));
       const box=el("div",null,"collection-item");box.append(el("h4",`${from.key} → ${to.key}`));
       const transfer=transferEditor(existing?.stateTransfer,()=>{
@@ -192,11 +188,11 @@ async function start(root) {
     if(result.results)status.textContent+=`\n${JSON.stringify(result.results)}`;
   }
   async function createChapter(){
-    const title=words(`Глава ${doc.items.length+1}`,`Chapter ${doc.items.length+1}`);
+    const title=words(`История ${doc.items.length+1}`,`Story ${doc.items.length+1}`);
     const key=`chapter_${crypto.randomUUID().replaceAll("-","")}`;
     const result=await request("/api/author/stories/import",{method:"POST",body:{key,title,description:"",version:1,startSceneId:"start",variables:{},assets:[],scenes:[{id:"start",title,text:words("История начинается.","The story begins."),choices:[],ending:{type:"ending",title}}]}});
     doc.items.push({target:{kind:"scenario",id:result.storyId,key},label:""});targets=await request("/api/author/collections/targets");changed();renderEditor();
-    status.textContent=words("Глава создана как приватный черновик. Сохраните оглавление; затем откройте «Редактировать главу».", "Chapter created as a private draft. Save the contents, then choose Edit chapter.");
+    status.textContent=words("История создана как приватный черновик. Сохраните папку; затем откройте «Редактировать историю».", "Story created as a private draft. Save the folder, then choose Edit story.");
   }
   function renderSnapshot(container,value){
     container.append(el("h3",value.title||value.key),el("p",value.description||""));
@@ -295,12 +291,12 @@ async function start(root) {
     });
     const exchange=el("details");exchange.append(el("summary",words("Импорт папки из файла", "Import folder from a file")),upload.label);toolbar.append(create,link(words("+ Новая история", "+ New story"),"/builder/"));root.insertBefore(exchange,grid);
   }
-  toolbar.onsubmit=event=>{event.preventDefault();pageIndex=0;work(loadList);};query.input.onsearch=()=>{pageIndex=0;work(loadList);};type.input.onchange=state.input.onchange=()=>{pageIndex=0;work(loadList);};
+  toolbar.onsubmit=event=>{event.preventDefault();pageIndex=0;work(loadList);};query.input.onsearch=()=>{pageIndex=0;work(loadList);};state.input.onchange=()=>{pageIndex=0;work(loadList);};
   await loadList();
   if(params.get("collection"))await open(params.get("collection"));
   else if(params.get("scenario")&&!moderation){
     const parents=await request(`/api/author/collections/parents?scenarioId=${encodeURIComponent(params.get("scenario"))}`);
     if(parents.length)await open(parents[0].id||parents[0].collectionId);
-    else status.textContent=words("У этой истории ещё нет основного оглавления. Создайте произведение и включите её в состав.", "This story has no main contents yet. Create a work and include it.");
+    else status.textContent=words("Эта история пока не находится в папке. Создайте папку и добавьте её туда.", "This story is not in a folder yet. Create a folder and add it there.");
   }
 }

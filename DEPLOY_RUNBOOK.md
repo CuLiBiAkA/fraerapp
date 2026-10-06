@@ -2,6 +2,17 @@
 
 Last updated: 2026-10-06.
 
+## Ordinary folder correction (2026-10-06)
+
+Release removes volume/cycle type rules; it changes API and static clients without
+a migration (V17). Rebuild API and Builder, deploy shared modules before entrypoint
+HTML: collection-ui/reader/workspace v3, folder-review/workspace-entry v2, engine-72,
+builder-41. Preserve immutable JSON and existing type columns as file compatibility.
+Verify same-kind nested folders, mixed contents, cycle/duplicate-parent rejection,
+forward-reference package import, grouped moderation and direct-scenario reading
+on H2/PostgreSQL and browser fixtures. Follow backup/cutover/health/hash/manifest
+checks below. Previous production release: 782ab67. No push or unrelated file edits.
+
 ## Public folder simplification (deployed 2026-10-06)
 
 Verified release `782ab67`; backup/receipt directory

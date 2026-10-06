@@ -37,7 +37,7 @@ class CollectionService {
  }
  @Transactional(readOnly=true)
  List<Map<String,Object>> mine(String owner,int page,int size,String q,String type,String state){return jdbc.query("select * from work_collections where owner_player_id=? and (lower(draft_title) like ? or lower(collection_key) like ?) and (?='all' or collection_type=?) and (?='all' or review_state=? or visibility=?) order by updated_at desc limit ? offset ?",this::map,owner,"%"+q.toLowerCase(Locale.ROOT)+"%","%"+q.toLowerCase(Locale.ROOT)+"%",type,type,state,state,state,Math.max(1,Math.min(100,size)),Math.max(0,page)*Math.max(1,Math.min(100,size))).stream().map(this::summary).toList();}
- List<Map<String,Object>> parents(String player,String scenarioId){var s=stories.findById(scenarioId).orElseThrow(StoryNotFoundException::new);if(!player.equals(s.getOwnerPlayerId()))throw new ForbiddenRoleException();return jdbc.query("select c.* from work_collections c join collection_memberships m on m.parent_id=c.id where m.target_kind='scenario' and m.target_id=? and m.main_parent=true and c.owner_player_id=?",this::map,scenarioId,player).stream().map(this::summary).toList();}
+ List<Map<String,Object>> parents(String player,String scenarioId){var s=stories.findById(scenarioId).orElseThrow(StoryNotFoundException::new);if(!player.equals(s.getOwnerPlayerId()))throw new ForbiddenRoleException();return jdbc.query("select c.* from work_collections c join collection_memberships m on m.parent_id=c.id where m.target_kind='scenario' and m.target_id=? and c.owner_player_id=?",this::map,scenarioId,player).stream().map(this::summary).toList();}
  @Transactional(readOnly=true)
  Map<String,Object> queue(int page,int size,String q,String state,String visibility,String type) {
   size=Math.max(1,Math.min(100,size));page=Math.max(0,page);
@@ -95,20 +95,20 @@ class CollectionService {
   if(list(d.items()).size()>500)throw bad("A collection may contain at most 500 direct items");
   var references=new ArrayList<WorkMetadata.Target>();for(var i:list(d.items())){if(i==null)throw bad("Collection item is required");references.add(i.target());}for(var p:list(d.transitions())){if(p==null)throw bad("Transition is required");references.add(p.from());references.add(p.to());}
   var targets=links.references(references);
-  // Batch derived-parent facts once per command. Type ranks make structural cycles impossible.
-  var memberships=jdbc.queryForList("select m.parent_id,m.target_kind,m.target_id,m.main_parent,c.collection_type from collection_memberships m join work_collections c on c.id=m.parent_id");
+  // All legacy type values now describe ordinary folders. Check the actual graph,
+  // reserving both draft and published membership while publication is pending.
+  var memberships=jdbc.queryForList("select m.parent_id,m.target_kind,m.target_id from collection_memberships m join work_collections c on c.id=m.parent_id where c.owner_player_id=?",owner);
   Set<String> unique=new HashSet<>();var items=new ArrayList<CollectionDocument.Item>();
   for(var item:list(d.items())) {
    var t=targets.resolve(item.target(),owner,strict);String identity=t.kind()+":"+(t.id()==null?t.key():t.id());
    if(!unique.add(identity))throw bad("Duplicate collection item");if(item.label()!=null&&item.label().length()>200)throw bad("Item label too long");
    if("collection".equals(t.kind())&&Objects.equals(t.id(),id))throw bad("Collection cannot include itself");
-   if(t.id()!=null)validateChild(d.type(),id,t,owner,targets.info(t),memberships);
-   else if("story".equals(d.type())&&!"scenario".equals(t.kind()))throw bad("A story collection contains scenario chapters only");
+   if(t.id()!=null)validateChild(id,t,owner,targets.info(t),memberships);
    items.add(new CollectionDocument.Item(t,item.label()));
   }
   var transitions=new ArrayList<CollectionDocument.Transition>();Set<String> policyIds=new HashSet<>(),pairs=new HashSet<>();
   for(var t:list(d.transitions())) {
-   if(!"story".equals(d.type()))throw bad("Chapter transitions belong to story collections");name(t.id(),"transition id");
+   name(t.id(),"transition id");
    if(!policyIds.add(t.id()))throw bad("Duplicate transition id");var from=targets.resolve(t.from(),owner,strict);var to=targets.resolve(t.to(),owner,strict);
    if(!"scenario".equals(from.kind())||!"scenario".equals(to.kind()))throw bad("Transitions require scenario chapters");
    int index=-1;for(int i=0;i<items.size();i++)if(same(items.get(i).target(),from))index=i;
@@ -120,14 +120,15 @@ class CollectionService {
   return new CollectionDocument(1,d.key(),d.type(),d.title(),d.description(),d.coverUrl(),d.completionStatus(),items,transitions);
  }
  static boolean same(WorkMetadata.Target a,WorkMetadata.Target b){return a.kind().equals(b.kind())&&(a.id()!=null&&b.id()!=null?a.id().equals(b.id()):Objects.equals(a.key(),b.key()));}
- private void validateChild(String parentType,String parentId,WorkMetadata.Target t,String owner,WorkLinksService.TargetInfo child,List<Map<String,Object>> memberships) {
-  String childOwner=child.owner(),childType=child.type();
-  boolean allowed=switch(parentType){case "story"->"scenario".equals(childType);case "volume"->List.of("scenario","story").contains(childType);case "cycle","catalog"->List.of("scenario","story","volume","cycle").contains(childType)&&(!"cycle".equals(parentType)||!"cycle".equals(childType));default->false;};
-  if(!allowed)throw bad("Invalid collection nesting");
-  if(!Objects.equals(owner,childOwner))throw bad("Only your own works can be grouped");
-  var parents=memberships.stream().filter(m->t.kind().equals(m.get("target_kind"))&&t.id().equals(m.get("target_id"))&&Boolean.TRUE.equals(m.get("main_parent"))&&!parentId.equals(m.get("parent_id"))).toList();
-  if(!"catalog".equals(parentType)&&!parents.isEmpty())throw conflict("This work already has a main parent");
-  if(!"story".equals(parentType)&&parents.stream().anyMatch(p->"story".equals(p.get("collection_type"))))throw bad("Individual chapters cannot be included directly in a volume, cycle or catalog");
+ private void validateChild(String parentId,WorkMetadata.Target t,String owner,WorkLinksService.TargetInfo child,List<Map<String,Object>> memberships) {
+  if(!Objects.equals(owner,child.owner()))throw bad("Only your own works can be grouped");
+  if(memberships.stream().anyMatch(m->t.kind().equals(m.get("target_kind"))&&t.id().equals(m.get("target_id"))&&!parentId.equals(m.get("parent_id"))))throw conflict("This work is already in another folder");
+  if(!"collection".equals(t.kind()))return;
+  var descendants=new ArrayDeque<String>();descendants.add(t.id());Set<String> visited=new HashSet<>();
+  while(!descendants.isEmpty()){
+   String current=descendants.remove();if(current.equals(parentId))throw bad("A folder cannot contain itself or its parent");if(!visited.add(current))continue;
+   for(var m:memberships)if(current.equals(m.get("parent_id"))&&"collection".equals(m.get("target_kind")))descendants.add((String)m.get("target_id"));
+  }
  }
  private void reindex(Row r) {
   var draft=json.readCollection(r.draft());var published=r.published()==null?null:document(r,r.published());
@@ -135,7 +136,7 @@ class CollectionService {
   for(var item:list(draft.items()))if(item.target().id()!=null){String k=item.target().kind()+":"+item.target().id();draftKeys.add(k);targets.put(k,item.target());}
   if(published!=null)for(var item:list(published.items()))if(item.target().id()!=null){String k=item.target().kind()+":"+item.target().id();publishedKeys.add(k);targets.put(k,item.target());}
   jdbc.update("delete from collection_memberships where parent_id=?",r.id());
-  targets.forEach((k,t)->jdbc.update("insert into collection_memberships(parent_id,target_kind,target_id,main_parent,in_draft,in_published) values (?,?,?,?,?,?)",r.id(),t.kind(),t.id(),!"catalog".equals(r.type()),draftKeys.contains(k),publishedKeys.contains(k)));
+  targets.forEach((k,t)->jdbc.update("insert into collection_memberships(parent_id,target_kind,target_id,main_parent,in_draft,in_published) values (?,?,?,?,?,?)",r.id(),t.kind(),t.id(),true,draftKeys.contains(k),publishedKeys.contains(k)));
  }
  @Transactional
  Map<String,Object> submit(String id,String player,int generation,boolean replace,AuthIdentity actor) {
@@ -206,12 +207,6 @@ class CollectionService {
   String owner=row(d.key()).owner();
   var scenarioIds=list(d.items()).stream().map(CollectionDocument.Item::target).filter(t->"scenario".equals(t.kind())&&t.id()!=null).map(WorkMetadata.Target::id).toList();
   var scenarioMap=stories.findAllById(scenarioIds).stream().filter(s->Objects.equals(owner,s.getOwnerPlayerId())).filter(StoryAccessService::listed).filter(s->!guest||GuestDemoStories.includes(s.getKey())).collect(Collectors.toMap(Story::getId,s->s));
-  // A thematic catalog never acquires structural ownership. A later primary
-  // chapter attachment only changes this projection, not the catalog document.
-  if("catalog".equals(d.type())){
-   var chapters=jdbc.query("select m.target_id from collection_memberships m join work_collections c on c.id=m.parent_id where m.target_kind='scenario' and m.in_published=true and c.collection_type='story' and c.published_revision is not null",(r,n)->r.getString(1));
-   chapters.forEach(scenarioMap::remove);
-  }
   var collectionIds=list(d.items()).stream().map(CollectionDocument.Item::target).filter(t->"collection".equals(t.kind())&&t.id()!=null).map(WorkMetadata.Target::id).distinct().toList();
   Map<String,Map<String,Object>> collectionMap=new HashMap<>();
   if(!guest&&!collectionIds.isEmpty())jdbc.query("select c.*,v.document_json from work_collections c join collection_versions v on v.collection_id=c.id and v.revision=c.published_revision where c.visibility='public' and c.id in ("+String.join(",",Collections.nCopies(collectionIds.size(),"?"))+")",rs->{Row row=map(rs,0);if(Objects.equals(owner,row.owner()))collectionMap.put(row.id(),publicSummary(row,json.readCollection(rs.getString("document_json")),false));},collectionIds.toArray());
@@ -222,18 +217,18 @@ class CollectionService {
    if(m!=null){m.put("label",item.label());result.add(m);}
   }return result;
  }
- List<Map<String,Object>> breadcrumbs(String kind,String id,boolean guest){var result=new ArrayList<Map<String,Object>>();if(guest)return result;for(int depth=0;depth<4;depth++){var rows=jdbc.query("select c.* from work_collections c join collection_memberships m on m.parent_id=c.id where m.target_kind=? and m.target_id=? and m.main_parent=true and m.in_published=true and c.visibility='public' and c.published_revision is not null",this::map,kind,id);if(rows.isEmpty())break;String childOwner="scenario".equals(kind)?stories.findById(id).map(Story::getOwnerPlayerId).orElse(null):row(id).owner();Row r=rows.stream().filter(c->Objects.equals(c.owner(),childOwner)).findFirst().orElse(null);if(r==null)break;result.add(0,publicSummary(r,null));id=r.id();kind="collection";}return result;}
+ List<Map<String,Object>> breadcrumbs(String kind,String id,boolean guest){var result=new ArrayList<Map<String,Object>>();if(guest)return result;Set<String> seen=new HashSet<>();while(seen.add(kind+":"+id)){var rows=jdbc.query("select c.* from work_collections c join collection_memberships m on m.parent_id=c.id where m.target_kind=? and m.target_id=? and m.in_published=true and c.visibility='public' and c.published_revision is not null",this::map,kind,id);if(rows.isEmpty())break;String childOwner="scenario".equals(kind)?stories.findById(id).map(Story::getOwnerPlayerId).orElse(null):row(id).owner();Row r=rows.stream().filter(c->Objects.equals(c.owner(),childOwner)).findFirst().orElse(null);if(r==null)break;result.add(0,publicSummary(r,null));id=r.id();kind="collection";}return result;}
  @Transactional
  Map<String,Object> favorite(String id,String player,boolean favorite){Row r=accessible(id,false);jdbc.queryForObject("select id from players where id=? for update",String.class,player);if(favorite){if(jdbc.queryForObject("select count(*) from collection_favorites where collection_id=? and player_id=?",Integer.class,r.id(),player)==0)jdbc.update("insert into collection_favorites(player_id,collection_id) values (?,?)",player,r.id());}else jdbc.update("delete from collection_favorites where player_id=? and collection_id=?",player,r.id());return Map.of("favorite",favorite);}
  @Transactional
  void notifyNewChapters(){
-  structureLock();var rows=jdbc.queryForList("select c.id as collection_id,m.target_id as story_id from work_collections c join collection_memberships m on m.parent_id=c.id join stories s on s.id=m.target_id where c.collection_type='story' and c.visibility='public' and c.published_revision is not null and m.target_kind='scenario' and m.in_published=true and s.visibility='public' and s.status='PUBLISHED' and s.published_revision is not null");
+  structureLock();var rows=jdbc.queryForList("select c.id as collection_id,m.target_id as story_id from work_collections c join collection_memberships m on m.parent_id=c.id join stories s on s.id=m.target_id and s.owner_player_id=c.owner_player_id where c.visibility='public' and c.published_revision is not null and m.target_kind='scenario' and m.in_published=true and s.visibility='public' and s.status='PUBLISHED' and s.published_revision is not null");
   for(var r:rows){String cid=(String)r.get("collection_id"),sid=(String)r.get("story_id");if(jdbc.queryForObject("select count(*) from collection_released_chapters where collection_id=? and story_id=?",Integer.class,cid,sid)>0)continue;
    jdbc.update("insert into collection_released_chapters(collection_id,story_id) values (?,?)",cid,sid);
    for(String uid:jdbc.query("select p.user_id from collection_favorites f join players p on p.id=f.player_id where f.collection_id=? and p.user_id is not null",(rs,n)->rs.getString(1),cid))jdbc.update("insert into account_notifications(id,user_id,kind,message,story_id,collection_id) values (?,?,'chapter','Новая глава',?,?)",UUID.randomUUID().toString(),uid,sid,cid);
   }
  }
- Set<String> listedChapterIds(){return new HashSet<>(jdbc.query("select m.target_id from collection_memberships m join work_collections c on c.id=m.parent_id where c.collection_type='story' and c.visibility='public' and c.published_revision is not null and m.in_published=true and m.target_kind='scenario'",(r,n)->r.getString(1)));}
+ Set<String> listedChapterIds(){return new HashSet<>(jdbc.query("select m.target_id from collection_memberships m join work_collections c on c.id=m.parent_id join stories s on s.id=m.target_id and s.owner_player_id=c.owner_player_id where c.visibility='public' and c.published_revision is not null and m.in_published=true and m.target_kind='scenario'",(r,n)->r.getString(1)));}
  List<Map<String,Object>> targets(String player,String q,int page,int size){var result=new ArrayList<Map<String,Object>>();String query=q==null?"":q.toLowerCase(Locale.ROOT);
   // Bounded paginated source queries avoid returning private targets owned by another user.
   for(var s:jdbc.queryForList("select s.id,s.story_key,s.title,s.owner_player_id,s.visibility,w.draft_json from stories s join story_workspaces w on w.story_id=s.id where s.owner_player_id=? and (lower(s.title) like ? or lower(s.story_key) like ? or lower(w.draft_json) like ?) order by s.story_key limit ? offset ?",player,"%"+query+"%","%"+query+"%","%"+query+"%",Math.min(100,Math.max(1,size)),Math.max(0,page)*Math.min(100,Math.max(1,size)))){

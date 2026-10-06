@@ -1,5 +1,21 @@
 # Public folders correction
 
+Follow-up 2026-10-06: the owner requested ordinary folders, without literal volume
+or cycle types. Work on main from baeab00 preserves the same unrelated edits.
+Removed UI kind/filter/rank rules; all legacy storage types behave identically.
+Folders contain own stories and folders, one parent per item, arbitrary named
+nesting with cycle protection. Forward package references resolve atomically;
+reader saves only concern direct scenarios. Existing grouped review and transfers
+remain. No schema/history rewrite. Tests cover deep same-kind nesting, grouped
+publication, mixed reading and cyclic imports. Prior commit/deploy authorization
+continues; no push. PostgreSQL: 27 folder tests passed, plus the notification
+regression after removing its last legacy-type condition. Frontend: 70 tests and
+browser fixtures at 1440/390/320px passed; no literary type selectors, nested folder
+selection works, and owner-only/mapped reading/group moderation checks remain green.
+The temporary database/tunnel were removed. Final full API/auth suites and bootJar
+passed (69 API, 33 auth); production validator, JS syntax and diff checks passed.
+Release status will be recorded after verification.
+
 User correction 2026-10-06: collections must behave like folders for grouping
 the author's own works. Foreign story/folder references must be forbidden. User
 selected public folders and one expandable moderation application containing the

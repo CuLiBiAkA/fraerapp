@@ -1,4 +1,4 @@
-import {el,link,button,field,select,words,typeName,request,errorMessage} from "./collection-ui.js?v=2";
+import {el,link,button,field,select,words,typeName,request,errorMessage} from "./collection-ui.js?v=3";
 
 export function createCollectionReader({screen,sceneScreen,catalogHost,showScreen,navigate,onSession,signedIn,signIn}) {
   let generation=0, navGeneration=0, lastCollection=null;
@@ -42,7 +42,7 @@ export function createCollectionReader({screen,sceneScreen,catalogHost,showScree
       const contents=el("section");screen.append(contents);
       const list=el("ol");for(const item of data.items||[]){const li=el("li");li.append(href(item.label||item.title||item.key,route(item)),document.createTextNode(` · ${typeName(item.type||item.kind)}`));list.append(li);}contents.append(el("h2",words("Оглавление", "Contents")),list);
       if(!data.items?.length)contents.append(el("p",words("Доступных частей пока нет.", "No parts are available yet.")));
-      if(data.type==="story"&&signedIn()){
+      if(data.items?.some(item=>item.kind==="scenario")&&signedIn()){
         const runPanel=el("section");screen.append(runPanel);
         const id=data.collectionId||data.id;
         const runs=await request(`/api/collections/${id}/runs`);if(seq!==generation)return;
@@ -56,7 +56,7 @@ export function createCollectionReader({screen,sceneScreen,catalogHost,showScree
           const picker=select(words("Ваши прохождения", "Your runs"),available.map((r,i)=>[r.id||r.runId,`${words("Прохождение", "Run")} ${available.length-i} · ${r.updatedAt||r.createdAt||r.id}`]),available[0].id||available[0].runId);
           picker.input.onchange=()=>renderRun(picker.input.value,runPanel).catch(error=>{status.textContent=errorMessage(error);});screen.insertBefore(picker.label,runPanel);await renderRun(picker.input.value,runPanel);
         }
-      }else if(data.type==="story")actions.append(action(words("Войти и читать", "Sign in to read"),async()=>signIn(),status));
+      }else if(data.items?.some(item=>item.kind==="scenario"))actions.append(action(words("Войти и читать", "Sign in to read"),async()=>signIn(),status));
     }catch(error){if(seq===generation){status.textContent=errorMessage(error);if(error.status===401)screen.append(action(words("Войти", "Sign in"),async()=>signIn(),status));}}
   }
   async function renderRun(id,host){
