@@ -2,7 +2,21 @@
 
 Last updated: 2026-10-06.
 
-## Public folder simplification (release preparation)
+## Public folder simplification (deployed 2026-10-06)
+
+Verified release `782ab67`; backup/receipt directory
+`backups/folders-20261006-092158`. Both databases and replaced files/configuration
+were backed up; an additional API cutover dump was taken with writes stopped.
+Dump listings and transferred API SHA-256 were verified. Runtime/public hashes
+match; six services healthy, readiness UP, V17 current, recent API/auth errors zero.
+Story/folder identity and publication manifests match before/after; guest demos
+remain three and anonymous folder author/moderation endpoints return 401.
+No sample works or production mutations on real accounts were used for testing.
+
+Checks: 66 API tests, 33 auth tests, 70 frontend/Builder tests, 24 collection
+workflows on PostgreSQL, browser fixtures at 1440/390/320px, syntax, production
+validator and diff checks passed. Requirements and quality reviews passed.
+The disposable PostgreSQL container and tunnel were removed. No Git push.
 
 Correction: default folder tree, a single grouped moderation application/decision,
 and owner-only authoring links. No new migration; database remains at V17. Do not

@@ -2,7 +2,16 @@
 
 Last updated: 2026-10-06.
 
-## Public folders correction (release preparation)
+## Public folders correction (deployed 2026-10-06)
+
+Correction `782ab67` is deployed (engine-71, builder-40, collection modules v2).
+All six services are healthy, API readiness is UP, V17 remains current, release
+asset/source hashes match, and recent API/auth error markers are zero. Story and
+folder manifests are unchanged; no production sample works were created. Backup
+and restricted receipt: `backups/folders-20261006-092158`. Verification passed:
+66 API, 33 auth, 70 frontend tests, 24 collection tests on PostgreSQL and browser
+fixtures at 1440/390/320px. Independent requirements/quality reviews passed.
+No Git push; unrelated local changes remain intact.
 
 The owner corrected the initial collection UX: work grouping should behave like
 folders, exclusively containing/linking the author's own works. Public folders

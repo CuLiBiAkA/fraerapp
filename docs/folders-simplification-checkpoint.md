@@ -49,6 +49,12 @@ Isolated PostgreSQL24 suite passed with zero failures. Requirement review PASS;
 quality review PASS. Final full backend run and bootJar passed; artifact SHA-256
 87ef78e1b226b3df295ef0aed5d226bfbcfcf9feba960776301d7c09c739d57e.
 Production inspected: six healthy services, no recent API/auth errors, 3 guest demos
-and 0 pre-existing folders. Manifests stored privately. No correction deployed yet.
-Disposable PostgreSQL and tunnel removed after all tests. Next: local task commit,
-verified production backup/build/deploy, final receipt. No push.
+and 0 pre-existing folders. Manifests stored privately.
+Disposable PostgreSQL and tunnel removed after all tests.
+
+Complete: correction committed as 782ab67 and deployed, with verified backup and
+restricted receipt in backups/folders-20261006-092158. Six healthy services,
+readiness UP, V17 unchanged, exact runtime/public hashes, zero recent API/auth
+errors, preserved story/folder manifests and guest policy; anonymous private folder
+endpoints denied. Release documentation committed after verification. No push.
+No task-owned source changes remain uncommitted; unrelated baseline edits preserved.
