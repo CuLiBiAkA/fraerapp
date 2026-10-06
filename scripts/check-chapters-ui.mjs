@@ -8,12 +8,14 @@ import {createRequire} from "node:module";
 const {chromium}=createRequire(import.meta.url)("playwright");
 const root=path.resolve(import.meta.dirname,"..");
 const mutations=[],errors=[];
-let conflict=false, reviewDelay=0, failTargets=false, hiddenMiddle=false;
+let conflict=false, reviewDelay=0, failTargets=false, hiddenMiddle=false,decisionConflict=false,reviewSelf=false;
 const target=n=>({id:`chapter-${n}`,kind:"scenario",key:`chapter_${n}`,title:`Глава ${n}`,owned:true,visibility:"public",slug:`chapter-${n}`});
 const documentValue={schemaVersion:1,key:"night-book",type:"story",title:"Ночной поезд — история с главами",description:"Три главы одной истории",completionStatus:"in_development",items:[1,2].map(n=>({target:target(n)})),transitions:[]};
 let collection={id:"book",collectionId:"book",key:"night-book",type:"story",title:documentValue.title,generation:1,draftRevision:2,submittedRevision:2,publishedRevision:1,reviewState:"in_review",visibility:"public",draftDocument:documentValue,document:documentValue,events:[],versions:[{revision:1},{revision:2}]};
 const session=id=>({sessionId:id,story:{key:id==="save-1"?"chapter_1":"chapter_2",title:id==="save-1"?"Глава 1":"Глава 2",authorName:"Автор"},scene:{id:"end",title:"Финал",text:"Глава пройдена",choices:[],ending:{title:"Финал"}},variables:{score:7},statsVariables:{score:7},status:id==="save-1"?"finished":"active"});
 const run=()=>({id:"run-1",runId:"run-1",collectionId:"book",revision:1,availableRevision:1,generation:1,items:[{...target(1),sessionId:"save-1",status:"finished",allowIndependentStart:true},{...target(2),previousId:hiddenMiddle?null:"chapter-1",allowIndependentStart:hiddenMiddle}]});
+const tree=()=>({...collection,kind:"collection",pendingCount:2,children:[{...target(1),reviewState:"in_review"},{...target(2),reviewState:"approved"}]});
+const reviewGroup=()=>({tree:tree(),rootGeneration:collection.generation,canDecide:true,conflicts:[],items:[{kind:"collection",id:"book",generation:collection.generation,revision:2,document:documentValue,publishedDocument:null,self:false,approvalEligibility:{canApprove:true}},{kind:"scenario",id:"chapter-1",generation:4,revision:2,document:{key:"chapter_1",title:"Глава 1",scenes:[{id:"end",title:"Финал",text:"Новый текст главы",choices:[]}]},publishedDocument:null,self:false,approvalEligibility:{canApprove:true}}]});
 const server=http.createServer(async(req,res)=>{
   try{
     const url=new URL(req.url,"http://fixture");let input="";for await(const chunk of req)input+=chunk;const body=input?JSON.parse(input):{};
@@ -32,7 +34,11 @@ const server=http.createServer(async(req,res)=>{
     if(url.pathname==="/api/catalog/stories/chapter-2/entry-context")return json({allowIndependentStart:false,parents:[{id:"book",kind:"collection",key:"night-book",title:"Ночной поезд"}],prerequisites:[],sources:[{sourceSessionId:"save-1",relationId:"continuation",sourceTitle:"Глава 1",saveName:"Мой выбор"}]});
     if(url.pathname==="/api/sessions/save-1/relations/continuation/start")return json({session:session("save-2")});
     if(url.pathname==="/api/moderation/stories")return json({items:[],totalPages:0});
-    if(url.pathname==="/api/author/collections/targets"){if(failTargets){failTargets=false;return json({message:"Target list unavailable"},503);}return json([target(1),target(2),target(3)]);}
+    if(url.pathname==="/api/author/folders")return json({items:[tree(),{...collection,kind:"collection",id:"other",collectionId:"other",key:"other",title:"Другое произведение",children:[]}],page:0,total:2});
+    if(url.pathname==="/api/moderation/folders")return json({items:[tree()],page:0,total:1});
+    if(url.pathname==="/api/moderation/folders/book/review"){const value=reviewGroup();if(reviewSelf)for(const item of value.items){item.self=true;item.approvalEligibility={canApprove:false,canOverride:true};}return json(value);}
+    if(url.pathname==="/api/moderation/folders/book/decision"){if(decisionConflict){decisionConflict=false;return json({message:"Application changed"},409);}return json({items:body.items,atomic:true});}
+    if(url.pathname==="/api/author/collections/targets"){if(failTargets){failTargets=false;return json({message:"Target list unavailable"},503);}return json([target(1),target(2),target(3),{...target(99),owned:false,title:"Чужая история"}]);}
     if(url.pathname==="/api/author/collections")return json([collection,{...collection,id:"other",collectionId:"other",key:"other",title:"Другое произведение"}]);
     if(url.pathname==="/api/author/collections/other")return json({...collection,id:"other",collectionId:"other",key:"other",title:"Другое произведение",draftDocument:{...documentValue,key:"other",title:"Другое произведение"}});
     if(url.pathname==="/api/moderation/collections")return json({items:[collection]});
@@ -52,7 +58,7 @@ const server=http.createServer(async(req,res)=>{
         collection={...collection,...body.document,generation:collection.generation+1,draftRevision:collection.draftRevision+1,draftDocument:body.document,document:body.document};return json(collection);
       }
       if(collectionMatch[2]==="/preview")return json({revision:Number(url.searchParams.get("revision"))||collection.submittedRevision,document:collection.draftDocument,publishedDocument:documentValue,validation:{valid:true,errors:[]},dependencies:[{...target(1),requestedRevision:1,submittedRevision:2,reviewState:"in_review"}]});
-      if(req.method==="POST"){if(collectionMatch[2]==="/review"&&reviewDelay)await new Promise(resolve=>setTimeout(resolve,reviewDelay));return json(collection);}
+      if(req.method==="POST"){if(collectionMatch[2]==="/review-batch"&&reviewDelay)await new Promise(resolve=>setTimeout(resolve,reviewDelay));return json(collection);}
       return json(collection);
     }
     let relative=url.pathname.startsWith("/builder/")?"story-builder/"+url.pathname.slice(9):"frontend"+url.pathname;
@@ -73,28 +79,30 @@ try{
     const page=await browser.newPage({viewport:{width,height:900}});
     await page.route("**/*",route=>route.request().url().startsWith(origin)?route.continue():route.abort());
     page.on("pageerror",error=>errors.push(error.message));page.on("dialog",dialog=>dialog.accept());
-    await page.goto(`${origin}/my-stories/?view=collections&collection=book`);
+    await page.goto(`${origin}/my-stories/?collection=book`);
     await page.locator(".collection-editor h2").waitFor();
     await page.locator(".collection-editor").getByLabel("Название",{exact:true}).fill(`Изменённое название ${width}`);
     if(width===1440){
-      conflict=true;await page.getByRole("button",{name:"Сохранить черновик",exact:true}).click();
+      assert.equal(await page.getByRole("button",{name:"Отправить на проверку",exact:true}).count(),1);
+      assert.equal(await page.getByLabel("Добавить свою историю или папку",{exact:true}).locator('option').filter({hasText:"Чужая история"}).count(),0);
+      conflict=true;await page.getByRole("button",{name:"Сохранить",exact:true}).click();
       await page.getByRole("status").filter({hasText:"Данные или условия"}).waitFor();
       assert.equal(await page.locator(".collection-editor").getByLabel("Название",{exact:true}).inputValue(),`Изменённое название ${width}`);
     }
-    await page.getByRole("button",{name:"Сохранить черновик",exact:true}).click();
+    await page.getByRole("button",{name:"Сохранить",exact:true}).click();
     await page.getByRole("status").filter({hasText:"Черновик сохранён"}).waitFor();
     assert.equal(collection.title,`Изменённое название ${width}`);
     if(width===1440){
       reviewDelay=500;
-      await page.getByRole("button",{name:"Сохранить и отправить на проверку",exact:true}).click();
+      await page.getByRole("button",{name:"Отправить на проверку",exact:true}).click();
       await page.waitForFunction(()=>document.querySelector("main.collections-panel").inert);
-      await page.waitForResponse(response=>response.url().endsWith("/review"));
+      await page.waitForResponse(response=>response.url().endsWith("/review-batch"));
       await page.waitForFunction(()=>!document.querySelector("main.collections-panel").inert);reviewDelay=0;
       failTargets=true;
-      await page.locator(".collection-card").filter({hasText:"Другое произведение"}).getByRole("button",{name:"Открыть",exact:true}).click();
+      const other=page.locator(".collection-card").filter({hasText:"Другое произведение"});await other.locator('summary').click();await other.getByRole("button",{name:"Открыть папку",exact:true}).click();
       await page.getByRole("status").filter({hasText:"Target list unavailable"}).waitFor();
       await page.locator(".collection-editor").getByLabel("Название",{exact:true}).fill("Сохраняется прежнее произведение");
-      await page.getByRole("button",{name:"Сохранить черновик",exact:true}).click();
+      await page.getByRole("button",{name:"Сохранить",exact:true}).click();
       await page.getByRole("status").filter({hasText:"Черновик сохранён"}).waitFor();
       assert.equal(mutations.filter(m=>m.path.startsWith("/api/author/collections/")&&m.body.document).at(-1).path,"/api/author/collections/book");
     }
@@ -113,6 +121,7 @@ try{
     await page.getByRole("button",{name:"+ Входной параметр",exact:true}).click();
     assert.equal(await page.getByLabel("Обязателен при переносе").count(),1);
     await page.getByRole("button",{name:"Найти истории для связи"}).click();
+    assert.equal(await page.getByLabel("Произведение",{exact:true}).locator('option').filter({hasText:"Чужая история"}).count(),0);
     await page.getByRole("button",{name:"+ Добавить связь",exact:true}).click();
     await page.getByRole("button",{name:"+ Добавить связь",exact:true}).waitFor();
     if(!await page.locator(".collection-transfer select").count()) console.log(await page.locator("#relations-editor").innerText(),errors);
@@ -120,6 +129,40 @@ try{
     await page.getByRole("button",{name:"+ Параметр",exact:true}).click();
     await page.getByLabel("Откуда",{exact:true}).fill("score");await page.getByLabel("Куда",{exact:true}).fill("courage");
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Builder overflow at ${width}`);
+    await page.goto(`${origin}/collections/night-book`);
+    await page.getByRole("heading",{name:"Продолжить чтение",exact:true}).waitFor();
+    await page.goto(`${origin}/moderation/?collection=book`);
+    await page.getByRole("button",{name:"Одобрить и опубликовать заявку",exact:true}).waitFor();
+    assert.equal(await page.getByRole("button",{name:"Одобрить и опубликовать заявку",exact:true}).isDisabled(),true);
+    for(const part of await page.locator('.folder-review-part').all()){
+      await part.locator(':scope > summary').click();await part.getByLabel("Эту часть проверил(а)",{exact:true}).check();
+    }
+    assert.equal(await page.getByRole("button",{name:"Одобрить и опубликовать заявку",exact:true}).isEnabled(),true);
+    if(width===1440){
+      decisionConflict=true;await page.getByRole("button",{name:"Одобрить и опубликовать заявку",exact:true}).click();
+      await page.getByRole("status").filter({hasText:"Данные или условия"}).waitFor();
+      assert.equal(await page.locator('.folder-review-part input:checked').count(),2);
+    }
+    await page.getByRole("button",{name:"Одобрить и опубликовать заявку",exact:true}).click();
+    await page.waitForFunction(()=>!document.querySelector('.collection-editor').inert);
+    const decision=mutations.filter(m=>m.path==="/api/moderation/folders/book/decision").at(-1);assert.equal(decision.body.items.length,2);assert.equal(decision.body.items[1].revision,2);assert.equal(decision.body.items.some(i=>i.id==="chapter-2"),false);assert.ok(decision.body.reason);
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Folder moderation overflow at ${width}`);
+    await page.screenshot({path:`/tmp/fraer-folders-moderation-${width}.png`,fullPage:true});
+    if(width===1440){
+      reviewSelf=true;await page.goto(`${origin}/moderation/?collection=book`);
+      await page.getByRole("button",{name:"Одобрить и опубликовать заявку",exact:true}).waitFor();
+      for(const part of await page.locator('.folder-review-part').all()){await part.locator(':scope > summary').click();await part.getByLabel("Эту часть проверил(а)",{exact:true}).check();}
+      assert.equal(await page.getByRole("button",{name:"Одобрить и опубликовать заявку",exact:true}).isDisabled(),true);
+      await page.getByLabel("Администратор: разрешить проверку своих работ с указанной причиной",{exact:true}).check();
+      const countBefore=mutations.filter(m=>m.path==="/api/moderation/folders/book/decision").length;
+      await page.getByRole("button",{name:"Одобрить и опубликовать заявку",exact:true}).click();
+      await page.getByRole("status").filter({hasText:"Напишите причину решения"}).waitFor();
+      assert.equal(mutations.filter(m=>m.path==="/api/moderation/folders/book/decision").length,countBefore);
+      await page.getByLabel("Замечания автору",{exact:true}).fill("Проверено администратором");
+      await page.getByRole("button",{name:"Одобрить и опубликовать заявку",exact:true}).click();
+      await page.waitForFunction(()=>!document.querySelector('.collection-editor').inert);
+      assert.equal(mutations.filter(m=>m.path==="/api/moderation/folders/book/decision").at(-1).body.ownOverride,true);reviewSelf=false;
+    }
     await page.goto(`${origin}/collections/night-book`);
     await page.getByRole("heading",{name:"Продолжить чтение",exact:true}).waitFor();
     if(width===1440){

@@ -1,13 +1,15 @@
-import {el,link,button,field,select,checkbox,words,typeName,collectionTypes,request,errorMessage,download,targetRef,targetKey,moveItem,allowedChild,transferEditor} from "./collection-ui.js?v=1";
+import {el,link,button,field,select,checkbox,words,typeName,collectionTypes,request,errorMessage,download,targetRef,targetKey,moveItem,allowedChild,transferEditor} from "./collection-ui.js?v=2";
 import {workflowLabel, renderDocumentDiff} from "./story-workflow.js?v=1";
+import {renderFolderReview} from "./folder-review.js?v=1";
 
 const params = new URLSearchParams(location.search);
+document.documentElement.lang = localStorage.getItem("fraerapp.language") === "en" ? "en" : "ru";
 const moderation = document.body.dataset.workspace === "moderation";
 const path = moderation ? "/moderation/" : "/my-stories/";
-const selectedView = params.get("view") === "collections" || params.has("collection");
+const selectedView = !params.has("story") && params.get("view") !== "stories";
 const switcher = el("nav",null,"workspace-nav"); switcher.style.padding = "18px 28px 0";
 switcher.setAttribute("aria-label",words("Разделы произведений", "Work sections"));
-switcher.append(link(words("Истории и главы", "Stories and chapters"),path),link(words("Оглавления, тома и циклы", "Contents, volumes and series"),`${path}?view=collections`));
+switcher.append(link(words("Папки и истории", "Folders and stories"),path),link(words("Все истории списком", "All stories as a list"),`${path}?view=stories`));
 document.body.prepend(switcher);
 if (selectedView) {
   document.querySelector("#workspace").hidden = true;
@@ -22,7 +24,8 @@ async function start(root) {
   if (user.blocked || (moderation && !roles.some(role => ["admin","moderator"].includes(role)))) throw Object.assign(new Error(),{status:403});
   const api = moderation ? "/api/moderation/collections" : "/api/author/collections";
   let all = [], current = null, doc = null, targets = [], dirty = false, busy = false, openRequest = 0, pageIndex=0, totalPages=0, targetSearch="", targetPage=0;
-  const heading = el("h1",words(moderation ? "Модерация произведений" : "Мои произведения",moderation ? "Work moderation" : "My works"));
+  const expanded=new Set();
+  const heading = el("h1",words(moderation ? "Заявки на публикацию" : "Мои папки и истории",moderation ? "Publication applications" : "My folders and stories"));
   const status = el("p","","collection-status"); status.setAttribute("role","status");
   const toolbar = el("form",null,"collection-toolbar");
   const query = field(words("Поиск", "Search"),"","search");
@@ -31,8 +34,8 @@ async function start(root) {
   const refresh = button(words("Обновить список", "Refresh list"),()=>work(loadList));
   toolbar.append(query.label,type.label,state.label,refresh);
   const grid = el("div",null,"collection-grid"), list = el("section",null,"collection-list"), editor = el("section",null,"collection-editor");
-  list.id = "workspace-list"; list.setAttribute("aria-label",words("Произведения", "Works"));
-  editor.append(el("p",words("Выберите произведение или создайте новое.", "Select a work or create a new one.")));
+  list.id = "folder-list"; document.querySelector(".skip-link")?.setAttribute("href","#folder-list");list.setAttribute("aria-label",words("Папки и истории", "Folders and stories"));
+  editor.append(el("h2",words("Всё устроено как папки", "Organized as folders")),el("p",moderation?words("Откройте заявку-папку. Внутри находятся новые и изменённые части, которые нужно проверить. Уже опубликованные части остаются на месте.","Open a folder application to review its new and changed parts. Previously published parts stay in place."):words("Создайте папку и добавьте свои истории. Папка «История» объединяет главы, «Том» — истории, «Цикл» — истории и тома. Читатель увидит это же оглавление после проверки.","Create a folder and add your own stories. A Story folder holds chapters, a Volume holds stories, and a Series holds stories and volumes. Readers see these contents after review.")));
   const pagination=el("nav",null,"collection-actions");pagination.setAttribute("aria-label",words("Страницы произведений", "Work pages"));
   const previous=button(words("← Назад", "← Previous"),()=>work(async()=>{pageIndex--;await loadList();}));
   const next=button(words("Далее →", "Next →"),()=>work(async()=>{pageIndex++;await loadList();}));const pageLabel=el("span");pagination.append(previous,pageLabel,next);
@@ -50,31 +53,38 @@ async function start(root) {
   async function loadList() {
     const visibility=["hidden","archived","deleted"].includes(state.input.value)?state.input.value:"all";
     const searchParams=new URLSearchParams({page:pageIndex,size:20,q:query.input.value,type:type.input.value,status:moderation&&visibility!=="all"?"all":state.input.value,visibility});
-    if (moderation) {
-      const data=await request(`${api}?${searchParams}`); all=data.items||[];totalPages=Math.ceil((data.total||all.length)/20);
-    } else {all=await request(`${api}?${searchParams}`);totalPages=pageIndex+(all.length===20?2:1);}
+    const data=await request(`/api/${moderation?"moderation":"author"}/folders?${searchParams}`);all=data.items||[];totalPages=Math.ceil((data.total||all.length)/20);
     previous.disabled=pageIndex===0;next.disabled=pageIndex+1>=totalPages;pageLabel.textContent=words(`Страница ${pageIndex+1}`,`Page ${pageIndex+1}`);pagination.hidden=pageIndex===0&&all.length<20;
     renderList(); status.textContent="";
   }
   function renderList() {
     list.replaceChildren();
-    const filtered=all.filter(item=>(type.input.value==="all"||item.type===type.input.value)
-      && (state.input.value==="all"||item.reviewState===state.input.value||item.visibility===state.input.value)
-      && `${item.title} ${item.key}`.toLowerCase().includes(query.input.value.toLowerCase()));
+    const filtered=all;
     if(!filtered.length)list.append(el("p",words("Здесь пока пусто. Попробуйте другой фильтр.", "Nothing here yet. Try another filter.")));
     for(const item of filtered){
-      const card=el("article",null,"collection-card");card.append(el("h3",item.title),el("span",typeName(item.type),"collection-badge"),el("p",labels(item)));
-      if(item.reason)card.append(el("p",item.reason));
-      card.append(button(words("Открыть", "Open"),()=>{if(discard())work(()=>open(item.collectionId||item.id));}));list.append(card);
+      list.append(treeNode(item,true));
     }
+  }
+  function treeNode(item,rootNode=false){
+    if(item.kind==="scenario"){
+      const row=el("div",null,"folder-leaf");row.append(el("span",`📄 ${item.title}`),el("small",labels(item)));
+      if(!moderation||rootNode)row.append(link(words(moderation?"Проверить историю":"Редактировать",moderation?"Review story":"Edit"),moderation?`/moderation/?story=${encodeURIComponent(item.id)}`:`/builder/?story=${encodeURIComponent(item.id)}`));return row;
+    }
+    const card=el("details",null,rootNode?"collection-card folder-branch":"folder-branch");card.open=expanded.has(item.id);
+    const summary=el("summary");summary.append(el("span",`📁 ${item.title}`));if(item.pendingCount)summary.append(el("small",words(`На проверке: ${item.pendingCount}`,`Awaiting review: ${item.pendingCount}`)));card.append(summary);
+    card.ontoggle=()=>{if(card.open)expanded.add(item.id);else expanded.delete(item.id);};
+    if(!moderation||rootNode)card.append(button(words(moderation?"Проверить заявку":"Открыть папку",moderation?"Review application":"Open folder"),()=>{if(discard())work(()=>open(item.collectionId||item.id));}));
+    const children=el("div",null,"folder-children");for(const child of item.children||[])children.append(treeNode(child));
+    if(!item.children?.length)children.append(el("p",words("Папка пока пуста", "This folder is empty")));card.append(children);return card;
   }
   function labels(item){
     const t=k=>workflowLabel(k,document.documentElement.lang);
-    return [t(item.visibility||"private"),t(item.reviewState||"draft"),item.publishedRevision?words(`Публикация v${item.publishedRevision}`,`Published v${item.publishedRevision}`):null,words(`Черновик v${item.draftRevision||1}`,`Draft v${item.draftRevision||1}`)].filter(Boolean).join(" · ");
+    return [t(item.visibility||"private"),t(item.reviewState||"draft")].filter(Boolean).join(" · ");
   }
   async function open(id){
     const seq=++openRequest;
     const detail=await request(`${api}/${encodeURIComponent(id)}`);if(seq!==openRequest)return;
+    if(moderation&&!params.has("revision")&&params.get("technical")!=="1")detail.groupReview=await request(`/api/moderation/folders/${encodeURIComponent(id)}/review`);
     const nextTargets=!moderation&&canEdit?await request("/api/author/collections/targets"):targets;
     if(seq!==openRequest)return;
     current=detail; current.collectionId ||= id;
@@ -85,21 +95,24 @@ async function start(root) {
   }
   function renderEditor(){
     editor.replaceChildren();
-    const h=el("h2",current?.title||doc.title||words("Новое произведение", "New work"));h.tabIndex=-1;editor.append(h);
+    const h=el("h2",current?.groupReview?.tree?.title||current?.title||doc.title||words("Новая папка", "New folder"));h.tabIndex=-1;editor.append(h);
     if(current){editor.append(el("p",labels(current)));if(current.reason||current.decisionReason)editor.append(el("p",current.reason||current.decisionReason));}
-    if(moderation){renderReview();return;}
+    if(moderation){
+      if(current.groupReview)renderFolderReview(editor,{group:current.groupReview,roles,onDecision:async()=>{await open(current.collectionId);await loadList();},onDetails:()=>{current.groupReview=null;editor.replaceChildren(el("h2",current.title));renderReview();}});
+      else renderReview();return;
+    }
     const editable=canEdit&&current?.visibility!=="deleted";
     if(!editable){editor.append(el("p",words("Только чтение", "Read only")));renderSnapshot(editor,doc);return;}
-    const fields=el("div",null,"collection-fields");
+    const fields=el("div",null,"collection-fields"),advanced=el("details");advanced.append(el("summary",words("Дополнительные настройки", "Additional settings")));
     for(const [key,ru,en,inputType] of [["key","Ключ","Key","text"],["title","Название","Title","text"],["description","Описание","Description","textarea"],["coverUrl","Обложка: путь из библиотеки /assets/…","Cover: library path /assets/…","text"]]){
       const f=field(words(ru,en),doc[key]||"",inputType);f.input.disabled=key==="key"&&Boolean(current);f.input.maxLength=key==="description"?5000:key==="coverUrl"?500:200;
-      f.input.oninput=()=>{doc[key]=f.input.value;changed();};fields.append(f.label);
+      f.input.oninput=()=>{doc[key]=f.input.value;changed();};(key==="key"||key==="coverUrl"?advanced:fields).append(f.label);
     }
-    const kind=select(words("Тип произведения", "Work type"),Object.keys(collectionTypes).filter(k=>k!=="scenario").map(k=>[k,typeName(k)]),doc.type);kind.input.disabled=Boolean(current);
+    const kind=select(words("Вид папки", "Folder kind"),[["story",words("История — главы по порядку", "Story — chapters in order")],["volume",words("Том — несколько историй", "Volume — several stories")],["cycle",words("Цикл — истории и тома", "Series — stories and volumes")],["catalog",words("Подборка своих произведений", "Collection of my own works")]],doc.type);kind.input.disabled=Boolean(current);
     kind.input.onchange=()=>{doc.type=kind.input.value;changed();renderEditor();};
     const completion=select(words("Завершённость", "Completion"),[["in_development",words("В разработке", "In progress")],["completed",words("Завершено", "Completed")],["abandoned",words("Приостановлено", "Paused")]],doc.completionStatus||"in_development");completion.input.onchange=()=>{doc.completionStatus=completion.input.value;changed();};
     fields.append(kind.label,completion.label);editor.append(fields);
-    editor.append(el("h3",words("Оглавление", "Contents")),el("p",words("Порядок здесь задаёт порядок чтения. Исключение элемента не удаляет его текст. Изменения вступят в силу после проверки.", "This order defines the reading order. Removing an item keeps its content. Changes go live after review.")));
+    editor.append(el("h3",words("В этой папке", "In this folder")),el("p",words("Расставьте части в порядке чтения. Убрать из папки — не значит удалить историю. Читатель увидит изменения после проверки.", "Arrange the parts in reading order. Removing a part from a folder keeps its story. Readers see changes after review.")));
     const items=el("ol",null,"collection-items");
     (doc.items||[]).forEach((item,i)=>{
       const row=el("li",null,"collection-item"), found=targets.find(t=>targetKey(t)===targetKey(item.target)||t.key===item.target.key);
@@ -115,25 +128,26 @@ async function start(root) {
       else if(item.target.kind==="collection")actions.append(button(words("Открыть состав", "Open contents"),()=>{if(discard())work(()=>open(found?.id||item.target.id));}));
       row.append(caption.label,actions);items.append(row);
     });editor.append(items);
-    const targetQuery=field(words("Найти произведение по названию или ключу", "Find a work by title or key"),targetSearch,"search");
+    const targetQuery=field(words("Найти своё произведение", "Find my work"),targetSearch,"search");
     const searchTargets=async(more=false)=>{targetSearch=targetQuery.input.value;targetPage=more?targetPage+1:0;const found=await request(`/api/author/collections/targets?q=${encodeURIComponent(targetSearch)}&page=${targetPage}&size=100`);targets=more?[...targets,...found.filter(t=>!targets.some(old=>targetKey(old)===targetKey(t)))]:found;renderEditor();};
     editor.append(targetQuery.label,button(words("Найти произведения", "Find works"),()=>work(()=>searchTargets())),button(words("Показать ещё варианты", "Load more options"),()=>work(()=>searchTargets(true))));
-    const picker=select(words("Добавить существующее произведение", "Add an existing work"),[["",words("Выберите…", "Select…")],...targets.filter(t=>allowedChild(doc.type,t)&&t.id!==current?.collectionId&&!doc.items.some(i=>targetKey(i.target)===targetKey(t))).map(t=>[targetKey(t),`${typeName(t.type)} · ${t.title} · ${t.key}`])],"");
-    editor.append(picker.label,button(words("+ Включить в оглавление", "+ Add to contents"),()=>{const target=targets.find(t=>targetKey(t)===picker.input.value);if(target){doc.items.push({target:targetRef(target)});changed();renderEditor();}},"add-button"));
+    const picker=select(words("Добавить свою историю или папку", "Add my story or folder"),[["",words("Выберите…", "Select…")],...targets.filter(t=>t.owned!==false&&allowedChild(doc.type,t)&&t.id!==current?.collectionId&&!doc.items.some(i=>targetKey(i.target)===targetKey(t))).map(t=>[targetKey(t),`${typeName(t.type)} · ${t.title}`])],"");
+    editor.append(picker.label,button(words("+ Добавить в папку", "+ Add to folder"),()=>{const target=targets.find(t=>t.owned!==false&&targetKey(t)===picker.input.value);if(target){doc.items.push({target:targetRef(target)});changed();renderEditor();}},"add-button"));
     if(doc.type==="story"){
       editor.append(button(words("+ Создать новую главу", "+ Create a chapter"),()=>work(createChapter),"add-button"));
       renderTransitions();
     }
     const actions=el("div",null,"collection-actions");
-    actions.append(button(words("Сохранить черновик", "Save draft"),()=>work(save),"add-button"));
+    actions.append(button(words("Сохранить", "Save"),()=>work(save),"add-button"));
     if(current){
-      actions.append(button(words("Сохранить и отправить на проверку", "Save and submit"),()=>work(async()=>{await save();await submit(false);})),button(words("Отправить вместе с главами", "Submit with chapters"),()=>work(async()=>{await save();await submit(true);})),button(words("Экспорт пакета", "Export package"),()=>work(async()=>{download(await request(`${api}/${current.collectionId}/export`),`${current.key}.json`);status.textContent="";})));
-      if(current.reviewState==="in_review")actions.append(button(words("Отозвать заявку", "Withdraw submission"),()=>work(async()=>{await request(`${api}/${current.collectionId}/withdraw`,{method:"POST",body:{generation:current.generation}});await open(current.collectionId);await loadList();})));
+      actions.append(button(words("Отправить на проверку", "Submit for review"),()=>work(async()=>{await save();await submit(true);})));
+      advanced.append(button(words("Экспорт папки", "Export folder"),()=>work(async()=>{download(await request(`${api}/${current.collectionId}/export`),`${current.key}.json`);status.textContent="";})));
+      if(current.reviewState==="in_review")advanced.append(button(words("Отозвать проверку самой папки", "Withdraw this folder's review"),()=>work(async()=>{await request(`${api}/${current.collectionId}/withdraw`,{method:"POST",body:{generation:current.generation}});await open(current.collectionId);await loadList();})));
     }
-    editor.append(actions);
+    editor.append(actions,el("p",words("На проверку отправятся папка и новые или изменённые части. Уже опубликованные части повторно отправлять не нужно.","The folder and its new or changed parts are submitted together. Previously published parts do not need another review.")),advanced);
     if(current){
       const previewHost=el("section");
-      editor.append(button(words("Приватное превью сохранённого черновика", "Private preview of saved draft"),()=>work(async()=>{
+      advanced.append(button(words("Предпросмотр папки", "Preview folder"),()=>work(async()=>{
         const value=await request(`${api}/${current.collectionId}/preview?revision=draft`);
         previewHost.replaceChildren(el("h3",words(`Предпросмотр — не опубликовано · редакция ${value.revision}`,`Private preview — not published · revision ${value.revision}`)));
         renderSnapshot(previewHost,value.document);
@@ -142,10 +156,10 @@ async function start(root) {
         if(value.validation&&!value.validation.valid)previewHost.append(el("p",(value.validation.errors||[]).join("\n")));
       })),previewHost);
       const dependencies=el("details");dependencies.append(el("summary",words("Состояния глав и зависимостей", "Chapter and dependency status")));
-      for(const child of current.dependencies||[])dependencies.append(el("p",dependencyLabel(child)));editor.append(dependencies);
+      for(const child of current.dependencies||[])dependencies.append(el("p",dependencyLabel(child)));advanced.append(dependencies);
     }
     if(current?.publishedRevision)editor.append(link(words("Открыть читательскую страницу", "Open reader page"),`/collections/${encodeURIComponent(current.key)}`));
-    if(current?.events?.length)renderEvents();
+    if(current?.events?.length)renderEvents(advanced);
   }
   function renderTransitions(){
     if(doc.items.length<2)return;
@@ -166,16 +180,15 @@ async function start(root) {
     editor.append(section);
   }
   async function save(){
-    const original=doc, id=current?.collectionId;
+    const original=doc, id=current?.collectionId;if(!id&&!doc.key)doc.key=`folder_${crypto.randomUUID().replaceAll("-","")}`;
     const result=await request(id?`${api}/${id}`:api,{method:id?"PUT":"POST",body:{document:doc,...(id?{generation:current.generation}:{})}});
     if(doc!==original)return;
     dirty=false;await open(result.collectionId||result.id||id);await loadList();status.textContent=words("Черновик сохранён. Публикация не изменилась.", "Draft saved. Publication is unchanged.");
   }
   async function submit(batch){
-    const replace=current.reviewState==="in_review"&&current.submittedRevision!==current.draftRevision;
-    if(replace&&!confirm(words("Заменить предыдущую заявку новой редакцией?", "Replace the previous submission with this revision?")))return;
-    const result=await request(`${api}/${current.collectionId}/${batch?"review-batch":"review"}`,{method:"POST",body:{generation:current.generation,replaceReview:replace}});
-    await open(current.collectionId);await loadList();status.textContent=words("Редакции отправлены на проверку. Публикация выполняется после одобрения.", "Revisions submitted. Publishing follows approval.");
+    if(!confirm(words("Отправить папку и изменённые части на проверку? Если они уже на проверке, заявка обновится. Опубликованные тексты сохранятся до решения модератора.", "Submit the folder and changed parts? Any pending application will be updated. Published texts stay unchanged until a moderator decides.")))return;
+    const result=await request(`${api}/${current.collectionId}/${batch?"review-batch":"review"}`,{method:"POST",body:{generation:current.generation,replaceReview:true}});
+    await open(current.collectionId);await loadList();status.textContent=words("Папка и изменённые части отправлены одной заявкой. После одобрения их увидят читатели.", "The folder and changed parts were sent as one application. Readers will see them after approval.");
     if(result.results)status.textContent+=`\n${JSON.stringify(result.results)}`;
   }
   async function createChapter(){
@@ -256,13 +269,13 @@ async function start(root) {
     }
     renderEvents();
   }
-  function renderEvents(){
+  function renderEvents(container=editor){
     if(!current.events?.length)return;
     const events=el("details");events.append(el("summary",words("История решений", "Decision history")));
-    for(const event of current.events)events.append(el("p",`${workflowLabel(event.action,document.documentElement.lang)} · ${event.createdAt||event.created_at||""} · ${event.reason||""}${moderation&&(event.internalNote||event.internal_note)?` · ${event.internalNote||event.internal_note}`:""}`));editor.append(events);
+    for(const event of current.events)events.append(el("p",`${workflowLabel(event.action,document.documentElement.lang)} · ${event.createdAt||event.created_at||""} · ${event.reason||""}${moderation&&(event.internalNote||event.internal_note)?` · ${event.internalNote||event.internal_note}`:""}`));container.append(events);
   }
   if(!moderation&&canEdit){
-    const create=button(words("+ Создать произведение", "+ Create work"),()=>work(async()=>{if(!discard())return;targets=await request("/api/author/collections/targets");current=null;doc={schemaVersion:1,key:"",type:"story",title:"",description:"",coverUrl:"",completionStatus:"in_development",items:[],transitions:[]};dirty=false;renderEditor();}),"add-button");
+    const create=button(words("+ Создать папку", "+ Create folder"),()=>work(async()=>{if(!discard())return;targets=await request("/api/author/collections/targets");current=null;doc={schemaVersion:1,key:"",type:"story",title:"",description:"",coverUrl:"",completionStatus:"in_development",items:[],transitions:[]};dirty=false;renderEditor();}),"add-button");
     const upload=field(words("Импорт пакета", "Import package"),"","file");upload.input.accept="application/json,.json";
     upload.input.onchange=()=>work(async()=>{
       const file=upload.input.files[0];if(!file||!discard())return;
@@ -280,7 +293,7 @@ async function start(root) {
       }
       await inspectImport();
     });
-    toolbar.append(create,upload.label);
+    const exchange=el("details");exchange.append(el("summary",words("Импорт папки из файла", "Import folder from a file")),upload.label);toolbar.append(create,link(words("+ Новая история", "+ New story"),"/builder/"));root.insertBefore(exchange,grid);
   }
   toolbar.onsubmit=event=>{event.preventDefault();pageIndex=0;work(loadList);};query.input.onsearch=()=>{pageIndex=0;work(loadList);};type.input.onchange=state.input.onchange=()=>{pageIndex=0;work(loadList);};
   await loadList();

@@ -25,12 +25,41 @@ class WorkPackageService {
  Map<String,Object> restrict(String id,Restriction command,AuthIdentity actor){collections.structureLock();ModerationPolicy.authorizeDecision(actor,false,"hide",false);String reason=ModerationPolicy.reason(command.reason(),true);if(list(command.items()).isEmpty()||command.items().size()>100)throw bad("Select 1–100 descendants");Set<String> allowed=new HashSet<>();for(var d:descendants(id))allowed.add(d.get("kind")+":"+d.get("id"));Set<String> seen=new HashSet<>();var result=new ArrayList<Map<String,Object>>();for(var i:command.items()){String identity=i.kind()+":"+i.id();if(!allowed.contains(identity)||!seen.add(identity))throw bad("Select distinct descendants from this published collection");var decision=new StoryWorkflowService.Decision(i.generation(),null,reason,null,null,false);result.add("scenario".equals(i.kind())?workflow.decide(i.id(),"hide",decision,actor):workflow.decideCollection(i.id(),"hide",decision,actor));}return Map.of("items",result,"atomic",true);}
  @Transactional
  Map<String,Object> reviewTree(String id,int generation,boolean replace,String player,AuthIdentity actor){collections.structureLock();var root=collections.row(id);collections.owner(root,player);collections.expected(root,generation);var requests=new ArrayList<ReviewItem>();var participants=new ArrayList<String>();var queue=new ArrayDeque<WorkMetadata.Target>();queue.add(new WorkMetadata.Target("collection",root.id(),root.key()));Set<String> seen=new HashSet<>();
-  while(!queue.isEmpty()){var t=queue.remove();if(!seen.add(t.kind()+":"+t.id()))continue;if(seen.size()>100)throw bad("Select at most 100 works per submission");if("collection".equals(t.kind())){var c=collections.row(t.id());if(!player.equals(c.owner()))continue;participants.add(c.id());if(!Objects.equals(c.published(),c.draftRevision())&&!("in_review".equals(c.review())&&Objects.equals(c.submitted(),c.draftRevision())))requests.add(new ReviewItem("collection",c.id(),c.generation(),replace));for(var item:list(json.readCollection(c.draft()).items()))if(item.target().id()!=null)queue.add(item.target());}else{var s=stories.findById(t.id()).orElseThrow(StoryNotFoundException::new);if(!player.equals(s.getOwnerPlayerId()))continue;var w=workflow.workspace(s.getId());if(!Objects.equals(s.getPublishedRevision(),w.draftRevision())&&!("in_review".equals(w.reviewState())&&Objects.equals(w.submittedRevision(),w.draftRevision())))requests.add(new ReviewItem("scenario",s.getId(),w.generation(),replace));}}
+  while(!queue.isEmpty()){
+   var t=queue.remove();if(!seen.add(t.kind()+":"+t.id()))continue;if(seen.size()>100)throw bad("Select at most 100 works per submission");
+   if("collection".equals(t.kind())){
+    var c=collections.row(t.id());collections.owner(c,player);participants.add(c.id());var normalized=collections.normalize(json.readCollection(c.draft()),player,c.id(),true);
+    if(!Objects.equals(c.published(),c.draftRevision())&&!("in_review".equals(c.review())&&Objects.equals(c.submitted(),c.draftRevision())))requests.add(new ReviewItem("collection",c.id(),c.generation(),replace));
+    for(var item:list(normalized.items()))queue.add(item.target());
+   }else{
+    var s=stories.findById(t.id()).orElseThrow(StoryNotFoundException::new);if(!player.equals(s.getOwnerPlayerId()))throw new ForbiddenRoleException();var w=workflow.workspace(s.getId());
+    if(!Objects.equals(s.getPublishedRevision(),w.draftRevision())&&!("in_review".equals(w.reviewState())&&Objects.equals(w.submittedRevision(),w.draftRevision())))requests.add(new ReviewItem("scenario",s.getId(),w.generation(),replace));
+   }
+  }
   Map<String,Object> result=requests.isEmpty()?Map.of("items",List.of(),"atomic",true,"batchId",UUID.randomUUID().toString()):review(new Batch(requests),player,actor);
   // Existing in-review parents participate even when their exact submission is
   // already current and therefore did not need another submit command.
-  for(String participant:participants)linkSubmittedDependencies(participant,(String)result.get("batchId"));
-  return result;
+  var updated=new ArrayList<Object>((List<?>)result.get("items"));Collections.reverse(participants);
+  for(String participant:participants){
+   var refreshed=renewSupersededFolder(participant,replace,actor);if(refreshed!=null)updated.add(refreshed);
+   linkSubmittedDependencies(participant,(String)result.get("batchId"));
+  }
+  return Map.of("items",updated,"atomic",true,"batchId",result.get("batchId"));
+ }
+ private Map<String,Object> renewSupersededFolder(String id,boolean replace,AuthIdentity actor){
+  var c=collections.row(id);if(!"in_review".equals(c.review())||c.submitted()==null)return null;var db=collections.database();boolean stale=false;
+  for(var pin:db.queryForList("select target_kind,target_id,requested_revision from collection_review_dependencies where collection_id=? and collection_revision=?",id,c.submitted())){
+   String target=(String)pin.get("target_id");Integer current;
+   if("scenario".equals(pin.get("target_kind"))){var w=workflow.workspace(target);current=List.of("in_review","approved").contains(w.reviewState())?w.submittedRevision():stories.findById(target).orElseThrow(StoryNotFoundException::new).getPublishedRevision();}
+   else{var w=collections.row(target);current=List.of("in_review","approved").contains(w.review())?w.submitted():w.published();}
+   if(!Objects.equals(current,pin.get("requested_revision")))stale=true;
+  }
+  if(!stale)return null;if(!replace)throw conflict("Confirm replacement of the superseded folder application");
+  // Never rewrite the former dependency set. An explicit replacement receives a
+  // fresh immutable parent snapshot even when its visible structure is unchanged.
+  int revision=c.draftRevision()+1;db.update("insert into collection_versions(collection_id,revision,document_json) values (?,?,?)",id,revision,c.draft());
+  db.update("update work_collections set draft_revision=?,generation=generation+1 where id=?",revision,id);
+  return collections.submit(id,c.owner(),c.generation()+1,true,actor);
  }
  @Transactional
  Map<String,Object> review(Batch batch,String player,AuthIdentity actor){if(batch==null||list(batch.items()).isEmpty()||batch.items().size()>100)throw bad("Select 1–100 works for review");collections.structureLock();Set<String> unique=new HashSet<>();var result=new ArrayList<Map<String,Object>>();
@@ -73,6 +102,10 @@ class WorkPackageService {
   for(String kind:List.of("scenario","collection")){Object raw=data.get("scenario".equals(kind)?"scenarios":"collections");if(!(raw instanceof List<?> documents))continue;if(documents.size()>1000)throw bad("Package is too large");for(Object value:documents){var m=new LinkedHashMap<String,Object>();String key;String id=null;Integer generation=null;String action="create",reason=null;
     if("scenario".equals(kind)){var d=json.readStory(json.write(value));key=d.key();var s=stories.findByKey(key).orElse(null);if(s!=null){if(!player.equals(s.getOwnerPlayerId())){action="conflict";reason="This key is unavailable";}else{id=s.getId();var w=workflow.workspace(id);generation=w.generation();action=Objects.equals(portable(json.readMap(json.write(json.readStory(w.draftJson())))),portable(json.readMap(json.write(d))))?"unchanged":"update";if("deleted".equals(s.getVisibility())){action="conflict";reason="Restore this scenario before importing";}}}}
     else {var d=json.readCollection(json.write(value));key=d.key();var rows=collections.database().query("select id from work_collections where collection_key=?",(r,n)->r.getString(1),key);if(!rows.isEmpty()){var c=collections.row(rows.get(0));if(!player.equals(c.owner())){action="conflict";reason="This key is unavailable";}else{id=c.id();generation=c.generation();try{var normalized=collections.normalize(d,player,id,false);action=json.write(normalized).equals(c.draft())?"unchanged":"update";if(!Objects.equals(c.type(),d.type())||"deleted".equals(c.visibility())){action="conflict";reason="Collection type is immutable; deleted collections must be restored";}}catch(org.springframework.web.server.ResponseStatusException ex){action="conflict";reason=ex.getReason();}}}}
+    if(!"conflict".equals(action))try{
+     if("scenario".equals(kind))links.normalize(json.readStory(json.write(value)),player,false);
+     else collections.normalize(json.readCollection(json.write(value)),player,id==null?"package-preview":id,false);
+    }catch(org.springframework.web.server.ResponseStatusException ex){action="conflict";reason=ex.getReason();}
     if(!unique.add(kind+":"+key)){action="conflict";reason="Duplicate package key";}m.put("kind",kind);m.put("key",key);m.put("action",action);if(id!=null){m.put("id",id);m.put("generation",generation);generations.put(id,generation);}if(reason!=null)m.put("reason",reason);items.add(m);
   }}return Map.of("items",items,"generations",generations,"canImport",items.stream().noneMatch(i->"conflict".equals(i.get("action"))));
  }

@@ -1,12 +1,12 @@
-import {el, button, field, select, checkbox, request, words, errorMessage, link, transferEditor, targetRef} from "/collection-ui.js?v=1";
+import {el, button, field, select, checkbox, request, words, errorMessage, link, transferEditor, targetRef} from "/collection-ui.js?v=2";
 
 export function renderRelationsEditor(host, {draft, changed, storyId, documentValue}) {
   if (!host) return;
   host.replaceChildren();
   const getMeta = () => draft.metadata ||= {schemaVersion:1,relations:[]};
   const status = el("p", "", "collection-status"); status.setAttribute("role", "status");
-  const intro = el("p", words("Свяжите продолжения и настройте параметры, которые принимает эта глава. Изменения сохраняются вместе с черновиком.", "Link related works and configure values accepted by this chapter. Changes are saved with the draft."));
-  const parent = link(words("Управлять оглавлением, томами и циклами", "Manage chapters, volumes and series"), `/my-stories/?view=collections${storyId ? `&scenario=${encodeURIComponent(storyId)}` : ""}`);
+  const intro = el("p", words("Главы объединяются в папке. Здесь можно связать свои истории и, при необходимости, выбрать параметры для продолжения.", "Chapters are grouped in a folder. Here you can link your own stories and optionally choose values for a continuation."));
+  const parent = link(words("Открыть мои папки", "Open my folders"), `/my-stories/${storyId ? `?scenario=${encodeURIComponent(storyId)}` : ""}`);
   const relations = el("div"), contract = el("div"), picker = el("div");
   host.append(intro, parent, status, relations, picker, contract);
   let targets = [], targetsQuery="", targetsPage=0, targetRequest=0;
@@ -26,8 +26,8 @@ export function renderRelationsEditor(host, {draft, changed, storyId, documentVa
     const target = select(words("Произведение", "Work"), [], "");
     function filter() {
       target.input.replaceChildren();
-      for (const item of targets.filter(item => item.id !== storyId && `${item.title} ${item.key}`.toLowerCase().includes(search.input.value.toLowerCase()))) {
-        const option = el("option", `${item.title} · ${item.key}`); option.value = `${item.kind}:${item.id}`; target.input.append(option);
+      for (const item of targets.filter(item => item.owned!==false&&item.id !== storyId && `${item.title} ${item.key}`.toLowerCase().includes(search.input.value.toLowerCase()))) {
+        const option = el("option", item.title); option.value = `${item.kind}:${item.id}`; target.input.append(option);
       }
     }
     search.input.oninput = filter; filter();
@@ -40,10 +40,10 @@ export function renderRelationsEditor(host, {draft, changed, storyId, documentVa
     };
     const findButton=button(words("Найти на сервере", "Search server"),()=>find(false).catch(error=>{status.textContent=errorMessage(error);}));
     picker.append(search.label,findButton,button(words("Показать ещё", "Load more"),()=>find(true).catch(error=>{status.textContent=errorMessage(error);})), target.label, button(words("+ Добавить связь", "+ Add relation"), () => {
-      const chosen = targets.find(item => `${item.kind}:${item.id}` === target.input.value);
+      const chosen = targets.find(item => item.owned!==false&&`${item.kind}:${item.id}` === target.input.value);
       if (!chosen) return;
       const meta = getMeta(); meta.relations ||= [];
-      meta.relations.push({id:crypto.randomUUID(),type:"related",target:targetRef(chosen),label:chosen.title,stateTransfer:{mode:"independent"}});
+      meta.relations.push({id:crypto.randomUUID(),type:"related",target:targetRef(chosen),label:chosen.title,stateTransfer:null});
       changed(); renderRelations();
     }, "add-button"));
   }

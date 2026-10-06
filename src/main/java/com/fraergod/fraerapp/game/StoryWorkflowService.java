@@ -182,7 +182,8 @@ class StoryWorkflowService {
    s=publishRevision(s,command.revision(),command.visibility());
    jdbc.update("update story_workspaces set generation=generation+1 where story_id=?",id);
   } else if(approving||"reject".equals(action)) {
-   if(!"in_review".equals(w.reviewState())||!Objects.equals(command.revision(),w.submittedRevision()))throw conflict("The reviewed submission is no longer current");
+   boolean reviewable="in_review".equals(w.reviewState())||("reject".equals(action)&&"approved".equals(w.reviewState())&&!Objects.equals(s.getPublishedRevision(),w.submittedRevision()));
+   if(!reviewable||!Objects.equals(command.revision(),w.submittedRevision()))throw conflict("The reviewed submission is no longer current");
    editable(s);
    if(approving) {
     StoryDocument doc=revision(id,command.revision());

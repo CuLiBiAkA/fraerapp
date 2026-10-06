@@ -1,7 +1,7 @@
 // Shared collection controls. All labels/content use textContent, never HTML.
 export const collectionTypes = {
   story: ["История с главами", "Chaptered story"], volume: ["Том", "Volume"],
-  cycle: ["Цикл", "Series"], catalog: ["Каталог", "Collection"], scenario: ["История / глава", "Story / chapter"],
+  cycle: ["Цикл", "Series"], catalog: ["Подборка", "Collection"], scenario: ["История / глава", "Story / chapter"],
 };
 export const language = () => document.documentElement.lang === "en" ? "en" : "ru";
 export const words = (ru, en) => language() === "en" ? en : ru;
@@ -63,6 +63,7 @@ export function moveItem(items, from, to) {
   const result = [...items]; const [item] = result.splice(from, 1); result.splice(to, 0, item); return result;
 }
 export function allowedChild(type, target) {
+  if(target.owned===false)return false;
   if (type === "story") return target.kind === "scenario" && target.owned !== false;
   if (type === "volume") return target.owned !== false && (target.kind === "scenario" || target.type === "story");
   if (type === "cycle") return target.owned !== false && (target.kind === "scenario" || ["story","volume"].includes(target.type));

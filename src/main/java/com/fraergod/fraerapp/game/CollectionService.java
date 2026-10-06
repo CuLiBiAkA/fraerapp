@@ -124,7 +124,7 @@ class CollectionService {
   String childOwner=child.owner(),childType=child.type();
   boolean allowed=switch(parentType){case "story"->"scenario".equals(childType);case "volume"->List.of("scenario","story").contains(childType);case "cycle","catalog"->List.of("scenario","story","volume","cycle").contains(childType)&&(!"cycle".equals(parentType)||!"cycle".equals(childType));default->false;};
   if(!allowed)throw bad("Invalid collection nesting");
-  if(!"catalog".equals(parentType)&&!Objects.equals(owner,childOwner))throw new ForbiddenRoleException();
+  if(!Objects.equals(owner,childOwner))throw bad("Only your own works can be grouped");
   var parents=memberships.stream().filter(m->t.kind().equals(m.get("target_kind"))&&t.id().equals(m.get("target_id"))&&Boolean.TRUE.equals(m.get("main_parent"))&&!parentId.equals(m.get("parent_id"))).toList();
   if(!"catalog".equals(parentType)&&!parents.isEmpty())throw conflict("This work already has a main parent");
   if(!"story".equals(parentType)&&parents.stream().anyMatch(p->"story".equals(p.get("collection_type"))))throw bad("Individual chapters cannot be included directly in a volume, cycle or catalog");
@@ -169,7 +169,8 @@ class CollectionService {
   if("publish-approved".equals(action)) {
    if(!"approved".equals(r.review())||!Objects.equals(r.submitted(),c.revision()))throw conflict("Select the approved revision");publish(r,c.revision(),c.visibility());
   }else if(approve||"reject".equals(action)) {
-   if(!"in_review".equals(r.review())||!Objects.equals(r.submitted(),c.revision()))throw conflict("The reviewed submission is no longer current");
+   boolean reviewable="in_review".equals(r.review())||("reject".equals(action)&&"approved".equals(r.review())&&!Objects.equals(r.published(),r.submitted()));
+   if(!reviewable||!Objects.equals(r.submitted(),c.revision()))throw conflict("The reviewed submission is no longer current");
    if("deleted".equals(r.visibility()))throw conflict("Restore collection first");
    if(approve)normalize(document(r,c.revision()),r.owner(),r.id(),true);
    if("approve-publish".equals(action))publish(r,c.revision(),c.visibility());
@@ -202,8 +203,9 @@ class CollectionService {
  @Transactional(readOnly=true)
  Map<String,Object> publicDetail(String id,boolean guest,String player){Row r=accessible(id,guest);var m=publicSummary(r,player);var items=publicItems(document(r,r.published()),guest);m.put("items",items);m.put("availableCount",items.size());m.put("breadcrumbs",breadcrumbs("collection",r.id(),guest));return m;}
  List<Map<String,Object>> publicItems(CollectionDocument d,boolean guest) {
+  String owner=row(d.key()).owner();
   var scenarioIds=list(d.items()).stream().map(CollectionDocument.Item::target).filter(t->"scenario".equals(t.kind())&&t.id()!=null).map(WorkMetadata.Target::id).toList();
-  var scenarioMap=stories.findAllById(scenarioIds).stream().filter(StoryAccessService::listed).filter(s->!guest||GuestDemoStories.includes(s.getKey())).collect(Collectors.toMap(Story::getId,s->s));
+  var scenarioMap=stories.findAllById(scenarioIds).stream().filter(s->Objects.equals(owner,s.getOwnerPlayerId())).filter(StoryAccessService::listed).filter(s->!guest||GuestDemoStories.includes(s.getKey())).collect(Collectors.toMap(Story::getId,s->s));
   // A thematic catalog never acquires structural ownership. A later primary
   // chapter attachment only changes this projection, not the catalog document.
   if("catalog".equals(d.type())){
@@ -212,7 +214,7 @@ class CollectionService {
   }
   var collectionIds=list(d.items()).stream().map(CollectionDocument.Item::target).filter(t->"collection".equals(t.kind())&&t.id()!=null).map(WorkMetadata.Target::id).distinct().toList();
   Map<String,Map<String,Object>> collectionMap=new HashMap<>();
-  if(!guest&&!collectionIds.isEmpty())jdbc.query("select c.*,v.document_json from work_collections c join collection_versions v on v.collection_id=c.id and v.revision=c.published_revision where c.visibility='public' and c.id in ("+String.join(",",Collections.nCopies(collectionIds.size(),"?"))+")",rs->{Row row=map(rs,0);collectionMap.put(row.id(),publicSummary(row,json.readCollection(rs.getString("document_json")),false));},collectionIds.toArray());
+  if(!guest&&!collectionIds.isEmpty())jdbc.query("select c.*,v.document_json from work_collections c join collection_versions v on v.collection_id=c.id and v.revision=c.published_revision where c.visibility='public' and c.id in ("+String.join(",",Collections.nCopies(collectionIds.size(),"?"))+")",rs->{Row row=map(rs,0);if(Objects.equals(owner,row.owner()))collectionMap.put(row.id(),publicSummary(row,json.readCollection(rs.getString("document_json")),false));},collectionIds.toArray());
   var result=new ArrayList<Map<String,Object>>();
   for(var item:list(d.items())) {var t=item.target();Map<String,Object> m=null;
    if("scenario".equals(t.kind())){var s=scenarioMap.get(t.id());if(s!=null){m=new LinkedHashMap<>();m.put("id",s.getId());m.put("key",s.getKey());m.put("slug",s.getPublishedSlug());m.put("kind","scenario");m.put("type","scenario");m.put("title",s.getTitle());m.put("revision",s.getPublishedRevision());var metadata=s.getMetadataJson()==null?null:json.readValue(s.getMetadataJson(),WorkMetadata.class);m.put("allowIndependentStart",metadata==null||metadata.inputContract()==null||Boolean.TRUE.equals(metadata.inputContract().allowIndependentStart()));}}
@@ -220,7 +222,7 @@ class CollectionService {
    if(m!=null){m.put("label",item.label());result.add(m);}
   }return result;
  }
- List<Map<String,Object>> breadcrumbs(String kind,String id,boolean guest){var result=new ArrayList<Map<String,Object>>();if(guest)return result;for(int depth=0;depth<4;depth++){var rows=jdbc.query("select c.* from work_collections c join collection_memberships m on m.parent_id=c.id where m.target_kind=? and m.target_id=? and m.main_parent=true and m.in_published=true and c.visibility='public' and c.published_revision is not null",this::map,kind,id);if(rows.isEmpty())break;Row r=rows.get(0);result.add(0,publicSummary(r,null));id=r.id();kind="collection";}return result;}
+ List<Map<String,Object>> breadcrumbs(String kind,String id,boolean guest){var result=new ArrayList<Map<String,Object>>();if(guest)return result;for(int depth=0;depth<4;depth++){var rows=jdbc.query("select c.* from work_collections c join collection_memberships m on m.parent_id=c.id where m.target_kind=? and m.target_id=? and m.main_parent=true and m.in_published=true and c.visibility='public' and c.published_revision is not null",this::map,kind,id);if(rows.isEmpty())break;String childOwner="scenario".equals(kind)?stories.findById(id).map(Story::getOwnerPlayerId).orElse(null):row(id).owner();Row r=rows.stream().filter(c->Objects.equals(c.owner(),childOwner)).findFirst().orElse(null);if(r==null)break;result.add(0,publicSummary(r,null));id=r.id();kind="collection";}return result;}
  @Transactional
  Map<String,Object> favorite(String id,String player,boolean favorite){Row r=accessible(id,false);jdbc.queryForObject("select id from players where id=? for update",String.class,player);if(favorite){if(jdbc.queryForObject("select count(*) from collection_favorites where collection_id=? and player_id=?",Integer.class,r.id(),player)==0)jdbc.update("insert into collection_favorites(player_id,collection_id) values (?,?)",player,r.id());}else jdbc.update("delete from collection_favorites where player_id=? and collection_id=?",player,r.id());return Map.of("favorite",favorite);}
  @Transactional
@@ -234,13 +236,26 @@ class CollectionService {
  Set<String> listedChapterIds(){return new HashSet<>(jdbc.query("select m.target_id from collection_memberships m join work_collections c on c.id=m.parent_id where c.collection_type='story' and c.visibility='public' and c.published_revision is not null and m.in_published=true and m.target_kind='scenario'",(r,n)->r.getString(1)));}
  List<Map<String,Object>> targets(String player,String q,int page,int size){var result=new ArrayList<Map<String,Object>>();String query=q==null?"":q.toLowerCase(Locale.ROOT);
   // Bounded paginated source queries avoid returning private targets owned by another user.
-  for(var s:jdbc.queryForList("select s.id,s.story_key,s.title,s.owner_player_id,s.visibility,w.draft_json from stories s join story_workspaces w on w.story_id=s.id where (s.owner_player_id=? or (s.visibility='public' and s.published_revision is not null)) and (lower(s.title) like ? or lower(s.story_key) like ? or (s.owner_player_id=? and lower(w.draft_json) like ?)) order by s.story_key limit ? offset ?",player,"%"+query+"%","%"+query+"%",player,"%"+query+"%",Math.min(100,Math.max(1,size)),Math.max(0,page)*Math.min(100,Math.max(1,size)))){
+  for(var s:jdbc.queryForList("select s.id,s.story_key,s.title,s.owner_player_id,s.visibility,w.draft_json from stories s join story_workspaces w on w.story_id=s.id where s.owner_player_id=? and (lower(s.title) like ? or lower(s.story_key) like ? or lower(w.draft_json) like ?) order by s.story_key limit ? offset ?",player,"%"+query+"%","%"+query+"%","%"+query+"%",Math.min(100,Math.max(1,size)),Math.max(0,page)*Math.min(100,Math.max(1,size)))){
    boolean own=Objects.equals(player,s.get("owner_player_id"));var m=new LinkedHashMap<String,Object>();m.put("id",s.get("id"));m.put("key",s.get("story_key"));m.put("kind","scenario");m.put("type","scenario");m.put("title",own?json.readStory((String)s.get("draft_json")).title():s.get("title"));m.put("owned",own);m.put("visibility",s.get("visibility"));
    var target=new WorkMetadata.Target("scenario",(String)s.get("id"),(String)s.get("story_key"));var doc=links.targetDocument(target,player);m.put("inputContract",doc.metadata()==null?null:json.readObject(json.write(doc.metadata().inputContract())));result.add(m);
   }
-  for(Row r:jdbc.query("select * from work_collections where (owner_player_id=? or (visibility='public' and published_revision is not null)) and (lower(collection_key) like ? or (owner_player_id=? and lower(draft_title) like ?) or (visibility='public' and lower(published_title) like ?)) order by collection_key limit ? offset ?",this::map,player,"%"+query+"%",player,"%"+query+"%","%"+query+"%",Math.min(100,Math.max(1,size)),Math.max(0,page)*Math.min(100,Math.max(1,size)))){var d=Objects.equals(player,r.owner())?json.readCollection(r.draft()):document(r,r.published());result.add(Map.of("id",r.id(),"key",r.key(),"kind","collection","type",r.type(),"title",d.title(),"owned",Objects.equals(player,r.owner()),"visibility",r.visibility()));}return result;
+  for(Row r:jdbc.query("select * from work_collections where owner_player_id=? and (lower(collection_key) like ? or lower(draft_title) like ?) order by collection_key limit ? offset ?",this::map,player,"%"+query+"%","%"+query+"%",Math.min(100,Math.max(1,size)),Math.max(0,page)*Math.min(100,Math.max(1,size)))){var d=json.readCollection(r.draft());result.add(Map.of("id",r.id(),"key",r.key(),"kind","collection","type",r.type(),"title",d.title(),"owned",true,"visibility",r.visibility()));}return result;
  }
- List<Map<String,Object>> dependencies(String collectionId,int revision,CollectionDocument d,String owner){var result=new ArrayList<Map<String,Object>>();for(var i:list(d.items())){var t=links.resolve(i.target(),owner,false);if(t.id()==null){result.add(Map.of("key",t.key(),"kind",t.kind(),"resolved",false));continue;}if("scenario".equals(t.kind())){var s=stories.findById(t.id()).orElseThrow();var w=jdbc.queryForMap("select draft_revision,submitted_revision,review_state,generation from story_workspaces where story_id=?",s.getId());var m=new LinkedHashMap<String,Object>();m.put("id",s.getId());m.put("kind","scenario");m.put("title",s.getTitle());m.put("publishedRevision",s.getPublishedRevision());if(Objects.equals(owner,s.getOwnerPlayerId())){m.putAll(w);m.put("draftRevision",w.get("draft_revision"));m.put("submittedRevision",w.get("submitted_revision"));m.put("reviewState",w.get("review_state"));}m.put("available",StoryAccessService.listed(s));result.add(m);}else{Row r=row(t.id());var m=Objects.equals(owner,r.owner())?summary(r):publicSummary(r,null);m.put("kind","collection");result.add(m);}}
+ List<Map<String,Object>> dependencies(String collectionId,int revision,CollectionDocument d,String owner){
+  var result=new ArrayList<Map<String,Object>>();
+  for(var i:list(d.items())){
+   WorkMetadata.Target t;
+   try{t=links.resolve(i.target(),owner,false);}catch(org.springframework.web.server.ResponseStatusException ex){
+    // Legacy drafts remain editable without exposing the referenced owner's content.
+    var unavailable=new LinkedHashMap<String,Object>();unavailable.put("kind",i.target().kind());unavailable.put("resolved",false);unavailable.put("available",false);unavailable.put("error",ex.getReason());result.add(unavailable);continue;
+   }
+   if(t.id()==null){result.add(Map.of("key",t.key(),"kind",t.kind(),"resolved",false));continue;}
+   if("scenario".equals(t.kind())){
+    var s=stories.findById(t.id()).orElseThrow();var w=jdbc.queryForMap("select draft_revision,submitted_revision,review_state,generation from story_workspaces where story_id=?",s.getId());var m=new LinkedHashMap<String,Object>();
+    m.put("id",s.getId());m.put("kind","scenario");m.put("title",s.getTitle());m.put("publishedRevision",s.getPublishedRevision());m.put("draftRevision",w.get("draft_revision"));m.put("submittedRevision",w.get("submitted_revision"));m.put("reviewState",w.get("review_state"));m.put("generation",w.get("generation"));m.put("available",StoryAccessService.listed(s));result.add(m);
+   }else{var m=summary(row(t.id()));m.put("kind","collection");result.add(m);}
+  }
   var pinned=jdbc.queryForList("select target_kind,target_id,requested_revision,batch_id from collection_review_dependencies where collection_id=? and collection_revision=?",collectionId,revision);
   for(var item:result)for(var dependency:pinned)if(Objects.equals(item.get("kind"),dependency.get("target_kind"))&&Objects.equals(item.get("id"),dependency.get("target_id"))){item.put("requestedRevision",dependency.get("requested_revision"));item.put("batchId",dependency.get("batch_id"));item.put("requestedRevisionCurrent",Objects.equals(item.get("submittedRevision"),dependency.get("requested_revision")));}
   return result;

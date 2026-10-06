@@ -40,4 +40,15 @@
 .chapter-navigation { padding: 14px; border: 1px solid #ffffff66; border-radius: 14px; display: grid; gap: 10px; margin: 16px 0; }
 .chapter-navigation button, .chapter-navigation a { width: auto; }
 .collection-json { white-space: pre-wrap; max-height: 300px; overflow: auto; font-size: 12px; }
+.folder-branch summary { cursor: pointer; min-height: 44px; padding: 8px 0; font-weight: 600; }
+.folder-branch summary small { display: block; font-weight: 400; margin: 6px 0; }
+.folder-children { border-inline-start: 1px solid #ffffff66; padding-inline-start: 14px; margin: 12px 0; min-width: 0; }
+.folder-leaf { display: grid; gap: 6px; padding: 12px 0; overflow-wrap: anywhere; }
+.folder-leaf small { opacity: .85; }
+.folder-review-parts { display: grid; gap: 14px; }
+.folder-review-part { min-width: 0; border: 1px solid #ffffff66; border-radius: 12px; padding: 14px; }
+.folder-review-part > summary { cursor: pointer; min-height: 44px; font-weight: 600; }
+.folder-review-part img { max-width: 100%; }
+.folder-review-part pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.skip-link:not(:focus) { clip-path: inset(50%); width: 1px; height: 1px; padding: 0; overflow: hidden; }
 @media (max-width: 720px) { .collection-grid, .collection-fields, .collection-mapping { grid-template-columns: minmax(0,1fr); } .collection-editor, .collection-reader { padding: 16px; } }

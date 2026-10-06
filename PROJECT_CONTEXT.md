@@ -2,6 +2,32 @@
 
 Last updated: 2026-10-06.
 
+## Public folders correction (release preparation)
+
+The owner corrected the initial collection UX: work grouping should behave like
+folders, exclusively containing/linking the author's own works. Public folders
+and one expandable moderation application were explicitly selected. The default
+author/moderator workspace now presents a folder tree; ordinary story details
+remain available through direct links and the secondary list view. Author actions
+are create folder, add own works, save and submit. Keys, dependency history and
+transfer policies stay under additional settings. Reader labels use folders.
+
+`FolderWorkspaceService` projects existing records; no new schema or separate
+publication mechanism is introduced. `/api/author/folders` and
+`/api/moderation/folders` return grouped trees. Moderator folder review returns exact
+pending snapshots; one explicit decision checks the complete item set, generations,
+pinned dependencies and moderator/self-review policy, then uses StoryWorkflowService
+atomically. Unchanged published parts are only context. An updated chapter under
+an unchanged published folder still appears in its folder application. Explicit
+resubmission can renew a superseded dependency snapshot with a new immutable parent
+revision; previous review history remains intact.
+
+All authoring references are owner-only, including raw metadata, catalog membership,
+package import and synthetic tests. The picker returns only own works. Legacy
+cross-owner links are unavailable in folder/continuation projections; normal direct
+reading of another author's published story remains permitted. Historical JSON,
+revisions and saves are retained. Deployment status is recorded in the runbook.
+
 ## Chapters and collections (deployed 2026-10-06)
 
 Implementation `39f41f7` is deployed: engine-70, builder-39, account-ui v4.
@@ -22,7 +48,7 @@ chapter release notices, pinned reading chains and transfer provenance. Existing
 Story records remain executable scenarios: standalone stories or chapters. Existing
 IDs, slugs, ownership, publications, saves and ratings are retained. A chapter has
 one main story; story/volume main-parent reservations cover both draft and published
-structure. Catalog memberships do not claim ownership. Collection structural writes
+structure. Catalog memberships now require the same owner. Collection structural writes
 serialize through a dedicated lock; reading writes serialize per reader.
 V17 records exact child revisions associated with a batch submission; replacing
 a child's submission does not rewrite the parent's historical dependency snapshot.
@@ -45,7 +71,7 @@ restrictions are explicit and audited. Guest access retains the three legacy dem
 Collection covers use bundled `/assets/` resources, preserving the existing ban on
 mutable external publication media.
 Public catalog projections suppress a standalone entry after it becomes a published
-chapter, without changing another curator's stored collection document. Filtered
+chapter, without changing stored collection documents. Filtered
 reading TOCs expose only accessible actual predecessor IDs; independent chapters
 remain startable when an intervening chapter is unavailable.
 

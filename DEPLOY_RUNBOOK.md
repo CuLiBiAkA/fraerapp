@@ -2,6 +2,29 @@
 
 Last updated: 2026-10-06.
 
+## Public folder simplification (release preparation)
+
+Correction: default folder tree, a single grouped moderation application/decision,
+and owner-only authoring links. No new migration; database remains at V17. Do not
+remove or rewrite historical user documents/saves. Baseline main f7c6ba2 and runtime
+39f41f7. Commit/deploy authorization continues; no push or unrelated workspace edits.
+
+Run full API/auth and frontend suites and the collection suite on isolated
+PostgreSQL. Exercise folders, sole submission action, exact grouped snapshots,
+stale-decision retention and self-review safeguards with the browser fixture.
+Inspect production and retain story and collection identity/publication manifests.
+Back up both databases, replaced runtime files and private configuration; take an
+API cutover dump with writes stopped.
+
+Rebuild API and Builder. Install shared collection-ui, collection-reader,
+collection-workspace, folder-review, workspace-entry and collections.css before
+entrypoint HTML; engine-71, builder-40 and shared collection modules v2 invalidate
+old assets. Recreate API, wait for readiness, install frontend/reload edge and
+recreate Builder. Verify runtime/public file hashes, six healthy services,
+readiness/public catalog/guest policy, V17, unchanged manifests and recent logs.
+Anonymous author/moderation folder endpoints must return 401. Remove only the
+labelled disposable database and tunnel after tests; record the release receipt.
+
 ## Chapters and collections release (V16–V17)
 
 Released and verified 2026-10-06 from implementation `39f41f7` (engine-70,

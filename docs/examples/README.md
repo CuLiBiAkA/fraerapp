@@ -1,17 +1,19 @@
 # Chapters example
 
 `chapters-package.json` is a synthetic authoring example; it is not seeded or
-published automatically. Import it through My stories → Contents, volumes and
-series → Import package. This creates private drafts under the current author.
+published automatically. Import it through My folders and stories → Import folder
+from a file. This creates private drafts under the current author.
 
 The catalog contains a cycle, a volume and a two-chapter story. The ticket chapter
 transfers `courage` → `initialCourage` and `helpedConductor` → `metAlly` to the
 carriage chapter. The carriage's sequel link starts the independent keeper story.
 Only explicit fields are transferred; the second chapter requires a prior save.
 
-Open the chaptered story, inspect its contents and contracts, then submit it with
-its chapters. Each exact submission still requires an independent moderator's
-decision. Publishing a container never publishes child drafts.
+Open the folder, arrange its parts, then choose Submit for review. The moderator
+sees one expandable folder application and reviews its new/changed parts before an
+explicit aggregate decision. Unchanged published parts are not reviewed again;
+drafts which were not submitted never enter that decision. References and folder
+membership are limited to the current author's own works.
 
 For local validation, use synthetic accounts and an isolated database. Do not
 import this package into production as a deployment smoke test. Media paths are

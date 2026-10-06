@@ -27,7 +27,9 @@ class WorkLinksService {
   TargetInfo info(WorkMetadata.Target t){return t.id()==null?keys.get(t.kind()+":"+t.key()):identities.get(t.kind()+":"+t.id());}
   WorkMetadata.Target resolve(WorkMetadata.Target t,String owner,boolean strict){
    if(t==null||t.kind()==null||!List.of("scenario","collection").contains(t.kind()))throw bad("Target kind must be scenario or collection");
-   var found=info(t);if(found==null||(!(owner!=null&&Objects.equals(owner,found.owner()))&&!found.listed())){
+   var found=info(t);
+   if(found!=null&&owner!=null&&!Objects.equals(owner,found.owner()))throw bad("Only your own works can be linked");
+   if(found==null||(!(owner!=null&&Objects.equals(owner,found.owner()))&&!found.listed())){
     if(strict)throw bad("A target is missing or unavailable");if(t.key()==null||t.key().isBlank())throw bad("Unresolved target requires a portable key");return new WorkMetadata.Target(t.kind(),null,t.key());
    }return new WorkMetadata.Target(found.kind(),found.id(),found.key());
   }
@@ -52,6 +54,7 @@ class WorkLinksService {
    var rows=jdbc.queryForList("select id,collection_key,owner_player_id,visibility,published_revision from work_collections where "+(t.id()!=null?"id":"collection_key")+"=?",t.id()!=null?t.id():t.key());
    if(!rows.isEmpty()){var r=rows.get(0);id=(String)r.get("id");key=(String)r.get("collection_key");targetOwner=(String)r.get("owner_player_id");visibility=r.get("published_revision")==null?"private":(String)r.get("visibility");}
   }
+  if(id!=null&&owner!=null&&!Objects.equals(owner,targetOwner))throw bad("Only your own works can be linked");
   if(id==null||(!(owner!=null&&Objects.equals(owner,targetOwner))&&!"public".equals(visibility))) {
    if(strict)throw bad("A target is missing or unavailable");
    if(t.key()==null||t.key().isBlank())throw bad("Unresolved target requires a portable key");

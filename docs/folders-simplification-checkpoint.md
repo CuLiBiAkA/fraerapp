@@ -1,0 +1,54 @@
+# Public folders correction
+
+User correction 2026-10-06: collections must behave like folders for grouping
+the author's own works. Foreign story/folder references must be forbidden. User
+selected public folders and one expandable moderation application containing the
+folder and new/changed chapters; unchanged approved chapters are not reviewed again.
+
+## TaskStartSnapshot
+
+Main at f7c6ba2, nine commits ahead of origin/main. Production release 39f41f7,
+V17. Preserve pre-existing dirty legal HTML pages, story-builder/board.html,
+untracked home artwork and scripts/preview-frontend.py. No task edits existed at
+start. Prior implementation/deploy/commit authorization continues for this correction;
+no push. No deletion of user content or revision/save history.
+
+## Agreed plan
+
+1. Restrict linking/grouping to owned scenarios and folders in selectors and server
+   validation (including raw JSON, imports and publication). Preserve normal reader
+   access to others' published works. Add ownership regressions.
+2. Present one folder tree in the author workspace: create folder, add own works,
+   reorder, edit chapter, send for review. Keep transfer contracts behind additional
+   settings. Avoid keys/revision numbers/dependency terminology in the main flow.
+3. Present one expandable moderation group for a folder with pending descendants.
+   Show unchanged published children as context. Reuse existing immutable snapshots,
+   permission checks, audits and stale-decision protection; no new workflow/table.
+   Enable an explicit atomic decision on the reviewed pending parts, with exact
+   revision/generation checks and no implicit approval of unreviewed drafts.
+4. Reader sees public folders and contents, with existing independent/mapped reading
+   preserved. No duplicate foreign-content catalogs or public private content.
+5. Verify API ownership/grouping/decision regressions, frontend tests and browser
+   folder workflow; review requirements then quality. Update project context and
+   runbook, commit task-owned changes, backup/deploy/verify, record receipt.
+
+Backend implementer owns Java/tests only; coordinator owns frontend/docs/tests,
+Git and deployment. TDD off; targeted regression evidence required. Use existing
+services and tables. Stop adding scope beyond this correction.
+
+Implemented: owner-only references and selectors; default author/moderator folder
+tree; one send action and one expandable grouped moderation application; exact
+atomic decisions via existing workflow; older published parts stay unchanged.
+Advanced JSON/revision/transfer details are collapsed. Direct story/list views
+remain available. Explicit resubmission renews superseded dependency pins without
+rewriting immutable history. No schema changes.
+
+Evidence: 66 API, 33 auth and 70 frontend/Builder tests passed; final browser fixture
+passed at 1440/390/320px including stale-decision and self-review safeguards.
+Isolated PostgreSQL24 suite passed with zero failures. Requirement review PASS;
+quality review PASS. Final full backend run and bootJar passed; artifact SHA-256
+87ef78e1b226b3df295ef0aed5d226bfbcfcf9feba960776301d7c09c739d57e.
+Production inspected: six healthy services, no recent API/auth errors, 3 guest demos
+and 0 pre-existing folders. Manifests stored privately. No correction deployed yet.
+Disposable PostgreSQL and tunnel removed after all tests. Next: local task commit,
+verified production backup/build/deploy, final receipt. No push.

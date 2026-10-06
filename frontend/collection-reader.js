@@ -1,4 +1,4 @@
-import {el,link,button,field,select,words,typeName,request,errorMessage} from "./collection-ui.js?v=1";
+import {el,link,button,field,select,words,typeName,request,errorMessage} from "./collection-ui.js?v=2";
 
 export function createCollectionReader({screen,sceneScreen,catalogHost,showScreen,navigate,onSession,signedIn,signIn}) {
   let generation=0, navGeneration=0, lastCollection=null;
@@ -19,7 +19,7 @@ export function createCollectionReader({screen,sceneScreen,catalogHost,showScree
       const data=await request(`/api/catalog/collections?size=20&page=${page}&q=${encodeURIComponent(query)}&favorites=${favorites}`);if(seq!==generation)return;
       const items=(Array.isArray(data)?data:data.items||[]).filter(item=>(!favorites||item.favorite)&&`${item.title} ${item.description} ${item.key}`.toLowerCase().includes(query.toLowerCase()));
       if(!items.length&&page===0)return;
-      catalogHost.append(el("h2",words("Истории с главами, тома и циклы", "Chaptered stories, volumes and series")));
+      catalogHost.append(el("h2",words("Истории по папкам", "Stories in folders")));
       const grid=el("div",null,"collection-list");
       for(const item of items){const card=el("article",null,"collection-card");card.append(el("span",typeName(item.type),"collection-badge"),el("h3",item.title),el("p",item.description||""),href(words("Открыть оглавление", "Open contents"),route(item)));grid.append(card);}catalogHost.append(grid);
       const pages=el("nav",null,"collection-actions");pages.setAttribute("aria-label",words("Страницы произведений", "Work pages"));
