@@ -2,7 +2,14 @@
 
 Last updated: 2026-10-06.
 
-## Ordinary nested folders (2026-10-06)
+## Ordinary nested folders (deployed 2026-10-06)
+
+Release c5a6f84 is deployed and verified. Backup/receipt:
+`backups/plain-folders-20261006-094253`. Six healthy services, readiness UP, V17,
+runtime/public hashes match, no recent API/auth errors. Story/folder manifests
+preserved; no production sample data created. Checks: 69 API, 33 auth, 70 frontend,
+27 PostgreSQL folder regressions plus a final notification regression; browser
+1440/390/320px. Temporary fixture/tunnel removed. Committed locally, no Git push.
 
 The owner clarified that volume/cycle names are only possible author-chosen names,
 not product types. The UI now has one Folder concept, a free title, ordered own
@@ -18,8 +25,8 @@ Existing immutable documents and DB `collection_type` values are retained for fi
 compatibility, with identical folder behavior for story/volume/cycle/catalog. New UI
 folders use the existing story storage value, which is not a user choice. No schema
 migration or history rewrite. Release assets: engine-72, builder-41, collection
-modules v3, folder-review/workspace-entry v2. Deployment verification follows below
-when released; the previous deployed release is 782ab67.
+modules v3, folder-review/workspace-entry v2. The previous deployed release was
+782ab67.
 
 ## Public folders correction (deployed 2026-10-06)
 

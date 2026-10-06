@@ -14,7 +14,11 @@ browser fixtures at 1440/390/320px passed; no literary type selectors, nested fo
 selection works, and owner-only/mapped reading/group moderation checks remain green.
 The temporary database/tunnel were removed. Final full API/auth suites and bootJar
 passed (69 API, 33 auth); production validator, JS syntax and diff checks passed.
-Release status will be recorded after verification.
+Released and verified as c5a6f84; backup/receipt
+`backups/plain-folders-20261006-094253`. Six services healthy, readiness UP, V17,
+exact public/runtime hashes and image label, no recent API/auth errors, preserved
+story/folder manifests and guest policy. Release documentation updated after
+verification. No Git push; unrelated baseline changes preserved.
 
 User correction 2026-10-06: collections must behave like folders for grouping
 the author's own works. Foreign story/folder references must be forbidden. User

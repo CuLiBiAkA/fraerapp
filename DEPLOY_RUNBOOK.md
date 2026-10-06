@@ -2,12 +2,22 @@
 
 Last updated: 2026-10-06.
 
-## Ordinary folder correction (2026-10-06)
+## Ordinary folder correction (deployed 2026-10-06)
+
+Verified release c5a6f84; backup/receipt `backups/plain-folders-20261006-094253`.
+Both DB dumps and replaced runtime/config files were backed up; API cutover dump
+taken with writes stopped. Dump listings and transferred JAR hash verified. Six
+healthy services, readiness UP, public/runtime hashes match, V17 unchanged, no
+recent API/auth error markers. Story/folder manifests and guest policy preserved;
+private folder APIs deny anonymous access. No sample user works were created.
+69 API, 33 auth, 70 frontend tests, PostgreSQL 27 folder tests and final notification
+regression, browser 1440/390/320px and static checks passed. No Git push.
 
 Release removes volume/cycle type rules; it changes API and static clients without
 a migration (V17). Rebuild API and Builder, deploy shared modules before entrypoint
 HTML: collection-ui/reader/workspace v3, folder-review/workspace-entry v2, engine-72,
-builder-41. Preserve immutable JSON and existing type columns as file compatibility.
+builder-41. Reload edge after recreating Builder to refresh upstream resolution.
+Preserve immutable JSON and existing type columns as file compatibility.
 Verify same-kind nested folders, mixed contents, cycle/duplicate-parent rejection,
 forward-reference package import, grouped moderation and direct-scenario reading
 on H2/PostgreSQL and browser fixtures. Follow backup/cutover/health/hash/manifest
