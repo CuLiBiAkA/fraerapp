@@ -31,6 +31,14 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 class AuthControllerTests {
+	@Test void newReaderHasAdsUntilAnActiveSubscriptionEvenWithManualAuthorRole(){
+		User user=store.user("ad-reader@example.test",true).orElseThrow();String token="Bearer "+authenticatedToken(user);
+		assertThat(user.roles()).containsExactly("player");assertThat(controller.me(token,null,new MockHttpServletResponse())).containsEntry("subscriptionActive",false);
+		store.grantRole(user.id(),"author");assertThat(controller.me(token,null,new MockHttpServletResponse())).containsEntry("subscriptionActive",false);
+		buy(token,UUID.randomUUID().toString());assertThat(controller.me(token,null,new MockHttpServletResponse())).containsEntry("subscriptionActive",true);
+		jdbc.update("update author_subscriptions set expires_at=? where user_id=?",java.sql.Timestamp.from(Instant.now().minusSeconds(1)),user.id());
+		assertThat(controller.me(token,null,new MockHttpServletResponse())).containsEntry("subscriptionActive",false);
+	}
 
 	@Test void subscriptionCheckoutGrantsLiveAuthorAndIsIdempotent() throws Exception {
 		var user=store.user("subscriber@example.test",true).orElseThrow();

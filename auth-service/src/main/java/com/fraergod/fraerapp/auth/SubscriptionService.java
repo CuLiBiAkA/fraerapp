@@ -30,6 +30,7 @@ class SubscriptionService {
  record Subscriber(String userId,String email,boolean blocked,boolean manualAuthor,Subscription subscription){}
  record Page(int page,int size,long totalElements,int totalPages,List<Subscriber> items,Map<String,Long> counts){}
  Plan plan(){return new Plan("author-monthly",1,"test",mockEnabled,13900,0,"RUB");}
+ boolean active(String userId){return jdbc.queryForObject("select count(*) from author_subscriptions where user_id=? and revoked_at is null and expires_at>current_timestamp",Long.class,userId)>0;}
  private Timestamp stamp(Instant time){return Timestamp.from(time);}
  private Instant instant(Timestamp time){return time==null?null:time.toInstant();}
  private Subscription subscription(String userId){

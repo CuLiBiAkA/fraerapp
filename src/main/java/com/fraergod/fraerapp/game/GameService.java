@@ -32,9 +32,11 @@ class GameService {
 	private final StoryAccessService access;
 	private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 	private final WorkLinksService links;
+	private final ReaderAdService readerAds;
 
 	GameService(PlayerRepository players, StoryRepository stories, SceneRepository scenes, ChoiceRepository choices,
-			StoryAssetRepository assets, GameSessionRepository sessions, JsonSupport json, StoryAccessService access, org.springframework.jdbc.core.JdbcTemplate jdbc, WorkLinksService links) {
+			StoryAssetRepository assets, GameSessionRepository sessions, JsonSupport json, StoryAccessService access, org.springframework.jdbc.core.JdbcTemplate jdbc, WorkLinksService links, ReaderAdService readerAds) {
+		this.readerAds = readerAds;
 		this.players = players;
 		this.stories = stories;
 		this.scenes = scenes;
@@ -169,6 +171,7 @@ class GameService {
 			session.finish(next.getSceneKey());
 			recordEnding(session);
 		}
+		readerAds.transition(playerId,session.getStatus()==SessionStatus.FINISHED);
 		return state(session, story, next);
 	}
 
@@ -255,7 +258,7 @@ class GameService {
 				runtimeScene,
 				publicVariables(variables),
 				statsVariables(story, variables),
-				session.getStatus().name().toLowerCase());
+				session.getStatus().name().toLowerCase(),readerAds.offer(session.getPlayerId(),session.getStatus()==SessionStatus.FINISHED));
 	}
 
 	private SaveSummary saveSummary(GameSession session) {
@@ -534,7 +537,7 @@ class GameService {
 	}
 
 	record SessionState(String sessionId, RuntimeStory story, RuntimeScene scene, Map<String, Object> variables,
-			Map<String, Object> statsVariables, String status) {
+			Map<String, Object> statsVariables, String status, ReaderAdService.Offer readerAd) {
 	}
 
 	record SaveSummary(

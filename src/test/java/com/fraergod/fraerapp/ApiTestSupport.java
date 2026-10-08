@@ -11,6 +11,7 @@ import org.springframework.test.context.DynamicPropertySource;
 /** Test-only auth peer. Production always verifies sessions through the auth service. */
 abstract class ApiTestSupport {
  private static final ObjectMapper JSON=new ObjectMapper();
+ private static final Map<String,Boolean> SUBSCRIPTIONS=new java.util.concurrent.ConcurrentHashMap<>();
  private static final HttpServer AUTH=startAuth();
  @DynamicPropertySource static void authentication(DynamicPropertyRegistry registry) {
   registry.add("app.auth.session-check-url",()->"http://127.0.0.1:"+AUTH.getAddress().getPort()+"/auth/me");
@@ -23,7 +24,7 @@ abstract class ApiTestSupport {
      String token=exchange.getRequestHeaders().getFirst("Authorization").substring(7);
      Map<?,?> claims=JSON.readValue(Base64.getUrlDecoder().decode(token.split("\\.")[1]),Map.class);
      byte[] body=JSON.writeValueAsBytes(Map.of("id",claims.get("sub"),"email",claims.get("email"),
-       "roles",claims.get("roles"),"sessionId",claims.get("sid"),"blocked",false));
+       "roles",claims.get("roles"),"sessionId",claims.get("sid"),"blocked",false,"subscriptionActive",SUBSCRIPTIONS.getOrDefault(claims.get("sub").toString(),false)));
      exchange.getResponseHeaders().set("Content-Type","application/json");exchange.sendResponseHeaders(200,body.length);
      exchange.getResponseBody().write(body);
     }catch(Exception ex){exchange.sendResponseHeaders(401,-1);}finally{exchange.close();}
@@ -41,6 +42,10 @@ abstract class ApiTestSupport {
  protected static Map<String,Object> object(String body) {
   try{return JSON.readValue(body,new com.fasterxml.jackson.core.type.TypeReference<Map<String,Object>>(){});}
   catch(Exception ex){throw new IllegalStateException(body,ex);}
+ }
+ protected static void subscription(String token,boolean active) {
+  try {Map<?,?> claims=JSON.readValue(Base64.getUrlDecoder().decode(token.split("\\.")[1]),Map.class);SUBSCRIPTIONS.put(claims.get("sub").toString(),active);}
+  catch(Exception ex){throw new IllegalStateException(ex);}
  }
  protected static String body(Object body) {
   try{return JSON.writeValueAsString(body);}catch(Exception ex){throw new IllegalStateException(ex);}

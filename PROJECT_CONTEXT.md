@@ -2,6 +2,27 @@
 
 Last updated: 2026-10-09.
 
+Reader advertisements (local implementation, not deployed): new registrations
+remain Reader (`player`). `/auth/me` exposes live `subscriptionActive`; the API
+only offers ads when auth explicitly confirms false. Missing entitlement during
+an auth/API rolling deployment suppresses ads. A manual author role alone does
+not remove ads. API V20 stores a single versioned configuration and counters per
+reader. Default is enabled, every five successful scene transitions across saves
+and stories. First entry, reload and rendering do not count; endings suppress the
+pause and carry it forward. Paid/disabled transitions clear the counter.
+The reader lock serializes choices and atomic one-time delivery. Claim rechecks
+subscription/config; browser failures never block reading and can retry on a
+later scene. Native RU/EN dialog closes immediately with Continue or Escape.
+No external ad network, timers, scripts or tracking. Delivery is not a billing
+impression. Admin `/auth/admin#advertising` controls enablement, interval 1–100,
+optional plain-text creative and safe HTTPS/same-site link, with preview and
+version-conflict protection. Subscription benefits/expiry FAQ explain ad-free
+reading. Assets: reader-ads JS/CSS v1, admin-reader-ads v1, admin-panel JS/CSS v3,
+engine-87, subscription.js v2. Design: docs/reader-ads.md. Verification: 89 API,
+42 auth and 73 frontend/Builder tests; scripts/check-reader-ads.cjs exercises the
+real engine request adapter and admin UI in RU/EN at 1440/390/320px, including
+reload, dismissal, network recovery, late responses, URL safety and role loss.
+
 Author subscriptions (local implementation, not deployed): `/subscription/`
 offers the owner-approved Author tariff of 139 RUB per calendar month. Checkout
 is explicitly a test: zero charged, no card data/provider or automatic renewal.

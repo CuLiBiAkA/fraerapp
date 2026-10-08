@@ -12,6 +12,7 @@ import { mountSiteControls } from "./site-controls.js?v=5";
 import { mountAccountDialogs } from "./account-dialogs.js?v=2";
 import { createCollectionReader } from "./collection-reader.js?v=4";
 import { readingBackground, decorateReadingStat } from "./reader-presentation.js?v=2";
+import { createReaderAds } from "./reader-ads.js?v=1";
 
 mountAccountDialogs();
 observeHomeFit();
@@ -677,6 +678,7 @@ function shouldRefreshAuth(path) {
 }
 
 function showOnly(screen) {
+  if (screen !== sceneScreen) readerAds.hide();
   document.querySelector("#collection-screen")?.classList.toggle("hidden", screen !== document.querySelector("#collection-screen"));
   authLoadingScreen.classList.toggle("hidden", screen !== authLoadingScreen);
   loginScreen.classList.toggle("hidden", screen !== loginScreen);
@@ -1817,6 +1819,7 @@ function render(state) {
   } else {
     syncSoundToScene();
   }
+  readerAds.present(state);
 }
 
 function setChoicesBusy(busy) {
@@ -2257,6 +2260,7 @@ mountSiteControls({openSettings: openSettingsModal, openAccount: openProfileModa
 // A single flex row at every width; the form shrinks before the icons do.
 document.querySelector("#site-controls").prepend(document.querySelector("#home-search-form"));
 const accountUI = createAccountUI({ request, email: () => storage.email, language: () => storage.language });
+const readerAds = createReaderAds({request, language: () => storage.language});
 const collectionReader = createCollectionReader({
   screen:document.querySelector("#collection-screen"), sceneScreen,
   catalogHost:document.querySelector("#collection-catalog"), showScreen:showOnly, navigate:navigateTo,

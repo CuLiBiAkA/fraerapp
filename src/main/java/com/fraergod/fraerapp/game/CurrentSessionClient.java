@@ -45,7 +45,7 @@ class CurrentSessionClient {
    if (!signed.userId().equals(body.get("id")) || Boolean.TRUE.equals(body.get("blocked"))
       || !(body.get("sessionId") instanceof String sessionId) || sessionId.isBlank()) throw new AuthRequiredException();
    List<String> roles = body.get("roles") instanceof List<?> values ? values.stream().filter(String.class::isInstance).map(String.class::cast).toList() : List.of();
-   var identity = new AuthIdentity(signed.userId(), (String) body.get("email"), roles);
+   var identity = new AuthIdentity(signed.userId(), (String) body.get("email"), roles,body.get("subscriptionActive") instanceof Boolean active?active:null);
    request.setAttribute(CurrentSessionClient.class.getName(), identity);
    AuthContext.set(identity);
    return identity;

@@ -1,5 +1,6 @@
 import { credentialToJson, parseCreationOptions, parseRequestOptions, passkeysSupported } from './passkeys.js';
 import { mountSubscriptions } from './admin-subscriptions.js?v=1';
+import { mountReaderAds } from './admin-reader-ads.js?v=1';
 
 const $ = selector => document.querySelector(selector);
 const roles = {player:'Читатель', author:'Автор', moderator:'Модератор', admin:'Администратор'};
@@ -8,6 +9,7 @@ let refreshing = null, userTimer, loginTimer, messageOwner = null, userContext =
 const date = value => value ? new Date(value).toLocaleString('ru-RU', {dateStyle:'medium', timeStyle:'short'}) : 'Нет данных';
 const roleNames = list => (list || []).map(role => roles[role] || role).join(', ');
 const subscriptions=mountSubscriptions({api,report,date,confirmAction,authorized:()=>state.admin,epoch:()=>state.epoch});
+const advertising=mountReaderAds({api,report,date,confirmAction,authorized:()=>state.admin,epoch:()=>state.epoch});
 function el(tag, text, className) { const node=document.createElement(tag); if(text !== undefined) node.textContent=text; if(className) node.className=className; return node; }
 function status(id, text='', kind='info') { const node=$(id); node.textContent=text; node.dataset.kind=kind; }
 function button(text, action, className='secondary') { const node=el('button',text,className); node.type='button'; node.onclick=()=>action(node); return node; }
@@ -34,6 +36,7 @@ function revokeAccess(error) {
   if(![401,403].includes(error.status)) return;
   state.admin=false; state.epoch++; state.selected=null; state.users=[]; state.authors=[]; state.runtime.clear();$('#identity').textContent=error.status===401?'Вход не выполнен':'Доступ требует проверки';
   subscriptions.reset();
+  advertising.reset();
   for(const dialog of document.querySelectorAll('dialog[open]')) dialog.close();
   for(const id of ['#users-list','#authors-list','#logins-list','#passkey-list','#user-metrics']) $(id).replaceChildren();
   $('#message-text').value=''; clearInvite();
@@ -212,7 +215,7 @@ $('#refresh-passkeys').onclick=loadPasskeys;
 $('#passkey-login').onclick=event=>perform(event.currentTarget,'#login-status',async()=>{const options=await api('/auth/passkeys/authentication/options',{method:'POST'});const credential=await navigator.credentials.get({publicKey:parseRequestOptions(options.publicKey)});if(!credential)throw new DOMException('Cancelled','NotAllowedError');await api('/auth/passkeys/authentication/verify',{method:'POST',body:{challengeId:options.challengeId,credential:credentialToJson(credential)}});await loadSession();});
 $('#passkey-login').disabled=!passkeysSupported();$('#passkey-register').disabled=!passkeysSupported();
 $('#login-form').onsubmit=event=>{event.preventDefault();perform(event.submitter,'#login-status',async()=>{await api('/auth/login-link',{method:'POST',body:{email:$('#login-email').value.trim(),redirectPath:'/auth/admin',personalDataConsent:$('#login-consent').checked}});status('#login-status','Запрос принят. Если вход доступен, инструкции будут доставлены доступным способом.','success');});};
-function switchView(view,focus=true){if(!state.admin)return;if(!['users','authors','subscriptions','logins','invite','security'].includes(view))view='users';if(state.view==='invite'&&view!=='invite')clearInvite();state.view=view;history.replaceState(null,'','#'+view);for(const panel of document.querySelectorAll('[data-panel]'))panel.hidden=panel.dataset.panel!==view;for(const link of document.querySelectorAll('[data-view]')){if(link.dataset.view===view)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}if(focus)$('#'+view+'-heading')?.focus();if(view==='users')loadUsers();if(view==='authors')loadAuthors();if(view==='subscriptions')subscriptions.load();if(view==='logins')loadLogins();if(view==='security')loadPasskeys();}
+function switchView(view,focus=true){if(!state.admin)return;if(!['users','authors','subscriptions','advertising','logins','invite','security'].includes(view))view='users';if(state.view==='invite'&&view!=='invite')clearInvite();state.view=view;history.replaceState(null,'','#'+view);for(const panel of document.querySelectorAll('[data-panel]'))panel.hidden=panel.dataset.panel!==view;for(const link of document.querySelectorAll('[data-view]')){if(link.dataset.view===view)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}if(focus)$('#'+view+'-heading')?.focus();if(view==='users')loadUsers();if(view==='authors')loadAuthors();if(view==='subscriptions')subscriptions.load();if(view==='advertising')advertising.load();if(view==='logins')loadLogins();if(view==='security')loadPasskeys();}
 for(const link of document.querySelectorAll('[data-view]'))link.onclick=event=>{event.preventDefault();switchView(link.dataset.view);};
 window.addEventListener('hashchange',()=>switchView(location.hash.slice(1)));
 $('#user-filters').onsubmit=event=>{event.preventDefault();clearTimeout(userTimer);state.userPage=0;loadUsers();};

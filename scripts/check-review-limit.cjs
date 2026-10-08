@@ -38,8 +38,9 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
   await builder.goto('https://fraerapp.ru/builder/');await builder.waitForFunction(()=>!document.body.classList.contains('builder-locked'));
   await builder.locator('#import-runtime').click();await builder.waitForFunction(()=>document.querySelector('#server-draft-state').textContent.length>0);
   await builder.waitForFunction(()=>document.querySelector('#chapter-status').textContent.length>0);
+  await builder.waitForFunction(()=>!document.querySelector('#import-runtime').disabled);
   blocked=true;await builder.evaluate(()=>window.dispatchEvent(new Event('focus')));
-  await builder.waitForFunction(()=>document.querySelector('#publish-runtime').disabled);
+  await builder.waitForFunction(()=>document.querySelector('#publish-runtime').disabled&&!document.querySelector('#import-runtime').disabled);
   await builder.locator('[data-meta="title"]').fill('Unsaved chapter title');await builder.locator('[data-meta="title"]').blur();
   assert.ok(await builder.locator('#import-runtime').isEnabled());
   await builder.locator('#tab-publication').click();

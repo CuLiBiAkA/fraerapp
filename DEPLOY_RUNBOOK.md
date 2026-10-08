@@ -1,5 +1,31 @@
 # FraerApp deploy and ops runbook
 
+## Reader advertisements (local, 2026-10-09; not deployed)
+
+Inspect live service status/logs and local Git first. Back up both databases,
+running API/auth images and changed runtime/static files. Release auth with the
+live subscriptionActive field before API with additive V20__reader_advertising.sql.
+Missing flags suppress ads; roles alone are never proof of a paid subscription.
+Both services require rebuilding/recreation. The accumulated release also needs
+auth V9 and API V19 described below. Publish reader-ads.js/css v1,
+admin-reader-ads.js v1, admin-panel.js/css v3 and matching auth admin.html,
+engine.js engine-87, index.html and subscription page/JS v2 after readiness.
+Builder assets changed by the moderation limit must be included in this release.
+
+Run full auth/API tests, frontend/Builder Node tests, production validation,
+scripts/check-reader-ads.cjs, check-subscriptions.cjs and check-admin-panel.cjs,
+then git diff --check. Browser tests use only isolated fixtures, never real
+accounts. Verify all services/readiness, public pages/assets, /auth/subscription/plan,
+anonymous denial of /api/admin/reader-ads and /api/reader-ads/claim, migration
+versions (API 20, auth 9), recent logs and release hashes after deployment.
+Default ad configuration is enabled/every 5 transitions with a localized demo.
+Administrators can disable or configure it at /auth/admin#advertising; no provider
+or new environment secret is needed. Do not claim commercial impression counts.
+Rollback restores images/static files while keeping additive V9/V19/V20 data.
+Old auth removes subscription-derived roles until re-upgraded; old API stops
+enforcing the moderation quota and advertising counters. Record actual release
+commit, backup, health and verification state only after deployment.
+
 ## Author subscriptions (local, 2026-10-09; not deployed)
 
 Inspect local Git, live runtime services and recent API/auth logs before release.

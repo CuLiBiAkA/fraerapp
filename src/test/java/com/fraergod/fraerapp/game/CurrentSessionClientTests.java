@@ -51,4 +51,11 @@ class CurrentSessionClientTests {
   status.set(200);body.set("invalid");newRequest();
   assertThatThrownBy(()->client.current(signed)).isInstanceOf(ResponseStatusException.class);
  }
+ @Test void subscriptionUsesLiveAuthAndMissingEntitlementStaysUnknown(){
+  assertThat(client.current(signed).subscriptionActive()).isNull();
+  body.set(body.get().replace("\"blocked\":false","\"blocked\":false,\"subscriptionActive\":true"));newRequest();
+  assertThat(client.current(signed).subscriptionActive()).isTrue();
+  body.set(body.get().replace("\"subscriptionActive\":true","\"subscriptionActive\":false"));newRequest();
+  assertThat(client.current(signed).subscriptionActive()).isFalse();
+ }
 }

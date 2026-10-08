@@ -385,7 +385,7 @@ class AuthController {
 		JwtClaims claims = currentClaims(authorization, accessToken);
 		User user = userForClaims(claims);
 		return Map.of("id", user.id(), "email", user.email(), "roles", user.roles(),
-				"blocked", false, "sessionId", claims.sessionId());
+				"blocked", false, "sessionId", claims.sessionId(),"subscriptionActive",subscriptions.active(user.id()));
 	}
 
 	@PostMapping("/logout")
