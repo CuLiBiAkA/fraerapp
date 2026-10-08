@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-08.
 
-Admin usability redesign (release candidate; deployment pending): `/auth/admin`
+Admin usability redesign (deployed from 1880be3, pushed to main): `/auth/admin`
 now serves `auth-service/src/main/resources/admin.html`, with frontend
 `admin-panel.js?v=1` and `admin-panel.css?v=1`. The old Java-embedded renderer is
 removed. Users, author requests, login-link history, invitations/recovery and
@@ -16,7 +16,16 @@ Auth errors expose only allowlisted reason codes/messages; recent-auth-required
 does not revoke the admin UI. Late searches/mutations cannot overwrite a different
 user or draft; links are cleared on navigation. No schema migration. Implementation
 and section audit: `docs/admin-usability.md`; synthetic browser journeys:
-`scripts/check-admin-panel.cjs`. Production remains on the prior release below.
+`scripts/check-admin-panel.cjs`. Backup: backups/admin-usability-20261008-215037
+(auth database, runtime files, environment/compose and release receipt). Release
+image: fraerapp-auth-service:admin-1880be3; rollback image:
+fraerapp-auth-service:before-admin-20261008-215037. The image layers the verified
+local bootJar over the existing runtime, preserving entrypoint and configuration.
+All six services are healthy; running JAR/commit and public JS/CSS hashes match.
+Home/readiness/catalog/admin return 200, private admin routes reject anonymous
+requests with 401, noindex remains set, and recent API/auth logs have no errors.
+Checks: 35 auth, 74 API and 71 frontend/Builder tests; four-width browser fixtures.
+Published guest/login layout also passes in a clean browser at 1440/390px.
 
 Release status (2026-10-08): commit ffaaf23 captures all accumulated project
 changes and was pushed to main, including the preceding 13 local commits.

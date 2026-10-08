@@ -1,8 +1,8 @@
 # FraerApp deploy and ops runbook
 
-## Admin usability redesign (release candidate, 2026-10-08)
+## Admin usability redesign (deployed, 2026-10-08)
 
-Not deployed. Before release inspect the live runtime, service status and recent
+Before release inspect the live runtime, service status and recent
 logs, and back up changed runtime sources/assets and the current auth image.
 Publish frontend/admin-panel.js and admin-panel.css v1, then rebuild/recreate
 auth-service with AuthServiceApplication.java and resources/admin.html together.
@@ -19,6 +19,22 @@ guidance, role revocation and self-block. Never modify real accounts for smoke
 testing. After release verify six services, readiness/public domain, `/auth/admin`
 resource/import versions, public asset hashes, anonymous `/auth/admin/users`
 denial, and recent auth/API logs. Record actual release state and backup afterward.
+
+Released from 1880be3 after push to main. Preflight: six healthy services, zero
+recent API/auth errors, and runtime differences limited to the four release files.
+Backup `backups/admin-usability-20261008-215037` contains the validated auth DB dump,
+prior runtime files/configuration, staged release and hash receipt. Release image:
+`fraerapp-auth-service:admin-1880be3`; rollback:
+`fraerapp-auth-service:before-admin-20261008-215037`. Built a layer with the tested
+local bootJar, preserving the prior image's runtime configuration. New assets were
+installed before auth cutover; nginx passed its check and reloaded after auth
+became healthy. All six services are healthy, runtime source/JAR/commit and public
+JS/CSS hashes match, home/readiness/catalog/admin are 200, anonymous auth/admin
+calls return 401 and noindex remains present. Recent API/auth errors: zero.
+No schema change, API/Builder rebuild or real-account smoke-test mutations.
+The published admin guest/login flow passes in a clean browser at 1440/390px,
+without JavaScript errors or horizontal overflow. Wait for DOM readiness and the
+visible login form; networkidle can be delayed by background requests.
 
 ## Account notification clearing (2026-10-08)
 
