@@ -21,14 +21,15 @@ class StoryWorkflowService {
  private final AccountService accounts;
  private final CollectionService collections;
  private final WorkLinksService links;
+ private final ReviewCapacityService reviewCapacity;
  private final String legacyPolicy;
  @jakarta.persistence.PersistenceContext
  private jakarta.persistence.EntityManager entityManager;
  StoryWorkflowService(StoryRepository stories, StoryVersionRepository versions, StoryAdminService content,
-   PlayerRepository players, JdbcTemplate jdbc, JsonSupport json, AccountService accounts, CollectionService collections, WorkLinksService links,
+   PlayerRepository players, JdbcTemplate jdbc, JsonSupport json, AccountService accounts, CollectionService collections, WorkLinksService links,ReviewCapacityService reviewCapacity,
    @Value("${app.moderation.legacy-policy:review}") String legacyPolicy) {
   this.stories=stories;this.versions=versions;this.content=content;this.players=players;
-  this.jdbc=jdbc;this.json=json;this.accounts=accounts;this.legacyPolicy=legacyPolicy;this.collections=collections;this.links=links;
+  this.jdbc=jdbc;this.json=json;this.accounts=accounts;this.legacyPolicy=legacyPolicy;this.collections=collections;this.links=links;this.reviewCapacity=reviewCapacity;
  }
  record Workspace(String draftJson,int draftRevision,Integer submittedRevision,String reviewState,String reason,
    Instant submittedAt,Instant decidedAt,String reviewerId,boolean restricted,int generation) {}
@@ -140,6 +141,7 @@ class StoryWorkflowService {
   if("in_review".equals(w.reviewState())&&Objects.equals(w.submittedRevision(),w.draftRevision()))return summary(s,w);
   if("in_review".equals(w.reviewState())&&!replaceReview)throw conflict("Confirm replacement of the previous submission");
   if(Objects.equals(s.getPublishedRevision(),w.draftRevision()))throw conflict("This revision is already published");
+  reviewCapacity.claim(s.getOwnerPlayerId(),"scenario",id);
   checkMedia(json.readStory(w.draftJson()));
   var normalized=links.normalize(json.readStory(w.draftJson()),s.getOwnerPlayerId(),true);
   if(normalized.metadata()!=null&&!json.readMap(json.write(normalized)).equals(json.readMap(w.draftJson()))){saveDraft(s,json.readMap(json.write(normalized)));w=workspace(id);}
@@ -207,6 +209,8 @@ class StoryWorkflowService {
    s.setVisibility(next);s.setStatus(List.of("public","unlisted").contains(next)?StoryStatus.PUBLISHED:StoryStatus.ARCHIVED);
    stories.saveAndFlush(s);
    jdbc.update("update story_workspaces set restricted=?,decision_reason=?,generation=generation+1 where story_id=?",List.of("hidden","archived","deleted").contains(next),why,id);
+   if("in_review".equals(w.reviewState())&&List.of("hidden","archived","deleted").contains(next))
+    jdbc.update("update story_workspaces set review_state='rejected',decided_at=current_timestamp,reviewer_id=? where story_id=?",actor.userId(),id);
   }
   Workspace after=workspace(id);
   event(s,command.revision(),actor,action,why,note,before,s.getVisibility()+":"+after.reviewState());
@@ -347,6 +351,7 @@ class StoryWorkflowService {
   m.put("publishedAt",s.getPublishedAt());m.put("updatedAt",s.getUpdatedAt());m.put("draftRevision",w.draftRevision());m.put("versionNumber",w.draftRevision());
   m.put("publishedRevision",s.getPublishedRevision());m.put("submittedRevision",w.submittedRevision());m.put("reviewState",w.reviewState());
   m.put("hasDraft",!Objects.equals(s.getPublishedRevision(),w.draftRevision())&&(!Objects.equals(w.submittedRevision(),w.draftRevision())||!List.of("in_review","approved").contains(w.reviewState())));
+  m.put("reviewLimitReached",reviewCapacity.blocked(s.getOwnerPlayerId(),"scenario",s.getId()));
   m.put("reason",w.reason());m.put("submittedAt",w.submittedAt());m.put("decidedAt",w.decidedAt());m.put("reviewerId",w.reviewerId());m.put("restricted",w.restricted());m.put("generation",w.generation());
   m.put("ownerUserId",s.getOwnerPlayerId()==null?null:players.findById(s.getOwnerPlayerId()).map(Player::getUserId).orElse(null));
   m.put("ownerName",s.getOwnerPlayerId()==null?"System":"Автор #"+s.getOwnerPlayerId().substring(0,8));

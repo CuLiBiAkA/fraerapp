@@ -3,6 +3,7 @@ import {
   matchesAuthorFilter, moderationActions, needsOwnOverride, node, publicStoryUrl,
   renderDocumentDiff, renderStoryDocument, revisionLabels, storyLabels, workflowLabel,
 } from "./story-workflow.js?v=1";
+import { reviewLimitMessage } from "./review-limit.js?v=1";
 
 const moderation = document.body.dataset.workspace === "moderation";
 const root = document.querySelector("#workspace");
@@ -25,6 +26,7 @@ function selectField(label, options, selected) {
 }
 function date(value) { return value ? new Date(value).toLocaleString(language === "en" ? "en-GB" : "ru-RU") : "—"; }
 function errorText(error) {
+  if (error.code === "REVIEW_LIMIT_REACHED") return reviewLimitMessage(language);
   if (error.status === 401) return choose("Сессия завершена. Войдите на главной и обновите страницу.", "Your session ended. Sign in on the home page and reload.");
   if (error.status === 403) return choose("Нет доступа. Права могли измениться: обновите страницу или обратитесь к администратору.", "Access denied. Your permissions may have changed: reload or contact an administrator.");
   if (error.status === 409) return choose("История изменилась. Загрузите актуальную редакцию и проверьте её перед новым решением.", "This story changed. Reload the current revision and inspect it before deciding again.");
@@ -41,7 +43,7 @@ async function request(path, options = {}, retry = true) {
   const text = await response.text();
   let data;
   try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
-  if (!response.ok) { const error = new Error(data.message || data.detail || data.error || `HTTP ${response.status}`); error.status = response.status; throw error; }
+  if (!response.ok) { const error = new Error(data.message || data.detail || data.error || `HTTP ${response.status}`); error.status = response.status; error.code = data.code; throw error; }
   return data;
 }
 
@@ -215,6 +217,7 @@ function revisionRole(story, revision) {
 function renderActions() {
   const story = state.detail; if (!story || !actionsNode) return;
   actionsNode.replaceChildren();
+  if(!moderation&&story.reviewLimitReached)actionsNode.append(node("p",reviewLimitMessage(language),"workspace-notice"));
   const publicUrl = publicStoryUrl(story); if (publicUrl) actionsNode.append(link(choose("Открыть публикацию", "Open publication"), publicUrl, "workspace-button"));
   const actions = moderation ? moderationActions(story, state.user) : authorActions(story, state.user);
   for (const action of actions) {
@@ -222,6 +225,7 @@ function renderActions() {
     const reviewing = ["approve", "approve-publish", "publish-approved", "reject"].includes(action);
     const label = moderation && needsOwnOverride(action, story, state.user) ? `${t(action)} · ${choose("своя история", "own story")}` : t(action);
     const control = button(label, () => showDecision(action), ["approve-publish", "submit", "publish-approved"].includes(action) ? "primary" : ["hide", "delete"].includes(action) ? "danger" : "");
+    if(action==='submit'&&story.reviewLimitReached){control.disabled=true;control.title=reviewLimitMessage(language);}
     if (reviewing && (!state.preview || state.previewRevision !== story.submittedRevision)) { control.disabled = true; control.title = choose("Сначала откройте отправленную редакцию", "Open the submitted revision first"); }
     actionsNode.append(control);
   }

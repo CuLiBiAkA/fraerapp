@@ -1,4 +1,5 @@
 // Shared collection controls. All labels/content use textContent, never HTML.
+import { reviewLimitMessage } from "./review-limit.js?v=1";
 export const collectionTypes = {
   story: ["История", "Story"], volume: ["История", "Story"],
   cycle: ["История", "Story"], catalog: ["История", "Story"], scenario: ["Глава", "Chapter"],
@@ -33,6 +34,7 @@ export function checkbox(text, checked) {
   label.append(input, document.createTextNode(text)); return { label, input };
 }
 export function errorMessage(error) {
+  if (error.code === "REVIEW_LIMIT_REACHED") return reviewLimitMessage(language());
   const folderErrors = {
     "Submit the preceding chapters first": words("Сначала отправьте предыдущие главы на проверку.", "Submit the preceding chapters first."),
     "Finish the previous chapter before continuing": words("Сначала дочитайте предыдущую главу.", "Finish the previous chapter first."),
@@ -58,7 +60,7 @@ export async function request(path, options = {}, retry = true) {
   }
   const body = await response.text(); let data;
   try { data = body ? JSON.parse(body) : {}; } catch { data = {}; }
-  if (!response.ok) { const error = new Error(data.message || data.detail || words("Ошибка запроса", "Request failed")); error.status = response.status; throw error; }
+  if (!response.ok) { const error = new Error(data.message || data.detail || words("Ошибка запроса", "Request failed")); error.status = response.status; error.code = data.code; throw error; }
   return data;
 }
 export function download(value, filename) {

@@ -48,6 +48,73 @@ class CollectionWorkflowTests extends ApiTestSupport {
  Map<String,Object> folderReview(String id){return ok(call("GET","/api/moderation/folders/"+id+"/review",null,reviewer));}
  Map<String,Object> folderDecision(Map<String,Object> preview,String action){var cmd=new LinkedHashMap<String,Object>();cmd.put("action",action);cmd.put("rootGeneration",preview.get("rootGeneration"));cmd.put("items",maps(preview.get("items")).stream().map(i->Map.of("kind",i.get("kind"),"id",i.get("id"),"generation",i.get("generation"),"revision",i.get("revision"))).toList());cmd.put("reason","Reviewed together");return cmd;}
  void batch(String id){ok(call("POST","/api/author/collections/"+id+"/review-batch",Map.of("generation",details(id).get("generation"),"replaceReview",true),author));}
+ @Test void onePendingStoryBlocksOnlySubmissionUntilModeratorAnswers() {
+  var first=draft(scenario(key(),1));var secondDoc=scenario(key(),2);var second=draft(secondDoc);
+  var pending=ok(call("POST","/api/author/stories/"+sid(first)+"/review",Map.of("generation",first.get("generation")),author));
+  secondDoc.put("title","Still editable while waiting");second=draft(secondDoc);
+  var denied=call("POST","/api/author/stories/"+sid(second)+"/review",Map.of("generation",second.get("generation")),author);
+  assertThat(denied.statusCode()).isEqualTo(409);assertThat(object(denied.body())).containsEntry("code","REVIEW_LIMIT_REACHED");
+  assertThat(ok(call("GET","/api/author/stories/"+sid(second),null,author))).containsEntry("reviewState","draft").containsEntry("reviewLimitReached",true);
+  assertThat(draft(scenario(key(),3)).get("reviewState")).isEqualTo("draft");
+  String other=TestJwtFactory.author("independent-"+UUID.randomUUID()+"@example.test");
+  var theirs=ok(call("POST","/api/author/stories/import",scenario(key(),4),other));
+  ok(call("POST","/api/author/stories/"+sid(theirs)+"/review",Map.of("generation",theirs.get("generation")),other));
+  ok(call("POST","/api/moderation/stories/"+sid(first)+"/approve",Map.of("generation",pending.get("generation"),"revision",pending.get("submittedRevision")),reviewer));
+  pending=ok(call("POST","/api/author/stories/"+sid(second)+"/review",Map.of("generation",second.get("generation")),author));
+  ok(call("POST","/api/moderation/stories/"+sid(second)+"/reject",Map.of("generation",pending.get("generation"),"revision",pending.get("submittedRevision"),"reason","Please revise"),reviewer));
+  var fresh=ok(call("GET","/api/author/stories/"+sid(first),null,author));
+  ok(call("POST","/api/author/stories/"+sid(first)+"/review",Map.of("generation",fresh.get("generation")),author));
+ }
+ @Test void concurrentDifferentStoriesHaveOneSubmissionWinner() throws Exception {
+  var first=draft(scenario(key(),1));var second=draft(scenario(key(),2));
+  assertThat(race(()->call("POST","/api/author/stories/"+sid(first)+"/review",Map.of("generation",first.get("generation")),author).statusCode(),
+   ()->call("POST","/api/author/stories/"+sid(second)+"/review",Map.of("generation",second.get("generation")),author).statusCode())).containsExactlyInAnyOrder(200,409);
+ }
+ @Test void chaptersShareOneStorySlotAndOtherStoryBatchRollsBack() {
+  var a=draft(scenario(key(),1));var b=draft(scenario(key(),2));var firstDoc=document("story",List.of(item("scenario",a),item("scenario",b)));firstDoc.put("schemaVersion",2);String first=cid(create(firstDoc));
+  ok(call("POST","/api/author/collections/"+first+"/chapters/review",Map.of("storyId",sid(a),"storyGeneration",a.get("generation"),"generation",details(first).get("generation")),author));
+  ok(call("POST","/api/author/collections/"+first+"/chapters/review",Map.of("storyId",sid(b),"storyGeneration",b.get("generation"),"generation",details(first).get("generation"),"replaceReview",true),author));
+  assertThat(maps(folderReview(first).get("items"))).hasSize(3);
+  var c=draft(scenario(key(),3));String second=cid(create(document("story",List.of(item("scenario",c)))));
+  var denied=call("POST","/api/author/collections/"+second+"/review-batch",Map.of("generation",details(second).get("generation")),author);
+  assertThat(denied.statusCode()).isEqualTo(409);assertThat(details(second)).containsEntry("reviewState","draft").containsEntry("reviewLimitReached",true);
+  assertThat(ok(call("GET","/api/author/stories/"+sid(c),null,author))).containsEntry("reviewState","draft");
+  var application=folderReview(first);ok(call("POST","/api/moderation/folders/"+first+"/decision",folderDecision(application,"reject"),reviewer));batch(second);
+ }
+ @Test void unrelatedBatchIsAtomicAndWithdrawalFreesTheSlot() {
+  var a=draft(scenario(key(),1));var b=draft(scenario(key(),2));
+  var batch=Map.of("items",List.of(Map.of("kind","scenario","id",sid(a),"generation",a.get("generation")),Map.of("kind","scenario","id",sid(b),"generation",b.get("generation"))));
+  assertThat(call("POST","/api/author/review-batch",batch,author).statusCode()).isEqualTo(409);
+  for(var s:List.of(a,b))assertThat(ok(call("GET","/api/author/stories/"+sid(s),null,author))).containsEntry("reviewState","draft");
+  var pending=ok(call("POST","/api/author/stories/"+sid(a)+"/review",Map.of("generation",a.get("generation")),author));
+  String admin=TestJwtFactory.admin("quota-admin-"+UUID.randomUUID()+"@example.test");
+  var denied=call("POST","/api/admin/stories/"+sid(b)+"/review",Map.of("generation",b.get("generation")),admin);
+  assertThat(denied.statusCode()).isEqualTo(409);assertThat(object(denied.body())).containsEntry("code","REVIEW_LIMIT_REACHED");
+  ok(call("POST","/api/author/stories/"+sid(a)+"/withdraw",Map.of("generation",pending.get("generation")),author));
+  ok(call("POST","/api/author/stories/"+sid(b)+"/review",Map.of("generation",b.get("generation")),author));
+ }
+ @Test void movingAPendingChapterCannotChangeItsOccupiedStorySlot() {
+  var aDoc=scenario(key(),1);var a=draft(aDoc);var firstDoc=document("story",List.of(item("scenario",a)));firstDoc.put("schemaVersion",2);String first=cid(create(firstDoc));
+  ok(call("POST","/api/author/stories/"+sid(a)+"/review",Map.of("generation",a.get("generation")),author));
+  aDoc.put("title","New draft of the pending chapter");a=draft(aDoc);
+  ok(call("POST","/api/author/stories/"+sid(a)+"/review",Map.of("generation",a.get("generation"),"replaceReview",true),author));
+  firstDoc.put("items",List.of());save(first,firstDoc);
+  var b=draft(scenario(key(),2));var secondDoc=document("story",List.of(item("scenario",a),item("scenario",b)));secondDoc.put("schemaVersion",2);create(secondDoc);
+  var denied=call("POST","/api/author/stories/"+sid(b)+"/review",Map.of("generation",b.get("generation")),author);
+  assertThat(denied.statusCode()).isEqualTo(409);assertThat(object(denied.body())).containsEntry("code","REVIEW_LIMIT_REACHED");
+ }
+ @Test void moderatorRestrictionsFinishPendingChapterReview(){restrictionFinishesReview(false);}
+ @Test void moderatorRestrictionsFinishPendingCollectionReview(){restrictionFinishesReview(true);}
+ void restrictionFinishesReview(boolean collection){
+  for(String action:List.of("hide","archive","delete")){
+   var work=collection?create(document("story",List.of())):draft(scenario(key(),1));
+   String id=collection?cid(work):sid(work),route=collection?"collections":"stories";
+   var pending=ok(call("POST","/api/author/"+route+"/"+id+"/review",Map.of("generation",work.get("generation")),author));
+   var decided=ok(call("POST","/api/moderation/"+route+"/"+id+"/"+action,Map.of("generation",pending.get("generation"),"revision",pending.get("submittedRevision"),"reason","Moderator response"),reviewer));
+   assertThat(decided).containsEntry("reviewState","rejected");
+  }
+  var next=draft(scenario(key(),2));ok(call("POST","/api/author/stories/"+sid(next)+"/review",Map.of("generation",next.get("generation")),author));
+ }
  @Test void authorLinksForbidForeignPublicAndPrivateWorksByIdKeyAndPackage() {
   String foreign=TestJwtFactory.author("foreign-"+UUID.randomUUID()+"@example.test");
   for(boolean published:List.of(false,true)){

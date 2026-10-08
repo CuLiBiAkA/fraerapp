@@ -1,6 +1,34 @@
 # FraerApp project context
 
-Last updated: 2026-10-08.
+Last updated: 2026-10-09.
+
+Author moderation capacity (local implementation, not deployed): one story per
+owner may await a moderator's response. Chapters of a schemaVersion 2 story share
+one slot; legacy nested collections use their top-level collection. Standalone
+scenarios each occupy one slot. Draft creation/saving is unaffected. Approval
+(including approval without publication), rejection or complete withdrawal frees
+the slot. Moderator hiding/archiving/deleting a pending item completes its review
+as rejected; other pending parts of that story still occupy the slot. Replacing
+the pending revision of the same story remains possible.
+ReviewCapacityService enforces this in both submission owners under the existing
+collection structure lock, including admin compatibility routes and atomic batch
+submissions. V19 adds review_scope to freeze the submitted story identity when
+chapters are later moved. Legacy null scopes are derived from memberships and
+adopted on the next successful submission; existing pending submissions are not
+removed. Multiple legacy pending stories block new submissions until resolved.
+Quota conflicts return private/no-store HTTP 409 with REVIEW_LIMIT_REACHED.
+Author summaries expose reviewLimitReached; Builder and author workspaces show
+a localized explanation and disable submission while keeping drafts editable.
+Collection Refresh list and window focus refresh eligibility without replacing
+unsaved edits; Builder refreshes status on focus. Backend checks remain final.
+Assets: app builder-51, workspace-entry v6, collection-workspace v7,
+story-workspace v2, collection-ui v5, review-limit v1. Verification: 81 API,
+35 auth and 72 frontend/Builder tests; scripts/check-review-limit.cjs covers
+RU/EN at 1440/390px with isolated fixtures.
+The older scripts/check-chapters-ui.mjs is stale: it still expects the folder
+picker removed before this change and times out at that selector. It is not
+evidence for the current story editor; use check-review-limit.cjs and
+check-chapter-tabs.cjs for these author workflows.
 
 Admin usability redesign (deployed from 1880be3, pushed to main): `/auth/admin`
 now serves `auth-service/src/main/resources/admin.html`, with frontend

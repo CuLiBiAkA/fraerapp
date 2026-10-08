@@ -16,10 +16,11 @@ class CollectionService {
  private final StoryRepository stories;
  private final PlayerRepository players;
  private final WorkLinksService links;
+ private final ReviewCapacityService reviewCapacity;
  record Row(String id,String key,String type,String owner,String draft,int draftRevision,Integer submitted,
    Integer published,String review,String visibility,String reason,boolean restricted,int generation) {}
- CollectionService(JdbcTemplate jdbc,JsonSupport json,StoryRepository stories,PlayerRepository players,WorkLinksService links) {
-  this.jdbc=jdbc;this.json=json;this.stories=stories;this.players=players;this.links=links;
+ CollectionService(JdbcTemplate jdbc,JsonSupport json,StoryRepository stories,PlayerRepository players,WorkLinksService links,ReviewCapacityService reviewCapacity) {
+  this.jdbc=jdbc;this.json=json;this.stories=stories;this.players=players;this.links=links;this.reviewCapacity=reviewCapacity;
  }
  private Row map(java.sql.ResultSet r,int n)throws java.sql.SQLException {return new Row(r.getString("id"),r.getString("collection_key"),r.getString("collection_type"),r.getString("owner_player_id"),r.getString("draft_json"),r.getInt("draft_revision"),(Integer)r.getObject("submitted_revision"),(Integer)r.getObject("published_revision"),r.getString("review_state"),r.getString("visibility"),r.getString("decision_reason"),r.getBoolean("restricted"),r.getInt("generation"));}
  Row row(String id){return jdbc.query("select * from work_collections where id=? or collection_key=?",this::map,id,id).stream().findFirst().orElseThrow(StoryNotFoundException::new);}
@@ -33,7 +34,7 @@ class CollectionService {
   m.put("id",r.id());m.put("collectionId",r.id());m.put("key",r.key());m.put("type",r.type());m.put("title",d.title());m.put("description",d.description());
   m.put("generation",r.generation());m.put("draftRevision",r.draftRevision());m.put("submittedRevision",r.submitted());m.put("publishedRevision",r.published());
   m.put("reviewState",r.review());m.put("visibility",r.visibility());m.put("decisionReason",r.reason());m.put("restricted",r.restricted());
-  m.put("ownerPlayerId",r.owner());m.put("hasDraft",!Objects.equals(r.published(),r.draftRevision()));return m;
+  m.put("ownerPlayerId",r.owner());m.put("hasDraft",!Objects.equals(r.published(),r.draftRevision()));m.put("reviewLimitReached",reviewCapacity.blocked(r.owner(),"collection",r.id()));return m;
  }
  @Transactional(readOnly=true)
  List<Map<String,Object>> mine(String owner,int page,int size,String q,String type,String state){return jdbc.query("select * from work_collections where owner_player_id=? and (lower(draft_title) like ? or lower(collection_key) like ?) and (?='all' or collection_type=?) and (?='all' or review_state=? or visibility=?) order by updated_at desc limit ? offset ?",this::map,owner,"%"+q.toLowerCase(Locale.ROOT)+"%","%"+q.toLowerCase(Locale.ROOT)+"%",type,type,state,state,state,Math.max(1,Math.min(100,size)),Math.max(0,page)*Math.max(1,Math.min(100,size))).stream().map(this::summary).toList();}
@@ -148,6 +149,7 @@ class CollectionService {
   if("in_review".equals(r.review())&&Objects.equals(r.submitted(),r.draftRevision()))return summary(r);
   if("in_review".equals(r.review())&&!replace)throw conflict("Confirm replacement of the previous submission");
   if(Objects.equals(r.published(),r.draftRevision()))throw conflict("This revision is already published");
+  reviewCapacity.claim(r.owner(),"collection",id);
   var normalized=normalize(json.readCollection(r.draft()),player,id,true);
   // Resolved IDs are frozen into a fresh immutable draft before submission.
   if(!json.write(normalized).equals(r.draft())){save(id,generation,normalized,player);r=row(id);}
@@ -187,6 +189,8 @@ class CollectionService {
    if("restore".equals(action)&&!List.of("hidden","deleted","archived").contains(r.visibility()))throw conflict("Collection is not restricted");
    if(List.of("public","unlisted").contains(next)&&r.published()==null)throw conflict("Publish an approved revision explicitly first");
    jdbc.update("update work_collections set visibility=?,restricted=?,decision_reason=? where id=?",next,List.of("hidden","archived","deleted").contains(next),reason,id);
+   if("in_review".equals(r.review())&&List.of("hidden","archived","deleted").contains(next))
+    jdbc.update("update work_collections set review_state='rejected' where id=?",id);
   }
   jdbc.update("update work_collections set generation=generation+1,updated_at=current_timestamp where id=?",id);event(r,actor,action,c.revision(),reason,note);
   players.findById(r.owner()).filter(p->p.getUserId()!=null).ifPresent(p->jdbc.update("insert into account_notifications(id,user_id,kind,message,collection_id,revision,reviewer_id) values (?,?,'moderation',?,?,?,?)",UUID.randomUUID().toString(),p.getUserId(),"Collection: "+action+(reason.isBlank()?"":" — "+reason),id,c.revision(),actor.userId()));

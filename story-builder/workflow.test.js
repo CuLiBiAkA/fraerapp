@@ -34,6 +34,13 @@ function harness(names, overrides = {}) {
   return { context, calls, values };
 }
 
+test("a moderation limit keeps the saved draft and explains waiting instead of a stale revision", async () => {
+  const error=Object.assign(new Error('Only one story'),{status:409,code:'REVIEW_LIMIT_REACHED'});
+  const {context}=harness(["authorWorkflow"],{authorFetch:async()=>{throw error;}});
+  await assert.rejects(()=>context.authorWorkflow('second','review',{generation:1,reviewState:'draft'}),e=>e.code==='REVIEW_LIMIT_REACHED');
+  assert.equal(context.builderWorkflowBusy,false);
+});
+
 test("import/export preserves global definitions shadowed in one scene", () => {
   const { context } = harness(["fromStoryJson", "toStoryJson", "serializeVariable", "variableValue", "detectType", "coerceValue", "parseMetadata"], {
     serializeEffects: () => [], serializeConditions: () => [], parseEffects: () => [],

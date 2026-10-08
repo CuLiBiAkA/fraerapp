@@ -1,5 +1,32 @@
 # FraerApp deploy and ops runbook
 
+## One pending story per author (local, 2026-10-09; not deployed)
+
+Before release inspect local Git, live service status and recent API/auth logs.
+Back up the API database, current API image and changed runtime files. Rebuild
+and recreate API with ReviewCapacityService, CollectionService,
+StoryWorkflowService, WorkApiErrors and additive V19__author_review_scope.sql.
+Verify migration 19 and API readiness before publishing the new frontend and
+Builder files. No auth rebuild is needed. Publish review-limit.js with the
+collection/story workspace modules, collection-ui.js, workspace-entry.js,
+my-stories/moderation index files and story-builder app.js/index.html together.
+Retain the additive columns and new assets during image rollback; an older API
+does not enforce the new limit. Do not roll back by deleting pending work.
+
+Run `sh gradlew :test :auth-service:test --no-daemon`, all frontend/Builder Node
+tests, production validation, `git diff --check`, and
+`node scripts/check-review-limit.cjs` with Playwright on NODE_PATH. The browser
+fixture checks RU/EN desktop/mobile, disabled submission, editable drafts and
+eligibility refresh without losing unsaved titles. API tests cover simultaneous
+submissions, other owners, approval/rejection, terminal restrictions, complete
+withdrawal, grouped chapters, atomic batch failure, admin compatibility and
+moving a pending chapter between stories. After release verify all service
+states, readiness/public domain/catalog, published asset versions and recent
+logs. Anonymous author submission must remain denied. Do not create or moderate
+real users' work for smoke tests. Existing pending submissions remain intact;
+owners with several legacy pending stories must resolve them before new work
+can enter review. Record actual release/backup status after deployment.
+
 ## Admin usability redesign (deployed, 2026-10-08)
 
 Before release inspect the live runtime, service status and recent

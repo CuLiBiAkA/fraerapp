@@ -1,4 +1,5 @@
 import { canEditStories, filterAfterSubmit, storyLabels, workflowLabel } from "../story-workflow.js?v=1";
+import { reviewLimitMessage } from "../review-limit.js?v=1";
 import { decorateHelp, helpButton, helpTopics } from "./help.js?v=3";
 
 import { initChapterTabs } from "./chapter-panel.js?v=1";
@@ -2240,8 +2241,8 @@ async function authorFetchAttempt(path, options = {}, allowRefresh = true) {
   const text = await response.text();
   const payload = text ? JSON.parse(text) : {};
   if (!response.ok) {
-    const error = new Error(payload.message || payload.detail || payload.error || `HTTP ${response.status}`);
-    error.status = response.status;
+    const error = new Error(payload.code === "REVIEW_LIMIT_REACHED" ? reviewLimitMessage(currentLanguage) : payload.message || payload.detail || payload.error || `HTTP ${response.status}`);
+    error.status = response.status; error.code = payload.code;
     throw error;
   }
   return payload;
@@ -2350,6 +2351,10 @@ async function loadAuthorHome() {
   return home;
 }
 
+window.addEventListener("focus",()=>{
+  if(canAuthor()&&!builderWorkflowBusy)loadAuthorHome().catch(()=>{});
+});
+
 const panelWords = {
   chapter: ['Моя глава', 'My chapter'], check: ['Проверка', 'Validation'], publication: ['Публикация', 'Publication'],
   save: ['Сохранить главу', 'Save chapter'], preview: ['Предпросмотр', 'Preview'], close: ['Закрыть', 'Close'],
@@ -2358,7 +2363,7 @@ const panelWords = {
   checkHint: ['Проверяем текущий JSON: сцены, переменные и переходы. Изменения сохранять не обязательно.', 'Check the current JSON: scenes, variables and transitions. Saving is not required.'],
   checkNote: ['Это проверка структуры, а не литературного текста. Полная серверная проверка выполняется перед отправкой модератору.', 'This checks structure, not literary quality. Full server validation runs before submission.'],
   publicationHint: ['После одобрения модератором глава станет доступна читателям.', 'Readers can access the chapter after moderator approval.'],
-  submitHint: ['Перед отправкой проверим главу и сохраним изменения.', 'We will check and save the chapter before submitting it.'],
+  submitHint: ['Перед отправкой проверим главу и сохраним изменения. На модерации может быть одна ваша история с её главами.', 'We will check and save the chapter. Only one of your stories and its chapters can be under review at a time.'],
   previewHint: ['Текущий текст и варианты выборов. Это просмотр сцен, без прохождения и сохранения прогресса.', 'Current text and choices. This is a scene preview without playthrough or saved progress.'],
 };
 
@@ -2372,6 +2377,7 @@ function renderAuthorWorkspace(home = authorHomeCache) {
     node.title = label; node.setAttribute('aria-label', label);
   });
   const current = home?.stories?.find(story => story.storyId === getDraftStoryId());
+  if(current?.reviewLimitReached)document.querySelector('[data-panel-text="submitHint"]').textContent=reviewLimitMessage(currentLanguage);
   const items = chapterParent?.draftDocument?.items || [];
   const index = items.findIndex(item => item.target.id === getDraftStoryId());
   document.querySelector('#chapter-story-name').textContent = chapterParent?.title || chapterParent?.draftDocument?.title || (en ? 'Independent draft' : 'Отдельный черновик');
@@ -2398,6 +2404,7 @@ function statusLabel(status) {
 
 function updateAuthorGate() {
   const loggedIn = canAuthor();
+  const current=authorHomeCache?.stories?.find(story=>story.storyId===getDraftStoryId());
   document.body.classList.toggle("builder-locked", !loggedIn);
   els.authorLogin.hidden = loggedIn;
   els.authorLogout.hidden = !loggedIn;
@@ -2413,6 +2420,7 @@ function updateAuthorGate() {
       return;
     }
     control.disabled = !loggedIn || (builderWorkflowBusy && (control.dataset.authorMutation === "true" || ["import-runtime", "validate-runtime", "publish-runtime", "author-story-select", "refresh-author", "runtime-url"].includes(control.id)));
+    if(control.id==='publish-runtime'&&current?.reviewLimitReached)control.disabled=true;
   });
   document.querySelectorAll("a.nav-link").forEach((link) => {
     link.classList.toggle("is-disabled", !loggedIn);
@@ -2801,7 +2809,7 @@ async function authorWorkflow(storyId, action, knownStory = null, alreadyBusy = 
     els.apiResult.textContent = action === "review" ? t("reviewSent", { revision: payload.submittedRevision }) : t("changeSaved");
     return payload;
   } catch (error) {
-    if (error.status === 409) { await loadAuthorHome(); throw new Error(t("staleStory")); }
+    if (error.status === 409) { await loadAuthorHome(); if(error.code!=="REVIEW_LIMIT_REACHED")throw new Error(t("staleStory")); }
     throw error;
   } finally { if (!alreadyBusy) { builderWorkflowBusy = false; updateAuthorGate(); } }
 }
@@ -2980,8 +2988,8 @@ async function fetchJsonAttempt(url, options, allowRefresh) {
   const text = await response.text();
   const payload = text ? JSON.parse(text) : {};
   if (!response.ok) {
-    const error = new Error(payload.message || payload.detail || payload.error || `HTTP ${response.status}`);
-    error.status = response.status;
+    const error = new Error(payload.code === "REVIEW_LIMIT_REACHED" ? reviewLimitMessage(currentLanguage) : payload.message || payload.detail || payload.error || `HTTP ${response.status}`);
+    error.status = response.status; error.code = payload.code;
     throw error;
   }
   return payload;
