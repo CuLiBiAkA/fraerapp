@@ -2,7 +2,23 @@
 
 Last updated: 2026-10-09.
 
-Reader advertisements (local implementation, not deployed): new registrations
+Release 2026-10-09: moderation quota, test subscriptions and reader advertising
+are committed, pushed to main and deployed. API/auth/Builder images use
+`fraerapp-<service>:reader-fc2d78e`; the final frontend fix is `d7107d0`.
+Backup `backups/reader-subscriptions-20261009-005048` contains verified PostgreSQL
+dumps for both databases, prior runtime files/configuration, release sources and
+a receipt with JAR/static hashes. Rollback tags are
+`fraerapp-<service>:before-reader-20261009-005048`. Six services are healthy;
+API migration 20 and auth migration 9 succeeded. Origin/public assets, running
+JARs and image revisions match. Home, readiness, catalog, subscription page,
+admin page and tariff endpoint return 200; anonymous advertising/admin/account
+access remains denied. Recent API/auth error counts are zero. Published static
+files pass the RU/EN reader-ad and admin browser fixtures at 1440/390/320px; all
+account/API mutations in browser verification remain synthetic. Checks: 89 API,
+42 auth, 73 Node tests plus subscription, admin, moderation quota and chapter-tab
+browser journeys. Local output/ notes remain outside the release.
+
+Reader advertisements (deployed): new registrations
 remain Reader (`player`). `/auth/me` exposes live `subscriptionActive`; the API
 only offers ads when auth explicitly confirms false. Missing entitlement during
 an auth/API rolling deployment suppresses ads. A manual author role alone does
@@ -24,7 +40,7 @@ engine-87, subscription.js v2. Design: docs/reader-ads.md. Verification: 89 API,
 real engine request adapter and admin UI in RU/EN at 1440/390/320px, including
 reload, dismissal, network recovery, late responses, URL safety and role loss.
 
-Author subscriptions (local implementation, not deployed): `/subscription/`
+Author subscriptions (deployed): `/subscription/`
 offers the owner-approved Author tariff of 139 RUB per calendar month. Checkout
 is explicitly a test: zero charged, no card data/provider or automatic renewal.
 Auth V9 stores per-user subscriptions, immutable test orders (price 13900 kopecks,
@@ -60,7 +76,7 @@ and intentionally absent.
 Checks: 41 auth, 81 API and 73 frontend/Builder tests pass, plus production
 validation and browser journeys for subscriptions and existing admin sections.
 
-Author moderation capacity (local implementation, not deployed): one story per
+Author moderation capacity (deployed): one story per
 owner may await a moderator's response. Chapters of a schemaVersion 2 story share
 one slot; legacy nested collections use their top-level collection. Standalone
 scenarios each occupy one slot. Draft creation/saving is unaffected. Approval

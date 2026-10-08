@@ -1,6 +1,27 @@
 # FraerApp deploy and ops runbook
 
-## Reader advertisements (local, 2026-10-09; not deployed)
+## Reader advertisements and accumulated release (deployed, 2026-10-09)
+
+Released API/auth/Builder from fc2d78e, frontend from d7107d0; all feature commits
+are pushed to main. Backup: backups/reader-subscriptions-20261009-005048. Both
+database dumps passed pg_restore -l. Images fraerapp-<service>:reader-fc2d78e
+preserve entrypoint, command, environment, user, workdir and ports; rollback tags
+are fraerapp-<service>:before-reader-20261009-005048. Auth, API and Builder were
+recreated in that order, waiting for health; frontend/source files were then
+installed and edge configuration checked/reloaded. A brief API 502 during its
+restart cleared when readiness returned. Six services are now healthy; API V20
+and auth V9 succeeded, recent API/auth error counts are zero. Running JAR/image
+revisions, runtime source hashes and public static hashes match the release.
+Public home/readiness/catalog/subscription/admin/tariff endpoints are 200;
+anonymous subscription, ad settings and ad claims are 401. Private workspace
+HTML still redirects anonymous requests to recovery. Published UI passed
+CHECK_LIVE_STATIC=1 scripts/check-reader-ads.cjs at RU/EN 1440/390/320px with
+synthetic API data. No real accounts were changed for verification.
+
+Origin checks discovered the current bound edge address/port through Docker
+inspect. Outbound public-domain curl from the server timed out, while local
+public checks and direct origin checks passed. Use live Docker bindings for
+origin checks and verify the public domain independently from the local host.
 
 Inspect live service status/logs and local Git first. Back up both databases,
 running API/auth images and changed runtime/static files. Release auth with the
@@ -26,7 +47,7 @@ Old auth removes subscription-derived roles until re-upgraded; old API stops
 enforcing the moderation quota and advertising counters. Record actual release
 commit, backup, health and verification state only after deployment.
 
-## Author subscriptions (local, 2026-10-09; not deployed)
+## Author subscriptions (included in the 2026-10-09 release)
 
 Inspect local Git, live runtime services and recent API/auth logs before release.
 Back up the auth DB, existing auth image, changed sources/resources and static
@@ -64,7 +85,7 @@ from subscriptions: subscribers without explicit author grants will temporarily
 lose author access on rollback, while story data and manual roles remain. This
 must be considered before rollback; do not compensate with mass manual grants.
 
-## One pending story per author (local, 2026-10-09; not deployed)
+## One pending story per author (included in the 2026-10-09 release)
 
 Before release inspect local Git, live service status and recent API/auth logs.
 Back up the API database, current API image and changed runtime files. Rebuild

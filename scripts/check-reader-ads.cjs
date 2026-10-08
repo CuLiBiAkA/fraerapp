@@ -1,7 +1,7 @@
 // Isolated browser journeys exercising the real engine/request adapter and admin UI.
 const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),assert=require('assert/strict');
 const root=process.cwd();
-async function staticFile(route){const p=new URL(route.request().url()).pathname;let file=p==='/auth/admin'?path.join(root,'auth-service/src/main/resources/admin.html'):path.join(root,p.startsWith('/builder/')?'story-builder':'frontend',p.startsWith('/builder/')?p.slice(9):p);if(fs.existsSync(file)&&fs.statSync(file).isDirectory())file=path.join(file,'index.html');if(!fs.existsSync(file))file=path.join(root,'frontend/index.html');return route.fulfill({path:file});}
+async function staticFile(route){if(process.env.CHECK_LIVE_STATIC==='1')return route.continue();const p=new URL(route.request().url()).pathname;let file=p==='/auth/admin'?path.join(root,'auth-service/src/main/resources/admin.html'):path.join(root,p.startsWith('/builder/')?'story-builder':'frontend',p.startsWith('/builder/')?p.slice(9):p);if(fs.existsSync(file)&&fs.statSync(file).isDirectory())file=path.join(file,'index.html');if(!fs.existsSync(file))file=path.join(root,'frontend/index.html');return route.fulfill({path:file});}
 (async()=>{const browser=await chromium.launch();try{
  for(const language of ['ru','en'])for(const width of [1440,390,320]){
   const context=await browser.newContext({viewport:{width,height:900}}),errors=[];let count=0,claims=0,pending=null,fail=false,delay=false,release;
