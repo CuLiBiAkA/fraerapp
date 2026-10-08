@@ -27,6 +27,16 @@ class AccountController {
   service.read(users.requireIdentity().userId(),id);return Map.of("saved",true);
  }
  record Message(@NotBlank @Pattern(regexp="[a-zA-Z0-9-]{1,36}") String userId,@NotBlank @Size(max=2000) String message) {}
+ @DeleteMapping("/notifications/{id}")
+ AccountService.Account deleteNotice(@PathVariable String id,HttpServletResponse response) {
+  response.setHeader("Cache-Control","private, no-store");
+  return service.deleteNotice(users.requireIdentity().userId(),id);
+ }
+ @DeleteMapping("/notifications")
+ AccountService.Account clearNotices(HttpServletResponse response) {
+  response.setHeader("Cache-Control","private, no-store");
+  return service.clearNotices(users.requireIdentity().userId());
+ }
  @PostMapping("/admin/messages")
  Map<String,Boolean> message(@Valid @RequestBody Message body) {
   users.requireAdmin();service.message(body.userId(),body.message().trim());return Map.of("sent",true);

@@ -77,6 +77,10 @@ class ChapterReadingService {
   if(!repeat.isEmpty()){var t=repeat.get(0);if(!id.equals(t.get("run_id"))||!target.getId().equals(t.get("target_story_id"))||!Objects.equals(command.sourceSessionId(),t.get("source_session_id")))throw conflict("Request was already used for another transition");return result(id,player,(String)t.get("target_session_id"));}
   var old=jdbc.queryForList("select session_id as target_session_id from collection_run_saves where run_id=? and story_id=?",id,target.getId());
   if(!old.isEmpty())return result(id,player,(String)old.get(0).get("target_session_id"));
+  if(d.serialStory()){
+   int chapter=-1;for(int i=0;i<d.items().size();i++)if(Objects.equals(d.items().get(i).target().id(),target.getId()))chapter=i;
+   if(chapter>0&&command.sourceSessionId()==null)throw conflict("Finish the previous chapter before continuing");
+  }
   GameSession source=null;Story sourceStory=null;WorkMetadata.Transfer policy=null;String policyId="direct:"+target.getId();
   if(command.sourceSessionId()!=null){source=ownedSession(command.sourceSessionId(),player);sourceStory=runtime(source);if(source.getStatus()!=SessionStatus.FINISHED)throw conflict("Complete the source chapter before continuing");
    if(jdbc.queryForObject("select count(*) from collection_run_saves where run_id=? and session_id=?",Integer.class,id,source.getId())==0)throw conflict("Source save belongs to another reading chain");
@@ -86,8 +90,18 @@ class ChapterReadingService {
    policyId="toc:"+source.getStoryId()+":"+target.getId();
    for(var p:list(d.transitions()))if(Objects.equals(p.from().id(),source.getStoryId())&&Objects.equals(p.to().id(),target.getId())){policy=p.stateTransfer();policyId=p.id();break;}
   }
-  var values=links.transfer(sourceStory==null?null:sourceStory.getRuntimeDocument(),target.getRuntimeDocument(),policy,source==null?Map.of():json.readMap(source.getVariablesJson()));
+  var values=d.serialStory()?serialValues(target.getRuntimeDocument(),source==null?Map.of():json.readMap(source.getVariablesJson())):links.transfer(sourceStory==null?null:sourceStory.getRuntimeDocument(),target.getRuntimeDocument(),policy,source==null?Map.of():json.readMap(source.getVariablesJson()));
   var state=game.startTransferredSession(player,target,values,null);record(player,id,source,policyId,r.revision(),target,state.sessionId(),values,command.requestId());return Map.of("runId",id,"session",state);
+ }
+ private Map<String,Object> serialValues(StoryDocument target,Map<String,Object> previous){
+  var values=new LinkedHashMap<>(previous);values.remove("__sceneVariables");
+  if(target.variables()!=null)for(var entry:target.variables().entrySet()){
+   if(!values.containsKey(entry.getKey()))continue;
+   var declared=entry.getValue();if(declared.isObject())declared=declared.get("value");
+   var saved=json.valueToNode(values.get(entry.getKey()));
+   if(declared==null||!(declared.isNumber()&&saved.isNumber()||declared.isBoolean()&&saved.isBoolean()||declared.isTextual()&&saved.isTextual()))throw conflict("Chapter changes the type of a saved variable: "+entry.getKey());
+  }
+  return values;
  }
  private Map<String,Object> result(String runId,String player,String session){var m=new LinkedHashMap<String,Object>();m.put("runId",runId);m.put("session",game.sessionState(player,session));return m;}
  private void record(String player,String run,GameSession source,String policy,int revision,Story target,String session,Map<String,Object> values,String request){
@@ -114,6 +128,7 @@ class ChapterReadingService {
   var reused=jdbc.queryForList("select * from chapter_transitions where player_id=? and request_id=?",player,requestId);if(!reused.isEmpty()){var old=reused.get(0);if(!Objects.equals(id,old.get("source_session_id"))||!relationId.equals(old.get("policy_id"))||old.get("run_id")!=null)throw conflict("Request was already used for another transition");return result(null,player,(String)old.get("target_session_id"));}
   var old=jdbc.queryForList("select target_session_id from chapter_transitions where source_session_id=? and policy_id=? and run_id is null order by created_at desc limit 1",id,relationId);if(!newAttempt&&!old.isEmpty())return result(null,player,(String)old.get(0).get("target_session_id"));
   if(s.getStatus()!=SessionStatus.FINISHED)throw conflict("Complete the source story before continuing");
+  game.requireStandaloneEntry(target);
   var values=links.transfer(doc,target.getRuntimeDocument(),relation.stateTransfer(),json.readMap(s.getVariablesJson()));var state=game.startTransferredSession(player,target,values,null);record(player,null,s,relationId,s.getStoryRevision(),target,state.sessionId(),values,requestId);return Map.of("session",state);
  }
 }

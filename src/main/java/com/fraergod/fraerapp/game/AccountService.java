@@ -44,6 +44,16 @@ class AccountService {
  @Transactional
  void read(String userId,String id) { jdbc.update("update account_notifications set read_at=current_timestamp where user_id=? and id=? and read_at is null",userId,id); }
  @Transactional
+ Account deleteNotice(String userId,String id) {
+  jdbc.update("delete from account_notifications where user_id=? and id=?",userId,id);
+  return get(userId);
+ }
+ @Transactional
+ Account clearNotices(String userId) {
+  jdbc.update("delete from account_notifications where user_id=?",userId);
+  return get(userId);
+ }
+ @Transactional
  void message(String userId,String message) { jdbc.update("insert into account_notifications(id,user_id,kind,message) values (?,?,'admin',?)",UUID.randomUUID().toString(),userId,message); }
  @Transactional
  void published(String storyId,String title) {

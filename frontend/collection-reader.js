@@ -1,4 +1,4 @@
-import {el,link,button,field,select,words,typeName,request,errorMessage} from "./collection-ui.js?v=3";
+import {el,link,button,field,select,words,typeName,request,errorMessage} from "./collection-ui.js?v=4";
 
 export function createCollectionReader({screen,sceneScreen,catalogHost,showScreen,navigate,onSession,signedIn,signIn}) {
   let generation=0, navGeneration=0, lastCollection=null;
@@ -19,7 +19,7 @@ export function createCollectionReader({screen,sceneScreen,catalogHost,showScree
       const data=await request(`/api/catalog/collections?size=20&page=${page}&q=${encodeURIComponent(query)}&favorites=${favorites}`);if(seq!==generation)return;
       const items=(Array.isArray(data)?data:data.items||[]).filter(item=>(!favorites||item.favorite)&&`${item.title} ${item.description} ${item.key}`.toLowerCase().includes(query.toLowerCase()));
       if(!items.length&&page===0)return;
-      catalogHost.append(el("h2",words("Истории по папкам", "Stories in folders")));
+      catalogHost.append(el("h2",words("Истории по главам", "Stories in chapters")));
       const grid=el("div",null,"collection-list");
       for(const item of items){const card=el("article",null,"collection-card");card.append(el("span",typeName(item.type),"collection-badge"),el("h3",item.title),el("p",item.description||""),href(words("Открыть оглавление", "Open contents"),route(item)));grid.append(card);}catalogHost.append(grid);
       const pages=el("nav",null,"collection-actions");pages.setAttribute("aria-label",words("Страницы произведений", "Work pages"));
@@ -33,6 +33,7 @@ export function createCollectionReader({screen,sceneScreen,catalogHost,showScree
     try{
       const data=await request(`/api/catalog/collections/${encodeURIComponent(key)}`);if(seq!==generation)return;lastCollection=data;
       status.textContent="";screen.append(el("span",typeName(data.type),"collection-badge"),el("h1",data.title),el("p",data.description||""));
+      if(data.genre)screen.append(el("p",data.genre));
       if(data.coverUrl?.startsWith("/assets/")&&!data.coverUrl.includes("..")){const img=el("img",null,"collection-cover");img.src=data.coverUrl;img.alt=data.title;screen.append(img);}
       const breadcrumbs=el("nav");breadcrumbs.setAttribute("aria-label",words("Путь произведения", "Work path"));
       for(const parent of data.parents||data.breadcrumbs||[])breadcrumbs.append(href(`${parent.title} / `,route(parent)));screen.append(breadcrumbs);
@@ -40,7 +41,7 @@ export function createCollectionReader({screen,sceneScreen,catalogHost,showScree
       const actions=el("div",null,"collection-actions");
       const favorite=action(data.favorite?words("♥ В избранном", "♥ Favorited"):words("♡ В избранное", "♡ Favorite"),async()=>{if(!signedIn()){signIn();return;}await request(`/api/catalog/collections/${data.collectionId||data.id}/favorite`,{method:"PUT",body:{favorite:!data.favorite}});data.favorite=!data.favorite;favorite.textContent=data.favorite?words("♥ В избранном", "♥ Favorited"):words("♡ В избранное", "♡ Favorite");},status);actions.append(favorite);screen.append(actions);
       const contents=el("section");screen.append(contents);
-      const list=el("ol");for(const item of data.items||[]){const li=el("li");li.append(href(item.label||item.title||item.key,route(item)),document.createTextNode(` · ${typeName(item.type||item.kind)}`));list.append(li);}contents.append(el("h2",words("Оглавление", "Contents")),list);
+      const list=el("ol");let season="";for(const item of data.items||[]){const li=el("li");if(item.season&&item.season!==season)li.append(el("h3",item.season));season=item.season||"";li.append(data.schemaVersion===2?el("span",item.label||item.title||item.key):href(item.label||item.title||item.key,route(item)));list.append(li);}contents.append(el("h2",words("Главы", "Chapters")),list);
       if(!data.items?.length)contents.append(el("p",words("Доступных частей пока нет.", "No parts are available yet.")));
       if(data.items?.some(item=>item.kind==="scenario")&&signedIn()){
         const runPanel=el("section");screen.append(runPanel);
@@ -48,9 +49,11 @@ export function createCollectionReader({screen,sceneScreen,catalogHost,showScree
         const runs=await request(`/api/collections/${id}/runs`);if(seq!==generation)return;
         const available=Array.isArray(runs)?runs:runs.items||[];
         let newRequest=crypto.randomUUID();
-        actions.append(action(words("Начать новое прохождение", "Start a new run"),async()=>{
+        actions.append(action(available.length?words("Начать сначала", "Start again"):words("Начать", "Start"),async()=>{
           if(available.length&&!confirm(words("Начать отдельное прохождение? Предыдущие сохранения останутся.", "Start a separate run? Existing saves will remain.")))return;
-          const run=await request(`/api/collections/${id}/runs`,{method:"POST",body:{requestId:newRequest}});newRequest=crypto.randomUUID();await renderRun(run.id||run.runId,runPanel);
+          const run=await request(`/api/collections/${id}/runs`,{method:"POST",body:{requestId:newRequest}});newRequest=crypto.randomUUID();
+          if(data.schemaVersion===2&&run.items?.[0]&&run.items[0].allowIndependentStart!==false){play(await request(`/api/collection-runs/${run.id||run.runId}/start`,{method:"POST",body:{targetId:run.items[0].id,requestId:crypto.randomUUID()}}));}
+          else await renderRun(run.id||run.runId,runPanel);
         },status));
         if(available.length){
           const picker=select(words("Ваши прохождения", "Your runs"),available.map((r,i)=>[r.id||r.runId,`${words("Прохождение", "Run")} ${available.length-i} · ${r.updatedAt||r.createdAt||r.id}`]),available[0].id||available[0].runId);
@@ -65,8 +68,15 @@ export function createCollectionReader({screen,sceneScreen,catalogHost,showScree
     if(!host.isConnected||runRequests.get(host)!==seq)return;host.replaceChildren();
     const status=statusNode();host.append(el("h2",words("Продолжить чтение", "Continue reading")),status);
     const items=run.items||[], finished=items.filter(item=>String(item.status).toLowerCase()==="finished").length;
+    const nextIndex=items.findIndex(item=>item.status!=="finished"),next=items[nextIndex];
+    if(next&&(next.sessionId||next.allowIndependentStart!==false||sourceFor(next,items[nextIndex-1]))){
+      const requestId=crypto.randomUUID();host.append(action(words("Продолжить", "Continue"),async()=>{
+        if(next.sessionId)play(await request(`/api/sessions/${next.sessionId}/state`),id);
+        else play(await request(`/api/collection-runs/${id}/start`,{method:"POST",body:{targetId:next.id,sourceSessionId:sourceFor(next,items[nextIndex-1]),requestId}}));
+      },status));
+    }
     host.append(el("p",words(`Пройдено ${finished} из ${items.length} доступных глав`,`${finished} of ${items.length} available chapters completed`)));
-    if(items.length&&finished===items.length)host.append(el("p",words("Все доступные главы этого оглавления пройдены.", "All available chapters in these contents are completed.")));
+    if(items.length&&finished===items.length)host.append(el("p",run.completionStatus==="completed"?words("История пройдена.", "Story completed."):words("Вы прочитали все вышедшие главы. Продолжение готовится.", "You have read all released chapters. More chapters are on the way.")));
     if(run.availableRevision&&run.availableRevision!==run.revision){
       host.append(action(words("Доступно новое оглавление — обновить", "New contents available — update"),async()=>{
         await request(`/api/collection-runs/${id}/update-toc`,{method:"POST",body:{generation:run.generation}});await renderRun(id,host);
@@ -74,7 +84,7 @@ export function createCollectionReader({screen,sceneScreen,catalogHost,showScree
     }
     const list=el("ol");
     items.forEach((item,i)=>{
-      const li=el("li"), row=el("div",null,"collection-actions");li.append(el("strong",item.label||item.title||item.key));
+      const li=el("li"), row=el("div",null,"collection-actions");if(item.season&&item.season!==items[i-1]?.season)li.append(el("h3",item.season));li.append(el("strong",item.label||item.title||item.key));
       if(item.sessionId){
         row.append(action(words("Продолжить сохранение", "Continue save"),async()=>play(await request(`/api/sessions/${item.sessionId}/state`),id),status));
         const replayRequest=crypto.randomUUID();

@@ -1,0 +1,38 @@
+/* Author workspace uses the same light panels and typography as the Builder. */
+:root { color-scheme: light; --bg: #684e86; --panel: #f9eaea; --text: #4f3a68; --line: #7f64a4; --accent: #7f64a4; --soft: #7f64a42b; background: var(--bg); }
+body { background: var(--bg); font-family: var(--font-body); }
+.workspace { width: min(1680px, calc(100% - 112px)); max-width: none; margin: 24px auto; padding: 0; color: #fee3e2; }
+.workspace h1 { font: 400 40px/55px var(--font-heading); letter-spacing: .11em; margin: 0 0 24px; }
+.workspace :is(h2, h3) { font: 400 25px/37px var(--font-heading); letter-spacing: .06em; }
+.workspace :is(.collection-toolbar, .collection-card, .collection-editor, .collection-list > .folder-leaf, .workspace-card, .workspace-detail, .workspace-controls, .collections-panel > details) { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
+.workspace.collections-panel > details { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 12px 20px; margin: 0 0 20px; }
+.workspace .collection-toolbar { gap: 14px; align-items: end; margin: 0 0 16px; }
+.workspace .collection-grid { align-items: start; }
+.workspace :is(.collection-list, .collection-grid > div) { min-width: 0; }
+.workspace :is(.collection-editor, .collection-card, .folder-leaf, .workspace-detail, .workspace-card) a { color: var(--text); }
+.workspace :is(input, select, textarea, button, .workspace-button) { background: var(--panel); color: var(--text); border-color: var(--line); border-radius: 12px; font-family: var(--font-body); overflow-wrap: anywhere; }
+.workspace :is(button, .workspace-button) { font-family: var(--font-control); font-weight: 500; }
+.workspace :is(button, .workspace-button):hover { background: #e4d4e2; }
+.workspace :is(.add-button, button.primary, .workspace-button.primary) { background: var(--accent); color: #fff; }
+.workspace :is(.collection-item, .collection-transfer, .collection-badge, .workspace-badge, .workspace-scene) { background: #7f64a41a; border-color: var(--line); }
+.workspace .folder-children { border-color: var(--line); }
+.workspace .folder-leaf { gap: 10px; }
+.workspace .folder-leaf > span { font-weight: 500; }
+.workspace .folder-leaf a { width: fit-content; min-height: 44px; display: inline-flex; align-items: center; }
+.workspace .collection-status:empty { display: none; }
+.workspace .error { color: #fee3e2; }
+.workspace summary { cursor: pointer; list-style: none; position: relative; padding: 10px 0 10px 26px; min-height: 44px; }
+.workspace summary::-webkit-details-marker { display: none; }
+.workspace summary::before { content: ''; position: absolute; left: 3px; top: 17px; width: 8px; height: 8px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); }
+.workspace details[open] > summary::before { transform: rotate(45deg); top: 14px; }
+.workspace details[open] > summary { margin-bottom: 10px; }
+.workspace .workspace-nav a[href="/"] { display: none; }
+.workspace :focus-visible { outline: 2px solid #4f3a68; outline-offset: 3px; }
+@media (max-width: 1180px) { .workspace { width: calc(100% - 48px); } }
+@media (max-width: 720px) {
+  .workspace { width: calc(100% - 28px); margin-top: 18px; }
+  .workspace h1 { font-size: 30px; line-height: 42px; letter-spacing: .06em; }
+  .workspace .collection-toolbar > label { flex-basis: 100%; }
+  .workspace :is(.collection-toolbar, .collection-editor, .collection-card, .collection-list > .folder-leaf) { padding: 16px; }
+  .workspace .collection-actions > * { flex-grow: 1; }
+}

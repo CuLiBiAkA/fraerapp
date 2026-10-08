@@ -6,6 +6,7 @@ import vm from "node:vm";
 const indexHtml = fs.readFileSync(new URL("./index.html", import.meta.url), "utf8");
 const indexText = visibleText(indexHtml);
 const engineJs = fs.readFileSync(new URL("./engine.js", import.meta.url), "utf8");
+const accountDialogsJs = fs.readFileSync(new URL("./account-dialogs.js", import.meta.url), "utf8");
 const legalConfigJs = fs.readFileSync(new URL("./legal-config.js", import.meta.url), "utf8");
 
 const legalPages = [
@@ -100,7 +101,8 @@ test("passkey WebAuthn browser errors are converted to readable messages", () =>
 });
 
 test("signed-in homepage keeps the public shell but enables user actions", () => {
-  assert.match(indexHtml, /id="modal-sound-toggle"/);
+  assert.match(accountDialogsJs, /id="modal-sound-toggle"/);
+  assert.match(engineJs, /mountAccountDialogs\(\)/);
   assert.match(engineJs, /async function afterLogin\(\)[\s\S]*await handleRoute\(\);/);
   assert.match(engineJs, /homeProfileButton\.classList\.toggle\("is-guest", !loggedIn\)/);
   assert.doesNotMatch(engineJs, /homeSearchButton\.classList\.toggle\("hidden", !loggedIn\)/);

@@ -1,6 +1,275 @@
 # FraerApp project context
 
-Last updated: 2026-10-06.
+Last updated: 2026-10-08.
+
+Account inbox clearing (account-ui v6 / engine-85): every notice has Delete;
+Clear all removes all of the current user's read/unread notices, including rows
+beyond the 100-item display limit. Authenticated DELETE /api/account/notifications
+and /api/account/notifications/{id} return the updated private/no-store account.
+Queries scope deletion by the active user ID; missing/foreign IDs are idempotent
+no-ops. Shared SPA/standalone account UI updates the unread badge, preserves the
+list on failure and ignores stale polling responses after a mutation. New notices
+remain enabled; moderation history and release deduplication records are untouched.
+No schema migration. Production deployment pending verification.
+Verification: 74 API and 33 auth tests pass; 17 baseline frontend tests pass;
+browser fixtures pass in RU/EN at 1440/390/320px. Expanded frontend/Builder suite
+now checks the shared account-dialogs.js template and its engine mount instead of
+looking for modal-sound-toggle in index.html. Accumulated project changes are
+included in the release at the owner's explicit request; local image-generation
+notes in output/ and private operator notes are excluded from Git.
+
+Builder Russian terminology: use «Медиафайлы», «Медиафайлы истории» and
+«Медиафайлы сцены» throughout editor, scenario board, help and example description.
+Only visible wording changed; JSON assets keys and existing file IDs are unchanged.
+Versions: app builder-50, board-12, help v3.
+
+Builder classification (app builder-49, theme v22, genre-topic.js v1): Genre and
+Topic are single selects in one responsive two-column row. All 13 agreed genres
+and 15 topics are offered, with an empty option. Existing custom genre/topic
+values are retained on import. Labels support RU/EN; stored values remain stable.
+Optional StoryDocument.topic survives normalization, drafts, revisions, publication
+and entity export. V18 adds nullable stories.topic; existing stories need no edit.
+This does not add topic filters or badges to the public catalog.
+
+My stories uses author-workspace.css v1: Builder palette (#684e86 background,
+#f9eaea panels, #4f3a68 text, #7f64a4 borders), shared fonts, 37px block heading
+line height and a single-column phone layout. The collection workspace no longer
+renders a duplicate Home link or folder/document emoji; details use CSS chevrons
+on the author page. Shared top navigation and account/settings dialogs remain
+the common components. workspace-entry v5 loads collection-workspace v6.
+
+Reader CSS v4 slightly strengthens radial edge shading and sets bottom panel
+clearance to 38px (approximately 1 CSS cm), or the device safe-area inset if larger.
+
+Reading layout v3 (reader.css v4, reader-presentation.js v2, engine-84) supersedes
+the two-stage v2 presentation below: description and all actual choices appear
+together in a centered lower panel. Desktop choices wrap in rows; mobile choices
+stack. Characteristics start collapsed behind a star icon at the left, with a
+two-column list on mobile. Radial edge shading overlays centered artwork.
+The cat demo replaces only its known technical background URLs in the reader
+with /assets/stories/cat-sofa-background-v2.png; custom art and other stories
+keep their authored URLs. Published story JSON and player state are unchanged.
+Removed Continue/reread presentation and per-stat icons per the new mockup.
+
+Reading presentation v2 (reader.css v2, reader-presentation.js v1, engine-83):
+full-width centered author artwork, shared navigation over the image, compact
+bottom-right panels on desktop and bottom-center panels on mobile. Narration
+with Continue precedes choices; Continue/reread never submits a choice or
+changes state. Real choices retain server handling. Compact characteristics
+have neutral icons, are collapsed on phones, and cat-demo stat labels are
+localized. Routine saved status is visually hidden but remains accessible;
+errors stay visible. Current API has no speaker or paid currency metadata;
+speech tails and paid choices are not implemented. Author artwork is preserved.
+
+Loading screen (loading.css v2): hide only the shared Home link while
+#auth-loading-screen is visible. It reappears on screens that use Home after
+loading completes. Verified with delayed authentication at 390px and 1440px.
+
+Shared Home button (site-controls v5, engine-81): matches Figma library 176:13
+with the existing Builder Figma arrow SVG, 2px stroke, Inter Medium 23/25,
+#FEE3E2 text and 10px icon gap. Mobile text is 18/25. The library Home link
+aligns to its content inset; Home/settings/account remain one row on all pages.
+Verified across eleven routes at 1440/768/390/320px; 17 frontend tests and auth
+tests/build pass. Working changes remain uncommitted and unpushed.
+
+Guest carousel spacing (home cosmos-34, home-fit v6, engine-82): use normal-flow
+margin-top clamp(40px, 6svh, 64px), with 32px on mobile. The prior v5 transform
+moved cards below the home section's clipping boundary at tablet widths.
+Remove that transform and its JS positioning calculation; card sizing now
+accounts for the actual margin. Verified card bottoms stay inside the section
+and above the footer before/after carousel navigation at seven viewport sizes.
+
+Shared Home navigation (site-controls v4, engine-79, library v9): outside the
+homepage, Home shares the settings/account flex row; Builder retains its existing
+Home link in a non-wrapping header. Duplicate links/empty library nav are hidden.
+Empty collection catalog contributes no margin or grid gap; a four-story desktop
+library fits a 1440×900 viewport. Small screens and larger catalogs scroll normally.
+
+Builder theme v21: structure uses the normal document scroll. Remove the sticky
+band, viewport height caps and the tree's overflow container on all breakpoints.
+Expanded items extend the page; mouse wheel over the tree scrolls the document.
+This supersedes the earlier request to keep the structure fixed during scrolling.
+
+Guest homepage spacing (home cosmos-32, home-fit v4, engine-78): remove extra
+top space for the introduction, reduce the gap before the carousel, and give guest
+desktop cards the full content scale subject to footer fit. Phone cards use 66vw
+(up to 300px) instead of 58vw. Signed-in spacing and card scale stay as before.
+Verified larger, higher cards and no footer overlap at 320–1722px.
+
+Reader/shared dialogs release (engine-77, home cosmos-31, site-controls v3):
+the homepage search now shares the icon row at ALL widths. The single account
+and settings template lives in account-dialogs.js, styled by account-dialogs.css;
+standalone-dialogs.js wires non-runtime pages without their translation dictionaries
+overwriting shared labels. Account actions have a consistent 12px gap. Shared
+settings include sound, volume, language, notifications, support and passkey.
+reader.css provides neutral choices, centered author artwork, side stats (collapsed
+initially on phones), and persistent shared icons. Current runtime scenes supply
+narrative text; speaker tails and paid opal choices are not part of the data contract
+and are not simulated. Existing story artwork, choices, stat values and saves remain
+the source of content. Browser checks cover 320–1722px and eleven page routes.
+
+Homepage search remains visible only on the signed-in homepage; guests and other
+routes keep it hidden. Its input and handlers are preserved in the shared icon row.
+The earlier mobile-only move (engine-76/home cosmos-30) is superseded by this release.
+
+Builder theme v20 uses the revised Figma 221:130 palette (read from native Figma
+properties after MCP quota prevented design-context access): background #684E86,
+panels #F9EAEA, ink #4F3A68, #7F64A4 at 17%/35% for row fills/selection.
+Toolbar fills are #DAAFE4 at 11%, text #FEE3E2, strokes white at 58%.
+Builder navigation places Home and shared settings/account on the same flex row;
+site-controls v2 mounts into that header only when present. Other pages retain
+their existing navigation placement. Toolbar wraps naturally without horizontal
+scrolling; very narrow phones may require more than two rows for readable labels.
+
+## Builder chapter workspace
+
+Builder-48 / theme v19 / help v2 replaces the old author picker, runtime actions
+and validation cards with one panel. Tabs are ordered My chapter → Validation →
+Publication, with icon buttons and keyboard navigation. My chapter shows the
+opened parent/season/chapter, server-save state and a scene-text/choice preview.
+The preview is a read-only local snapshot, not an interactive engine playthrough.
+Validation checks the current unsaved JSON without importing; submission blocks
+on local errors, saves the draft and uses existing server review validation.
+Publication shows current review status and moderator feedback. Creation/search
+remain in My Stories; the obsolete Builder new-story/picker UI is removed.
+Browser regression: scripts/check-chapter-tabs.cjs (six widths, keyboard, local
+validation, blocked invalid submissions, save/review and preview). Help and serial
+story checks cover the surrounding workflow. No backend/data changes.
+
+## Current author model: story → chapters → scenes
+
+The owner replaced the arbitrary-folder UX with a serial story. New work documents
+use collection schemaVersion 2: shared title, description, cover, genre and completion
+status; ordered scenario chapters; optional per-chapter season label. Nested folder
+creation and manual transfer controls are removed from the ordinary UI. V1 immutable
+documents, saves and explicit relation APIs remain readable for exported-file and
+historical-save compatibility. No database migration or data deletion is required.
+Pre-release production inspection found zero work_collections and collection_runs.
+
+My Stories creates a work, then Add chapter saves the work, creates a private chapter
+and opens its Builder. Builder resolves its parent and shows Chapter builder.
+My Stories is accessed through the account menu; the duplicate Builder header link
+is removed in builder-47. New chapters inherit declarations from existing chapter
+drafts. Runtime values carry from the exact finished predecessor in the same reading
+chain, across season boundaries. Scene-local variables are excluded; incompatible
+global type changes are rejected. Direct starts/relations cannot bypass the TOC.
+
+POST /api/author/collections/{id}/chapters/review submits one selected chapter and
+changed work metadata atomically, without submitting future chapter drafts. Existing
+publication/moderation policy and generation checks still apply. Per-chapter release
+regression verifies later chapters remain private, then become readable with inherited
+progress when approved. Reader TOCs expose only published chapters, show seasons,
+Continue/Start again and an awaiting-release message while the work is in development.
+
+Release clients: engine-75, builder-47, collection UI/reader v4, workspace v5,
+workspace-entry v4, folder-review v3. Chapter rows use the current dependency review
+state rather than the target picker's incomplete metadata. Verification: 71 API, 33 auth, 70 frontend tests;
+scripts/check-serial-stories.cjs covers author/reader journeys at 1440/768/390/320px;
+Builder help passes at the same widths in RU/EN. The older check-chapters-ui.mjs
+describes the retired folder/manual-transfer UI; use the serial-story browser check
+for current author flows. Changes are uncommitted/unpushed.
+Published backup: `backups/serial-stories-20261006-124720`. API/static verification
+passed; published story identities, owners, slugs, revisions and visibility match
+the pre-release manifest. All six services are healthy.
+
+Builder theme v18 sets H3-style block headings to 28px with a 37px line-height,
+including wrapped author-workspace headings at narrow widths (replacing 49px).
+Theme v16 compacts desktop toolbar spacing (6px gaps, 8px inline
+padding) while retaining Inter 23px and natural flex wrapping. All seven actions
+fit at a 1722px viewport; 1600/1440/768/390/320px checks confirm wrapping only
+when the next button cannot fit, with no toolbar horizontal overflow.
+
+Builder-44 removes the redundant Story JSON preview panel and its DOM update.
+Toolbar JSON import/paste/copy/download and story validation remain intact.
+Theme v15 reserves bottom space for floating actions so the final validation
+panel remains accessible at narrow widths. Verified: 25 Builder tests and
+browser help checks in RU/EN at 1440/768/390/320px. Initial backup:
+`backups/builder-remove-json-20261006-115808`. Uncommitted/unpushed.
+
+Guest home search is hidden until body.is-authenticated (home.css cosmos-29).
+Shared settings/account controls remain visible. collections.css v3 explicitly
+honors hidden on chapter-navigation: its display:grid previously exposed an
+empty bordered story-entry panel, including for guests. Browser verification
+passed for guest/signed-in states at 1440/768/390/320px. Published backup:
+`backups/guest-card-20261006-115555`; changes remain uncommitted/unpushed.
+
+Builder theme v14 uses typography from the actual constructor frame 221:130:
+Playfair Display SC Regular H1 40/55px, H3 28/59px; Inter Medium tree labels
+15px/1.3 and desktop toolbar/home-link text 23/25px. Existing compact mobile
+toolbar remains. No palette or component geometry was copied from Figma.
+Important preview correction: file:// Builder previously loaded zero font faces
+because /typography.css resolved outside the checkout. Both Builder entrypoints
+now select ../frontend/typography.css only under file://; typography v2 resolves
+font URLs relative to its own stylesheet. Local font loading is verified at
+1440/390px, with #684E86 background and #FAF7FC panels retained. Browser help
+checks pass at four widths in RU/EN. Backup:
+`backups/builder-frame-fonts-20261006-115036`. No commit/push in this correction.
+
+Builder theme v13: owner-requested background #684E86; panels remain #FAF7FC.
+Text directly on the purple header uses #FEE3E2 for contrast; typography unchanged.
+Published backup: `backups/builder-background-20261006-114616`.
+
+Builder-43 / theme v12 adds contextual help via `story-builder/help.js` v1:
+17 RU/EN topics cover metadata, global/local variables and assets, scenes,
+choices, conditions, scene/choice effects, endings, structure, relations,
+author workspace, server actions, validation and JSON. Small question buttons
+beside block titles open one native dialog with an explanation and example.
+Escape/close returns focus; help never changes the draft and remains available
+when author editing is locked. Text describes persisted per-scene locals and
+choice effects before transition conditions, matching GameService behavior.
+Browser verification: all topics, RU/EN, 1440/768/390/320px, unchanged drafts,
+no horizontal overflow; 25 Builder tests pass. Backup:
+`backups/builder-help-20261006-114405`. Changes local/deployed, uncommitted/unpushed.
+
+Builder theme v11 restores the owner's Figma 4:6 typography after the light-theme
+change: Playfair Display SC Regular H1 40/55px with .11em tracking; block titles
+use H3 28/59px. Body, fields and tree labels use Montserrat; controls retain Inter
+from the Figma Button role and compact responsive sizing. Shared account/settings
+dialog headings and body use the same font families; all fonts reuse local assets.
+The light palette remains. Browser checks passed on 11 pages at four widths.
+Published with backup `backups/builder-fonts-20261006-113714`; not committed/pushed.
+
+## Shared settings/account controls (deployed 2026-10-06)
+
+`site-controls.js/css` v1 adds the shared neon Settings/Account pair at the top
+right of every HTML entrypoint: reader SPA, Builder, scenario map, author and
+moderator workspaces, access recovery, legal pages and auth admin. Engine-73
+adapts the SPA buttons to its existing dialogs and hides the older home/library
+duplicates. On other pages native dialogs provide account links, shared inbox,
+language/volume/notification preferences; sign-in and advanced settings link to
+the existing SPA via `?panel=account|settings|favorites`. Builder language also
+updates its existing stored locale. The header takes its own row to avoid content
+overlap, and the admin request sidebar starts below it.
+
+Account UI v5 paints the shared icon using the same guest/signed/unread states
+and notification read API. Outside the SPA, identity/role links come from
+`/auth/me`, not cached roles. No auth/role/publication policy changed. Admin Java
+changes are only the CSS/script tags in its HTML template.
+Checks: 70 frontend/Builder tests, 33 auth tests and
+`scripts/check-site-controls.cjs` across 11 pages at 1440/768/390/320px, including
+guest/signed/unread states, dialogs and notification read. Backup:
+`backups/site-controls-20261006-112656`. Six healthy services; home/health/catalog
+and admin HTTP 200; no recent API/auth errors. Local changes are deployed but
+not committed/pushed. Unrelated local legal wording was retained locally; only
+navigation tags and the legal CSS cache version were applied to production legal
+pages, preserving their existing text.
+
+## Builder light theme (deployed 2026-10-06)
+
+Theme v10 / builder-42 replaces the purple builder palette with background
+#E8DDEA, lighter #FAF7FC panels, selected #DCD7EB and accent #8879A4. Editor,
+scenario map, JSON dialog and Builder-only collection components share the theme;
+headings use the control sans-serif family. Clear draft and floating + Scene keep
+their peach/pink gradients. The header session/API/language block is hidden;
+its bindings remain for existing session initialization and runtime selection.
+Floating Down sits between Up and + Scene and scrolls to the document bottom.
+Below desktop widths, tree disclosure gutters and nested indents are narrower;
+long labels may wrap. Bounded sticky structure and wrapping toolbars are retained.
+Verified 11 viewport sizes (320–1920px, including short windows), scrolling in both
+directions, sticky collision boundaries, editor/dialog/map and 25 Builder tests.
+Backup: `backups/builder-light-20261006-111646`. Four deployed file hashes match;
+six services healthy, public/health/catalog HTTP 200, no recent API/auth errors.
+Changes are local and deployed, not committed or pushed in this task.
 
 ## Ordinary nested folders (deployed 2026-10-06)
 

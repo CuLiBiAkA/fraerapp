@@ -1,6 +1,303 @@
 # FraerApp deploy and ops runbook
 
-Last updated: 2026-10-06.
+## Account notification clearing (2026-10-08)
+
+Deploy AccountController/AccountService with the API rebuild before publishing
+frontend/account-ui.js v6, standalone-dialogs.js, engine.js engine-85 and index.html.
+Back up the affected runtime files and API database first. No migration is needed.
+Shared standalone imports revalidate under nginx's existing no-cache policy.
+Verify with isolated fixtures: individual deletion, Clear all with more than 100
+read/unread notices, anonymous denial, cross-user isolation, repeat deletion,
+reload persistence, unread badge, network failure/retry and new incoming notices.
+Run scripts/check-notifications.cjs using Playwright for RU/EN at 1440/390/320px,
+plus API/auth tests and the baseline frontend checks. Never clear real users'
+notifications as a deployment smoke test. Deployment verification is pending.
+Preflight confirmed six healthy services, no API/auth error lines in the previous
+15 minutes and public home/readiness/catalog HTTP 200. All runtime Java sources
+other than AccountController/AccountService already match the local checkout.
+Use the tested local bootJar in a layer over the current API image, preserving
+entrypoint/runtime settings, as in the preceding genre/topic release. Tag the old
+API image for rollback and record the release commit and JAR hash with the backup.
+
+Last updated: 2026-10-08.
+
+Media wording release (builder-50, board-12, help v3): publish Builder index/app,
+board.html/board.js, help.js and showcase JSON description. Backup:
+`backups/media-labels-20261008-171912`; rollback image
+fraerapp-builder:before-media-labels. Built a layer on the existing Builder image
+to avoid registry downloads, recreated Builder and reloaded edge. Six public
+files match local, six services healthy, health/catalog 200, no recent API/auth
+errors. Help dialogs passed RU/EN checks at 1440/768/390/320px; syntax and diff
+checks passed. No API/schema changes. Changes remain uncommitted and unpushed.
+
+Genre/topic release: back up API database and changed sources; deploy Builder
+index.html/app.js/theme.css/genre-topic.js and API StoryDocument, Story,
+StoryAdminService, WorkLinksService plus V18__story_topic.sql. Rebuild API and
+Builder, recreate both, reload edge and verify public assets and health/catalog.
+V18 only adds a nullable text column; keep it if rolling back the application.
+Checks: full API/auth suite, 17 frontend tests, four browser widths (1440,768,
+390,320), JSON export/import, local reload and legacy custom genre preservation.
+AuthorWorkflowTests covers topic retention through normalization/publication.
+Published with backup `backups/genre-topic-20261008-165859` (database and sources).
+The normal Docker build stalled before compilation and was cancelled. Release
+used the locally tested bootJar in a layer over the current API image and four
+Builder files over the current Builder image; original entrypoints are retained.
+Rollback images: fraerapp-api:before-genre-topic and
+fraerapp-builder:before-genre-topic. All four public Builder files match local;
+six services healthy, health/catalog 200, no recent API/auth errors. Changes
+remain uncommitted and unpushed.
+
+My stories styling: deploy author-workspace.css, collection-workspace.js,
+workspace-entry.js and my-stories/index.html together; no rebuild. Backup:
+`backups/author-style-20261008-164226`. Public assets and authenticated route's
+runtime HTML match local. Health/catalog 200, six healthy services, no recent
+API/auth errors. Browser fixtures cover story creation, chapter editing/saving,
+submission and one visible Home link at 1440/768/390/320px; 17 unit tests pass.
+The old browser script's account link locator is stale (the shared dialog uses
+an action button); the scoped check navigates back to My stories directly.
+Working changes remain uncommitted and unpushed.
+
+Reader CSS v4: stronger corner shading and 38px bottom panel clearance on all
+widths, respecting larger safe-area insets. Deploy reader.css and index.html;
+no rebuild. Backup: `backups/reader-v4-20261008-151029`. Six viewport checks
+passed; public files match local, health/catalog return 200, six services healthy
+and no recent API/auth errors. Changes remain uncommitted and unpushed.
+
+Reader v3: deploy reader.css, reader-presentation.js, engine.js and index.html
+with the cat-sofa-background-v2.png asset. Backup existing files, no rebuild.
+Verify 1/3/6 actual choices, description above buttons, stats icon open/close,
+two-column mobile stats, radial shading, cat art loading and choice submission.
+This replaces v2 narration/Continue behavior. Do not change story/player data.
+Deployed with backup `backups/reader-v3-20261008-111412`; all five public files
+match local, health/catalog return 200, six services healthy, no recent API/auth
+errors. Working changes remain uncommitted and unpushed.
+
+Reader presentation v2: deploy reader.css v2, new reader-presentation.js v1,
+engine.js engine-83 and index.html together. Back up previous files, no service
+rebuild. Run check-reader-layout.cjs: narration → Continue → choices → reread,
+server choice submission, mobile characteristics toggle, shared dialogs and
+no horizontal overflow at 1722/1024/768/700/390/320px. Keep author artwork intact.
+Deployed with backup `backups/reader-v2-20261006-214421`; four public assets
+match local, health/catalog 200, six healthy services and no recent API/auth
+errors. Changes remain uncommitted and unpushed.
+
+Loading Home-link visibility: deploy frontend/loading.css v2 and index.html
+together after backing them up; no rebuild. Verify the Home link is hidden
+during delayed authentication and restored in the library afterwards.
+
+Carousel clipping repair: publish home.css cosmos-34, home-fit.js v6,
+engine.js engine-82 and index.html together, with a backup and current tar mtimes.
+No service rebuild. Verify full card bottoms against both the home clipping
+boundary and footer, before/after carousel navigation, at 896×910, 1722×970,
+1440×900, 1024×768, 768×900, 390×844 and 320×568. This replaces the earlier
+transform-based carousel-lower implementation.
+Deployed with backup `backups/carousel-clip-20261006-213038`; all four public
+files match local, health/catalog return 200, six services healthy, no recent
+API/auth errors. Changes remain uncommitted and unpushed.
+
+Figma Home button release: site-controls JS/CSS v5, engine-81, version references
+on frontend/standalone/Builder/generated admin pages. Reuse the existing
+/builder/assets/figma/back.svg. Preserve remote legal content, back up changed
+files, rebuild auth and Builder, reload edge, verify public versions and health.
+Backup: `backups/back-button-20261006-212001`; previous auth image:
+`fraerapp-auth-before-back-button:20261006`. Check the container HTML as well as
+uploaded Builder source before declaring deployment complete.
+Tar payloads must set a current mtime (not the TarInfo default 0): repeated
+same-size version edits can leave BuildKit's source snapshot stale even with
+--no-cache. Refresh changed source mtimes before rebuilding in that case.
+This release required touching index.html/board.html and rebuilding Builder;
+the resulting public HTML matches local. Admin v5 and health/catalog return 200.
+
+Guest carousel lower position: deploy frontend home.css cosmos-33, home-fit.js v5,
+engine.js engine-80 and index.html together. Back up all four files; no rebuild.
+Verify the carousel moves lower without resizing cards or covering the footer;
+checked at 1722/896/390/320px.
+Deployed with backup `backups/carousel-lower-20261006-211029`; four public files
+verified, six services healthy, health/catalog 200, no recent API/auth errors.
+Uncommitted and unpushed.
+
+Shared Home navigation: site-controls JS/CSS v4, engine-79, library v9, frontend
+index and control URL bumps on standalone/Builder/generated admin pages. Preserve
+remote legal text while replacing version URLs. Back up changed files and Builder,
+rebuild Builder/auth, reload edge. Verify Home/icon center alignment on all routes,
+four-card library fits 1440×900, shared dialogs work and homepage search is unchanged.
+Deployed with backup `backups/shared-home-20261006-210447`; previous auth image
+`fraerapp-auth-before-shared-home:20261006`. Runtime files/public versions verified,
+health/catalog/admin 200, six services healthy, no recent API/auth errors.
+Working changes remain uncommitted and unpushed.
+
+Builder single-scroll change: theme v21 plus index/board HTML version URLs.
+Back up the full Builder, upload these three files, rebuild story-builder and
+reload edge. Check expanded example tree at 1722/1024/390/320px: overflow visible,
+no height cap, normal band positioning, wheel updates window scrollY only.
+Deployed: backup `backups/builder-scroll-20261006-205429`; all three public
+files verified, health/catalog 200, six services healthy after startup, no recent
+API/auth errors. Changes remain uncommitted and unpushed.
+
+Guest homepage layout: deploy frontend home.css cosmos-32, home-fit.js v4,
+engine.js engine-78 and index.html together after backing up the four mounted
+files. No rebuild is needed. Check guest card size/position and footer separation
+at desktop/tablet/mobile widths; authenticated search remains in the icon row.
+Deployed with backup `backups/guest-layout-20261006-205208`: all four public
+files match local bytes; six services healthy, health/catalog 200, no recent
+API/auth errors. Uncommitted and unpushed.
+
+Reader/shared dialogs release: deploy frontend engine-77/home cosmos-31/index,
+site-controls v3 JS/CSS, new account-dialogs.js/.css, standalone-dialogs.js and
+reader.css. Bump shared control URLs on Builder, account workspaces, legal/access
+pages and generated auth admin HTML. Preserve production legal wording when
+patching version URLs. Back up changed files and Builder; rebuild Builder and
+auth-service (generated admin HTML), then reload edge. Verify public file hashes,
+the generated admin URL versions, six service health states, health/catalog and
+recent logs. UI checks: scripts/check-reader-layout.cjs and check-site-controls.cjs.
+Deployment backup: `backups/reader-shared-ui-20261006-204422`; prior auth image:
+`fraerapp-auth-before-reader:20261006`. Public legal HTML is transformed by
+Cloudflare email obfuscation: verify runtime bytes against the archive and public
+versioned control URLs instead of requiring an identical HTML byte hash there.
+Live static reader/header checks passed at 320, 390, 700, 768, 1024 and 1722px.
+Changes are deployed but remain uncommitted and unpushed.
+
+Previous mobile search correction (superseded above): frontend engine-76,
+home.css cosmos-30 and index.html.
+Back up the three mounted files before upload; no container rebuild required.
+Verify signed-in search shares the icon row below 701px, desktop resizing restores
+the form, guest/other routes hide it, and settings/account dialogs still work.
+Deployed 2026-10-06; backup `backups/mobile-search-20261006-203120`.
+All three public files match local bytes; six services healthy, health/catalog 200,
+and no recent API/auth errors. Changes remain uncommitted and unpushed.
+
+Builder palette/navigation release: theme v20, Builder index/board HTML and
+frontend/site-controls.js v2. Back up changed files and full Builder, rebuild
+Builder, reload edge. Verify Home/icon center alignment and toolbar wrapping on
+desktop/tablet/phone widths; check other pages retain shared controls. Palette
+comes from native Figma properties and the owner's supplied reference screenshot.
+
+## Builder chapter tabs
+
+Builder-48/theme v19/help v2: deploy app.js, index.html, board.html, theme.css,
+help.js and new chapter-panel.js. Back up the full Builder directory, rebuild
+story-builder, reload edge. Verify public bytes including the new module and all
+services/health/catalog/logs. No API, auth or database migration required.
+Run scripts/check-chapter-tabs.cjs, check-serial-stories.cjs and
+check-builder-help.cjs with bundled Playwright. The preview is a local read-only
+scene snapshot. Validation operates on current editor JSON; moderator submission
+retains server-side validation and publication policy.
+Deployed backup: `backups/builder-tabs-20261006-173939`. All six services healthy;
+public file bytes, health/catalog endpoints and recent logs verified. 71 unit
+tests and tab/serial-story/help browser checks pass. Uncommitted/unpushed.
+
+## Serial-story release
+
+Builder theme v18 sets H3-style block-heading line-height to the requested 37px.
+Deploy theme.css plus index.html and board.html cache versions; back up Builder,
+rebuild it and reload edge. Verify wrapped headings at 1722/1440/1024/850/768/390/320px.
+
+Builder-47 removes the duplicate My Stories/chapter-list link from the header.
+Deploy app.js and index.html, back up the Builder directory, rebuild Builder and
+reload edge. The serial-story browser check now returns through the account menu
+at 1440/768/390/320px; no API or database change is involved.
+
+Deploy the changed CollectionDocument/CollectionService/CollectionController,
+ChapterReadingService/GameService/WorkPackageService API sources and verified bootJar;
+collection UI/reader/workspace, folder-review, workspace-entry, engine and versioned
+HTML entrypoints; Builder app/index. Rebuild/recreate API and Builder, reload edge.
+No schema migration. Back up API database, source and static files; retain the previous
+API image for rollback. Inspect the published-story manifest before/after deployment.
+Verify all services healthy, public JS/HTML bytes, health/catalog endpoints and logs.
+
+Regression: node scripts/check-serial-stories.cjs (bundled Playwright NODE_PATH),
+node scripts/check-builder-help.cjs, frontend/Builder unit tests, Gradle :test and
+:auth-service:test. Test per-chapter submission without future-draft publication,
+sequential carry-over, direct-start rejection, seasons and existing v1 behavior.
+Backup: `backups/serial-stories-20261006-124720` (API custom-format dump verified
+with pg_restore --list, previous sources/static files). Previous API image tag:
+`fraerapp-api-before-serial:20261006-124720`.
+For deploying a locally verified bootJar, use a separate temporary Docker context
+containing app.jar and a Dockerfile based on the current API runtime image. The
+repository .dockerignore excludes build/, so COPY build/libs/... from the repository
+context fails. Preserve the runtime entrypoint/user/environment and jar ownership.
+Anonymous requests to /my-stories/ and /moderation/ intentionally return the
+workspace-access gate, so verify their protected HTML bytes on the runtime.
+Public module/Builder bytes, health/catalog responses and the unchanged publication
+manifest were verified. Builder-46 includes the file:// return-link correction;
+its immediate predecessor is backed up under builder-before-local-link in the
+same release backup. No auth service rebuild, data migration, commit or push.
+Workspace v5/entry v4 follow-up displays the current per-chapter review state;
+previous frontend files are under frontend-before-chapter-status in that backup.
+
+Builder toolbar spacing correction: theme v16 and index.html. Deploy both,
+rebuild story-builder and reload edge. Check all seven actions in one row at
+1722px and natural wrapping without horizontal scrolling on narrower screens.
+Backup: `backups/builder-toolbar-20261006-120937`. Uncommitted/unpushed.
+
+Builder-44 removes the JSON preview; theme v15 adds bottom clearance for fixed
+actions. Deploy app.js, index.html and theme.css, rebuild story-builder and
+reload edge. Initial backup: `backups/builder-remove-json-20261006-115808`.
+Allow time for the rebuilt service health check before reporting readiness.
+Theme follow-up backup: `backups/builder-remove-json-20261006-115942`.
+
+Guest/card CSS correction: frontend/home.css cosmos-29, collections.css v3
+and index.html deployed with backup `backups/guest-card-20261006-115555`.
+Mounted frontend files only; no service rebuild required. Verify guest search
+is hidden, signed-in search remains, and empty story-entry-context has no box.
+Public file bytes, health/catalog endpoints and service health were checked.
+
+Frame-specific typography correction: theme v14 and typography.css v2; deploy
+both Builder HTML entrypoints, theme.css and frontend/typography.css. Backup:
+`backups/builder-frame-fonts-20261006-115036`. Builder rebuild/edge reload only.
+For local file previews, verify document.fonts loading, not just computed CSS
+font names: the old absolute stylesheet path produced zero loaded font faces.
+Relative font URLs retain the same asset locations on HTTP.
+
+Builder background adjustment (theme v13): #684E86 with light panels retained.
+Backup `backups/builder-background-20261006-114616`; theme and both Builder HTML
+entrypoints updated, Builder rebuilt and edge reloaded. No API/auth/data changes.
+
+Builder contextual help release: builder-43, theme v12, help.js v1. Backup:
+`backups/builder-help-20261006-114405` (full Builder directory). Five Builder
+files updated, service rebuilt, edge reloaded. Verify public help.js as well as
+the versioned app/theme and both HTML entrypoints. Regression script:
+`scripts/check-builder-help.cjs` exercises 17 topics in two languages on four
+viewport sizes with synthetic session data; also run the 25 Builder unit tests.
+No backend or story-data changes; release remains uncommitted/unpushed.
+
+Typography correction: Builder theme v11 and shared controls CSS restore Figma
+4:6 font roles. Backup `backups/builder-fonts-20261006-113714` contains the Builder
+directory and previous controls CSS. Rebuilt Builder and reloaded edge; four
+public file comparisons pass, health/catalog return 200 and services are healthy.
+No auth/API changes in this correction. Browser checks: 11 pages × four widths.
+
+## Shared controls release (2026-10-06)
+
+Engine-73, account-ui v5, site-controls v1 and legal.css v2 are deployed with
+Builder HTML and admin template imports. Backup:
+`backups/site-controls-20261006-112656` (replaced files, complete Builder directory,
+restricted auth DB dump; spacing CSS before its final adjustment). Frontend is
+mounted. Builder was rebuilt, auth used the locally tested Java 17 bootJar with
+the unchanged runtime image stage, and edge was reloaded. No migrations or
+backend policy changes. Baselines were checked before overwrite.
+
+Public hashes match static controls, account/engine, main/access/Builder HTML and
+legal CSS. Private workspace HTML and auth JAR match runtime hashes. Legal HTML
+matches the prepared patch on the server; Cloudflare email obfuscation modifies
+public HTML bytes, so exact public hashes differ for those three pages. Verify
+their script/style tags publicly and exact source bytes on the runtime. Preserve
+production legal wording when unrelated local legal edits are present.
+Post-checks: six healthy services, home/health/catalog/admin 200, zero recent
+API/auth errors. Tests: 70 frontend/Builder, 33 auth, four-width browser checks on
+11 pages. Release changes remain uncommitted/unpushed.
+
+## Builder light theme release (2026-10-06)
+
+Deployed theme v10 / builder-42 after confirming remote file baselines and six
+healthy services. Full Builder directory backup:
+`backups/builder-light-20261006-111646`. Updated only theme.css, index.html,
+board.html and app.js, rebuilt story-builder and reloaded edge. Public hashes
+match all four files; home, healthz and guest catalog return 200. All six services
+remain healthy; recent API/auth error count is zero. No data or API changes.
+Validation: 25 Builder tests, syntax/diff checks and browser checks at 11 viewport
+sizes, covering light editor/dialog/map, tree labels, sticky layout and Up/Down.
+Local edits and this release record have not been committed or pushed.
 
 ## Ordinary folder correction (deployed 2026-10-06)
 

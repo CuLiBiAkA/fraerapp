@@ -1,4 +1,8 @@
 /* Figma 84:293: the public homepage, isolated from the story runtime. */
+body:has(#site-controls) .home-header { display: none; }
+body.is-public-home #site-controls { gap: clamp(8px, 1.5vw, 20px); padding-inline: clamp(14px, 4vw, 80px); }
+#site-controls #home-search-form { flex: 1 1 0; min-width: 0; max-width: 1100px; margin: 0; }
+#site-controls #home-search-input { width: 0; min-width: 0; flex: 1 1 0; }
 @font-face {
   font-family: "Playfair Display SC";
   font-style: normal;
@@ -65,7 +69,7 @@ body.is-public-home .game {
   color: var(--home-ink);
 }
 
-.home-header .home-search-button {
+.home-header .home-search-button, #site-controls #home-search-form {
   display: flex;
   align-items: center;
   margin: 0;
@@ -79,6 +83,11 @@ body.is-public-home .game {
   background: #daafe473;
   backdrop-filter: blur(12px);
 }
+
+body:not(.is-authenticated) #home-search-form, body:not(.is-authenticated) #site-controls #home-search-form {
+  display: none;
+}
+body:not(.is-public-home) #site-controls #home-search-form { display: none; }
 
 .home-search-button input {
   flex: 1; min-width: 0; width: 100%; height: 100%; margin: 0; padding: 0;
@@ -408,6 +417,11 @@ body:has(#login-screen:not(.hidden)) .site-footer a { color: #fee3e2; }
   }
   .home-screen { width: 100%; padding: clamp(12px, 3vw, 20px) 0 clamp(24px, 5vw, 36px); }
   .home-header { margin: 0 var(--home-gutter); }
+  body:has(#site-controls) .home-header { display: none; }
+  body.is-public-home #site-controls { gap: 8px; padding-inline: var(--home-gutter); }
+  #site-controls #home-search-form { height: 44px; padding: 0 4px 0 12px; }
+  #site-controls #home-search { flex-basis: 36px; width: 36px; height: 40px; min-height: 40px; }
+  #site-controls #home-search img { width: 32px; height: 32px; }
   .home-nav { gap: 10px; }
   .home-header .home-search-button { height: 44px; padding: 0 16px; }
   .home-header img { width: 24px; height: 26px; }
@@ -436,6 +450,15 @@ body:has(#login-screen:not(.hidden)) .site-footer a { color: #fee3e2; }
 
 @media (prefers-reduced-motion: reduce) {
   .home-story-card { transition: none; }
+}
+
+/* Guests have no search: use the released space for the introduction and cards. */
+body.is-public-home:not(.is-authenticated) .home-screen { padding-top: 4px; }
+body.is-public-home:not(.is-authenticated) .home-copy { margin-top: 0; }
+body.is-public-home:not(.is-authenticated) .home-carousel { margin-top: clamp(40px, 6svh, 64px); }
+@media (max-width: 700px) {
+  body.is-public-home:not(.is-authenticated) .home-carousel { margin-top: 32px; --mobile-card-width: min(300px, 66vw, max(200px, 46svh)); }
+  body.is-public-home:not(.is-authenticated) .home-carousel-window { height: calc(var(--mobile-card-width) * 1.14); }
 }
 
 /* Keep account dialogs compact while the homepage remains recognizable. */

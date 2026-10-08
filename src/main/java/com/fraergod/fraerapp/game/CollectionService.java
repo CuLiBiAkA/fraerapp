@@ -83,7 +83,9 @@ class CollectionService {
  }
  CollectionDocument normalize(CollectionDocument d,String owner,String id,boolean strict) {
   if(d==null)throw bad("Collection document required");name(d.key(),"collection key");
-  if(d.schemaVersion()!=null&&d.schemaVersion()!=1)throw bad("Unsupported collection schema");
+  if(d.schemaVersion()!=null&&d.schemaVersion()!=1&&d.schemaVersion()!=2)throw bad("Unsupported collection schema");
+  if(d.genre()!=null&&d.genre().length()>200)throw bad("Genre too long");
+  if(d.serialStory()&&!list(d.transitions()).isEmpty())throw bad("Chapter progress is transferred automatically");
   if(d.type()==null||!List.of("story","volume","cycle","catalog").contains(d.type()))throw bad("Invalid collection type");
   if(d.title()==null||d.title().isBlank()||d.title().length()>200)throw bad("Collection title is required (max 200 characters)");
   if(d.description()!=null&&d.description().length()>10000)throw bad("Description too long");
@@ -104,7 +106,9 @@ class CollectionService {
    if(!unique.add(identity))throw bad("Duplicate collection item");if(item.label()!=null&&item.label().length()>200)throw bad("Item label too long");
    if("collection".equals(t.kind())&&Objects.equals(t.id(),id))throw bad("Collection cannot include itself");
    if(t.id()!=null)validateChild(id,t,owner,targets.info(t),memberships);
-   items.add(new CollectionDocument.Item(t,item.label()));
+   if(d.serialStory()&&!"scenario".equals(t.kind()))throw bad("Stories contain chapters; use season labels to group them");
+   if(item.season()!=null&&item.season().length()>100)throw bad("Season name too long");
+   items.add(new CollectionDocument.Item(t,item.label(),item.season()));
   }
   var transitions=new ArrayList<CollectionDocument.Transition>();Set<String> policyIds=new HashSet<>(),pairs=new HashSet<>();
   for(var t:list(d.transitions())) {
@@ -117,7 +121,7 @@ class CollectionService {
    if(strict&&t.stateTransfer()!=null&&"mapped".equals(t.stateTransfer().mode()))links.validateMapping(links.targetDocument(from,owner),links.targetDocument(to,owner),t.stateTransfer());
    transitions.add(new CollectionDocument.Transition(t.id(),from,to,t.stateTransfer()));
   }
-  return new CollectionDocument(1,d.key(),d.type(),d.title(),d.description(),d.coverUrl(),d.completionStatus(),items,transitions);
+  return new CollectionDocument(d.serialStory()?2:1,d.key(),d.type(),d.title(),d.description(),d.coverUrl(),d.completionStatus(),items,transitions,d.genre());
  }
  static boolean same(WorkMetadata.Target a,WorkMetadata.Target b){return a.kind().equals(b.kind())&&(a.id()!=null&&b.id()!=null?a.id().equals(b.id()):Objects.equals(a.key(),b.key()));}
  private void validateChild(String parentId,WorkMetadata.Target t,String owner,WorkLinksService.TargetInfo child,List<Map<String,Object>> memberships) {
@@ -200,7 +204,7 @@ class CollectionService {
  @Transactional(readOnly=true)
  List<Map<String,Object>> catalog(boolean guest,String player,int page,int size,String q,String type,boolean favorites){if(guest)return List.of();return jdbc.query("select c.*,v.document_json,exists(select 1 from collection_favorites f where f.collection_id=c.id and f.player_id=?) as favorite from work_collections c join collection_versions v on v.collection_id=c.id and v.revision=c.published_revision where visibility='public' and (lower(published_title) like ? or lower(collection_key) like ?) and (?='all' or collection_type=?) and (?=false or exists(select 1 from collection_favorites f where f.collection_id=c.id and f.player_id=?)) order by c.updated_at desc limit ? offset ?",(r,n)->publicSummary(map(r,n),json.readCollection(r.getString("document_json")),r.getBoolean("favorite")),player,"%"+q.toLowerCase(Locale.ROOT)+"%","%"+q.toLowerCase(Locale.ROOT)+"%",type,type,favorites,player,Math.max(1,Math.min(100,size)),Math.max(0,page)*Math.max(1,Math.min(100,size)));}
  private Map<String,Object> publicSummary(Row r,String player){return publicSummary(r,document(r,r.published()),player!=null&&jdbc.queryForObject("select count(*) from collection_favorites where player_id=? and collection_id=?",Integer.class,player,r.id())>0);}
- private Map<String,Object> publicSummary(Row r,CollectionDocument d,boolean favorite){var m=new LinkedHashMap<String,Object>();m.put("id",r.id());m.put("collectionId",r.id());m.put("key",r.key());m.put("slug",r.key());m.put("kind","collection");m.put("type",r.type());m.put("title",d.title());m.put("description",d.description());m.put("coverUrl",d.coverUrl());m.put("completionStatus",d.completionStatus());m.put("revision",r.published());m.put("favorite",favorite);return m;}
+ private Map<String,Object> publicSummary(Row r,CollectionDocument d,boolean favorite){var m=new LinkedHashMap<String,Object>();m.put("id",r.id());m.put("collectionId",r.id());m.put("key",r.key());m.put("slug",r.key());m.put("kind","collection");m.put("schemaVersion",d.schemaVersion());m.put("genre",d.genre());m.put("type",r.type());m.put("title",d.title());m.put("description",d.description());m.put("coverUrl",d.coverUrl());m.put("completionStatus",d.completionStatus());m.put("revision",r.published());m.put("favorite",favorite);return m;}
  @Transactional(readOnly=true)
  Map<String,Object> publicDetail(String id,boolean guest,String player){Row r=accessible(id,guest);var m=publicSummary(r,player);var items=publicItems(document(r,r.published()),guest);m.put("items",items);m.put("availableCount",items.size());m.put("breadcrumbs",breadcrumbs("collection",r.id(),guest));return m;}
  List<Map<String,Object>> publicItems(CollectionDocument d,boolean guest) {
@@ -214,7 +218,7 @@ class CollectionService {
   for(var item:list(d.items())) {var t=item.target();Map<String,Object> m=null;
    if("scenario".equals(t.kind())){var s=scenarioMap.get(t.id());if(s!=null){m=new LinkedHashMap<>();m.put("id",s.getId());m.put("key",s.getKey());m.put("slug",s.getPublishedSlug());m.put("kind","scenario");m.put("type","scenario");m.put("title",s.getTitle());m.put("revision",s.getPublishedRevision());var metadata=s.getMetadataJson()==null?null:json.readValue(s.getMetadataJson(),WorkMetadata.class);m.put("allowIndependentStart",metadata==null||metadata.inputContract()==null||Boolean.TRUE.equals(metadata.inputContract().allowIndependentStart()));}}
    else if(!guest&&collectionMap.containsKey(t.id()))m=collectionMap.get(t.id());
-   if(m!=null){m.put("label",item.label());result.add(m);}
+   if(m!=null){m.put("label",item.label());m.put("season",item.season());if(d.serialStory())m.put("allowIndependentStart",result.isEmpty()&&d.items().indexOf(item)==0);result.add(m);}
   }return result;
  }
  List<Map<String,Object>> breadcrumbs(String kind,String id,boolean guest){var result=new ArrayList<Map<String,Object>>();if(guest)return result;Set<String> seen=new HashSet<>();while(seen.add(kind+":"+id)){var rows=jdbc.query("select c.* from work_collections c join collection_memberships m on m.parent_id=c.id where m.target_kind=? and m.target_id=? and m.in_published=true and c.visibility='public' and c.published_revision is not null",this::map,kind,id);if(rows.isEmpty())break;String childOwner="scenario".equals(kind)?stories.findById(id).map(Story::getOwnerPlayerId).orElse(null):row(id).owner();Row r=rows.stream().filter(c->Objects.equals(c.owner(),childOwner)).findFirst().orElse(null);if(r==null)break;result.add(0,publicSummary(r,null));id=r.id();kind="collection";}return result;}

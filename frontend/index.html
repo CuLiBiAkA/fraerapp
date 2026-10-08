@@ -10,14 +10,16 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://fraerapp.ru/">
     <link rel="stylesheet" href="/styles.css?v=game-25">
-    <link rel="stylesheet" href="/home.css?v=cosmos-28">
+    <link rel="stylesheet" href="/home.css?v=cosmos-34">
     <link rel="stylesheet" href="/account-ui.css?v=2">
-    <link rel="stylesheet" href="/library.css?v=8">
+    <link rel="stylesheet" href="/library.css?v=9">
     <link rel="stylesheet" href="/story-cards.css?v=6">
     <link rel="stylesheet" href="/typography.css?v=1">
-    <link rel="stylesheet" href="/loading.css?v=1">
+    <link rel="stylesheet" href="/loading.css?v=2">
   <link rel="stylesheet" href="/story-dialog.css?v=5">
-  <link rel="stylesheet" href="/collections.css?v=2">
+  <link rel="stylesheet" href="/collections.css?v=3">
+    <link rel="stylesheet" href="/site-controls.css?v=5">
+  <link rel="stylesheet" href="/reader.css?v=4">
   </head>
   <body>
     <main class="game">
@@ -203,8 +205,7 @@
           <span id="scene-node"></span>
         </div>
 
-        <article class="story-panel">
-          <p id="status" class="status" role="status">&#1047;&#1072;&#1075;&#1088;&#1091;&#1079;&#1082;&#1072;...</p>
+        <a class="reader-back" href="/history" aria-label="К историям">←</a>
           <details id="scene-stats" class="scene-stats">
             <summary>
               <span data-i18n="sceneStatsTitle">Статистика</span>
@@ -212,6 +213,8 @@
             </summary>
             <div id="scene-stats-list" class="scene-stats-list"></div>
           </details>
+        <article class="story-panel">
+          <p id="status" class="status" role="status">&#1047;&#1072;&#1075;&#1088;&#1091;&#1079;&#1082;&#1072;...</p>
           <h2 id="scene-title"></h2>
           <p id="scene-text"></p>
           <div id="choices" class="choices"></div>
@@ -257,57 +260,6 @@
         <button id="engagement-close" class="modal-close" type="button" aria-label="Закрыть"></button>
         <p id="engagement-message"></p>
         <button id="engagement-login" class="outline-button" type="button" data-i18n="engagementLogin">Войти или зарегистрироваться</button>
-      </section>
-    </div>
-
-    <div id="settings-modal" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
-      <div class="modal-backdrop" data-modal-close="settings"></div>
-      <section class="modal-card compact-modal-card">
-        <button id="settings-modal-close" class="modal-close" type="button" aria-label="Закрыть"></button>
-        <h2 id="settings-modal-title" data-i18n="settingsModalTitle">Настройки</h2>
-        <div class="modal-setting-row">
-          <span id="modal-sound-label" data-i18n="settingsSound">Звук</span>
-          <button id="modal-sound-toggle" class="settings-switch" type="button" role="switch" aria-checked="false" aria-labelledby="modal-sound-label"></button>
-        </div>
-        <div class="modal-setting-row">
-          <span data-i18n="settingsLanguage">Язык</span>
-          <div class="modal-segmented">
-            <button id="modal-lang-ru" type="button">RU</button>
-            <button id="modal-lang-en" type="button">EN</button>
-          </div>
-        </div>
-        <div class="modal-setting-row">
-          <span id="modal-notifications-label" data-i18n="settingsNotifications">Уведомления</span>
-          <button id="modal-notifications-toggle" class="settings-switch" type="button" role="switch" aria-checked="false" aria-labelledby="modal-notifications-label" aria-describedby="notifications-hint"></button>
-        </div>
-        <p id="notifications-hint" class="settings-hint" data-i18n="notificationsHint">Уведомления доступны в личном кабинете. Push-уведомления появятся позже.</p>
-        <div class="settings-actions">
-          <button id="modal-support" type="button" data-i18n="settingsSupport">Поддержка</button>
-          <button id="modal-passkey" type="button" data-i18n="settingsPasskey">Привязать passkey</button>
-        </div>
-        <p id="modal-settings-status" class="settings-hint" role="status" aria-live="polite"></p>
-        <div class="modal-links">
-          <a href="/privacy-policy.html" target="_blank" rel="noopener" data-i18n="privacyLink">Политика</a>
-          <a href="/personal-data-consent.html" target="_blank" rel="noopener" data-i18n="consentLink">Согласие</a>
-          <a href="/terms.html" target="_blank" rel="noopener" data-i18n="termsLink">Пользовательское соглашение</a>
-        </div>
-      </section>
-    </div>
-
-    <div id="profile-modal" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
-      <div class="modal-backdrop" data-modal-close="profile"></div>
-      <section class="modal-card compact-modal-card">
-        <button id="profile-modal-close" class="modal-close" type="button" aria-label="Закрыть"></button>
-        <h2 id="profile-modal-title" data-i18n="profileModalTitle">Аккаунт</h2>
-        <p id="profile-modal-email" class="profile-email"></p>
-        <p id="profile-account-status" role="status"></p>
-        <button id="profile-favorites" type="button" class="outline-button" data-i18n="favoritesOnly">Избранное</button>
-        <button id="profile-my-stories" type="button" class="outline-button" data-i18n="myStories">Мои истории</button>
-        <button id="profile-builder" type="button" class="outline-button hidden" data-i18n="builderButton">Конструктор</button>
-        <button id="profile-moderation" type="button" class="outline-button hidden" data-i18n="moderationButton">Модерация</button>
-        <button id="profile-admin" type="button" class="outline-button hidden" data-i18n="profileAdmin">Администратор</button>
-        <button id="profile-logout" type="button" class="outline-button" data-i18n="logoutButton">Выйти</button>
-        <details id="profile-notification-panel"><summary id="profile-notification-title">Уведомления</summary><div id="profile-notifications"></div></details>
       </section>
     </div>
 
@@ -365,6 +317,6 @@
       </div>
     </aside>
 
-    <script src="/engine.js?v=engine-72" type="module"></script>
+    <script src="/engine.js?v=engine-85" type="module"></script>
   </body>
 </html>

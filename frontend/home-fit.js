@@ -25,7 +25,7 @@ export function observeHomeFit() {
         - outerHeight(status) - px(getComputedStyle(home).paddingBottom) - 2;
       const base = px(getComputedStyle(home.querySelector("h1")).fontSize) / 40;
       // A readable floor remains for unusually short windows / enlarged text.
-      const cardScale = innerWidth >= 1400 ? 324.659 / 424 : .85;
+      const cardScale = !document.body.classList.contains('is-authenticated') ? 1 : (innerWidth >= 1400 ? 324.659 / 424 : .85);
       const unit = Math.max(.27, Math.min(base * cardScale, remaining / 424));
       carousel.style.setProperty("--home-content-unit", `${unit}px`);
     });
@@ -33,6 +33,7 @@ export function observeHomeFit() {
   const observer = new ResizeObserver(fit);
   [home.querySelector(".home-copy"), home.querySelector(".home-header"), footer, links, status].forEach((node) => observer.observe(node));
   new MutationObserver(fit).observe(home, { attributes: true, attributeFilter: ["class"] });
+  new MutationObserver(fit).observe(document.body, { attributes: true, attributeFilter: ["class"] });
   window.addEventListener("resize", fit);
   document.fonts.ready.then(fit);
   fit();

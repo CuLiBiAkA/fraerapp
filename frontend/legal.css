@@ -9,7 +9,7 @@ body { margin: 0; min-width: 320px; }
 main { width: min(860px, calc(100% - 32px)); margin: 0 auto; padding: 48px 0 72px; }
 nav { display: flex; flex-wrap: wrap; gap: 10px 20px; margin-bottom: 40px; }
 a { color: #176b58; }
-h1 { margin: 0 0 8px; font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.05; }
+h1 { margin: 0 0 8px; font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.05; overflow-wrap: anywhere; }
 h2 { margin: 36px 0 10px; font-size: 1.3rem; }
 p, li { line-height: 1.65; }
 .meta { color: #5d665f; }

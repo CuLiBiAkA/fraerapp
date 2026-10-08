@@ -6,10 +6,14 @@ import {
 } from "./passkeys.js";
 
 import { enhanceFilterSelect } from "./filter-select.js?v=1";
-import { observeHomeFit } from "./home-fit.js?v=3";
-import { createAccountUI } from "./account-ui.js?v=4";
-import { createCollectionReader } from "./collection-reader.js?v=3";
+import { observeHomeFit } from "./home-fit.js?v=6";
+import { createAccountUI } from "./account-ui.js?v=6";
+import { mountSiteControls } from "./site-controls.js?v=5";
+import { mountAccountDialogs } from "./account-dialogs.js?v=1";
+import { createCollectionReader } from "./collection-reader.js?v=4";
+import { readingBackground, decorateReadingStat } from "./reader-presentation.js?v=2";
 
+mountAccountDialogs();
 observeHomeFit();
 
 const loginScreen = document.querySelector("#login-screen");
@@ -230,7 +234,7 @@ const translations = {
     settingsEyebrow: "Настройки",
     settingsTitle: "Аккаунт и безопасность",
     settingsSubtitle: "Управляйте безопасным входом и устройствами passkey.",
-    sceneStatsTitle: "Статистика",
+    sceneStatsTitle: "Характеристики",
     sceneStatsCount: "{count} шт.",
     statsEmpty: "Автор истории пока не выбрал переменные для статов.",
     statEnabled: "Да",
@@ -488,7 +492,7 @@ const storage = {
 };
 
 let sound = null;
-let soundRequested = false;
+let soundRequested = localStorage.getItem('fraerapp.sound') === 'true';
 let soundUnavailableReason = "";
 let soundVolume = clamp(Number.isFinite(storage.volume) ? storage.volume : 45, 0, 100);
 let lastImportedStoryId = null;
@@ -693,6 +697,7 @@ function updateTopActions(screen) {
   const loggedIn = Boolean(storage.email);
   const roles = storage.roles;
   const inScene = screen === sceneScreen;
+  document.body.classList.toggle("is-reading", inScene);
   document.body.classList.toggle("is-authenticated", loggedIn);
   syncRoleActionButtons();
   menuButton.classList.toggle("hidden", !loggedIn || screen === storyScreen);
@@ -763,6 +768,7 @@ function syncRoleActionButton(current, shouldExist, id, i18nKey, onClick) {
 
 function setStatus(message) {
   status.textContent = message;
+  status.toggleAttribute('data-reader-saved', message === t('progressSaved'));
   if (sceneScreen.classList.contains("hidden") && message.startsWith(t("errorPrefix", { message: "" }))) {
     appNoticeText.textContent = message;
     appNotice.classList.remove("hidden");
@@ -1073,6 +1079,13 @@ async function handleRoute() {
       return;
     }
     await showPublicHome();
+    const requestedPanel = new URLSearchParams(location.search).get("panel");
+    if (requestedPanel) {
+      const url = new URL(location.href); url.searchParams.delete("panel"); history.replaceState({}, "", url);
+      if (requestedPanel === "settings") openSettingsModal();
+      if (requestedPanel === "account") openProfileModal();
+      if (requestedPanel === "favorites") document.querySelector("#profile-favorites").click();
+    }
   } catch {
     showOnly(storyScreen);
     storiesList.replaceChildren(emptyCatalogMessage(t("catalogLoadFailed")));
@@ -1113,6 +1126,8 @@ async function renderStoryDetailRoute(rawSlug) {
     if (storage.email) await renderHistoryRoute();
     else { showOnly(loginScreen); renderHomeCarousel(); }
   }
+  const serialParent = story.entryContext?.parents?.find(parent => parent.schemaVersion === 2);
+  if (serialParent) { await navigateTo(`/collections/${encodeURIComponent(serialParent.key)}`, { replace: true }); return; }
   renderStoryDetail(story);
   try {
     await request(`/api/catalog/engagement/${encodeURIComponent(story.slug)}/view`, { method: "POST" });
@@ -1298,6 +1313,7 @@ function openAuthModal() {
 }
 
 function openSettingsModal() {
+  document.querySelector('#modal-volume').value = soundVolume;
   modalNotificationsToggle.setAttribute("aria-checked", String(localStorage.getItem("fraerapp.notifications") === "true"));
   modalSettingsStatus.textContent = "";
   openModal(settingsModal);
@@ -1440,7 +1456,9 @@ function renderGameStats(state) {
   }
 
   for (const [name, value] of variables) {
-    sceneStatsList.append(variableCard(name, value));
+    const card = variableCard(name, value);
+    decorateReadingStat(card, name, state.story.key, currentLanguage);
+    sceneStatsList.append(card);
   }
 }
 
@@ -1771,12 +1789,17 @@ function render(state) {
   releaseChoices();
   const scene = state.scene;
   showOnly(sceneScreen);
-  playerName.textContent = storage.email || "";
-  sceneNode.textContent = state.story.authorName ? state.story.authorName : state.story.title;
+  playerName.textContent = "";
+  sceneNode.textContent = state.story.title;
   sceneTitle.textContent = scene.title;
   sceneText.textContent = scene.text;
   renderGameStats(state);
-  sceneImage.src = scene.backgroundUrl || "/assets/platform.svg";
+  const stats = document.querySelector('#scene-stats');
+  if (!stats.dataset.initialized) {
+    stats.open = false;
+    stats.dataset.initialized = 'true';
+  }
+  sceneImage.src = readingBackground(state.story, scene);
   sceneImage.alt = scene.title;
   sceneImage.classList.remove("fade-in");
   if (scene.animation && scene.animation.type === "fade-in") {
@@ -1806,6 +1829,7 @@ function render(state) {
   }
   releaseChoices();
 
+  sceneTitle.hidden = true;
   setStatus(state.status === "finished" ? t("sessionFinished") : t("progressSaved"));
   if (state.status === "finished") {
     stopSound({ resetPreference: true });
@@ -1850,6 +1874,7 @@ async function withChoiceBusy(button, action) {
 }
 
 function updateSoundLabel() {
+  localStorage.setItem('fraerapp.sound', String(soundRequested));
   const state = soundRequested ? "on" : "off";
   soundToggle.dataset.soundState = state;
   soundToggle.textContent = t(soundRequested ? "soundOn" : "soundOff");
@@ -2172,6 +2197,10 @@ modalLangEnButton.addEventListener("click", toggleModalLanguage);
 modalSoundToggle.addEventListener("click", () => {
   toggleSoundPreference();
 });
+document.querySelector('#modal-volume').addEventListener('input', event => {
+  volumeSlider.value = event.target.value;
+  volumeSlider.dispatchEvent(new Event('input'));
+});
 modalNotificationsToggle.addEventListener("click", () => {
   const enabled = modalNotificationsToggle.getAttribute("aria-checked") !== "true";
   localStorage.setItem("fraerapp.notifications", String(enabled));
@@ -2253,6 +2282,10 @@ function updatePasskeyAvailability() {
 }
 
 sound = createSound();
+mountSiteControls({openSettings: openSettingsModal, openAccount: openProfileModal});
+
+// A single flex row at every width; the form shrinks before the icons do.
+document.querySelector("#site-controls").prepend(document.querySelector("#home-search-form"));
 const accountUI = createAccountUI({ request, email: () => storage.email, language: () => storage.language });
 const collectionReader = createCollectionReader({
   screen:document.querySelector("#collection-screen"), sceneScreen,

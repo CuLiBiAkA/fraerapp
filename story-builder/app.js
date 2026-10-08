@@ -1,5 +1,10 @@
-import { authorActions, authorFilters, canEditStories, filterAfterSubmit, matchesAuthorFilter, storyLabels, workflowLabel } from "../story-workflow.js?v=1";
-import { renderRelationsEditor } from "./relations-editor.js?v=3";
+import { canEditStories, filterAfterSubmit, storyLabels, workflowLabel } from "../story-workflow.js?v=1";
+import { decorateHelp, helpButton, helpTopics } from "./help.js?v=3";
+
+import { initChapterTabs } from "./chapter-panel.js?v=1";
+import { genres, topics, fillClassification } from "./genre-topic.js?v=1";
+const selectChapterTab = initChapterTabs(document.querySelector("#chapter-workspace"));
+let chapterParent = null;
 
 const els = {
   runtimeUrl: document.querySelector("#runtime-url"),
@@ -12,7 +17,6 @@ const els = {
   assetOutline: document.querySelector("#asset-outline"),
   sceneOutline: document.querySelector("#scene-outline"),
   activeContext: document.querySelector("#active-context"),
-  jsonPreview: document.querySelector("#json-preview"),
   validation: document.querySelector("#validation"),
   apiResult: document.querySelector("#api-result"),
   pasteDialog: document.querySelector("#paste-dialog"),
@@ -20,15 +24,12 @@ const els = {
   authorName: document.querySelector("#author-name"),
   authorLogin: document.querySelector("#author-login"),
   authorLogout: document.querySelector("#author-logout"),
-  refreshAuthor: document.querySelector("#refresh-author"),
   authorState: document.querySelector("#author-state"),
-  authorStorySelect: document.querySelector("#author-story-select"),
-  authorStories: document.querySelector("#author-stories"),
-  authorAnalytics: document.querySelector("#author-analytics"),
   langRu: document.querySelector("#lang-ru"),
   langEn: document.querySelector("#lang-en"),
   quickAddScene: document.querySelector("#quick-add-scene"),
   scrollTop: document.querySelector("#scroll-top"),
+  scrollBottom: document.querySelector("#scroll-bottom"),
 };
 
 const translations = {
@@ -55,10 +56,11 @@ const translations = {
     startSceneLabel: "Стартовая сцена",
     descriptionLabel: "Описание",
     genreLabel: "Жанр",
+    topicLabel: "Тема",
     variablesTitle: "Переменные",
     addVariable: "Добавить переменную",
-    assetsTitle: "Ассеты",
-    addAsset: "Добавить ассет",
+    assetsTitle: "Медиафайлы",
+    addAsset: "Добавить медиафайл",
     scenesTitle: "Сцены",
     addScene: "Добавить сцену",
     runtimeActions: "Действия с runtime",
@@ -102,7 +104,7 @@ const translations = {
     quietEndingText: "Вы ждете, пока не погаснут фонари.",
     quietEndingLabel: "Вы остались снаружи",
     variableItem: "Переменная {index}",
-    assetItem: "Ассет {index}",
+    assetItem: "Медиафайл {index}",
     sceneItem: "Сцена {index}: {name}",
     newSceneFallback: "new_scene",
     choiceItem: "Выбор {index}",
@@ -110,7 +112,7 @@ const translations = {
     effectItem: "Эффект {index}",
     sceneEffects: "Эффекты сцены",
     sceneLocalVariables: "Локальные переменные сцены",
-    sceneLocalAssets: "Локальные ассеты сцены",
+    sceneLocalAssets: "Медиафайлы сцены",
     choiceEffects: "Эффекты выбора",
     choicesTitle: "Выборы",
     conditionsTitle: "Условия",
@@ -128,8 +130,8 @@ const translations = {
     urlLabel: "URL",
     uploadAsset: "Загрузить файл",
     uploadAssetFirst: "Сначала импортируйте draft, чтобы появился storyId.",
-    uploadAssetDone: "Ассет загружен: {id}",
-    deleteAssetDone: "Ассет удален: {id}",
+    uploadAssetDone: "Медиафайл загружен: {id}",
+    deleteAssetDone: "Медиафайл удален: {id}",
     metadataJsonLabel: "JSON метаданных",
     textLabel: "Текст",
     backgroundLabel: "Фон",
@@ -180,7 +182,7 @@ const translations = {
     boardView: "\u041a\u0430\u0440\u0442\u0430 \u0441\u0446\u0435\u043d\u0430\u0440\u0438\u044f",
     projectStructureTitle: "\u0421\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u0430",
     globalVariablesTitle: "\u0413\u043b\u043e\u0431\u0430\u043b\u044c\u043d\u044b\u0435 \u043f\u0435\u0440\u0435\u043c\u0435\u043d\u043d\u044b\u0435",
-    globalAssetsTitle: "\u0413\u043b\u043e\u0431\u0430\u043b\u044c\u043d\u044b\u0435 \u0430\u0441\u0441\u0435\u0442\u044b",
+    globalAssetsTitle: "Медиафайлы истории",
     scenePackagesTitle: "\u041f\u0430\u043a\u0435\u0442\u044b \u0441\u0446\u0435\u043d",
     moveUp: "\u0412\u044b\u0448\u0435",
     moveDown: "\u041d\u0438\u0436\u0435",
@@ -188,7 +190,7 @@ const translations = {
     conditionRuntimeHint: "\u0420\u0430\u043d\u0442\u0430\u0439\u043c \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u0442 \u0443\u0441\u043b\u043e\u0432\u0438\u044f: \u0435\u0441\u043b\u0438 \u043e\u043d\u0438 \u0438\u0441\u0442\u0438\u043d\u043d\u044b, \u043f\u0435\u0440\u0435\u0439\u0434\u0435\u0442 \u0432 \u0446\u0435\u043b\u0435\u0432\u0443\u044e \u0441\u0446\u0435\u043d\u0443; \u0438\u043d\u0430\u0447\u0435 - \u0432 fallback-\u0441\u0446\u0435\u043d\u0443, \u0435\u0441\u043b\u0438 \u043e\u043d\u0430 \u0437\u0430\u0434\u0430\u043d\u0430.",
     authorStoryPicker: "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0430\u0432\u0442\u043e\u0440\u0430",
     authorStoryPickerEmpty: "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0438\u0441\u0442\u043e\u0440\u0438\u044e",
-    uploadSceneAsset: "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0430\u0441\u0441\u0435\u0442 \u0432 \u0441\u0446\u0435\u043d\u0443",
+    uploadSceneAsset: "Загрузить медиафайл в сцену",
     authorLoggedIn: "Автор: {name}. Сохраняйте черновик и отправляйте его на проверку.",
     authorRoleMissing: "\u0412\u0445\u043e\u0434 \u0435\u0441\u0442\u044c, \u043d\u043e \u043d\u0443\u0436\u043d\u0430 \u0440\u043e\u043b\u044c author.",
     newAuthorStory: "\u041d\u043e\u0432\u0430\u044f \u0438\u0441\u0442\u043e\u0440\u0438\u044f",
@@ -233,6 +235,7 @@ const translations = {
     startSceneLabel: "Start scene",
     descriptionLabel: "Description",
     genreLabel: "Genre",
+    topicLabel: "Topic",
     variablesTitle: "Variables",
     addVariable: "Add variable",
     assetsTitle: "Assets",
@@ -416,7 +419,6 @@ draft = localizeDraftDefaults(draft);
 let authorSession = null;
 let authorHomeCache = null;
 let authorFilter = "all";
-let authorQuery = "";
 let builderWorkflowBusy = false;
 
 els.runtimeUrl.value = initialRuntimeUrl();
@@ -604,12 +606,19 @@ function render(options = {}) {
   const scrollState = options.preserveScroll ? captureScrollState() : null;
   applyTranslations();
   renderMeta();
-  renderRelationsEditor(document.querySelector("#relations-editor"), {draft, storyId:getDraftStoryId(), documentValue:toStoryJson, changed:() => { renderPreview(); saveDraft(); }});
+  const chapterWork = new URLSearchParams(location.search).get("work");
+  if (chapterWork) {
+    document.querySelector(".topbar h1").textContent = currentLanguage === "en" ? "Chapter builder" : "Конструктор главы";
+    const heading = document.querySelector('[data-i18n="storyMetadata"]');
+    heading.textContent = currentLanguage === "en" ? "Chapter settings" : "Настройки главы";
+  }
+  decorateHelp(currentLanguage);
   renderVariables();
   renderAssets();
   renderScenes();
   renderProjectOutlineExplorer();
   renderPreview();
+  renderAuthorWorkspace();
   setupContextTracking();
   saveDraft();
   applyHashFocus();
@@ -757,6 +766,9 @@ function revealActiveOutline(link) {
 function renderMeta() {
   for (const input of els.meta) {
     const key = input.dataset.meta;
+    if (key === "genre" || key === "topic") {
+      fillClassification(input, key === "genre" ? genres : topics, draft[key], currentLanguage);
+    }
     if (key === "startSceneId") {
       fillSelect(input, draft.scenes.map((scene) => scene.id), true);
     }
@@ -1102,7 +1114,6 @@ function endingEditor(scene, sceneIndex) {
 function renderPreview() {
   const story = toStoryJson();
   const errors = validateStory(story);
-  els.jsonPreview.textContent = JSON.stringify(story, null, 2);
   els.validation.replaceChildren();
   els.validation.classList.toggle("ok", errors.length === 0);
   if (errors.length === 0) {
@@ -1124,6 +1135,7 @@ function toStoryJson() {
     title: draft.title,
     description: draft.description,
     genre: draft.genre || "",
+    topic: draft.topic || "",
     ...(draft.completionStatus ? {completionStatus:draft.completionStatus} : {}),
     ...(draft.metadata ? {metadata:structuredClone(draft.metadata)} : {}),
     version: Number(draft.version || 1),
@@ -1344,6 +1356,7 @@ function fromStoryJson(story) {
     title: story.title || t("newStoryTitle"),
     description: story.description || "",
     genre: story.genre || "",
+    topic: story.topic || "",
     completionStatus: story.completionStatus || "",
     ...(story.metadata ? {metadata:structuredClone(story.metadata)} : {}),
     version: story.version || 1,
@@ -1770,7 +1783,12 @@ function rowTitle(title, action) {
   const row = div("row-head");
   const strong = document.createElement("strong");
   strong.textContent = title;
-  row.append(strong);
+  const topic = Object.keys(helpTopics).find(key => t(key) === title);
+  if (topic) {
+    const heading = div("builder-help-heading");
+    heading.append(strong, helpButton(topic, currentLanguage));
+    row.append(heading);
+  } else row.append(strong);
   if (action) row.append(action);
   return row;
 }
@@ -2116,7 +2134,7 @@ function bindDraftStory(storyId, savedDocument = null, revision = null) {
 
 function saveDraft() {
   localStorage.setItem(storageKey, JSON.stringify(draft));
-  updateServerDraftState();
+  renderAuthorWorkspace();
 }
 
 function hasUnsavedChanges() {
@@ -2332,76 +2350,44 @@ async function loadAuthorHome() {
   return home;
 }
 
+const panelWords = {
+  chapter: ['Моя глава', 'My chapter'], check: ['Проверка', 'Validation'], publication: ['Публикация', 'Publication'],
+  save: ['Сохранить главу', 'Save chapter'], preview: ['Предпросмотр', 'Preview'], close: ['Закрыть', 'Close'],
+  checkAgain: ['Проверить ещё раз', 'Check again'], submit: ['Отправить на модерацию', 'Submit for moderation'],
+  saveHint: ['Сохранённая на сервере глава доступна с других устройств.', 'A chapter saved on the server is available on other devices.'],
+  checkHint: ['Проверяем текущий JSON: сцены, переменные и переходы. Изменения сохранять не обязательно.', 'Check the current JSON: scenes, variables and transitions. Saving is not required.'],
+  checkNote: ['Это проверка структуры, а не литературного текста. Полная серверная проверка выполняется перед отправкой модератору.', 'This checks structure, not literary quality. Full server validation runs before submission.'],
+  publicationHint: ['После одобрения модератором глава станет доступна читателям.', 'Readers can access the chapter after moderator approval.'],
+  submitHint: ['Перед отправкой проверим главу и сохраним изменения.', 'We will check and save the chapter before submitting it.'],
+  previewHint: ['Текущий текст и варианты выборов. Это просмотр сцен, без прохождения и сохранения прогресса.', 'Current text and choices. This is a scene preview without playthrough or saved progress.'],
+};
+
 function renderAuthorWorkspace(home = authorHomeCache) {
-  const authorName = authorSession?.email || "не выбран";
-  els.authorState.textContent = canAuthor()
-    ? t("authorLoggedIn", { name: authorName })
-    : (authorSession ? t("authorRoleMissing") : t("authorLoggedOut"));
-  els.authorStorySelect.replaceChildren();
-  els.authorStorySelect.disabled = !canAuthor() || !home?.stories?.length || builderWorkflowBusy;
-  const emptyOption = document.createElement("option");
-  emptyOption.value = "";
-  emptyOption.textContent = t("authorStoryPickerEmpty");
-  els.authorStorySelect.append(emptyOption);
-  els.authorStories.replaceChildren();
-  const filterSelect = document.querySelector("#author-filter");
-  filterSelect.replaceChildren();
-  for (const value of authorFilters) {
-    const option = document.createElement("option");
-    option.value = value; option.textContent = workflowLabel(value, currentLanguage); option.selected = value === authorFilter;
-    filterSelect.append(option);
-  }
-  if (canAuthor()) {
-    const topActions = div("actions tight");
-    topActions.append(button(t("newAuthorStory"), createNewAuthorStory, "secondary small"));
-    els.authorStories.append(topActions);
-  }
-  if (!home?.stories?.length) {
-    els.authorAnalytics.textContent = canAuthor()
-      ? (currentLanguage === "en" ? "No stories yet. Save your current draft to the server." : "Пока нет историй. Сохраните текущий черновик на сервере.")
-      : "";
-    updateAuthorGate();
-    return;
-  }
-  els.authorAnalytics.textContent = "";
-  for (const story of home.stories) {
-    const option = document.createElement("option");
-    option.value = story.storyId;
-    option.textContent = `${story.title} (${storyLabels(story, currentLanguage).join(" · ")})`;
-    option.selected = story.storyId === getDraftStoryId();
-    els.authorStorySelect.append(option);
-    if (!matchesAuthorFilter(story, authorFilter, authorQuery)) continue;
-    const item = div("story-picker-item");
-    const summary = document.createElement("div");
-    const title = document.createElement("strong");
-    title.textContent = story.title;
-    const meta = document.createElement("span");
-    meta.textContent = `${story.key}${story.submittedAt ? ` · ${new Date(story.submittedAt).toLocaleString(currentLanguage === "en" ? "en-GB" : "ru-RU")}` : ""}`;
-    const status = document.createElement("span");
-    status.className = "status-badge";
-    status.textContent = storyLabels(story, currentLanguage).join(" · ");
-    summary.append(title, status, meta);
-    if (story.reason) { const reason = document.createElement("p"); reason.textContent = story.reason; summary.append(reason); }
-    const actions = div("actions tight");
-    for (const action of authorActions(story, authorSession)) {
-      const control = button(workflowLabel(action, currentLanguage), async () => {
-        try {
-          if (action === "edit") await openAuthorStory(story.storyId);
-          else if (action === "delete") await deleteAuthorStory(story);
-          else await authorWorkflow(story.storyId, action === "submit" ? "review" : action, story);
-        } catch (error) { els.authorAnalytics.textContent = error.message; }
-      }, action === "delete" ? "danger small" : "secondary small");
-      control.dataset.authorMutation = "true";
-      actions.append(control);
-    }
-    const privateLink = document.createElement("a");
-    privateLink.className = "file-button";
-    privateLink.href = `/my-stories/?story=${encodeURIComponent(story.storyId)}`;
-    privateLink.textContent = currentLanguage === "en" ? "Revisions, preview and decisions" : "Редакции, превью и решения";
-    actions.append(privateLink);
-    item.append(summary, actions);
-    els.authorStories.append(item);
-  }
+  const en = currentLanguage === "en";
+  document.querySelectorAll('[data-panel-text]').forEach(node => {
+    node.textContent = panelWords[node.dataset.panelText][en ? 1 : 0];
+  });
+  document.querySelectorAll('[data-chapter-tab]').forEach(node => {
+    const label = panelWords[node.dataset.chapterTab][en ? 1 : 0];
+    node.title = label; node.setAttribute('aria-label', label);
+  });
+  const current = home?.stories?.find(story => story.storyId === getDraftStoryId());
+  const items = chapterParent?.draftDocument?.items || [];
+  const index = items.findIndex(item => item.target.id === getDraftStoryId());
+  document.querySelector('#chapter-story-name').textContent = chapterParent?.title || chapterParent?.draftDocument?.title || (en ? 'Independent draft' : 'Отдельный черновик');
+  document.querySelector('#chapter-number').textContent = index < 0 ? '' : [items[index].season, `${en ? 'Chapter' : 'Глава'} ${index + 1}`].filter(Boolean).join(' · ');
+  document.querySelector('#chapter-title').textContent = draft.title || draft.key;
+  document.querySelector('#chapter-status').textContent = current ? storyLabels(current, currentLanguage).join(' · ') : (en ? 'Draft' : 'Черновик');
+  document.querySelector('#chapter-publication-status').textContent = current?.reviewState === 'in_review'
+    ? (en ? 'Under review' : 'На модерации')
+    : current?.publishedRevision && (hasUnsavedChanges() || current.draftRevision !== current.publishedRevision)
+      ? (en ? 'Unpublished changes' : 'Есть неопубликованные изменения')
+      : current ? storyLabels(current, currentLanguage).join(' · ') : (en ? 'Not published yet' : 'Ещё не опубликована');
+  const comment = document.querySelector('#chapter-review-comment');
+  comment.textContent = current?.reason || ''; comment.hidden = !comment.textContent;
+  els.authorState.textContent = canAuthor() ? '' : (authorSession ? t('authorRoleMissing') : t('authorLoggedOut'));
+  els.authorState.hidden = canAuthor();
+  updateServerDraftState();
   updateAuthorGate();
 }
 
@@ -2417,7 +2403,7 @@ function updateAuthorGate() {
   els.authorLogout.hidden = !loggedIn;
   els.authorName.disabled = loggedIn;
   document.querySelectorAll("main button, main input, main select, main textarea").forEach((control) => {
-    const allowed = control === els.authorLogin || control === els.authorName;
+    const allowed = control.getAttribute("role") === "tab" || control === els.authorLogin || control === els.authorName || control.classList.contains("builder-help-button");
     if (control === els.authorLogout) {
       control.disabled = !loggedIn;
       return;
@@ -2437,34 +2423,6 @@ function updateAuthorGate() {
     const input = label.querySelector("input");
     label.classList.toggle("is-disabled", Boolean(input?.disabled));
   });
-}
-
-function createNewAuthorStory() {
-  draft = emptyDraft();
-  saveDraft();
-  render();
-  els.apiResult.textContent = "New draft is ready. Import it to save.";
-}
-
-async function deleteAuthorStory(story) {
-  if (builderWorkflowBusy) return;
-  const title = story.title || story.key || story.storyId;
-  if (!confirm(t("deleteStoryConfirm", { title }))) {
-    return;
-  }
-  builderWorkflowBusy = true; updateAuthorGate();
-  try {
-    await authorFetch(`/api/author/stories/${story.storyId}`, { method: "DELETE" });
-    if (getDraftStoryId() === story.storyId) {
-      delete draft.runtimeStory;
-      saveDraft();
-      els.apiResult.textContent = t("deleteStoryCurrentDraft");
-    } else {
-      els.apiResult.textContent = t("deleteStoryDone", { title });
-    }
-    els.authorAnalytics.textContent = t("deleteStoryDone", { title });
-    await loadAuthorHome();
-  } finally { builderWorkflowBusy = false; updateAuthorGate(); }
 }
 
 function addSceneAndFocus() {
@@ -2812,23 +2770,17 @@ function focusContext(targetContextId, fallback = null) {
 async function openAuthorStory(storyId) {
   if (hasUnsavedChanges() && getDraftStoryId() && !confirm(t("switchUnsaved"))) return;
   const detail = await authorFetch(`/api/author/stories/${storyId}`);
+  const parents = await authorFetch(`/api/author/collections/parents?scenarioId=${encodeURIComponent(storyId)}`);
+  const url = new URL(location.href);
+  chapterParent = parents.length ? await authorFetch(`/api/author/collections/${encodeURIComponent(parents[0].collectionId || parents[0].id)}`) : null;
+  if (parents.length) url.searchParams.set("work", parents[0].collectionId || parents[0].id);
+  else url.searchParams.delete("work");
+  history.replaceState({}, "", url);
   const story = detail.draftDocument;
   fromStoryJson(story);
   bindDraftStory(storyId, JSON.stringify(toStoryJson()), detail.draftRevision);
-  els.apiResult.textContent = `Opened: ${story.title}`;
-}
-
-async function showAuthorAnalytics(storyId) {
-  const analytics = await authorFetch(`/api/author/stories/${storyId}/analytics`);
-  els.authorAnalytics.textContent = JSON.stringify(analytics, null, 2);
-}
-
-async function showAuthorPreview(storyId) {
-  window.location.href = `/my-stories/?story=${encodeURIComponent(storyId)}`;
-}
-
-async function showAuthorVersions(storyId) {
-  window.location.href = `/my-stories/?story=${encodeURIComponent(storyId)}`;
+  els.apiResult.textContent = "";
+  renderAuthorWorkspace();
 }
 
 async function authorWorkflow(storyId, action, knownStory = null, alreadyBusy = false) {
@@ -2921,7 +2873,19 @@ document.querySelector("#clear-draft").onclick = () => {
 };
 
 document.querySelector("#import-runtime").onclick = () => runtimeCall("import");
-document.querySelector("#validate-runtime").onclick = () => runtimeCall("validate");
+document.querySelector("#validate-runtime").onclick = () => { renderPreview(); els.apiResult.textContent = t('validationOk'); if (validateStory(toStoryJson()).length) els.apiResult.textContent = currentLanguage === 'en' ? 'Fix the listed errors.' : 'Исправьте перечисленные ошибки.'; };
+document.querySelector('#preview-chapter').onclick = () => {
+  const host = document.querySelector('#chapter-preview-content'); host.replaceChildren();
+  for (const scene of toStoryJson().scenes) {
+    const card = document.createElement('section');
+    const title = document.createElement('h3'); title.textContent = scene.title || scene.id;
+    const text = document.createElement('p'); text.className = 'chapter-prose'; text.textContent = scene.text;
+    card.append(title, text);
+    for (const choice of scene.choices) { const row = document.createElement('p'); row.textContent = `${choice.text} → ${choice.target}`; card.append(row); }
+    host.append(card);
+  }
+  document.querySelector('#chapter-preview-dialog').showModal();
+};
 document.querySelector("#publish-runtime").onclick = () => runtimeCall("review");
 
 async function importDraftToRuntime(base = els.runtimeUrl.value.replace(/\/$/, "")) {
@@ -2945,6 +2909,11 @@ async function importDraftToRuntime(base = els.runtimeUrl.value.replace(/\/$/, "
 
 async function runtimeCall(action) {
   if (builderWorkflowBusy) return;
+  if (action === 'review' && validateStory(toStoryJson()).length) {
+    renderPreview(); selectChapterTab('check', true);
+    els.apiResult.textContent = currentLanguage === 'en' ? 'Fix the errors before submitting.' : 'Исправьте ошибки перед отправкой.';
+    return;
+  }
   builderWorkflowBusy = true; updateAuthorGate();
   try {
     const base = els.runtimeUrl.value.replace(/\/$/, "");
@@ -2965,7 +2934,13 @@ async function runtimeCall(action) {
           if (draft !== submittingDraft || draft.key !== submittingKey || JSON.stringify(toStoryJson()) !== submittingDocument || base !== els.runtimeUrl.value.replace(/\/$/, "")) {
             throw new Error(t("draftChanged"));
           }
-          await authorWorkflow(imported.storyId, "review", imported, true);
+          const workId = new URLSearchParams(window.location.search).get("work");
+          if (workId) {
+            const parent = await authorFetch(`/api/author/collections/${encodeURIComponent(workId)}`);
+            await authorFetch(`/api/author/collections/${encodeURIComponent(workId)}/chapters/review`, {method:"POST",body:JSON.stringify({storyId:imported.storyId,storyGeneration:imported.generation,generation:parent.generation,replaceReview:true})});
+            els.apiResult.textContent = currentLanguage === "en" ? "Chapter submitted for review. Other drafts remain private." : "Глава отправлена на проверку. Остальные черновики остаются у вас.";
+            await loadAuthorHome();
+          } else await authorWorkflow(imported.storyId, "review", imported, true);
           return;
         }
         if (!storyId) throw new Error(t("importFirst"));
@@ -3015,28 +2990,16 @@ async function fetchJsonAttempt(url, options, allowRefresh) {
 els.langRu.onclick = () => setLanguage("ru");
 els.langEn.onclick = () => setLanguage("en");
 els.scrollTop.onclick = () => window.scrollTo({ top: 0, behavior: "smooth" });
+els.scrollBottom.onclick = () => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
 els.authorLogin.onclick = () => loginAuthor().catch((error) => {
   els.authorState.textContent = error.message;
 });
 els.authorLogout.onclick = () => {
   authorFetch("/auth/logout", { method: "POST" }).catch(() => {}).finally(() => {
     saveAuthorSession(null);
-    els.authorAnalytics.textContent = "";
+
   });
 };
-els.authorStorySelect.onchange = () => {
-  if (!els.authorStorySelect.value) return;
-  openAuthorStory(els.authorStorySelect.value).catch((error) => {
-    els.authorAnalytics.textContent = error.message;
-  });
-};
-els.refreshAuthor.onclick = () => {
-  bootstrapAuth().catch((error) => {
-    els.authorState.textContent = error.message;
-  });
-};
-document.querySelector("#author-filter").onchange = event => { authorFilter = event.target.value; renderAuthorWorkspace(); };
-document.querySelector("#author-search").oninput = event => { authorQuery = event.target.value; renderAuthorWorkspace(); };
 els.authorName.value = authorSession?.email || "";
 
 window.addEventListener("hashchange", () => {

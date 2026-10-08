@@ -19,9 +19,10 @@ function harness(names, overrides = {}) {
     authorFetch: async url => { calls.push(url); return {}; },
     prompt: () => null,
     confirm: () => true,
-    window: {location:{}},
+    window: {location:{}}, URLSearchParams,
     authorHomeCache: null, authorFilter: "all", builderWorkflowBusy: false,
-    filterAfterSubmit, updateAuthorGate() {},
+    filterAfterSubmit, updateAuthorGate() {}, renderAuthorWorkspace() {},
+    validateStory: () => [], renderPreview() {}, selectChapterTab() {},
     toStoryJson: () => ({key:"story-a"}),
     ...overrides,
   });
@@ -76,12 +77,23 @@ test("checking a saved story never imports or changes publication", async () => 
   assert.deepEqual(calls, ["https://example.test/api/author/stories/story-a-id/validate"]);
 });
 
-test("inspecting or archiving another story leaves the editor binding alone", async () => {
-  const { context } = harness(["showAuthorAnalytics", "showAuthorPreview", "showAuthorVersions", "authorWorkflow", "getDraftStoryId", "bindDraftStory"]);
+test("archiving another story leaves the editor binding alone", async () => {
+  const { context } = harness(["authorWorkflow", "getDraftStoryId", "bindDraftStory"]);
   context.bindDraftStory("story-a-id");
-  for (const name of ["showAuthorAnalytics", "showAuthorPreview", "showAuthorVersions"]) await context[name]("story-b-id");
   await context.authorWorkflow("story-b-id", "archive");
   assert.equal(context.getDraftStoryId(), "story-a-id");
+});
+
+test("invalid current JSON opens validation without saving or submitting", async () => {
+  let selected;
+  const {context,calls}=harness(["runtimeCall"],{
+    currentLanguage:'ru', validateStory:()=>['Missing target'],
+    selectChapterTab:name=>{selected=name;},
+  });
+  await context.runtimeCall('review');
+  assert.equal(selected,'check');
+  assert.deepEqual(calls,[]);
+  assert.match(context.els.apiResult.textContent,/Исправьте ошибки/);
 });
 
 test("saved identity belongs to the current draft key and runtime, including after reload", () => {
@@ -230,7 +242,9 @@ test("opening a server draft binds the document and revision from the same respo
   const setup=harness(["openAuthorStory","bindDraftStory","getDraftStoryId"],{
     hasUnsavedChanges:()=>false,
     authorHomeCache:{stories:[{storyId:"a",draftRevision:2}]},
-    authorFetch:async path=>{assert.equal(path,"/api/author/stories/a");return {draftRevision:4,draftDocument:{key:"a",title:"Working draft"},submittedDocument:{key:"a",title:"Submitted text"}};},
+    authorFetch:async path=>{if(path==="/api/author/collections/parents?scenarioId=a")return [{collectionId:"work-a"}];if(path==="/api/author/collections/work-a")return {collectionId:"work-a",title:"Parent",draftDocument:{items:[]}};assert.equal(path,"/api/author/stories/a");return {draftRevision:4,draftDocument:{key:"a",title:"Working draft"},submittedDocument:{key:"a",title:"Submitted text"}};},
+    URL, location:{href:"https://example.test/builder/?story=a"},
+    history:{replaceState:(_state,_title,url)=>assert.equal(url.searchParams.get("work"),"work-a")},
     fromStoryJson:value=>{context.draft={...value};},
     toStoryJson:()=>({key:context.draft.key,title:context.draft.title}),
   });

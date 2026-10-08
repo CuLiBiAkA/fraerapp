@@ -6,19 +6,23 @@
     <meta name="robots" content="noindex, nofollow">
     <title>FraerApp Story Builder</title>
     <link rel="stylesheet" href="styles.css?v=builder-32">
-    <link rel="stylesheet" href="/typography.css?v=1">
-    <link rel="stylesheet" href="theme.css?v=9">
+    <link rel="stylesheet" href="/typography.css?v=2" data-builder-typography>
+    <script>if (location.protocol === "file:") document.querySelector("[data-builder-typography]").href = "../frontend/typography.css?v=2";</script>
     <link rel="stylesheet" href="/collections.css?v=2">
+    <link rel="stylesheet" href="theme.css?v=22">
+    <link rel="stylesheet" href="/site-controls.css?v=5">
+    <script type="module" src="/site-controls.js?v=5"></script>
   </head>
   <body>
+    <header class="builder-navigation">
+      <a class="builder-home" href="/"><img src="assets/figma/back.svg" alt=""><span data-i18n="backToSite">На главную</span></a>
+    </header>
     <main class="builder">
       <header class="topbar">
         <div>
-          <a class="builder-home" href="/"><img src="assets/figma/back.svg" alt=""><span data-i18n="backToSite">На главную</span></a>
-          <a class="builder-home" href="/my-stories/" data-i18n="myStories">Мои истории</a>
           <h1 data-i18n="builderTitle">Конструктор историй</h1>
         </div>
-        <div class="runtime-settings">
+        <div class="runtime-settings" hidden>
           <label>
             <span data-i18n="authorSessionLabel">Общая сессия FraerApp</span>
             <input id="author-name" type="email" placeholder="Вход не выполнен" readonly>
@@ -86,13 +90,12 @@
               <label><span data-i18n="startSceneLabel">Стартовая сцена</span> <select data-meta="startSceneId"></select></label>
             </div>
             <label><span data-i18n="descriptionLabel">Описание</span> <textarea data-meta="description" rows="3"></textarea></label>
-            <label><span data-i18n="genreLabel">Жанр</span> <input data-meta="genre" maxlength="80"></label>
+            <div class="genre-topic-row">
+              <label><span data-i18n="genreLabel">Жанр</span> <select data-meta="genre"></select></label>
+              <label><span data-i18n="topicLabel">Тема</span> <select data-meta="topic"></select></label>
+            </div>
           </section>
 
-          <details class="band collections-panel">
-            <summary>Связи и главы / Relations and chapters</summary>
-            <div id="relations-editor"></div>
-          </details>
 
           <section class="band">
             <div class="section-head">
@@ -104,8 +107,8 @@
 
           <section class="band">
             <div class="section-head">
-              <h2 data-i18n="assetsTitle">Ассеты</h2>
-              <button id="add-asset" type="button" data-i18n="addAsset">Добавить ассет</button>
+              <h2 data-i18n="assetsTitle">Медиафайлы</h2>
+              <button id="add-asset" type="button" data-i18n="addAsset">Добавить медиафайл</button>
             </div>
             <div id="assets"></div>
           </section>
@@ -120,45 +123,55 @@
         </div>
 
         <aside class="preview">
-          <section class="band">
-            <h2>Авторское рабочее место</h2>
-            <p id="author-state"></p>
-            <div class="actions tight">
-              <button id="refresh-author" type="button" class="secondary">Обновить</button>
+          <section class="band chapter-workspace" id="chapter-workspace">
+            <div class="chapter-tabs" role="tablist" aria-label="Работа с главой" aria-orientation="vertical">
+              <button type="button" id="tab-chapter" role="tab" data-chapter-tab="chapter" aria-controls="panel-chapter" aria-selected="true" aria-label="Моя глава" title="Моя глава"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5C9 3 5 3 2 4v15c3-1 7-1 10 1 3-2 7-2 10-1V4c-3-1-7-1-10 1Zm0 0v15"/></svg><span data-panel-text="chapter">Моя глава</span></button>
+              <button type="button" id="tab-check" role="tab" data-chapter-tab="check" aria-controls="panel-check" aria-selected="false" tabindex="-1" aria-label="Проверка" title="Проверка"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m7 12 3 3 7-7"/></svg><span data-panel-text="check">Проверка</span></button>
+              <button type="button" id="tab-publication" role="tab" data-chapter-tab="publication" aria-controls="panel-publication" aria-selected="false" tabindex="-1" aria-label="Публикация" title="Публикация"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 3-6 18-4-7-8-4 18-7ZM11 14 21 3M11 14l-1 6 4-3"/></svg><span data-panel-text="publication">Публикация</span></button>
             </div>
-            <label><span data-i18n="myStories">Мои истории</span><input id="author-search" type="search" placeholder="Поиск по названию или ключу"></label>
-            <label><span data-i18n="storyStatusFilter">Состояние работы</span><select id="author-filter"></select></label>
-            <label class="author-story-picker">
-              <span data-i18n="authorStoryPicker">История автора</span>
-              <select id="author-story-select"></select>
-            </label>
-            <div id="author-stories"></div>
-            <pre id="author-analytics"></pre>
-          </section>
-
-          <section class="band">
-            <h2 data-i18n="runtimeActions">Действия с runtime</h2>
-            <p id="server-draft-state" role="status" aria-live="polite"></p>
-            <div class="actions tight">
-              <button id="import-runtime" type="button" data-i18n="importToRuntime">Сохранить черновик на сервере</button>
-              <button id="validate-runtime" type="button" data-i18n="validateLastImport">Проверить последний импорт</button>
-              <button id="publish-runtime" type="button" data-i18n="publishLastImport">Отправить на проверку</button>
+            <div class="chapter-content">
+              <section id="panel-chapter" role="tabpanel" aria-labelledby="tab-chapter">
+                <h2 data-help-key="authorWorkspace" data-panel-text="chapter">Моя глава</h2>
+                <p id="chapter-story-name" class="chapter-parent"></p>
+                <p id="chapter-number"></p>
+                <strong id="chapter-title"></strong>
+                <p id="chapter-status" class="status-badge"></p>
+                <p id="author-state" role="status"></p>
+                <p id="server-draft-state" role="status" aria-live="polite"></p>
+                <div class="chapter-actions">
+                  <button id="import-runtime" type="button" data-panel-text="save">Сохранить главу</button>
+                  <button id="preview-chapter" type="button" class="secondary" data-panel-text="preview">Предпросмотр</button>
+                </div>
+                <p class="chapter-note" data-panel-text="saveHint">Сохранённая на сервере глава доступна с других устройств.</p>
+              </section>
+              <section id="panel-check" role="tabpanel" aria-labelledby="tab-check" hidden>
+                <h2 data-help-key="validationTitle" data-panel-text="check">Проверка</h2>
+                <p class="chapter-note" data-panel-text="checkHint">Проверяем текущий JSON: сцены, переменные и переходы. Изменения сохранять не обязательно.</p>
+                <ul id="validation" aria-live="polite"></ul>
+                <button id="validate-runtime" type="button" data-panel-text="checkAgain">Проверить ещё раз</button>
+                <p class="chapter-note" data-panel-text="checkNote">Это проверка структуры, а не литературного текста. Полная серверная проверка выполняется перед отправкой модератору.</p>
+              </section>
+              <section id="panel-publication" role="tabpanel" aria-labelledby="tab-publication" hidden>
+                <h2 data-help-key="runtimeActions" data-panel-text="publication">Публикация</h2>
+                <p id="chapter-publication-status" class="status-badge"></p>
+                <p id="chapter-review-comment"></p>
+                <p data-panel-text="publicationHint">После одобрения модератором глава станет доступна читателям.</p>
+                <button id="publish-runtime" type="button" data-panel-text="submit">Отправить на модерацию</button>
+                <p class="chapter-note" data-panel-text="submitHint">Перед отправкой проверим главу и сохраним изменения.</p>
+              </section>
+              <p id="api-result" role="status" aria-live="polite"></p>
             </div>
-            <pre id="api-result"></pre>
-          </section>
-
-          <section class="band">
-            <h2 data-i18n="validationTitle">Проверка</h2>
-            <ul id="validation"></ul>
-          </section>
-
-          <section class="band">
-            <h2 data-i18n="storyJsonTitle">Story JSON</h2>
-            <pre id="json-preview"></pre>
           </section>
         </aside>
       </section>
     </main>
+
+    <dialog id="chapter-preview-dialog" aria-labelledby="chapter-preview-heading">
+      <form method="dialog"><button type="submit" data-panel-text="close">Закрыть</button></form>
+      <h2 id="chapter-preview-heading" data-panel-text="preview">Предпросмотр</h2>
+      <p data-panel-text="previewHint">Текущий текст и варианты выборов. Это просмотр сцен, без прохождения и сохранения прогресса.</p>
+      <div id="chapter-preview-content"></div>
+    </dialog>
 
     <dialog id="paste-dialog">
       <form method="dialog">
@@ -174,9 +187,10 @@
 
     <div class="floating-tools" aria-label="Quick builder actions">
       <button id="scroll-top" type="button" class="secondary scroll-top-button" title="Вверх">↑ Вверх</button>
+      <button id="scroll-bottom" type="button" class="secondary" title="Вниз">↓ Вниз</button>
       <button id="quick-add-scene" type="button" title="Добавить сцену">+ Сцена</button>
     </div>
 
-    <script src="app.js?v=builder-41" type="module"></script>
+    <script src="app.js?v=builder-50" type="module"></script>
   </body>
 </html>

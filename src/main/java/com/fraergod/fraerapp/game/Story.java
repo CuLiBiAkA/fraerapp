@@ -31,6 +31,10 @@ class Story {
 	@Column(length = 80)
 	private String genre;
 	String getGenre() { return genre; }
+	@Column(columnDefinition = "text")
+	private String topic;
+	String getTopic() { return topic; }
+	void setTopic(String topic) { this.topic = topic; }
 	void setGenre(String genre) { this.genre = genre == null ? null : genre.strip().substring(0, Math.min(80, genre.strip().length())); }
 
 	@Column(nullable = false)
@@ -82,6 +86,7 @@ class Story {
 		Story copy = new Story(key);
 		copy.id = id; copy.ownerPlayerId = ownerPlayerId; copy.publishedSlug = publishedSlug;
 		copy.title = document.title(); copy.description = document.description(); copy.genre = document.genre();
+		copy.topic = document.topic();
 		copy.startSceneId = document.startSceneId(); copy.variablesJson = json.writeVariables(document.variables());
 		copy.statsVariablesJson = json.writeStatsVariables(document.variables()); copy.runtimeDocument = document;
 		copy.status = status; copy.visibility = visibility; copy.publishedRevision = publishedRevision;

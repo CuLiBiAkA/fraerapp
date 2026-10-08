@@ -74,11 +74,17 @@ class GameService {
 				.filter(StoryAccessService::available)
 				.orElseThrow(StoryNotFoundException::new);
 		story = access.atRevision(story, story.getPublishedRevision());
+		requireStandaloneEntry(story);
 		Map<String,Object> inputs=links.transfer(null,story.getRuntimeDocument(),null,Map.of());
 		return startTransferredSession(playerId,story,inputs,saveName);
 	}
 
 	void lockReader(String playerId) { jdbc.queryForObject("select id from players where id=? for update",String.class,playerId); }
+	void requireStandaloneEntry(Story story) {
+		for(String document:jdbc.query("select v.document_json from collection_memberships m join work_collections c on c.id=m.parent_id join collection_versions v on v.collection_id=c.id and v.revision=c.published_revision where m.target_kind='scenario' and m.target_id=? and m.in_published=true and c.visibility in ('public','unlisted')",(r,n)->r.getString(1),story.getId())){
+			if(json.readCollection(document).serialStory())throw new ResponseStatusException(HttpStatus.CONFLICT,"Open the story contents to read this chapter");
+		}
+	}
 
 	SessionState startTransferredSession(String playerId, Story story, Map<String,Object> inputs, String saveName) {
 		Player player=player(playerId);

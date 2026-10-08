@@ -42,6 +42,25 @@ class AuthorWorkflowTests extends ApiTestSupport {
 	private int port;
 
 	@Test
+	void classificationSurvivesDraftNormalizationAndPublication() throws Exception {
+		String authorId = login("classification-" + UUID.randomUUID());
+		String key = "classification_" + UUID.randomUUID().toString().replace("-", "");
+		var document = mapper.readValue(validStory(key), MAP_TYPE);
+		document.put("genre", "Комедия");
+		document.put("topic", "Животные");
+		document.put("metadata", Map.of("schemaVersion", 1, "relations", List.of()));
+		var imported = request("POST", "/api/author/stories/import", mapper.writeValueAsString(document), authorId, null);
+		assertThat(imported.status()).isEqualTo(200);
+		String id = imported.body().get("storyId").toString();
+		var detail = request("GET", "/api/author/stories/" + id, null, authorId, null);
+		assertThat(((Map<?,?>) detail.body().get("draftDocument")).get("topic")).isEqualTo("Животные");
+		assertThat(publishStory(id, authorId).status()).isEqualTo(200);
+		var exported = request("GET", "/api/author/stories/" + id, null, authorId, null);
+		assertThat(exported.status()).isEqualTo(200);
+		assertThat(((Map<?,?>) exported.body().get("draftDocument")).get("topic")).isEqualTo("Животные");
+	}
+
+	@Test
 	void authorCanImportPublishAndSeeStoryInCatalog() {
 		String authorId = login("author-" + UUID.randomUUID());
 		String storyKey = "author_story_" + UUID.randomUUID().toString().replace("-", "");
@@ -340,6 +359,55 @@ class AuthorWorkflowTests extends ApiTestSupport {
 		assertThat(request("GET", "/api/account", null, other, null).body()).containsEntry("unreadCount", 0);
 		request("POST", "/api/account/notifications/" + notice + "/read", null, user, null);
 		assertThat(request("GET", "/api/account", null, user, null).body()).containsEntry("unreadCount", 0);
+	}
+
+	@Test
+	void notificationsCanBeDeletedOnlyByTheirOwner() {
+		String email = "clear-" + UUID.randomUUID() + "@example.test";
+		String user = TestJwtFactory.player(email);
+		String other = TestJwtFactory.player("other-" + email);
+		String admin = TestJwtFactory.admin("admin-" + email);
+		String id = UUID.nameUUIDFromBytes(email.getBytes(StandardCharsets.UTF_8)).toString();
+		String message = "{\"userId\":\"" + id + "\",\"message\":\"Notification\"}";
+		for (int i = 0; i < 2; i++)
+			assertThat(request("POST", "/api/account/admin/messages", message, admin, null).status()).isEqualTo(200);
+		String notice = castList(request("GET", "/api/account", null, user, null).body().get("notifications")).get(0).get("id").toString();
+		String path = "/api/account/notifications/" + notice;
+		assertThat(request("DELETE", path, null, null, null).status()).isEqualTo(401);
+		assertThat(request("DELETE", path, null, other, null).status()).isEqualTo(200);
+		assertThat(request("GET", "/api/account", null, user, null).body()).containsEntry("unreadCount", 2);
+		var deleted = request("DELETE", path, null, user, null);
+		assertThat(deleted.status()).isEqualTo(200);
+		assertThat(deleted.body()).containsEntry("unreadCount", 1);
+		assertThat(castList(deleted.body().get("notifications"))).hasSize(1);
+		assertThat(request("DELETE", path, null, user, null).status()).isEqualTo(200);
+		var remaining = request("GET", "/api/account", null, user, null).body();
+		assertThat(remaining).containsEntry("unreadCount", 1);
+		assertThat(castList(remaining.get("notifications"))).noneMatch(n -> notice.equals(n.get("id")));
+	}
+
+	@Test
+	void clearingNotificationsIncludesReadAndHiddenRowsAndPreservesOtherUsers() {
+		String email = "clear-all-" + UUID.randomUUID() + "@example.test";
+		String user = TestJwtFactory.player(email);
+		String other = TestJwtFactory.player("other-" + email);
+		String admin = TestJwtFactory.admin("admin-" + email);
+		String id = UUID.nameUUIDFromBytes(email.getBytes(StandardCharsets.UTF_8)).toString();
+		String message = "{\"userId\":\"" + id + "\",\"message\":\"Notification\"}";
+		for (int i = 0; i < 102; i++)
+			assertThat(request("POST", "/api/account/admin/messages", message, admin, null).status()).isEqualTo(200);
+		String notice = castList(request("GET", "/api/account", null, user, null).body().get("notifications")).get(0).get("id").toString();
+		request("POST", "/api/account/notifications/" + notice + "/read", null, user, null);
+		assertThat(request("DELETE", "/api/account/notifications", null, null, null).status()).isEqualTo(401);
+		assertThat(request("DELETE", "/api/account/notifications", null, other, null).status()).isEqualTo(200);
+		assertThat(request("GET", "/api/account", null, user, null).body()).containsEntry("unreadCount", 101);
+		var cleared = request("DELETE", "/api/account/notifications", null, user, null);
+		assertThat(cleared.status()).isEqualTo(200);
+		assertThat(cleared.body()).containsEntry("unreadCount", 0).containsEntry("notifications", List.of());
+		assertThat(request("GET", "/api/account", null, user, null).body()).containsEntry("notifications", List.of());
+		assertThat(request("DELETE", "/api/account/notifications", null, user, null).status()).isEqualTo(200);
+		assertThat(request("POST", "/api/account/admin/messages", message, admin, null).status()).isEqualTo(200);
+		assertThat(request("GET", "/api/account", null, user, null).body()).containsEntry("unreadCount", 1);
 	}
 
 	@Test

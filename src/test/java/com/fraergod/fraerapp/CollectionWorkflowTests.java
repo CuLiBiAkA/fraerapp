@@ -172,6 +172,35 @@ class CollectionWorkflowTests extends ApiTestSupport {
   assertThat(call("POST","/api/author/collections/import",cyclic,author).statusCode()).isEqualTo(400);
   assertThat(jdbc.queryForObject("select count(*) from work_collections where collection_key in (?,?)",Integer.class,x.get("key"),y.get("key"))).isZero();
  }
+ @Test void serialChapterReleaseKeepsFutureChaptersAsDrafts() {
+  var a=draft(scenario(key(),7));var b=draft(scenario(key(),1));
+  var doc=document("story",List.of(item("scenario",a),item("scenario",b)));doc.put("schemaVersion",2);
+  String id=cid(create(doc));
+  ok(call("POST","/api/author/collections/"+id+"/chapters/review",Map.of("storyId",sid(a),"storyGeneration",a.get("generation"),"generation",details(id).get("generation"),"replaceReview",true),author));
+  assertThat(jdbc.queryForObject("select review_state from story_workspaces where story_id=?",String.class,sid(b))).isEqualTo("draft");
+  var review=folderReview(id);assertThat(maps(review.get("items"))).hasSize(2);
+  ok(call("POST","/api/moderation/folders/"+id+"/decision",folderDecision(review,"approve-publish"),reviewer));
+  var published=ok(call("GET","/api/catalog/collections/"+id,null,reader));assertThat(maps(published.get("items"))).hasSize(1);
+  String chain=run(id).get("id").toString(),source=sessionId(start(chain,sid(a),null,key()));finish(source);
+  ok(call("POST","/api/author/collections/"+id+"/chapters/review",Map.of("storyId",sid(b),"storyGeneration",b.get("generation"),"generation",details(id).get("generation"),"replaceReview",true),author));
+  review=folderReview(id);assertThat(maps(review.get("items"))).hasSize(1);
+  ok(call("POST","/api/moderation/folders/"+id+"/decision",folderDecision(review,"approve-publish"),reviewer));
+  var next=start(chain,sid(b),source,key());assertThat(((Number)((Map<?,?>)session(next).get("variables")).get("score")).doubleValue()).isEqualTo(11);
+ }
+ @Test void serialStoryCarriesProgressAcrossSeasonsAndRejectsSkipping() {
+  var a=draft(scenario(key(),7));var b=draft(scenario(key(),1));publishStory(a);publishStory(b);
+  var second=new LinkedHashMap<String,Object>(item("scenario",b));second.put("season","Сезон 2");
+  var doc=document("story",List.of(item("scenario",a),second));doc.put("schemaVersion",2);doc.put("genre","Mystery");
+  String id=cid(create(doc));publish(id);String chain=run(id).get("id").toString();
+  assertThat(call("POST","/api/collection-runs/"+chain+"/start",Map.of("targetId",sid(b),"requestId",key()),reader).statusCode()).isEqualTo(409);
+  assertThat(call("POST","/api/sessions",Map.of("storyKey",b.get("key")),reader).statusCode()).isEqualTo(409);
+  String source=sessionId(start(chain,sid(a),null,key()));finish(source);
+  var next=start(chain,sid(b),source,key());
+  assertThat(((Number)((Map<?,?>)session(next).get("variables")).get("score")).doubleValue()).isEqualTo(11);
+  assertThat(call("GET","/api/collection-runs/"+chain,null,reader).body()).contains("Сезон 2");
+  var nested=document("story",List.of(item("collection",details(id))));nested.put("schemaVersion",2);
+  assertThat(call("POST","/api/author/collections",Map.of("document",nested),author).statusCode()).isEqualTo(400);
+ }
  @Test void mappedTransferUsesExactCompletedSavePinsRevisionsAndAppliesStartEffectOnce() {
   var aDoc=scenario(key(),7);var a=draft(aDoc);var bDoc=scenario(key(),1);bDoc.put("metadata",Map.of("schemaVersion",1,"inputContract",contract(false)));var b=draft(bDoc);publishStory(a);publishStory(b);
   var cd=document("catalog",List.of(item("scenario",a),item("scenario",b)));cd.put("transitions",List.of(Map.of("id","next","from",((Map<?,?>)item("scenario",a)).get("target"),"to",((Map<?,?>)item("scenario",b)).get("target"),"stateTransfer",transfer())));String id=cid(create(cd));publish(id);

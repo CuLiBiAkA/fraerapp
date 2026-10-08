@@ -15,6 +15,23 @@ class WorkPackageService {
  WorkPackageService(CollectionService collections,StoryWorkflowService workflow,StoryRepository stories,JsonSupport json,WorkLinksService links){this.collections=collections;this.workflow=workflow;this.stories=stories;this.json=json;this.links=links;}
  record ReviewItem(String kind,String id,int generation,Boolean replaceReview) {}
  record Batch(List<ReviewItem> items) {}
+ record ChapterReview(String storyId,int storyGeneration,int generation,Boolean replaceReview) {}
+ @Transactional
+ Map<String,Object> reviewChapter(String id,ChapterReview command,String player,AuthIdentity actor){
+  collections.structureLock();var parent=collections.row(id);collections.owner(parent,player);collections.expected(parent,command.generation());
+  var doc=json.readCollection(parent.draft());if(!doc.serialStory())throw bad("Select a serial story");
+  if(list(doc.items()).stream().noneMatch(i->Objects.equals(i.target().id(),command.storyId())))throw bad("Chapter does not belong to this story");
+  for(var item:doc.items()){
+   if(Objects.equals(item.target().id(),command.storyId()))break;
+   var prior=stories.findById(item.target().id()).orElseThrow(StoryNotFoundException::new);var state=workflow.workspace(prior.getId());
+   if(prior.getPublishedRevision()==null&&!List.of("in_review","approved").contains(state.reviewState()))throw conflict("Submit the preceding chapters first");
+  }
+  var requests=new ArrayList<ReviewItem>();requests.add(new ReviewItem("scenario",command.storyId(),command.storyGeneration(),command.replaceReview()));
+  if(!Objects.equals(parent.published(),parent.draftRevision()))requests.add(new ReviewItem("collection",parent.id(),parent.generation(),command.replaceReview()));
+  var result=review(new Batch(requests),player,actor);
+  renewSupersededFolder(parent.id(),Boolean.TRUE.equals(command.replaceReview()),actor);
+  linkSubmittedDependencies(parent.id(),(String)result.get("batchId"));return result;
+ }
  record Restriction(List<ReviewItem> items,String reason) {}
  @Transactional(readOnly=true)
  List<Map<String,Object>> descendants(String id){var root=collections.row(id);var result=new ArrayList<Map<String,Object>>();Set<String> seen=new HashSet<>();var pending=new ArrayDeque<String>();pending.add(root.id());

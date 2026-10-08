@@ -1,7 +1,7 @@
 // Shared collection controls. All labels/content use textContent, never HTML.
 export const collectionTypes = {
-  story: ["Папка", "Folder"], volume: ["Папка", "Folder"],
-  cycle: ["Папка", "Folder"], catalog: ["Папка", "Folder"], scenario: ["История / глава", "Story / chapter"],
+  story: ["История", "Story"], volume: ["История", "Story"],
+  cycle: ["История", "Story"], catalog: ["История", "Story"], scenario: ["Глава", "Chapter"],
 };
 export const language = () => document.documentElement.lang === "en" ? "en" : "ru";
 export const words = (ru, en) => language() === "en" ? en : ru;
@@ -34,6 +34,9 @@ export function checkbox(text, checked) {
 }
 export function errorMessage(error) {
   const folderErrors = {
+    "Submit the preceding chapters first": words("Сначала отправьте предыдущие главы на проверку.", "Submit the preceding chapters first."),
+    "Finish the previous chapter before continuing": words("Сначала дочитайте предыдущую главу.", "Finish the previous chapter first."),
+    "Open the story contents to read this chapter": words("Откройте оглавление истории, чтобы продолжить чтение.", "Open the story contents to continue reading."),
     "This work is already in another folder": words("Произведение уже находится в другой папке. Сначала уберите его оттуда; если папка опубликована, отправьте изменение на проверку.", "This work is already in another folder. Remove it there first; if that folder is published, submit the change for review."),
     "A folder cannot contain itself or its parent": words("Нельзя вложить папку в саму себя или в одну из её вложенных папок.", "A folder cannot be placed inside itself or one of its descendants."),
     "Collection cannot include itself": words("Нельзя вложить папку в саму себя.", "A folder cannot contain itself."),

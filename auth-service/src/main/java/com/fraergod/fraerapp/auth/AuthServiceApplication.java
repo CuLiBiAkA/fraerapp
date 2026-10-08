@@ -674,6 +674,8 @@ class AuthController {
 				      .pager { flex-wrap: wrap; }
 				    }
 				  </style>
+				  <link rel="stylesheet" href="/site-controls.css?v=5">
+				  <script type="module" src="/site-controls.js?v=5"></script>
 				</head>
 				<body>
 				  <main>
