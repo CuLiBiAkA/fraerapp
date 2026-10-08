@@ -11,12 +11,12 @@ export function createReaderAds({request,language}){
  const label=node('p'),title=node('h2','reader-ad-title'),body=node('p','reader-ad-body'),link=node('a','reader-ad-link'),next=node('button','reader-ad-continue'),subscribe=node('a','reader-ad-subscribe'),hint=node('p');
  label.className='reader-ad-label';body.className='reader-ad-body';hint.className='reader-ad-hint';next.type='button';link.target='_blank';link.rel='noopener noreferrer sponsored';subscribe.href='/subscription/';
  dialog.append(label,title,body,link,next,subscribe,hint);document.body.append(dialog);next.onclick=()=>dialog.close();
- let generation=0,current='',context='',shown=null;const attempted=new Set();
+ let generation=0,current='',context=null,shown=null;const attempted=new Set();
  function paint(ad){const t=adCopy(language());label.textContent=t.label;title.textContent=ad.title||t.title;body.textContent=ad.body||t.body;const url=safeAdUrl(ad.linkUrl);link.hidden=!url;if(url)link.href=url;else link.removeAttribute('href');link.textContent=ad.buttonLabel||t.link;next.textContent=t.next;subscribe.textContent=t.subscribe;hint.textContent=t.hint;}
- function hide(){generation++;current='';context='';shown=null;if(dialog.open)dialog.close();}
+ function hide(){generation++;current='';context=null;shown=null;if(dialog.open)dialog.close();}
  async function present(state){
-  const id=state.readerAd?.id,key=state.sessionId+':'+state.scene?.id;
-  if(context!==key){hide();context=key;}
+  const id=state.readerAd?.id;
+  if(context!==state){hide();context=state;}
   if(!id||state.status==='finished'||state.scene?.ending){hide();return;}
   if(current===id){if(shown)paint(shown);return;}
   if(attempted.has(id))return;current=id;attempted.add(id);const version=++generation;

@@ -16,8 +16,10 @@ API owns configuration and per-reader counters. Its existing reader lock
 serializes transitions. A pending random offer is claimed atomically by one tab;
 claim returns creative content and consumes the offer, so later refreshes do not
 repeat it. Claim rechecks the live subscription and current configuration. A
-failed ad fetch never blocks reading. This is delivery, not proof of attention
-or billing: real network impressions need a separate verified integration.
+failed ad fetch never blocks reading. Retries resume with a later server response,
+including choices that loop back to the same scene; a language-only rerender does
+not retry. This is delivery, not proof of attention or billing: real network
+impressions need a separate verified integration.
 Subscribed transitions reset the counter; changing/disabling configuration
 invalidates pending offers. No backlog accumulates while subscribed or disabled.
 

@@ -6,7 +6,8 @@ async function staticFile(route){const p=new URL(route.request().url()).pathname
  for(const language of ['ru','en'])for(const width of [1440,390,320]){
   const context=await browser.newContext({viewport:{width,height:900}}),errors=[];let count=0,claims=0,pending=null,fail=false,delay=false,release;
   await context.addInitScript(lang=>{localStorage.setItem('fraerapp.language',lang);localStorage.setItem('fraerapp.cookieConsent','accepted');},language);
-  const state=()=>({sessionId:'fixture',story:{key:'ad-fixture',title:'История'},scene:{id:'s'+count,title:'Сцена',text:'Сохранённый текст сцены '+count,choices:[{id:'next',label:'Дальше'}]},statsVariables:{},status:'active',readerAd:pending?{id:pending}:null});
+  // Choices may lead back to the same scene; each server response is still new progress.
+  const state=()=>({sessionId:'fixture',story:{key:'ad-fixture',title:'История'},scene:{id:'loop',title:'Сцена',text:'Сохранённый текст сцены '+count,choices:[{id:'next',label:'Дальше'}]},statsVariables:{},status:'active',readerAd:pending?{id:pending}:null});
   await context.route('https://fraerapp.ru/**',async route=>{
    const p=new URL(route.request().url()).pathname,send=(value,status=200)=>route.fulfill({json:value,status});
    if(p==='/auth/me')return send({email:'reader@example.test',roles:['player'],subscriptionActive:false});

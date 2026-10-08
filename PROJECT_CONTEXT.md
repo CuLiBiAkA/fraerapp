@@ -12,7 +12,8 @@ and stories. First entry, reload and rendering do not count; endings suppress th
 pause and carry it forward. Paid/disabled transitions clear the counter.
 The reader lock serializes choices and atomic one-time delivery. Claim rechecks
 subscription/config; browser failures never block reading and can retry on a
-later scene. Native RU/EN dialog closes immediately with Continue or Escape.
+later transition, including loops to the same scene. Language-only rendering
+does not retry. Native RU/EN dialog closes immediately with Continue or Escape.
 No external ad network, timers, scripts or tracking. Delivery is not a billing
 impression. Admin `/auth/admin#advertising` controls enablement, interval 1–100,
 optional plain-text creative and safe HTTPS/same-site link, with preview and
