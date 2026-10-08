@@ -11,13 +11,30 @@ read/unread notices, anonymous denial, cross-user isolation, repeat deletion,
 reload persistence, unread badge, network failure/retry and new incoming notices.
 Run scripts/check-notifications.cjs using Playwright for RU/EN at 1440/390/320px,
 plus API/auth tests and the baseline frontend checks. Never clear real users'
-notifications as a deployment smoke test. Deployment verification is pending.
+notifications as a deployment smoke test.
 Preflight confirmed six healthy services, no API/auth error lines in the previous
 15 minutes and public home/readiness/catalog HTTP 200. All runtime Java sources
 other than AccountController/AccountService already match the local checkout.
 Use the tested local bootJar in a layer over the current API image, preserving
 entrypoint/runtime settings, as in the preceding genre/topic release. Tag the old
 API image for rollback and record the release commit and JAR hash with the backup.
+
+Deployed from ffaaf23 after its push to main. Backup:
+`backups/notifications-20261008-211946` contains the PostgreSQL custom-format dump,
+prior runtime files, release files and receipt with hashes. Rollback image:
+`fraerapp-api:before-notifications-20261008-211946`; release image:
+`fraerapp-api:notifications-ffaaf23`. The new layer preserves entrypoint, command,
+environment, user, working directory and exposed ports. API reached healthy before
+the four frontend files were published; edge configuration passed and was reloaded.
+Six services healthy; public home/readiness/catalog 200; frontend SHA-256 values
+and running JAR/release label match. Story identity/ownership/publication manifest
+is unchanged; recent API/auth error counts are zero. Anonymous account and both
+DELETE endpoints return 401. Browser fixtures using published static files pass
+RU/EN at 1440/390/320px, with all API mutations kept on synthetic fixtures.
+Tests: 74 API, 33 auth, 71 frontend/Builder; production validator, diff check,
+Builder help/chapter tabs and reader layout checks pass. All accumulated project
+changes were committed and pushed by explicit owner request; older uncommitted
+status notes below are historical. Local output/ notes are not release sources.
 
 Last updated: 2026-10-08.
 

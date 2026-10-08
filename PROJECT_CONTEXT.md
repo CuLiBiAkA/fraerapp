@@ -2,6 +2,13 @@
 
 Last updated: 2026-10-08.
 
+Release status (2026-10-08): commit ffaaf23 captures all accumulated project
+changes and was pushed to main, including the preceding 13 local commits.
+The new notification API/frontend are deployed; the earlier runtime sources and
+active assets were already present and matched the checkout before this release.
+Earlier uncommitted/unpushed notes below describe their historical release state.
+Only local image-generation notes in output/ remain outside Git.
+
 Account inbox clearing (account-ui v6 / engine-85): every notice has Delete;
 Clear all removes all of the current user's read/unread notices, including rows
 beyond the 100-item display limit. Authenticated DELETE /api/account/notifications
@@ -10,9 +17,16 @@ Queries scope deletion by the active user ID; missing/foreign IDs are idempotent
 no-ops. Shared SPA/standalone account UI updates the unread badge, preserves the
 list on failure and ignores stale polling responses after a mutation. New notices
 remain enabled; moderation history and release deduplication records are untouched.
-No schema migration. Production deployment pending verification.
+No schema migration. Deployed from ffaaf23 with backup
+backups/notifications-20261008-211946. Six services are healthy, public
+home/readiness/catalog return 200 and all four published frontend files match
+local SHA-256. Running API JAR and release label match the verified artifact;
+story IDs, owners, publication revisions and visibility are unchanged. Recent
+API/auth logs contain no errors. Anonymous account/delete calls return 401.
 Verification: 74 API and 33 auth tests pass; 17 baseline frontend tests pass;
-browser fixtures pass in RU/EN at 1440/390/320px. Expanded frontend/Builder suite
+browser fixtures using both local and published static files pass in RU/EN at
+1440/390/320px without mutating real accounts. All 71 frontend/Builder tests pass;
+Builder help, chapter tabs and reader layout browser checks also pass. The suite
 now checks the shared account-dialogs.js template and its engine mount instead of
 looking for modal-sound-toggle in index.html. Accumulated project changes are
 included in the release at the owner's explicit request; local image-generation
