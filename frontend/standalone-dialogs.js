@@ -1,4 +1,4 @@
-import { mountAccountDialogs } from './account-dialogs.js?v=1';
+import { mountAccountDialogs } from './account-dialogs.js?v=2';
 import { createAccountUI } from './account-ui.js?v=6';
 import { credentialToJson, parseCreationOptions, passkeysSupported } from './passkeys.js';
 
@@ -12,6 +12,7 @@ export function mountStandaloneDialogs({setActions}) {
   const translations = {settingsModalTitle:'Settings', profileModalTitle:'Account', settingsSound:'Sound', settingsLanguage:'Language', settingsNotifications:'Notifications', notificationsHint:'Notifications are available in your account. Push notifications are coming later.', settingsSupport:'Support', settingsPasskey:'Add passkey', privacyLink:'Privacy', consentLink:'Consent', termsLink:'Terms of use', favoritesOnly:'Favorites', myStories:'My stories', builderButton:'Builder', moderationButton:'Moderation', profileAdmin:'Administrator', logoutButton:'Sign out'};
   if (en) for (const n of document.querySelectorAll('#settings-modal [data-i18n], #profile-modal [data-i18n]')) n.textContent = translations[n.dataset.i18n] || n.textContent;
   if (en) $('#modal-volume').previousElementSibling.textContent = 'Volume';
+  if (en) $('#profile-subscription').textContent = 'Subscription';
   // Page-specific dictionaries must not replace shared dialog labels with keys.
   document.querySelectorAll('#settings-modal [data-i18n], #profile-modal [data-i18n]').forEach(n=>n.removeAttribute('data-i18n'));
   if (en) { $('#profile-notification-title').textContent = 'Notifications'; document.querySelectorAll('.modal-close').forEach(n => n.setAttribute('aria-label','Close')); }

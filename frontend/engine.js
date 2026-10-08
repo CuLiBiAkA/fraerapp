@@ -9,7 +9,7 @@ import { enhanceFilterSelect } from "./filter-select.js?v=1";
 import { observeHomeFit } from "./home-fit.js?v=6";
 import { createAccountUI } from "./account-ui.js?v=6";
 import { mountSiteControls } from "./site-controls.js?v=5";
-import { mountAccountDialogs } from "./account-dialogs.js?v=1";
+import { mountAccountDialogs } from "./account-dialogs.js?v=2";
 import { createCollectionReader } from "./collection-reader.js?v=4";
 import { readingBackground, decorateReadingStat } from "./reader-presentation.js?v=2";
 
@@ -142,14 +142,12 @@ const translations = {
     settingsPasskey: "Привязать passkey",
     supportSoon: "Контакт поддержки скоро появится здесь.",
     settingsPasskeyFailed: "Не удалось привязать passkey. Попробуйте снова или заново войдите через Telegram.",
-    authorAccessRequired: "Чтобы создавать истории, нужно получить права автора. Отправьте заявку — администратор рассмотрит её и откроет доступ к конструктору.",
+    subscription: "Подписка",
+    authorAccessRequired: "Подписка «Автор» открывает создание историй. Сейчас доступно тестовое оформление без оплаты.",
     demoWelcomeTitle: "Первый шаг в историю",
     demoWelcomeText: "Каждая история начинается с первого шага. Гостям доступны три демоистории — познакомьтесь с миром FraerApp, попробуйте делать выбор и узнайте, как он меняет сюжет. Зарегистрируйтесь, чтобы открыть всю библиотеку и сохранять свой путь.",
     demoWelcomeContinue: "Продолжить", demoWelcomeRegister: "Зарегистрироваться",
-    authorRequestTitle: "Создавайте свои истории", becomeAuthor: "Стать автором",
     authorSessionRefreshFailed: "Не удалось обновить права доступа. Войдите снова, чтобы открыть конструктор.",
-    authorRequestPending: "Заявка отправлена. Администратор рассмотрит ваш запрос.",
-    authorRequestSent: "Заявка отправлена", authorRequestFailed: "Не удалось отправить заявку. Попробуйте ещё раз.",
     ratingSort: "По рейтингу",
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
@@ -307,14 +305,12 @@ const translations = {
     settingsPasskey: "Add passkey",
     supportSoon: "Support contact details will appear here soon.",
     settingsPasskeyFailed: "Could not add a passkey. Try again or sign in again through Telegram.",
-    authorAccessRequired: "To create stories, you need author access. Submit a request and an administrator will review it and enable the builder.",
+    subscription: "Subscription",
+    authorAccessRequired: "An Author subscription unlocks story creation. Test checkout is currently available without payment.",
     demoWelcomeTitle: "Your first step into a story",
     demoWelcomeText: "Every story begins with a first step. Guests can explore three demo stories — discover the world of FraerApp, make choices and see how they shape the plot. Register to unlock the full library and save your journey.",
     demoWelcomeContinue: "Continue", demoWelcomeRegister: "Register",
-    authorRequestTitle: "Create your own stories", becomeAuthor: "Become an author",
     authorSessionRefreshFailed: "Could not refresh your access. Sign in again to open the builder.",
-    authorRequestPending: "Request sent. An administrator will review it.",
-    authorRequestSent: "Request sent", authorRequestFailed: "Could not send your request. Please try again.",
     ratingSort: "Highest rated",
     usernameLabel: "Email",
     usernamePlaceholder: "you@example.com",
@@ -846,6 +842,7 @@ async function showLoginLinkResult(email) {
 }
 
 async function afterLogin() {
+  if (resumeSubscription()) return;
   catalogStories = [];
   closeModals();
   const passkeyItems = await loadPasskeys().catch((error) => {
@@ -856,6 +853,13 @@ async function afterLogin() {
   updatePasskeyNudge(passkeyItems);
   await handleRoute();
   resumePasskeyRegistration();
+}
+
+function resumeSubscription() {
+  const expires = Number(localStorage.getItem("fraerapp.subscriptionIntent"));
+  localStorage.removeItem("fraerapp.subscriptionIntent");
+  if (expires > Date.now()) { window.location.assign("/subscription/"); return true; }
+  return false;
 }
 
 function resumePasskeyRegistration() {
@@ -1298,7 +1302,6 @@ function openModal(modal) {
 function closeModals() {
   document.querySelector("#demo-welcome-modal").classList.add("hidden");
   storyDetailScreen.inert = false;
-  document.querySelector("#author-request-modal").classList.add("hidden");
   document.querySelector("#engagement-modal").classList.add("hidden");
   authModal.classList.add("hidden");
   settingsModal.classList.add("hidden");
@@ -1337,10 +1340,7 @@ function createHomeStory() {
     openAuthModal();
     return;
   }
-  if (hasAnyRole(storage.roles, ["author", "admin"])) {
-    return openBuilder();
-  }
-  openAuthorRequestModal();
+  return openBuilder();
 }
 
 async function openBuilder() {
@@ -1348,30 +1348,11 @@ async function openBuilder() {
     const result = await request("/auth/refresh", { method: "POST" });
     storage.setUser(result.user);
     if (hasAnyRole(storage.roles, ["author", "admin"])) window.location.href = "/builder/";
-    else await openAuthorRequestModal();
+    else window.location.href = "/subscription/";
   } catch {
     openAuthModal();
     setLoginStatus(t("authorSessionRefreshFailed"), "error");
   }
-}
-
-async function openAuthorRequestModal() {
-  const modal = document.querySelector("#author-request-modal");
-  const button = document.querySelector("#author-request-submit");
-  const status = document.querySelector("#author-request-status");
-  openModal(modal);
-  button.disabled = true;
-  button.textContent = t("becomeAuthor");
-  status.textContent = "";
-  try {
-    const result = await request("/auth/author-request");
-    if (result.status === "granted") {
-      await openBuilder();
-      return;
-    }
-    button.disabled = result.status === "pending";
-    if (result.status === "pending") { button.textContent = t("authorRequestSent"); status.textContent = t("authorRequestPending"); }
-  } catch { button.disabled = false; status.textContent = t("authorRequestFailed"); }
 }
 
 async function showPublicHome() {
@@ -2132,17 +2113,6 @@ document.querySelector("#home-search-form").addEventListener("submit", (event) =
   updateHomeSearch();
 });
 homeSearchInput.addEventListener("input", updateHomeSearch);
-document.querySelector("#author-request-submit").addEventListener("click", async () => {
-  const button = document.querySelector("#author-request-submit");
-  const status = document.querySelector("#author-request-status");
-  button.disabled = true;
-  try {
-    const result = await request("/auth/author-request", { method: "POST" });
-    if (result.status === "granted") { await openAuthorRequestModal(); return; }
-    button.textContent = t("authorRequestSent");
-    status.textContent = t("authorRequestPending");
-  } catch { button.disabled = false; status.textContent = t("authorRequestFailed"); }
-});
 
 homeSettingsButton.addEventListener("click", openSettingsModal);
 document.querySelector("#engagement-close").addEventListener("click", closeModals);
@@ -2321,6 +2291,7 @@ if (authToken) {
   api.me()
     .then((user) => {
       storage.setUser(user);
+      if (resumeSubscription()) return;
       closeModals();
       return handleRoute();
     })

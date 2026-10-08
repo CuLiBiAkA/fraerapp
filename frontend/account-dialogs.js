@@ -46,6 +46,7 @@ export function mountAccountDialogs() {
         <p id="profile-account-status" role="status"></p>
         <button id="profile-favorites" type="button" class="outline-button" data-i18n="favoritesOnly">Избранное</button>
         <button id="profile-my-stories" type="button" class="outline-button" data-i18n="myStories">Мои истории</button>
+        <a id="profile-subscription" class="outline-button" href="/subscription/" data-i18n="subscription">Подписка</a>
         <button id="profile-builder" type="button" class="outline-button hidden" data-i18n="builderButton">Конструктор</button>
         <button id="profile-moderation" type="button" class="outline-button hidden" data-i18n="moderationButton">Модерация</button>
         <button id="profile-admin" type="button" class="outline-button hidden" data-i18n="profileAdmin">Администратор</button>

@@ -86,6 +86,7 @@ class AuthController {
 	private final Optional<JavaMailSender> mail;
 	private final PasskeyService passkeys;
 	private final TelegramMessenger telegram;
+	private final SubscriptionService subscriptions;
 	private final Map<String, List<DevLink>> devLinks = new ConcurrentHashMap<>();
 	private final Map<String, Window> rate = new ConcurrentHashMap<>();
 
@@ -141,7 +142,8 @@ class AuthController {
 	private String telegramLoginRedirectPath;
 
 	AuthController(AuthStore store, JwtCodec jwt, Optional<JavaMailSender> mail, PasskeyService passkeys,
-			TelegramMessenger telegram) {
+			TelegramMessenger telegram, SubscriptionService subscriptions) {
+		this.subscriptions = subscriptions;
 		this.store = store;
 		this.jwt = jwt;
 		this.mail = mail;
@@ -482,13 +484,13 @@ class AuthController {
 		}
 		User user = store.user(AuthServiceApplication.normalizeEmail(request.email()), true).orElseThrow();
 		if ("player".equals(request.role()) && request.grant()) {
-			store.demoteToPlayer(user.id());
+			store.demoteToPlayer(user.id(), admin.id());
 		}
 		else if (request.grant()) {
 			store.grantRole(user.id(), request.role());
 		}
 		else {
-			store.removeRole(user.id(), request.role());
+			store.removeRole(user.id(), request.role(), admin.id());
 		}
 		store.audit(admin.id(), admin.email(), "role_changed", roleChangeMetadata(user, request.role(), request.grant()));
 		return userView(store.user(user.email(), true).orElseThrow());
@@ -512,6 +514,49 @@ class AuthController {
 		}
 		return store.adminUsers(page, size, query, role, status);
 	}
+
+	@GetMapping("/subscription/plan")
+	SubscriptionService.Plan subscriptionPlan() { return subscriptions.plan(); }
+
+	@GetMapping("/subscription")
+	SubscriptionService.Account subscription(@RequestHeader(name="Authorization",required=false) String authorization,
+			@CookieValue(name="fraer_access",required=false) String accessToken,HttpServletResponse response) {
+		response.setHeader("Cache-Control","private, no-store");
+		return subscriptions.account(currentUser(authorization,accessToken).id());
+	}
+	@PostMapping("/subscription/mock-checkout")
+	SubscriptionService.Account checkout(@RequestHeader(name="Authorization",required=false) String authorization,
+			@CookieValue(name="fraer_access",required=false) String accessToken,@RequestBody CheckoutRequest request,HttpServletResponse response) {
+		response.setHeader("Cache-Control","private, no-store");
+		return subscriptions.checkout(currentUser(authorization,accessToken).id(),request.planId(),request.requestId(),request.confirmTest());
+	}
+	@GetMapping("/admin/subscriptions")
+	SubscriptionService.Page subscriptions(@RequestHeader(name="Authorization",required=false) String authorization,
+			@CookieValue(name="fraer_access",required=false) String accessToken,@RequestParam(defaultValue="0") int page,
+			@RequestParam(defaultValue="20") int size,@RequestParam(defaultValue="") String query,@RequestParam(defaultValue="all") String status,HttpServletResponse response) {
+		response.setHeader("Cache-Control","private, no-store");requireSubscriptionAdmin(authorization,accessToken);
+		return subscriptions.list(page,size,query,status);
+	}
+	@GetMapping("/admin/subscriptions/{userId}")
+	SubscriptionService.Account subscriptionDetail(@RequestHeader(name="Authorization",required=false) String authorization,
+			@CookieValue(name="fraer_access",required=false) String accessToken,@PathVariable String userId,HttpServletResponse response) {
+		response.setHeader("Cache-Control","private, no-store");requireSubscriptionAdmin(authorization,accessToken);
+		store.userById(userId).orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND,"User not found"));
+		return subscriptions.adminAccount(userId);
+	}
+	@PostMapping("/admin/subscriptions/{userId}/revoke")
+	SubscriptionService.Account revokeSubscription(@RequestHeader(name="Authorization",required=false) String authorization,
+			@CookieValue(name="fraer_access",required=false) String accessToken,@PathVariable String userId,@RequestBody RevokeSubscription request,HttpServletResponse response) {
+		response.setHeader("Cache-Control","private, no-store");User actor=requireSubscriptionAdmin(authorization,accessToken);
+		return subscriptions.revoke(userId,actor.id(),request.version(),request.reason());
+	}
+	private User requireSubscriptionAdmin(String authorization,String accessToken) {
+		User actor=currentUser(authorization,accessToken);
+		if(!actor.roles().contains("admin"))throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Admin role required");
+		return actor;
+	}
+	record CheckoutRequest(String planId,String requestId,boolean confirmTest){}
+	record RevokeSubscription(int version,String reason){}
 
 	@GetMapping("/author-request")
 	Map<String, String> authorRequestStatus(@RequestHeader(name = "Authorization", required = false) String authorization,
@@ -1029,9 +1074,11 @@ class AuthStore {
 
 	private final JdbcTemplate jdbc;
 	private final TransactionTemplate transactions;
+	private final SubscriptionService subscriptions;
 
-	AuthStore(JdbcTemplate jdbc) {
+	AuthStore(JdbcTemplate jdbc, SubscriptionService subscriptions) {
 		this.jdbc = jdbc;
+		this.subscriptions = subscriptions;
 		this.transactions = new TransactionTemplate(new DataSourceTransactionManager(Objects.requireNonNull(jdbc.getDataSource())));
 	}
 
@@ -1143,7 +1190,7 @@ class AuthStore {
 		String like = "%" + search + "%";
 		String filter = """
 				where lower(u.email) like ?
-				and (? = 'all' or exists (select 1 from user_roles r where r.user_id=u.id and r.role_name=?))
+				and (? = 'all' or exists (select 1 from effective_user_roles r where r.user_id=u.id and r.role_name=?))
 				and (? = 'all' or (? = 'blocked' and u.blocked_at is not null) or (? = 'active' and u.blocked_at is null))
 				""";
 		long total = jdbc.queryForObject("select count(*) from users u " + filter, Long.class, like, role, role, status, status, status);
@@ -1368,6 +1415,9 @@ class AuthStore {
 	}
 
 	void removeRole(String userId, String role) {
+		removeRole(userId,role,"system");
+	}
+	void removeRole(String userId, String role, String actorId) {
 		if ("player".equals(role)) return;
 		transactions.executeWithoutResult(status -> {
 			lockAdminRole();
@@ -1375,10 +1425,14 @@ class AuthStore {
 			if ("admin".equals(role)) requireAnotherActiveAdmin(userId);
 			userById(userId).ifPresent(user -> rememberBootstrapInitialization(user.email()));
 			jdbc.update("delete from user_roles where user_id = ? and role_name = ?", userId, role);
+			if("author".equals(role)) subscriptions.revokeForRole(userId,actorId,"Сняты права автора");
 		});
 	}
 
 	void demoteToPlayer(String userId) {
+		demoteToPlayer(userId,"system");
+	}
+	void demoteToPlayer(String userId, String actorId) {
 		transactions.executeWithoutResult(status -> {
 			lockAdminRole();
 			lockUser(userId);
@@ -1386,6 +1440,7 @@ class AuthStore {
 			userById(userId).ifPresent(user -> rememberBootstrapInitialization(user.email()));
 			grantRole(userId, "player");
 			jdbc.update("delete from user_roles where user_id = ? and role_name in ('author', 'moderator', 'admin')", userId);
+			subscriptions.revokeForRole(userId,actorId,"Оставлены только права читателя");
 		});
 	}
 
@@ -1425,12 +1480,12 @@ class AuthStore {
 	}
 
 	private User userRow(String id, String email, Instant blockedAt, Instant createdAt, Instant updatedAt) {
-		List<String> roles = jdbc.queryForList("select role_name from user_roles where user_id = ? order by role_name", String.class, id);
+		List<String> roles = jdbc.queryForList("select role_name from effective_user_roles where user_id = ? order by role_name", String.class, id);
 		return new User(id, email, roles, blockedAt, createdAt, updatedAt);
 	}
 
 	private AuthController.AdminUserSummary adminUserRow(String id, String email, Instant blockedAt, Instant createdAt, Instant updatedAt) {
-		List<String> roles = jdbc.queryForList("select role_name from user_roles where user_id = ? order by role_name", String.class, id);
+		List<String> roles = jdbc.queryForList("select role_name from effective_user_roles where user_id = ? order by role_name", String.class, id);
 		long sessionsCount = jdbc.queryForObject("select count(*) from sessions where user_id = ?", Long.class, id);
 		long activeSessions = jdbc.queryForObject("select count(*) from sessions where user_id = ? and revoked_at is null and expires_at > ?",
 				Long.class, id, timestamp(Instant.now()));

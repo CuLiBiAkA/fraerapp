@@ -115,7 +115,7 @@ test("signed-in homepage keeps the public shell but enables user actions", () =>
 
 test("create stays visible and refreshes author access before opening the builder", async () => {
   const source = engineJs.slice(engineJs.indexOf("function updateTopActions("), engineJs.indexOf("function syncRoleActionButtons("));
-  const createSource = engineJs.slice(engineJs.indexOf("function createHomeStory("), engineJs.indexOf("async function openAuthorRequestModal("));
+  const createSource = engineJs.slice(engineJs.indexOf("function createHomeStory("), engineJs.indexOf("async function showPublicHome("));
   for (const roles of [null, ["player"], ["author"], ["admin"]]) {
     const classes = new Set(["hidden"]);
     const element = { classList: { toggle() {}, remove: (name) => classes.delete(name) }, setAttribute() {} };
@@ -138,13 +138,12 @@ test("create stays visible and refreshes author access before opening the builde
     assert.equal(classes.has("hidden"), false);
     await context.createHomeStory();
     assert.equal(authOpened, roles === null);
-    assert.equal(profileOpened, roles?.[0] === "player");
-    assert.equal(guidanceVisible, roles?.[0] === "player");
-    assert.equal(context.window.location.href, roles?.some((role) => ["author", "admin"].includes(role)) ? "/builder/" : "");
+    assert.equal(profileOpened, false);
+    assert.equal(context.window.location.href, roles ? roles.some((role) => ["author", "admin"].includes(role)) ? "/builder/" : "/subscription/" : "");
   }
 });
 
-test("an approved author request refreshes the session before entering the builder", async () => {
+test("a new author subscription refreshes the session before entering the builder", async () => {
   const source = engineJs.slice(engineJs.indexOf("async function openBuilder("), engineJs.indexOf("async function showPublicHome("));
   const nodes = new Map();
   const calls = [];
@@ -156,13 +155,22 @@ test("an approved author request refreshes the session before entering the build
     t: key => key, openModal() {}, openAuthModal() { throw new Error("Approved player should remain signed in"); },
     request: async (path, options) => {
       calls.push([path, options?.method || "GET"]);
-      return path === "/auth/author-request" ? { status: "granted" } : { user: { roles: ["player", "author"] } };
+      return { user: { roles: ["player", "author"] } };
     },
   });
   vm.runInContext(source, context);
-  await context.openAuthorRequestModal();
-  assert.deepEqual(calls, [["/auth/author-request", "GET"], ["/auth/refresh", "POST"]]);
+  await context.openBuilder();
+  assert.deepEqual(calls, [["/auth/refresh", "POST"]]);
   assert.equal(context.window.location.href, "/builder/");
+});
+
+test("sign-in resumes a recent subscription checkout only at the fixed local route", () => {
+  const source=engineJs.slice(engineJs.indexOf("function resumeSubscription("),engineJs.indexOf("function resumePasskeyRegistration("));
+  for(const [expires,expected] of [[Date.now()+60000,true],[Date.now()-60000,false],[0,false]]){
+    const calls=[];let removed=false;
+    const context=vm.createContext({localStorage:{getItem:()=>String(expires),removeItem:()=>{removed=true;}},window:{location:{assign:url=>calls.push(url)}}});
+    vm.runInContext(source,context);assert.equal(context.resumeSubscription(),expected);assert.equal(removed,true);assert.deepEqual(calls,expected?["/subscription/"]:[]);
+  }
 });
 
 test("passkey sign-in errors never expose server responses or browser internals", () => {

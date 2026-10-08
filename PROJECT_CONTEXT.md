@@ -2,6 +2,42 @@
 
 Last updated: 2026-10-09.
 
+Author subscriptions (local implementation, not deployed): `/subscription/`
+offers the owner-approved Author tariff of 139 RUB per calendar month. Checkout
+is explicitly a test: zero charged, no card data/provider or automatic renewal.
+Auth V9 stores per-user subscriptions, immutable test orders (price 13900 kopecks,
+charge 0) and events. SubscriptionService serializes checkout and revocation on
+the user row; request IDs deduplicate retries, including reload retries via
+user-scoped sessionStorage. Active renewals add a calendar month in UTC to the
+existing expiry. Expired access is renewed from now. User confirmed expiry should
+remove subscription access until renewal, retaining stories and manual roles.
+The effective_user_roles view unions explicit roles with unexpired/unrevoked
+subscription author access. /auth/me and JWT issuance use current effective roles;
+API already resolves live roles through auth on every request. No expiry job is
+needed. Manual grants survive expiry/revocation. Explicit removal of Author or
+demotion to Reader revokes a current subscription too, with the admin as actor.
+Blocking retains its existing session denial; deletion cascades subscription data.
+
+Admin `/auth/admin#subscriptions` offers search, status filters, pagination,
+counts, dates, last 100 orders/events and version-checked revocation with a reason.
+Actor identity/email is visible only in admin history. The customer page shows
+access, confirmation, renewal, history and FAQ; failures preserve retry identity.
+The account dialog and home footer link to subscriptions. Create for a reader
+now opens subscriptions after refreshing roles; old public author-request modal
+is removed. The old API/admin request list remains for pending requests and
+manual grants. Checkout sign-in resumes only the fixed subscription route with
+a 30-minute intent. New assets: subscription JS/CSS/page v1, admin-subscriptions
+v1, admin-panel JS/CSS v2, account-dialogs JS/CSS v2, standalone-dialogs v2, engine-86.
+`AUTH_SUBSCRIPTION_MOCK_ENABLED=false` disables new mock purchases, without
+revoking existing periods. A real payment provider must use independently
+verified server events before granting access; test orders must not be treated
+as revenue or silently converted to paid charges. Design: docs/subscriptions.md.
+Browser fixtures: scripts/check-subscriptions.cjs (RU/EN 1440/390/320px), plus
+the existing four-width admin checks. Production payment processing is untested
+and intentionally absent.
+Checks: 41 auth, 81 API and 73 frontend/Builder tests pass, plus production
+validation and browser journeys for subscriptions and existing admin sections.
+
 Author moderation capacity (local implementation, not deployed): one story per
 owner may await a moderator's response. Chapters of a schemaVersion 2 story share
 one slot; legacy nested collections use their top-level collection. Standalone

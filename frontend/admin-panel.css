@@ -15,6 +15,9 @@
 .admin-panel { background:#f9eaea; border:1px solid #ffffff70; border-radius:20px; padding:26px; min-width:0; }
 .admin-panel h2, .admin-dialog h2 { margin:0 0 8px; font-family:var(--font-heading,serif); font-size:26px; font-weight:400; line-height:1.35; }
 #user-heading { font:600 20px/1.4 var(--font-control,sans-serif); letter-spacing:0; text-transform:none; }
+#subscription-user-heading { font:600 20px/1.4 var(--font-control,sans-serif); letter-spacing:0; overflow-wrap:anywhere; }
+#subscription-dialog .admin-record { grid-template-columns:minmax(0,1fr); margin-bottom:12px; }
+#view-subscriptions .admin-filters { grid-template-columns:minmax(0,2fr) minmax(0,1fr); }
 .admin-panel h3, .admin-dialog h3 { margin:0 0 10px; font-size:17px; }.admin-panel p, .admin-dialog p { margin:0 0 14px; overflow-wrap:anywhere; }
 .admin-section-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; margin-bottom:20px; }.admin-section-heading p { max-width:660px; margin-bottom:0; color:#715c81; font-size:13px; }
 .admin-page :is(button,input,select,textarea,.admin-button) { font:500 14px/1.4 var(--font-control,sans-serif); }
@@ -41,3 +44,4 @@
 @media(max-width:1100px) { .admin-filters { grid-template-columns:1fr 1fr; }.admin-layout { grid-template-columns:190px minmax(0,1fr); gap:16px; }.admin-panel { padding:20px; }.admin-user { grid-template-columns:minmax(0,1fr) auto; }.admin-user > .admin-user-activity { grid-column:1/-1; grid-row:2; } }
 @media(max-width:760px) { .admin-shell { padding:8px 16px 40px; }.admin-heading { display:block; margin-bottom:18px; }.admin-identity { text-align:left; margin:10px 0 0; }.admin-layout { grid-template-columns:1fr; }.admin-nav { position:static; display:flex; flex-wrap:wrap; gap:6px; }.admin-nav a { padding:10px 12px; min-height:42px; border-color:#fee3e233; font-size:12px; }.admin-nav .admin-moderation { margin:0; }.admin-moderation small { display:none; }.admin-panel { border-radius:16px; }.admin-section-heading { flex-wrap:wrap; }.admin-panel h2 { font-size:24px; } }
 @media(max-width:440px) { .admin-filters { grid-template-columns:1fr; }.admin-panel { padding:16px; }.admin-user,.admin-record { grid-template-columns:minmax(0,1fr); gap:12px; padding:14px; }.admin-user > .admin-user-activity { grid-row:auto; }.admin-user > button,.admin-record > .admin-actions { justify-self:start; }.admin-dialog { padding:20px; }.admin-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }.admin-pager { align-items:flex-start; }.admin-section-heading > button { min-height:38px; }.admin-heading h1 { font-size:30px; } }
+@media(max-width:440px) { #view-subscriptions .admin-filters { grid-template-columns:minmax(0,1fr); } }

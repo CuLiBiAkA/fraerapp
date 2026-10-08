@@ -147,12 +147,12 @@ body.modal-open { overflow: hidden; }
 #auth-modal .passkey-login { gap: 8px; }
 #auth-modal .passkey-login > span { order: 0; color: inherit; font-size: 12px; font-weight: 400; }
 
-#author-request-submit,
 #auth-modal .login-card #telegram-login,
 #auth-modal .login-card #passkey-login,
 #profile-modal #profile-logout,
 #profile-modal #profile-builder,
 #profile-modal #profile-my-stories,
+#profile-modal #profile-subscription,
 #profile-modal #profile-moderation,
 #profile-modal #profile-admin,
 #profile-modal #profile-favorites {
@@ -166,6 +166,7 @@ body.modal-open { overflow: hidden; }
   font-size: 15px;
   line-height: 1.3;
 }
+#profile-modal #profile-subscription { text-decoration:none; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 
 #auth-modal .modal-card .legal-links {
   gap: 6px 12px;

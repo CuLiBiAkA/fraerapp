@@ -32,6 +32,85 @@ import org.springframework.web.server.ResponseStatusException;
 
 class AuthControllerTests {
 
+	@Test void subscriptionCheckoutGrantsLiveAuthorAndIsIdempotent() throws Exception {
+		var user=store.user("subscriber@example.test",true).orElseThrow();
+		String token="Bearer "+authenticatedToken(user);
+		var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controller).build();
+		String purchase="{\"planId\":\"author-monthly\",\"requestId\":\""+UUID.randomUUID()+"\",\"confirmTest\":true}";
+		var request=org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/auth/subscription/mock-checkout").header("Authorization",token).contentType("application/json").content(purchase);
+		var first=mvc.perform(request).andReturn().getResponse();
+		assertThat(first.getStatus()).isEqualTo(200);
+		var snapshot=new ObjectMapper().readTree(first.getContentAsString());
+		assertThat(snapshot.path("subscription").path("status").asText()).isEqualTo("active");
+		assertThat((List<String>)controller.me(token,null,new MockHttpServletResponse()).get("roles")).contains("author");
+		var second=new ObjectMapper().readTree(mvc.perform(request).andReturn().getResponse().getContentAsString());
+		assertThat(second.path("subscription").path("expiresAt")).isEqualTo(snapshot.path("subscription").path("expiresAt"));
+		assertThat(second.path("orders").size()).isEqualTo(1);
+		assertThat(first.getHeader("Cache-Control")).contains("no-store");
+	}
+	private SubscriptionService.Account buy(String token,String key){return controller.checkout(token,null,new AuthController.CheckoutRequest("author-monthly",key,true),new MockHttpServletResponse());}
+	@Test void subscriptionExpiryPreservesManualRolesAndDoesNotTrustOldToken(){
+		User user=store.user("expiry@example.test",true).orElseThrow();String token="Bearer "+authenticatedToken(user);
+		buy(token,UUID.randomUUID().toString());
+		assertThat(store.userById(user.id()).orElseThrow().roles()).contains("author");
+		jdbc.update("update author_subscriptions set expires_at=? where user_id=?",java.sql.Timestamp.from(Instant.now().minusSeconds(1)),user.id());
+		assertThat(controller.subscription(token,null,new MockHttpServletResponse()).subscription().status()).isEqualTo("expired");
+		assertThat((List<String>)controller.me(token,null,new MockHttpServletResponse()).get("roles")).doesNotContain("author");
+		store.grantRole(user.id(),"author");buy(token,UUID.randomUUID().toString());
+		jdbc.update("update author_subscriptions set expires_at=? where user_id=?",java.sql.Timestamp.from(Instant.now().minusSeconds(1)),user.id());
+		assertThat(controller.subscription(token,null,new MockHttpServletResponse()).manualAuthor()).isTrue();
+		assertThat((List<String>)controller.me(token,null,new MockHttpServletResponse()).get("roles")).contains("author");
+	}
+	@Test void subscriptionAdminRevocationIsVersionedAuditedAndPreservesManualAccess(){
+		User user=store.user("revoke-subscription@example.test",true).orElseThrow();String token="Bearer "+authenticatedToken(user),adminToken="Bearer "+authenticatedToken(admin("subscription-admin@example.test"));
+		var first=buy(token,UUID.randomUUID().toString());var renewed=buy(token,UUID.randomUUID().toString());
+		assertThat(renewed.subscription().expiresAt()).isEqualTo(first.subscription().expiresAt().atZone(java.time.ZoneOffset.UTC).plusMonths(1).toInstant());
+		assertThatThrownBy(()->controller.revokeSubscription(adminToken,null,user.id(),new AuthController.RevokeSubscription(first.subscription().version(),"Old screen"),new MockHttpServletResponse())).isInstanceOf(ResponseStatusException.class).satisfies(e->assertThat(((ResponseStatusException)e).getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+		store.grantRole(user.id(),"author");
+		var revoked=controller.revokeSubscription(adminToken,null,user.id(),new AuthController.RevokeSubscription(renewed.subscription().version(),"Test completed"),new MockHttpServletResponse());
+		assertThat(revoked.subscription().status()).isEqualTo("revoked");assertThat(revoked.authorAccess()).isTrue();assertThat(revoked.events()).anySatisfy(event->assertThat(event.reason()).isEqualTo("Test completed"));
+		var page=controller.subscriptions(adminToken,null,100,10,"revoke-subscription","revoked",new MockHttpServletResponse());
+		assertThat(page.totalElements()).isEqualTo(1);assertThat(page.page()).isZero();
+		assertThat(controller.users(adminToken,null,0,20,"revoke-subscription","author","all").totalElements()).isEqualTo(1);
+		store.removeRole(user.id(),"author");assertThat(store.userById(user.id()).orElseThrow().roles()).doesNotContain("author");
+	}
+	@Test void subscriptionCheckoutRejectsAnonymousBlockedInvalidAndNonAdminAccess() throws Exception {
+		User user=store.user("sub-access@example.test",true).orElseThrow();String token="Bearer "+authenticatedToken(user);
+		var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controller).build();
+		assertThat(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/auth/subscription")).andReturn().getResponse().getStatus()).isEqualTo(401);
+		assertThat(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/auth/admin/subscriptions").header("Authorization",token)).andReturn().getResponse().getStatus()).isEqualTo(403);
+		assertThatThrownBy(()->controller.subscriptionDetail(token,null,"someone-else",new MockHttpServletResponse())).isInstanceOf(ResponseStatusException.class);
+		assertThatThrownBy(()->controller.checkout(token,null,new AuthController.CheckoutRequest("admin",UUID.randomUUID().toString(),true),new MockHttpServletResponse())).isInstanceOf(ResponseStatusException.class);
+		assertThatThrownBy(()->controller.checkout(token,null,new AuthController.CheckoutRequest("author-monthly",UUID.randomUUID().toString(),false),new MockHttpServletResponse())).isInstanceOf(ResponseStatusException.class);
+		assertThatThrownBy(()->new SubscriptionService(jdbc,false).checkout(user.id(),"author-monthly",UUID.randomUUID().toString(),true)).isInstanceOf(ResponseStatusException.class);
+		store.blockUser(user.id());assertThatThrownBy(()->buy(token,UUID.randomUUID().toString())).isInstanceOf(ResponseStatusException.class);
+		assertThat(jdbc.queryForObject("select count(*) from subscription_orders",Long.class)).isZero();
+	}
+	@Test void concurrentCheckoutRetryCreatesOneOrderAndRoleRemovalRevokesAccess() throws Exception {
+		User user=store.user("concurrent-sub@example.test",true).orElseThrow();String token="Bearer "+authenticatedToken(user),key=UUID.randomUUID().toString();
+		var executor=Executors.newFixedThreadPool(2);var gate=new CountDownLatch(1);
+		try{
+			var a=executor.submit(()->{gate.await();return buy(token,key);});var b=executor.submit(()->{gate.await();return buy(token,key);});gate.countDown();
+			assertThat(a.get(5,TimeUnit.SECONDS).subscription().expiresAt()).isEqualTo(b.get(5,TimeUnit.SECONDS).subscription().expiresAt());
+		}finally{executor.shutdownNow();}
+		assertThat(jdbc.queryForObject("select count(*) from subscription_orders where user_id=?",Long.class,user.id())).isEqualTo(1);
+		assertThat(store.adminUsers(0,20,"concurrent-sub","author","all").totalElements()).isEqualTo(1);
+		store.demoteToPlayer(user.id());assertThat(store.userById(user.id()).orElseThrow().roles()).containsExactly("player");
+		assertThat(controller.subscription(token,null,new MockHttpServletResponse()).subscription().status()).isEqualTo("revoked");
+		store.deleteUser(user.id(),user.email());assertThat(jdbc.queryForObject("select count(*) from subscription_orders where user_id=?",Long.class,user.id())).isZero();
+	}
+	@Test void calendarMonthPriceAndAdminRoleRevocationAreRecordedWithoutLeakingAdminEmail(){
+		User user=store.user("calendar@example.test",true).orElseThrow(),admin=admin("billing-admin@example.test");String token="Bearer "+authenticatedToken(user),adminToken="Bearer "+authenticatedToken(admin);
+		buy(token,UUID.randomUUID().toString());
+		jdbc.update("update author_subscriptions set expires_at=? where user_id=?",java.sql.Timestamp.from(Instant.parse("2030-01-31T12:00:00Z")),user.id());
+		var renewed=buy(token,UUID.randomUUID().toString());assertThat(renewed.subscription().expiresAt()).isEqualTo(Instant.parse("2030-02-28T12:00:00Z"));
+		assertThat(renewed.plan().priceMinor()).isEqualTo(13900);assertThat(renewed.orders()).allSatisfy(order->{assertThat(order.priceMinor()).isEqualTo(13900);assertThat(order.amountMinor()).isZero();});
+		controller.grantRole(adminToken,null,new AuthController.RoleRequest(user.email(),"author",false));
+		var own=controller.subscription(token,null,new MockHttpServletResponse());assertThat(own.authorAccess()).isFalse();assertThat(own.events()).allSatisfy(event->assertThat(event.actorLabel()).isNull());
+		var audit=controller.subscriptionDetail(adminToken,null,user.id(),new MockHttpServletResponse());
+		assertThat(audit.events()).anySatisfy(event->{assertThat(event.action()).isEqualTo("revoked");assertThat(event.actorId()).isEqualTo(admin.id());assertThat(event.actorLabel()).isEqualTo(admin.email());});
+	}
+
 	private JdbcTemplate jdbc;
 	private AuthStore store;
 	private AuthController controller;
@@ -64,15 +143,17 @@ class AuthControllerTests {
 				new ClassPathResource("db/migration/V5__add_passkeys.sql"),
 				new ClassPathResource("db/migration/V6__add_telegram_identities.sql"),
 				new ClassPathResource("db/migration/V7__author_access_requests.sql"),
-				new ClassPathResource("db/migration/V8__moderator_and_bootstrap_initialization.sql"));
+				new ClassPathResource("db/migration/V8__moderator_and_bootstrap_initialization.sql"),
+				new ClassPathResource("db/migration/V9__author_subscriptions.sql"));
 		schema.execute(dataSource);
 		jdbc = new JdbcTemplate(dataSource);
-		store = new AuthStore(jdbc);
+		var subscriptions = new SubscriptionService(jdbc,true);
+		store = new AuthStore(jdbc,subscriptions);
 		jwt = new JwtCodec("test-secret-test-secret-test-secret");
 		passkeys = new PasskeyService(new PasskeyRepository(jdbc), store,
 				"localhost", "FraerApp Test", "http://localhost:8088", 300);
 		telegram = new FakeTelegramMessenger();
-		controller = new AuthController(store, jwt, Optional.empty(), passkeys, telegram);
+		controller = new AuthController(store, jwt, Optional.empty(), passkeys, telegram,subscriptions);
 		ReflectionTestUtils.setField(controller, "magicLinkTtl", 900L);
 		ReflectionTestUtils.setField(controller, "accessTtl", 900L);
 		ReflectionTestUtils.setField(controller, "refreshTtl", 2592000L);
@@ -743,7 +824,7 @@ class AuthControllerTests {
 				setUp();
 				User first = admin("first-admin@example.test");
 				User second = admin("second-admin@example.test");
-				AuthStore secondStore = new AuthStore(jdbc);
+				AuthStore secondStore = new AuthStore(jdbc,new SubscriptionService(jdbc,true));
 				var executor = Executors.newFixedThreadPool(2);
 				CountDownLatch ready = new CountDownLatch(2);
 				CountDownLatch start = new CountDownLatch(1);

@@ -1,6 +1,6 @@
 @import url('/typography.css?v=1');
 @import url('/account-ui.css?v=2');
-@import url('/account-dialogs.css?v=1');
+@import url('/account-dialogs.css?v=2');
 #site-controls { box-sizing: border-box; display: flex; flex-wrap: nowrap; justify-content: flex-end; align-items: center; gap: 16px; width: 100%; height: 72px; min-height: 72px; margin: 0; padding: 12px 24px; position: relative; z-index: 25; }
 #site-controls .site-home { display: inline-flex; align-items: center; gap: 10px; min-width: 0; min-height: 44px; margin: 0 auto 0 0; padding: 0; color: #fee3e2; background: transparent; border: 0; text-decoration: none; white-space: nowrap; font: 500 23px/25px var(--font-control); letter-spacing: 0; }
 /* Figma 176:39: 30.91 × 15.35 path plus the 2px stroke. */

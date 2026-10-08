@@ -1,5 +1,43 @@
 # FraerApp deploy and ops runbook
 
+## Author subscriptions (local, 2026-10-09; not deployed)
+
+Inspect local Git, live runtime services and recent API/auth logs before release.
+Back up the auth DB, existing auth image, changed sources/resources and static
+assets. Rebuild/recreate auth-service with SubscriptionService,
+AuthServiceApplication, V9__author_subscriptions.sql and updated admin.html.
+Verify Flyway version 9 and readiness before exposing new subscription UI.
+Publish frontend/subscription/index.html, subscription.js/css,
+admin-subscriptions.js, admin-panel.js/css v2, account-dialogs.js v2,
+standalone-dialogs.js v2, account-dialogs.css v2, site-controls.js/css,
+engine.js engine-86 and index.html.
+Existing nginx static routing serves /subscription/; no provider, webhook,
+secret payment credentials or API rebuild is needed for subscriptions alone.
+The earlier moderation-limit feature has its own API/V19 release requirements.
+
+The tariff is 139 RUB/calendar month, with test charge 0. Default mock checkout
+is enabled; set AUTH_SUBSCRIPTION_MOCK_ENABLED=false in auth configuration and
+recreate auth to stop new mock activations. Existing test access remains valid
+until expiry or explicit revocation. Before real payments, disable the public
+mock flow, define treatment of test entitlements, and implement independently
+verified provider events. Never count test orders as payments/revenue.
+
+Run auth/API suites, all frontend/Builder Node tests, production validation,
+scripts/check-subscriptions.cjs and scripts/check-admin-panel.cjs with Playwright
+on NODE_PATH, then git diff --check. Tests cover live roles, expiry, calendar
+month boundaries, price vs charge, concurrent retry, manual grants, blocked/
+anonymous/non-admin denial, version conflicts, actor audit and user-data privacy.
+After release verify all runtime services, auth/API readiness, public home,
+subscription page and plan endpoint, static versions/hashes, anonymous private
+endpoint denial and recent logs. Do not activate/revoke real users' subscriptions
+as a smoke test. Record the release commit and backup path after actual release.
+
+Rollback restores the previous auth image and static files; leave additive V9
+tables/view and records intact. The previous auth version does not derive roles
+from subscriptions: subscribers without explicit author grants will temporarily
+lose author access on rollback, while story data and manual roles remain. This
+must be considered before rollback; do not compensate with mass manual grants.
+
 ## One pending story per author (local, 2026-10-09; not deployed)
 
 Before release inspect local Git, live service status and recent API/auth logs.

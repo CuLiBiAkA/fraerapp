@@ -5,9 +5,9 @@
   <meta name="robots" content="noindex, nofollow">
   <title>Администратор — FraerApp</title>
   <link rel="stylesheet" href="/site-controls.css?v=5">
-  <link rel="stylesheet" href="/admin-panel.css?v=1">
+  <link rel="stylesheet" href="/admin-panel.css?v=2">
   <script type="module" src="/site-controls.js?v=5"></script>
-  <script type="module" src="/admin-panel.js?v=1"></script>
+  <script type="module" src="/admin-panel.js?v=2"></script>
 </head>
 <body class="admin-page">
   <a class="admin-skip" href="#admin-content">К содержимому</a>
@@ -29,6 +29,7 @@
       <nav class="admin-nav" aria-label="Разделы администратора">
         <a href="#users" data-view="users" aria-current="page"><span>Пользователи</span></a>
         <a href="#authors" data-view="authors"><span>Заявки авторов</span><span id="authors-count" class="admin-count">—</span></a>
+        <a href="#subscriptions" data-view="subscriptions"><span>Подписки</span></a>
         <a href="#logins" data-view="logins"><span>История входов</span></a>
         <a href="#invite" data-view="invite"><span>Приглашение и вход</span></a>
         <a href="#security" data-view="security"><span>Мой доступ</span></a>
@@ -50,6 +51,7 @@
           <header class="admin-section-heading"><div><h2 id="authors-heading" tabindex="-1">Заявки авторов</h2><p>Право автора открывает редактор. Публикации по-прежнему проходят модерацию.</p></div><button id="refresh-authors" class="secondary">Обновить</button></header>
           <label for="author-query">Поиск по почте</label><input id="author-query" type="search" placeholder="Найти заявку"><p id="authors-status" class="admin-status" role="status"></p><div id="authors-list" class="admin-list"></div>
         </section>
+        <section id="view-subscriptions" class="admin-panel" data-panel="subscriptions" hidden aria-labelledby="subscriptions-heading"></section>
         <section id="view-logins" class="admin-panel" data-panel="logins" hidden aria-labelledby="logins-heading">
           <header class="admin-section-heading"><div><h2 id="logins-heading" tabindex="-1">История входов</h2><p>Запросы одноразовых ссылок. Это история обращений, а не очередь обязательных одобрений.</p></div><button id="refresh-logins" class="secondary">Обновить</button></header>
           <label for="request-query">Поиск по почте</label><input id="request-query" type="search" placeholder="Найти обращение"><p id="logins-status" class="admin-status" role="status"></p><div id="logins-list" class="admin-list"></div>
