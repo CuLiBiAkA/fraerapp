@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
@@ -95,6 +96,54 @@ class AuthControllerTests {
 	void cleanPostgresFixture() {
 		if(postgresAdmin!=null && postgresSchema!=null && postgresSchema.matches("auth_check_[a-f0-9]+"))
 			new JdbcTemplate(postgresAdmin).execute("drop schema "+postgresSchema+" cascade");
+	}
+
+	@Test
+	void adminUserFiltersApplyBeforePaginationAndClampAnEmptyLastPage() throws Exception {
+		User administrator = admin("filter-admin@example.test");
+		for (int i = 0; i < 3; i++) {
+			User user = store.user("filter-author-" + i + "@example.test", true).orElseThrow();
+			store.grantRole(user.id(), "author");
+			if (i == 2) store.blockUser(user.id());
+		}
+		store.user("filter-reader@example.test", true);
+		var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controller).build();
+		var response = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/auth/admin/users")
+				.header("Authorization", "Bearer " + authenticatedToken(administrator))
+				.param("query", "FILTER-").param("role", "author").param("status", "active")
+				.param("page", "99").param("size", "1")).andReturn().getResponse();
+		assertThat(response.getStatus()).isEqualTo(200);
+		var data = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+		assertThat(data.path("totalElements").asInt()).isEqualTo(2);
+		assertThat(data.path("page").asInt()).isEqualTo(1);
+		assertThat(data.path("items").size()).isEqualTo(1);
+		assertThat(data.path("items").get(0).path("blocked").asBoolean()).isFalse();
+		assertThat(mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/auth/admin/users")
+				.header("Authorization", "Bearer " + authenticatedToken(administrator)).param("role", "unknown"))
+				.andReturn().getResponse().getStatus()).isEqualTo(400);
+	}
+
+	@Test
+	void httpErrorsExplainRecentAuthenticationAndLastAdminWithoutLeakingReasons() throws Exception {
+		User administrator = admin("error-admin@example.test");
+		store.createSession("old-admin-session", administrator.id(), Instant.now().plusSeconds(3600),
+				"magic_link", Instant.now().minusSeconds(3600));
+		String token = jwt.encode(administrator, "old-admin-session", Instant.now().plusSeconds(900));
+		var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controller).build();
+		var recent = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/auth/passkeys/registration/options")
+				.header("Authorization", "Bearer " + token)).andReturn().getResponse();
+		assertThat(recent.getStatus()).isEqualTo(403);
+		assertThat(recent.getHeader("Cache-Control")).isEqualTo("private, no-store");
+		assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(recent.getContentAsString()).path("code").asText())
+				.isEqualTo("RECENT_AUTH_REQUIRED");
+		var lastAdmin = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/auth/admin/users/block")
+				.header("Authorization", "Bearer " + token).contentType("application/json")
+				.content("{\"email\":\"error-admin@example.test\",\"blocked\":true}")).andReturn().getResponse();
+		assertThat(lastAdmin.getStatus()).isEqualTo(409);
+		assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(lastAdmin.getContentAsString()).path("code").asText())
+				.isEqualTo("LAST_ACTIVE_ADMIN");
+		assertThat(controller.publicError(new ResponseStatusException(HttpStatus.BAD_REQUEST, "internal private reason")).getBody())
+				.containsEntry("message", "Request failed").containsEntry("code", "REQUEST_FAILED");
 	}
 
 	@Test
@@ -579,7 +628,7 @@ class AuthControllerTests {
 		store.grantRole(moderator.id(), "moderator");
 		String token = "Bearer " + authenticatedToken(store.userById(moderator.id()).orElseThrow());
 		List<Runnable> adminCalls = List.of(
-				() -> controller.users(token, null, 0, 20, ""),
+				() -> controller.users(token, null, 0, 20, "", "all", "all"),
 				() -> controller.loginRequests(token, null, 0, 20, ""),
 				() -> controller.authorRequests(token, null, new MockHttpServletResponse()),
 				() -> controller.grantRole(token, null, new AuthController.RoleRequest(moderator.email(), "admin", true)),
@@ -606,7 +655,7 @@ class AuthControllerTests {
 				.containsEntry("sessionId", jwt.decode(token).sessionId());
 		assertThat(response.getHeader("Cache-Control")).isEqualTo("private, no-store");
 		assertThat(controller.me(null, token, new MockHttpServletResponse())).isEqualTo(current);
-		assertThatThrownBy(() -> controller.users("Bearer " + token, null, 0, 20, ""))
+		assertThatThrownBy(() -> controller.users("Bearer " + token, null, 0, 20, "", "all", "all"))
 				.isInstanceOf(ResponseStatusException.class).hasMessageContaining("403");
 	}
 

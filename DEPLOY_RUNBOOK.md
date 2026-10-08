@@ -1,5 +1,25 @@
 # FraerApp deploy and ops runbook
 
+## Admin usability redesign (release candidate, 2026-10-08)
+
+Not deployed. Before release inspect the live runtime, service status and recent
+logs, and back up changed runtime sources/assets and the current auth image.
+Publish frontend/admin-panel.js and admin-panel.css v1, then rebuild/recreate
+auth-service with AuthServiceApplication.java and resources/admin.html together.
+The frontend files are nginx-mounted; the HTML template is packaged in the auth
+JAR. No API/Builder rebuild or database migration is needed. Keep both assets when
+rolling auth back so already-open tabs can finish loading. Restore the previous
+auth image and changed runtime files for rollback.
+
+Run `sh gradlew :auth-service:test test --no-daemon`, frontend/Builder tests,
+`node scripts/check-admin-panel.cjs` (Playwright available through NODE_PATH),
+production validation and `git diff --check`. Browser checks use synthetic data
+at 1440/768/390/320px and cover all admin sections, stale responses, recent-auth
+guidance, role revocation and self-block. Never modify real accounts for smoke
+testing. After release verify six services, readiness/public domain, `/auth/admin`
+resource/import versions, public asset hashes, anonymous `/auth/admin/users`
+denial, and recent auth/API logs. Record actual release state and backup afterward.
+
 ## Account notification clearing (2026-10-08)
 
 Deploy AccountController/AccountService with the API rebuild before publishing

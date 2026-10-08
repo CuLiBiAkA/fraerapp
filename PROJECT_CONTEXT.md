@@ -2,12 +2,28 @@
 
 Last updated: 2026-10-08.
 
+Admin usability redesign (release candidate; deployment pending): `/auth/admin`
+now serves `auth-service/src/main/resources/admin.html`, with frontend
+`admin-panel.js?v=1` and `admin-panel.css?v=1`. The old Java-embedded renderer is
+removed. Users, author requests, login-link history, invitations/recovery and
+personal passkeys have separate views; story moderation retains its existing
+workspace. User cards combine account/story metrics, messages and role/access
+actions. Role changes, blocking and key removal explain consequences; permanent
+account deletion requires the selected email. Messages retain text after failure.
+`GET /auth/admin/users` accepts role/status filters before pagination and clamps
+empty last pages. Existing admin/session and last-active-admin checks remain.
+Auth errors expose only allowlisted reason codes/messages; recent-auth-required
+does not revoke the admin UI. Late searches/mutations cannot overwrite a different
+user or draft; links are cleared on navigation. No schema migration. Implementation
+and section audit: `docs/admin-usability.md`; synthetic browser journeys:
+`scripts/check-admin-panel.cjs`. Production remains on the prior release below.
+
 Release status (2026-10-08): commit ffaaf23 captures all accumulated project
 changes and was pushed to main, including the preceding 13 local commits.
 The new notification API/frontend are deployed; the earlier runtime sources and
 active assets were already present and matched the checkout before this release.
 Earlier uncommitted/unpushed notes below describe their historical release state.
-Only local image-generation notes in output/ remain outside Git.
+At that release only local image-generation notes in output/ remained outside Git.
 
 Account inbox clearing (account-ui v6 / engine-85): every notice has Delete;
 Clear all removes all of the current user's read/unread notices, including rows

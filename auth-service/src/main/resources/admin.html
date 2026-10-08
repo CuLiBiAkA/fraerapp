@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Администратор — FraerApp</title>
+  <link rel="stylesheet" href="/site-controls.css?v=5">
+  <link rel="stylesheet" href="/admin-panel.css?v=1">
+  <script type="module" src="/site-controls.js?v=5"></script>
+  <script type="module" src="/admin-panel.js?v=1"></script>
+</head>
+<body class="admin-page">
+  <a class="admin-skip" href="#admin-content">К содержимому</a>
+  <main class="admin-shell">
+    <header class="admin-heading"><div><p class="admin-eyebrow">FRAERAPP / УПРАВЛЕНИЕ</p><h1>Администратор</h1></div><p id="identity" class="admin-identity">Проверяем доступ…</p></header>
+    <p id="page-status" class="admin-status" role="status" aria-live="polite">Загрузка…</p>
+    <section id="login-section" class="admin-panel admin-login" hidden aria-labelledby="login-heading">
+      <h2 id="login-heading">Войдите в аккаунт</h2><p>Для управления пользователями нужны права администратора.</p>
+      <a class="admin-button" href="/?panel=account">Войти через Telegram</a>
+      <button id="passkey-login" class="secondary" type="button">Войти с ключом доступа</button>
+      <details><summary>Вход по электронной почте</summary><form id="login-form">
+        <label for="login-email">Электронная почта</label><input id="login-email" type="email" autocomplete="email" required>
+        <label class="admin-check"><input id="login-consent" type="checkbox" required> <span>Принимаю <a href="/personal-data-consent.html" target="_blank" rel="noopener">согласие на обработку данных</a> и ознакомлен с <a href="/privacy-policy.html" target="_blank" rel="noopener">политикой</a>.</span></label>
+        <button type="submit">Получить ссылку</button>
+      </form></details><p id="login-status" class="admin-status" role="status"></p>
+    </section>
+    <section id="access-denied" class="admin-panel" hidden><h2>Нет доступа к управлению</h2><p>Попросите действующего администратора выдать вам права. Если права уже изменены, проверьте доступ ещё раз.</p><button id="retry-access">Проверить доступ</button><a id="denied-moderation" class="admin-button secondary" href="/moderation/" hidden>Перейти к модерации</a><button id="denied-logout" class="secondary">Сменить аккаунт</button></section>
+    <div id="admin-layout" class="admin-layout" hidden>
+      <nav class="admin-nav" aria-label="Разделы администратора">
+        <a href="#users" data-view="users" aria-current="page"><span>Пользователи</span></a>
+        <a href="#authors" data-view="authors"><span>Заявки авторов</span><span id="authors-count" class="admin-count">—</span></a>
+        <a href="#logins" data-view="logins"><span>История входов</span></a>
+        <a href="#invite" data-view="invite"><span>Приглашение и вход</span></a>
+        <a href="#security" data-view="security"><span>Мой доступ</span></a>
+        <a href="/moderation/" class="admin-moderation"><span>Модерация историй ↗</span><small>Заявки, редакции, публикация</small></a>
+      </nav>
+      <div id="admin-content" tabindex="-1">
+        <section id="view-users" class="admin-panel" data-panel="users" aria-labelledby="users-heading">
+          <header class="admin-section-heading"><div><h2 id="users-heading" tabindex="-1">Пользователи</h2><p>Найдите человека и откройте его карточку, чтобы управлять доступом.</p></div><button id="refresh-users" class="secondary">Обновить</button></header>
+          <form id="user-filters" class="admin-filters" role="search">
+            <div class="admin-search"><label for="user-query">Поиск по почте</label><input id="user-query" type="search" placeholder="Введите адрес или его часть" autocomplete="off"></div>
+            <div><label for="user-role">Роль</label><select id="user-role"><option value="all">Все роли</option><option value="author">Автор</option><option value="moderator">Модератор</option><option value="admin">Администратор</option><option value="player">Читатель (включая другие роли)</option></select></div>
+            <div><label for="user-status">Доступ</label><select id="user-status"><option value="all">Любой</option><option value="active">Открыт</option><option value="blocked">Заблокирован</option></select></div>
+            <button id="reset-users" class="secondary" type="button">Сбросить</button>
+          </form>
+          <p id="users-status" class="admin-status" role="status"></p><div id="users-list" class="admin-list" aria-busy="false"></div>
+          <div class="admin-pager"><label for="user-size">На странице <select id="user-size"><option>10</option><option selected>20</option><option>50</option></select></label><span id="users-page"></span><div><button id="users-prev" class="secondary" aria-label="Предыдущая страница пользователей">← Назад</button><button id="users-next" class="secondary" aria-label="Следующая страница пользователей">Далее →</button></div></div>
+        </section>
+        <section id="view-authors" class="admin-panel" data-panel="authors" hidden aria-labelledby="authors-heading">
+          <header class="admin-section-heading"><div><h2 id="authors-heading" tabindex="-1">Заявки авторов</h2><p>Право автора открывает редактор. Публикации по-прежнему проходят модерацию.</p></div><button id="refresh-authors" class="secondary">Обновить</button></header>
+          <label for="author-query">Поиск по почте</label><input id="author-query" type="search" placeholder="Найти заявку"><p id="authors-status" class="admin-status" role="status"></p><div id="authors-list" class="admin-list"></div>
+        </section>
+        <section id="view-logins" class="admin-panel" data-panel="logins" hidden aria-labelledby="logins-heading">
+          <header class="admin-section-heading"><div><h2 id="logins-heading" tabindex="-1">История входов</h2><p>Запросы одноразовых ссылок. Это история обращений, а не очередь обязательных одобрений.</p></div><button id="refresh-logins" class="secondary">Обновить</button></header>
+          <label for="request-query">Поиск по почте</label><input id="request-query" type="search" placeholder="Найти обращение"><p id="logins-status" class="admin-status" role="status"></p><div id="logins-list" class="admin-list"></div>
+          <div class="admin-pager"><label for="request-size">На странице <select id="request-size"><option>10</option><option selected>20</option><option>50</option></select></label><span id="logins-page"></span><div><button id="logins-prev" class="secondary" aria-label="Предыдущая страница истории">← Назад</button><button id="logins-next" class="secondary" aria-label="Следующая страница истории">Далее →</button></div></div>
+        </section>
+        <section id="view-invite" class="admin-panel" data-panel="invite" hidden aria-labelledby="invite-heading">
+          <h2 id="invite-heading" tabindex="-1">Приглашение и восстановление входа</h2><p>Создайте одноразовую ссылку и передайте её выбранному человеку. Предыдущие активные ссылки для него перестанут работать.</p>
+          <form id="invite-form" class="admin-narrow"><label for="invite-email">Электронная почта получателя</label><input id="invite-email" type="email" autocomplete="off" required>
+            <label class="admin-check"><input id="invite-create" type="checkbox"><span>Создать аккаунт, если его ещё нет</span></label>
+            <label for="invite-role">Дополнительно выдать права</label><select id="invite-role"><option value="">Не менять права</option><option value="author">Автор — создание историй</option><option value="moderator">Модератор — проверка историй</option></select>
+            <p class="admin-hint">Новый аккаунт получает права читателя. Дополнительные права выдаются сразу при создании ссылки.</p><button type="submit">Создать одноразовую ссылку</button>
+          </form><p id="invite-status" class="admin-status" role="status"></p>
+          <div id="invite-result" class="admin-result" hidden><h3>Ссылка готова</h3><p id="invite-recipient"></p><label for="invite-url">Одноразовая ссылка</label><input id="invite-url" readonly spellcheck="false" autocomplete="off"><p id="invite-expiry" class="admin-hint"></p><button id="copy-invite">Скопировать ссылку</button><button id="clear-invite" class="secondary">Скрыть ссылку</button><p id="copy-status" role="status"></p></div>
+        </section>
+        <section id="view-security" class="admin-panel" data-panel="security" hidden aria-labelledby="security-heading">
+          <h2 id="security-heading" tabindex="-1">Мой доступ</h2><p id="security-identity"></p><p>Ключи доступа позволяют входить с помощью устройства, отпечатка пальца или распознавания лица.</p>
+          <form id="passkey-form" class="admin-narrow"><label for="passkey-name">Название устройства</label><input id="passkey-name" maxlength="120" placeholder="Например, личный телефон"><button id="passkey-register" type="submit">Добавить ключ доступа</button></form>
+          <p id="security-status" class="admin-status" role="status"></p><div id="passkey-list" class="admin-list"></div><button id="refresh-passkeys" class="secondary">Обновить ключи</button>
+          <div class="admin-danger-zone"><h3>Завершить текущий вход</h3><p>Другие устройства останутся авторизованными.</p><button id="logout" class="secondary">Выйти из аккаунта</button></div>
+        </section>
+      </div>
+    </div>
+  </main>
+  <dialog id="user-dialog" class="admin-dialog" aria-labelledby="user-heading">
+    <header class="admin-dialog-heading"><div><p class="admin-eyebrow">КАРТОЧКА ПОЛЬЗОВАТЕЛЯ</p><h2 id="user-heading"></h2></div><button type="button" data-close="user-dialog" class="admin-close" aria-label="Закрыть карточку">×</button></header>
+    <p id="user-summary"></p><div id="user-metrics" class="admin-metrics"></div>
+    <details class="admin-detail-stats"><summary>Подробная статистика и даты</summary><dl id="user-detail-stats"></dl></details>
+    <div class="admin-actions"><button id="user-message">Написать сообщение</button><button id="user-invite" class="secondary">Помочь со входом</button></div>
+    <section class="admin-dialog-section"><h3>Права пользователя</h3><form id="role-form"><label for="role-choice">Роль</label><select id="role-choice"><option value="author">Автор — создание историй</option><option value="moderator">Модератор — проверка и публикация</option><option value="admin">Администратор — полное управление</option><option value="player">Только читатель — снять остальные права</option></select><div class="admin-actions"><button id="grant-role" type="submit">Выдать права</button><button id="remove-role" type="button" class="secondary">Снять выбранную роль</button></div></form><p class="admin-hint">Автор и модератор — независимые роли. В системе должен остаться хотя бы один активный администратор.</p></section>
+    <section class="admin-danger-zone"><h3>Ограничение доступа</h3><p>Блокировка завершит активные входы. Удаление аккаунта необратимо.</p><div class="admin-actions"><button id="block-user" class="secondary">Заблокировать</button><button id="delete-user" class="danger">Удалить аккаунт</button></div><p id="self-hint" class="admin-hint" hidden>Вы не можете удалить свой текущий аккаунт.</p></section><p id="user-action-status" class="admin-status" role="status"></p>
+  </dialog>
+  <dialog id="message-dialog" class="admin-dialog" aria-labelledby="message-heading"><header class="admin-dialog-heading"><h2 id="message-heading">Сообщение пользователю</h2><button data-close="message-dialog" class="admin-close" aria-label="Закрыть сообщение">×</button></header><p id="message-recipient"></p><form id="message-form"><label for="message-text">Текст сообщения</label><textarea id="message-text" rows="7" maxlength="2000" required aria-describedby="message-count"></textarea><p id="message-count" class="admin-hint">0 / 2000</p><p id="message-status" class="admin-status" role="status"></p><div class="admin-actions"><button type="submit">Отправить в личный кабинет</button><button type="button" data-close="message-dialog" class="secondary">Отмена</button></div></form></dialog>
+  <dialog id="confirm-dialog" class="admin-dialog admin-confirm" aria-labelledby="confirm-heading"><h2 id="confirm-heading"></h2><p id="confirm-description"></p><form id="confirm-form"><div id="confirm-typed" hidden><label for="confirm-email">Для подтверждения введите почту пользователя</label><input id="confirm-email" autocomplete="off" spellcheck="false" required></div><div class="admin-actions"><button id="confirm-submit" type="submit">Подтвердить</button><button type="button" data-close="confirm-dialog" class="secondary">Отмена</button></div></form></dialog>
+  <noscript><p class="admin-panel">Для работы администратора включите JavaScript.</p></noscript>
+</body>
+</html>
