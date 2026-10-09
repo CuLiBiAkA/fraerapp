@@ -1,6 +1,6 @@
 # FraerApp deploy and ops runbook
 
-## Unified catalogue (prepared, 2026-10-09)
+## Unified catalogue (deployed, 2026-10-09)
 
 Publish frontend/index.html (engine-90 and library.css v11), engine.js,
 collection-reader.js v5 and library.css together after backing up those files.
@@ -20,6 +20,16 @@ nonprivileged QA reader only; temporary verification sessions must be revoked.
 Never edit published stories or real users' favorites as a release smoke test.
 After release check all service health, public/origin file hashes, catalogue,
 readiness, anonymous account denial and recent logs; record the backup/commit.
+
+Release receipt: source `921a81d`, backup
+`backups/unified-catalog-20261009-131547`. All six services healthy; four public
+and origin file hashes match; home/readiness/catalogue 200, anonymous account
+401; API/auth recent ERROR counts zero. Real catalogue snapshot contains four
+standalone stories and one collection, no separate cat chapters; the temporary
+QA session was revoked. Published assets with this snapshot passed Chromium
+390/1440 checks for five uniform cards, cat cover, search and no page errors.
+This is a rendering check with separately verified authenticated API reads;
+WebKit was not installed. No runtime service was rebuilt or restarted.
 
 ## Frontend and policy audit (deployed, 2026-10-09)
 

@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-09.
 
-Unified reader catalogue, prepared 2026-10-09 after the user's screenshot:
+Unified reader catalogue, deployed from 921a81d on 2026-10-09 after the user's screenshot:
 the separate "Stories in chapters" block is removed. Both public scenario and
 collection entries use fillStoryCard in the same library grid and signed-in
 home carousel: same cover/genre/title/favorite layout, search and title/favorite
@@ -21,7 +21,16 @@ collection-reader v5, library.css v11. Node 96/96; new mixed-catalogue browser
 regression passes RU/EN 320/390/768/1440, including cover, same card dimensions,
 search, title sort, favorite failure/retry, key collision and first-chapter start.
 Related frontend, serial story, notification and reader layout suites also pass.
-Production receipt will be added after the static release.
+Static release backup: `backups/unified-catalog-20261009-131547`. All six services
+remain healthy; origin/public hashes match all four changed files; home, readiness
+and public catalogue return 200; anonymous account access returns 401. Recent
+API/auth logs contain no ERROR lines. A temporary nonprivileged QA session read
+the real catalogue (four standalone stories and one collection), verified the
+cat cover and absence of its individual chapters, then was revoked. Published
+static assets plus this real metadata snapshot passed Chromium at 390/1440:
+five matching cards in one grid, correct cover, search and no page exceptions.
+This last check isolates the rendering; authenticated API reads were verified
+separately. WebKit is unavailable locally, so no Safari verification is claimed.
 
 Frontend/wording audit, deployed from e3aac92 on 2026-10-09:
 see `docs/frontend-audit-2026-10-09.md`. Responsive layout now handles enlarged
