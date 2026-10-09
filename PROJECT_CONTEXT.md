@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-09.
 
-Frontend/wording audit, prepared 2026-10-09 (deployment receipt below is pending):
+Frontend/wording audit, deployed from e3aac92 on 2026-10-09:
 see `docs/frontend-audit-2026-10-09.md`. Responsive layout now handles enlarged
 text in catalogue/subscription/admin; shared header height drives reader stats.
 Account dialogs support keyboard access to the notifications disclosure/actions,
@@ -31,6 +31,15 @@ handling in both services; changing a consent timestamp alone is insufficient.
 frontend layout/keyboard, Builder editing/storage and 48 legal-page combinations.
 The obsolete chapters-ui script is intentionally excluded. UI API calls are
 synthetic; no real accounts, payments or messages are used for smoke tests.
+All 13 suites, 92 Node, 59 auth and 96 API checks pass; axe reports no violations
+in 48 inspected states. Six services are healthy, runtime policy is 2026-10-09,
+running auth JAR and 46 released source files match. Auth/Builder images are
+fraerapp-<service>:frontend-e3aac92; API was not recreated. Backup:
+backups/frontend-audit-20261009-102654. Public guest journeys passed at
+1440/390/320. CDN verification additionally found Cloudflare email obfuscation
+hid legal contact links without JavaScript; targeted email_off directives now
+preserve these public contacts. Do not remove them merely because local fixtures
+already show the plain email. Other zone protections remain unchanged.
 
 Security audit release 2026-10-09 (supersedes runtime image details below):
 eight confirmed security findings closed in API/auth/nginx; see

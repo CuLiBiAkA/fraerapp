@@ -1,6 +1,6 @@
 # FraerApp deploy and ops runbook
 
-## Frontend and policy audit (prepared, 2026-10-09)
+## Frontend and policy audit (deployed, 2026-10-09)
 
 Inspect Git, live service health and recent logs first. Backup
 `backups/frontend-audit-20261009-102654` contains verified custom dumps of both
@@ -38,8 +38,19 @@ can recreate an empty account. Confirm no unexpected reappearance when finishing
 a deletion request; a durable minimal deletion tombstone requires a separate
 retention decision. Same-second revocation/confirmation fails closed.
 
-Commit/push/deployment status and final verification receipt will be recorded
-after the release completes. Initial output/ files remain excluded.
+Code e3aac92 is committed, pushed to main and deployed; auth/Builder images use
+fraerapp-<service>:frontend-e3aac92. Six services are healthy; auth JAR and 46
+released source files match. All 13 browser suites, 92 Node, 59 auth and 96 API
+checks pass; axe found no violations in 48 inspected states. Public guest
+journeys pass at 1440/390/320. Initial output/ files remain excluded.
+
+Cloudflare can rewrite mailto links and inject email-decode.min.js, so local-only
+JavaScript-disabled tests are insufficient for legal contact availability. Keep
+email_off comments around the public contact links on all three documents.
+Verify a public no-JavaScript fetch/browser still sees actionable mailto links,
+the actual address and current policy version. If CDN strips only these marker
+comments, normalize those markers for HTML comparison; do not ignore arbitrary
+HTML differences or treat a Cloudflare challenge as the application page.
 
 ## Security audit and cat story (deployed, 2026-10-09)
 

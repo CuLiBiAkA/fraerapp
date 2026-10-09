@@ -16,6 +16,9 @@ test('published consent documents and auth agree on the recorded version', () =>
     assert.ok(html.includes(`/legal-config.js?v=${version}`), `${page} current config cache key`);
     assert.ok(html.includes('href="#legal-content"'));
     assert.ok(html.includes('id="legal-content" tabindex="-1" aria-labelledby="legal-title"'));
+    const contacts = [...html.matchAll(/<a data-legal-(?:email|withdrawal-email)\b[^>]*>.*?<\/a>/g)];
+    assert.ok(contacts.length > 0);
+    for (const [contact] of contacts) assert.ok(html.includes(`<!--email_off-->${contact}<!--/email_off-->`), 'public contacts must survive CDN delivery with JavaScript disabled');
   }
   assert.ok(read('../auth-service/src/main/resources/application.properties').includes(`AUTH_PRIVACY_POLICY_VERSION:${version}`));
   assert.ok(read('../auth-service/src/main/java/com/fraergod/fraerapp/auth/AuthServiceApplication.java').includes(`auth.privacy-policy-version:${version}`));
