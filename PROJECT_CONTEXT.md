@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-09.
 
-Unified story experience — release candidate, 2026-10-09:
+Unified story experience — deployed, 2026-10-09:
 `docs/story-experience-unification.md` is the current repair/verification record.
 This supersedes the earlier limitations below about collection statistics,
 path-only covers and the separate author folder/contents presentation. Both work
@@ -35,11 +35,25 @@ Checks before release: 107 API, 59 auth, 109 Node tests and all 20 browser suite
 pass; API bootJar is rebuilt, lint/production validation and diff checks pass.
 Builder also uses generation-checked PUT, with file-only uploads before saving
 references. SQL aggregates avoid loading other readers' runs/saves into memory.
-Deployment status will be recorded after production verification.
-Post-release cache inspection found the Builder HTML still referenced collections
-CSS v2; it now references v5 like reader/author pages. This reference alignment
-needs a Builder rebuild only. Public verification must use the exact versioned
-URLs from released HTML/modules: the CDN can legitimately retain older bare URLs.
+Source 8af0b49 and the Builder CSS alignment 848568e are committed, pushed and
+deployed. API image: fraerapp-api:story-unification-8af0b49; Builder image:
+fraerapp-story-builder:story-unification-848568e. Backup:
+backups/story-unification-20261009-143337 (validated dumps of both databases,
+previous runtime and rollback tags). Live PostgreSQL V21 and running JAR hash
+verified; all six services healthy, recent API/auth ERROR counts zero. All 21
+changed public asset URLs match local hashes; the two protected author HTML
+files match the edge mount, with anonymous access still redirected to sign-in.
+Account remains 401, /auth/jwks 404. Auth/JWT/policy configuration was unchanged.
+
+Public verification uses exact versioned URLs from released HTML/modules: CDN
+may retain older bare URLs. Builder also references shared collections CSS v5.
+A temporary nonprivileged session read the real cat collection, three chapters,
+three final endings and four existing QA runs, then was revoked. No production
+votes or runs were created. Published files plus that real data snapshot passed
+eight RU/EN contents checks and catalogue/detail checks at 390/1440, with five
+uniform cards and no individual cat chapters in the catalogue. These browser
+checks intercept writes; authenticated API reads were verified separately.
+Author/moderator mutations remain isolated fixtures. Safari was not tested.
 
 Author/contents journey repair, deployed from 9ff26c7 on 2026-10-09 after the user's followup:
 Home "Create your own" now refreshes author access and enters `/my-stories/`,

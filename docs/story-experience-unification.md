@@ -48,7 +48,7 @@ as diagnostic evidence, not permission to dilute assertions.
 - [x] Integration (root): all references/cache versions; focused backend/browser
   checks plus baseline tests; screenshots at 320/390/768/1440 and RU/EN; independent
   review of affected boundaries; context/runbook update in commit.
-- [ ] Release (root): inspect live runtime/logs, backup both DBs and changed
+- [x] Release (root): inspect live runtime/logs, backup both DBs and changed
   runtime sources/images, commit/push main, rebuild changed services, public/API/
   health/log/hash checks and before/after evidence.
 
@@ -78,8 +78,9 @@ scripts and OR/NOT are clearly delimited. Generated examples must validate.
 
 ## Verification and current checkpoint
 
-Current: implementation, independent review and final browser regression complete;
-release verification in progress. Not deployed at this checkpoint.
+Current: implementation, independent review, final browser regression and
+production release verification complete. Committed/pushed/deployed: 8af0b49;
+Builder shared CSS version followup: 848568e.
 Existing 15 browser suites/96 frontend tests are the baseline, not proof of the
 new behavior. Meaningful counterexamples: equal scenario/collection keys; no votes;
 private/hidden/archived parent; deleted list pagination; unpublished next chapter;
@@ -130,3 +131,14 @@ checks, not a Safari/device claim. Live PostgreSQL migration and publication
 checks follow during release. Backup prepared:
 `backups/story-unification-20261009-143337`, both database dumps validated and
 prior API/Builder image tags retained. No auth/JWT/policy changes in this release.
+
+Production evidence: V21 succeeded on PostgreSQL; running API JAR, origin sources,
+21 actual versioned public asset URLs and two protected HTML mount hashes match.
+Six services healthy; recent API/auth ERROR counts zero. Public home, readiness,
+catalogue, Builder/prompts 200; protected author routes anonymous302, account401,
+JWKS404. The existing QA reader's four runs, cat's three chapters and three final
+endings were read through an ephemeral session, which was revoked. No production
+rating/run/content changes for smoke testing. Published reader files plus this
+data snapshot pass eight RU/EN contents viewport cases and two catalogue/detail
+cases. Author flows use isolated data. Before/after screenshots are in the task
+artifact `/private/tmp/fraer-unified-evidence/review.html`.

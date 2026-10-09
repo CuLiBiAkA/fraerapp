@@ -1,6 +1,6 @@
 # FraerApp deploy and ops runbook
 
-## Unified story experience (release procedure, 2026-10-09)
+## Unified story experience (deployed, 2026-10-09)
 
 This release changes API, frontend and Builder. It includes additive migration
 V21 (collection views/ratings and publication dates), collection media access and
@@ -32,6 +32,27 @@ release files if needed, and recreate the tagged old API/Builder images. V21 is
 additive; leave its tables/columns in place when rolling back application code.
 Do not restore a pre-rotation JWT secret or restore a database over newer user
 activity merely to reverse UI changes. Keep policy version/email_off protections.
+
+Release receipt: API/frontend source 8af0b49; Builder followup 848568e aligns its
+shared collections CSS reference with v5. Both are committed/pushed/deployed.
+Backup `backups/story-unification-20261009-143337`; API image
+`fraerapp-api:story-unification-8af0b49`, Builder image
+`fraerapp-story-builder:story-unification-848568e`. Rollback tags use
+`fraerapp-<service>:before-story-unification-20261009-143337`; the intermediate
+Builder image at 8af0b49 is also retained. The followup saved its previous HTML.
+V21 succeeded in PostgreSQL; running JAR and all origin asset hashes match.
+All 21 changed public files match through their actual versioned URLs. The CDN
+retains some older bare URLs, so do not mistake an unversioned cache hit for the
+version loaded by released HTML. Check nested module/CSS versions too.
+
+Protected /my-stories/ and /moderation/ intentionally return anonymous 302 to
+/workspace-access.html. Verify Location and hash protected HTML through the edge
+mount or an authorized session; never weaken the gate to get a public 200.
+Readiness/home/catalogue/Builder/prompts are 200, account 401, JWKS 404. All six
+services are healthy; fresh API/auth ERROR counts zero. Temporary QA session was
+revoked after read-only cat/run checks. Published reader fixtures pass all eight
+RU/EN viewport cases and the real catalogue snapshot at 390/1440. Full local
+verification: 107 API, 59 auth, 109 Node tests, 20 browser suites, lint/build/diff.
 
 ## Author and contents journey (deployed, 2026-10-09)
 
