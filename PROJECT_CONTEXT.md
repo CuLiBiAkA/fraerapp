@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-09.
 
-Author/contents journey repair, prepared 2026-10-09 after the user's followup:
+Author/contents journey repair, deployed from 9ff26c7 on 2026-10-09 after the user's followup:
 Home "Create your own" now refreshes author access and enters `/my-stories/`,
 where story metadata and chapters are created. The explicit Builder action still
 opens a standalone draft. In a chapter the existing top back link opens its
@@ -22,7 +22,15 @@ Remaining authoring limitations: the shared story cover is entered as an asset
 path; a season is a chapter label; chapter preview is a scene/choice list, not an
 interactive playthrough. The published cat package was imported through API,
 not manually authored in the browser. See `docs/cat-open-doors-coverage.md`.
-Production receipt will follow the frontend + Builder release.
+Release backup: `backups/story-journey-20261009-132957`; Builder image
+`fraerapp-story-builder:story-journey-9ff26c7`, rollback
+`fraerapp-story-builder:before-story-journey-20261009-132957`. Seven changed files
+match origin/public SHA-256. All six services healthy; home/readiness/catalogue
+200, anonymous account 401, recent API/auth ERROR counts zero. Only Builder was
+rebuilt/recreated; edge configuration was tested and reloaded. Published files
+with the real cat contents/QA-run snapshot pass all eight RU/EN viewport cases.
+These browser checks substitute API responses; authenticated reader data was
+verified separately, and author mutations remain isolated fixtures.
 
 Unified reader catalogue, deployed from 921a81d on 2026-10-09 after the user's screenshot:
 the separate "Stories in chapters" block is removed. Both public scenario and

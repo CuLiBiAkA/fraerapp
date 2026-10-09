@@ -1,6 +1,6 @@
 # FraerApp deploy and ops runbook
 
-## Author and contents journey (prepared, 2026-10-09)
+## Author and contents journey (deployed, 2026-10-09)
 
 Inspect local Git and live service health/logs. Back up the seven changed runtime
 files and retain the running Builder image: frontend engine.js/index.html,
@@ -18,6 +18,14 @@ For published rendering, CHECK_LIVE_CONTENTS=1 uses an independently fetched
 reader-visible snapshot of cat contents/QA runs; browser API writes are aborted.
 Verify Builder/static hashes, six healthy services, readiness/catalogue, anonymous
 account denial and fresh API/auth logs. Record backup and source commit below.
+
+Released source `9ff26c7`, backup `backups/story-journey-20261009-132957`.
+Builder image `fraerapp-story-builder:story-journey-9ff26c7`; rollback image
+`fraerapp-story-builder:before-story-journey-20261009-132957`. All seven public
+and origin hashes match; six services healthy; home/readiness/catalogue 200,
+anonymous account 401; API/auth ERROR counts zero. Published contents passed
+eight RU/EN width cases using the real snapshot. Browser API mutations remained
+synthetic/blocked; the temporary QA login was revoked after data inspection.
 
 ## Unified catalogue (deployed, 2026-10-09)
 
