@@ -38,7 +38,9 @@ fraerapp-<service>:frontend-e3aac92; API was not recreated. Backup:
 backups/frontend-audit-20261009-102654. Public guest journeys passed at
 1440/390/320. CDN verification additionally found Cloudflare email obfuscation
 hid legal contact links without JavaScript; targeted email_off directives now
-preserve these public contacts. Do not remove them merely because local fixtures
+preserve these public contacts (bd0d3b4, committed/pushed/deployed). Live public
+documents pass without JavaScript at 1440/390/320; source comparisons normalize
+only these CDN marker comments. Do not remove them merely because local fixtures
 already show the plain email. Other zone protections remain unchanged.
 
 Security audit release 2026-10-09 (supersedes runtime image details below):

@@ -51,6 +51,11 @@ Verify a public no-JavaScript fetch/browser still sees actionable mailto links,
 the actual address and current policy version. If CDN strips only these marker
 comments, normalize those markers for HTML comparison; do not ignore arbitrary
 HTML differences or treat a Cloudflare challenge as the application page.
+Followup bd0d3b4 is committed, pushed and deployed with a separate
+legal-cdn-before.tar.gz in the same backup. All three public documents passed
+JavaScript-disabled Chromium at 1440/390/320. verification.json records health,
+access denials, policy version, 46 source hashes and the running JAR match;
+release-receipt.json includes both code and static-followup commit IDs.
 
 ## Security audit and cat story (deployed, 2026-10-09)
 
