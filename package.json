@@ -6,6 +6,7 @@
     "lint": "node --check frontend/engine.js && node --check frontend/legal.js && node --check frontend/legal-config.js && node --check scripts/validate-production.mjs",
     "build": "node scripts/validate-production.mjs",
     "test": "node --test frontend/*.test.js story-builder/*.test.js scripts/*.test.mjs",
-    "test:ui": "node scripts/run-ui-tests.mjs"
+    "test:ui": "node scripts/run-ui-tests.mjs",
+    "test:browser": "node scripts/run-browser-tests.mjs"
   }
 }

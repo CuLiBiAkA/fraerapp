@@ -1,5 +1,5 @@
-import { mountAccountDialogs } from './account-dialogs.js?v=2';
-import { createAccountUI } from './account-ui.js?v=6';
+import { mountAccountDialogs } from './account-dialogs.js?v=3';
+import { createAccountUI } from './account-ui.js?v=7';
 import { credentialToJson, parseCreationOptions, passkeysSupported } from './passkeys.js';
 
 export function mountStandaloneDialogs({setActions}) {
@@ -28,7 +28,11 @@ export function mountStandaloneDialogs({setActions}) {
     const modal = document.querySelector('.modal-layer:not(.hidden)'); if (!modal) return;
     if (e.key === 'Escape') { e.preventDefault(); close(); }
     if (e.key === 'Tab') {
-      const items = [...modal.querySelectorAll('button, a[href], input, summary')].filter(n => !n.disabled && n.getClientRects().length);
+      const items = [...modal.querySelectorAll('button, a[href], input, summary')].filter(n => {
+        const closed = n.closest('details:not([open])');
+        return !n.disabled && n.tabIndex >= 0 && n.getClientRects().length
+          && (!closed || closed.querySelector(':scope > summary')?.contains(n));
+      });
       const first = items[0], last = items.at(-1);
       if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
       if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
@@ -54,13 +58,14 @@ export function mountStandaloneDialogs({setActions}) {
   };
   for (const lang of ['ru','en']) {
     const b=$('#modal-lang-'+lang);b.classList.toggle('is-active',lang===(en?'en':'ru'));
+    b.setAttribute('aria-pressed',String(lang===(en?'en':'ru')));
     b.onclick=()=>{localStorage.setItem('fraerapp.language',lang);localStorage.setItem('fraerapp.storyBuilderLanguage',lang);location.reload();};
   }
   for (const [id,key] of [['sound','fraerapp.sound'],['notifications','fraerapp.notifications']]) {
     const b=$('#modal-'+id+'-toggle');b.setAttribute('aria-checked',String(localStorage.getItem(key)==='true'));
     b.onclick=()=>{const enabled=b.getAttribute('aria-checked')!=='true';localStorage.setItem(key,String(enabled));b.setAttribute('aria-checked',String(enabled));};
   }
-  $('#modal-support').onclick=()=>{$('#modal-settings-status').textContent=words('Контакт поддержки скоро появится здесь.','Support contact details will appear here soon.');};
+  $('#modal-support').onclick=()=>location.assign('/terms.html#contacts');
   $('#modal-passkey').onclick=async()=>{
     const b=$('#modal-passkey'), status=$('#modal-settings-status');
     if (!user) { location.assign('/?panel=account'); return; }

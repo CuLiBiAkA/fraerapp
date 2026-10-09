@@ -10,9 +10,9 @@
     <link rel="stylesheet" href="/typography.css?v=2" data-builder-typography>
     <script>if (location.protocol === "file:") document.querySelector("[data-builder-typography]").href = "../frontend/typography.css?v=2";</script>
     <link rel="stylesheet" href="/collections.css?v=2">
-    <link rel="stylesheet" href="theme.css?v=22">
-    <link rel="stylesheet" href="/site-controls.css?v=5">
-    <script type="module" src="/site-controls.js?v=5"></script>
+    <link rel="stylesheet" href="theme.css?v=24">
+    <link rel="stylesheet" href="/site-controls.css?v=6">
+    <script type="module" src="/site-controls.js?v=6"></script>
   </head>
   <body>
     <header class="builder-navigation">
@@ -56,6 +56,8 @@
         <button id="paste-json" type="button" data-i18n="pasteJson">Вставить JSON</button>
         <button id="clear-draft" type="button" class="danger" data-i18n="clearDraft">Очистить черновик</button>
       </section>
+
+      <p id="local-draft-warning" class="local-draft-warning" role="alert" hidden></p>
 
       <section class="layout">
         <aside class="project-panel">
@@ -174,10 +176,10 @@
       <div id="chapter-preview-content"></div>
     </dialog>
 
-    <dialog id="paste-dialog">
+    <dialog id="paste-dialog" aria-labelledby="paste-heading">
       <form method="dialog">
-        <h2 data-i18n="pasteStoryJson">Вставить Story JSON</h2>
-        <textarea id="paste-area" rows="18"></textarea>
+        <h2 id="paste-heading" data-i18n="pasteStoryJson">Вставить Story JSON</h2>
+        <textarea id="paste-area" aria-labelledby="paste-heading" aria-describedby="paste-error" rows="18"></textarea>
         <p id="paste-error" role="alert"></p>
         <div class="actions">
           <button value="cancel" type="submit" data-i18n="cancelButton">Отмена</button>
@@ -186,12 +188,12 @@
       </form>
     </dialog>
 
-    <div class="floating-tools" aria-label="Quick builder actions">
+    <nav class="floating-tools" aria-label="Quick builder actions">
       <button id="scroll-top" type="button" class="secondary scroll-top-button" title="Вверх">↑ Вверх</button>
       <button id="scroll-bottom" type="button" class="secondary" title="Вниз">↓ Вниз</button>
       <button id="quick-add-scene" type="button" title="Добавить сцену">+ Сцена</button>
-    </div>
+    </nav>
 
-    <script src="app.js?v=builder-52" type="module"></script>
+    <script src="app.js?v=builder-54" type="module"></script>
   </body>
 </html>

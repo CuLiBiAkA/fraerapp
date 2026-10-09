@@ -31,7 +31,7 @@ body:has(#login-screen:not(.hidden)) {
   color: var(--home-ink);
   background:
     radial-gradient(ellipse 65% 26% at 35% 0%, #daafe466, transparent),
-    #33214a url("/assets/home/cosmos.png") right top / cover no-repeat;
+    #33214a url("/assets/home/cosmos.webp") right top / cover no-repeat;
 }
 
 body.is-public-home .game {

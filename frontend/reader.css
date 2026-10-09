@@ -19,7 +19,7 @@ body.is-reading #scene-screen { display: flex; flex-direction: column; justify-c
 #scene-screen .choices button:hover { background: #493c48; }
 #scene-screen .choices button:disabled { opacity: .6; cursor: wait; }
 #scene-screen :focus-visible { outline: 2px solid #fee3e2; outline-offset: 3px; }
-#scene-screen .scene-stats { position: absolute; top: 90px; left: clamp(20px, 5vw, 80px); width: 44px; max-height: min(45svh, 360px); overflow: auto; border: 0; border-radius: 12px; background: transparent; color: #fee3e2; z-index: 2; }
+#scene-screen .scene-stats { position: absolute; top: calc(var(--site-controls-height, 72px) + 18px); left: clamp(20px, 5vw, 80px); width: 44px; max-height: min(45svh, 360px); overflow: auto; border: 0; border-radius: 12px; background: transparent; color: #fee3e2; z-index: 2; }
 #scene-screen .scene-stats[open] { width: 220px; padding: 8px; border: 1px solid #8879a480; background: #24202bdd; }
 #scene-screen .scene-stats summary { display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr; gap: 0; place-items: center; width: 44px; height: 44px; min-height: 44px; padding: 0; border: 1px solid #fee3e2a6; border-radius: 12px; background: #684e86; cursor: pointer; list-style: none; }
 #scene-screen .scene-stats summary::-webkit-details-marker { display: none; }
@@ -37,7 +37,7 @@ body.is-reading #scene-screen { display: flex; flex-direction: column; justify-c
   #scene-screen #scene-text { font-size: 14px; line-height: 1.5; margin-bottom: 20px; }
   #scene-screen .choices { flex-direction: column; align-items: center; }
   #scene-screen .choices button { flex: 0 0 auto; width: min(100%, 300px); min-height: 44px; }
-  #scene-screen .scene-stats { top: 82px; }
+  #scene-screen .scene-stats { top: calc(var(--site-controls-height, 72px) + 10px); }
   #scene-screen .scene-stats[open] { width: min(360px, calc(100% - 40px)); }
   #scene-screen .scene-stats-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #scene-screen .variable-header strong, #scene-screen .variable-value { font-size: 11px; }

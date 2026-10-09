@@ -173,7 +173,7 @@ class AuthControllerTests {
 		ReflectionTestUtils.setField(controller, "bootstrapAdminEmail", "");
 		ReflectionTestUtils.setField(controller, "smtpFrom", "noreply@fraerapp.ru");
 		ReflectionTestUtils.setField(controller, "smtpHost", "");
-		ReflectionTestUtils.setField(controller, "privacyPolicyVersion", "2026-06-21");
+		ReflectionTestUtils.setField(controller, "privacyPolicyVersion", "2026-10-09");
 		ReflectionTestUtils.setField(controller, "passkeyRegistrationRecentAuthSeconds", 600L);
 		ReflectionTestUtils.setField(controller, "telegramBotEnabled", false);
 		ReflectionTestUtils.setField(controller, "telegramBotUsername", "");
@@ -679,7 +679,7 @@ class AuthControllerTests {
 	}
 
 	@Test
-	void telegramWebhookCreatesReusableMagicLinkRecordsAndSendsLink() throws Exception {
+	void telegramExplicitConsentCreatesOneAccountAndSendsOneTimeLoginLink() throws Exception {
 		telegram.enabled = true;
 		ReflectionTestUtils.setField(controller, "telegramBotEnabled", true);
 		ReflectionTestUtils.setField(controller, "telegramWebhookSecret", "secret");
@@ -688,9 +688,10 @@ class AuthControllerTests {
 				"update_id", 1,
 				"message", Map.of(
 						"message_id", 2,
+						"date", Instant.now().getEpochSecond(),
 						"chat", Map.of("id", 67890L, "type", "private"),
 						"from", Map.of("id", 67890L, "is_bot", false, "username", "fraer_user"),
-						"text", "/start login"));
+						"text", "Согласен на обработку данных · 2026-10-09"));
 
 		Map<String, Object> response = controller.telegramWebhook("secret", update, request());
 
@@ -699,19 +700,132 @@ class AuthControllerTests {
 				.containsEntry("chat_id", 67890L)
 				.containsEntry("disable_web_page_preview", true);
 		assertThat(response.get("text")).asString().contains("auth_token=");
+		assertThat(response.get("reply_markup")).isEqualTo(Map.of("remove_keyboard", true));
 		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens where email = ? and redirect_path = ?",
 				Long.class, identity, "/builder/")).isEqualTo(1L);
 		assertThat(jdbc.queryForObject("select count(*) from auth_audit_events where email = ? and event_type = ?",
 				Long.class, identity, "login_link_requested")).isEqualTo(1L);
 		assertThat(jdbc.queryForObject("select count(*) from personal_data_consents where email = ? and source = ?",
-				Long.class, identity, "telegram_bot")).isEqualTo(1L);
+				Long.class, identity, "telegram_explicit")).isEqualTo(1L);
 		assertThat(jdbc.queryForObject("select count(*) from telegram_identities where telegram_user_id = ? and username = ?",
 				Long.class, 67890L, "fraer_user")).isEqualTo(1L);
 		assertThat(store.userByTelegramId(67890L)).map(User::email).contains(identity);
-		controller.telegramWebhook("secret", update, request());
+		assertThat(controller.telegramWebhook("secret", update, request()).get("text")).asString().doesNotContain("auth_token=");
+		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens", Long.class)).isEqualTo(1L);
 		assertThat(jdbc.queryForObject("select count(*) from users where email = ?", Long.class, identity)).isEqualTo(1L);
 		assertThat(jdbc.queryForObject("select count(*) from telegram_identities where telegram_user_id = ?",
 				Long.class, 67890L)).isEqualTo(1L);
+		assertThat(jdbc.queryForObject("select count(*) from personal_data_consents where email = ?", Long.class, identity)).isEqualTo(1L);
+		assertThat(jdbc.queryForObject("select count(*) from auth_audit_events where event_type = 'telegram_consent_confirmed'", Long.class)).isEqualTo(1L);
+		JsonNode receipt = new ObjectMapper().readTree(jdbc.queryForObject("select metadata from auth_audit_events where event_type = 'telegram_consent_confirmed'", String.class));
+		assertThat(receipt.path("telegramMessageId").asLong()).isEqualTo(2L);
+		assertThat(receipt.path("policyVersion").asText()).isEqualTo("2026-10-09");
+	}
+
+	private Map<String, Object> telegramUpdate(long messageId, String text) {
+		telegram.enabled = true;
+		ReflectionTestUtils.setField(controller, "telegramBotEnabled", true);
+		ReflectionTestUtils.setField(controller, "telegramWebhookSecret", "secret");
+		return Map.of("message", Map.of("message_id", messageId, "date", Instant.now().getEpochSecond(), "chat", Map.of("id", 67890L, "type", "private"),
+				"from", Map.of("id", 67890L, "is_bot", false, "username", "fraer_user"), "text", text));
+	}
+
+	@Test
+	void telegramOrdinaryAndStaleMessagesOnlyShowSeparateConsentDocuments() {
+		for (String text : List.of("/start login", "hello", "Согласен", "Согласен на обработку данных · 2026-06-21")) {
+			var response = controller.telegramWebhook("secret", telegramUpdate(2, text), request());
+			assertThat(response.get("text")).asString().contains("/personal-data-consent.html", "/privacy-policy.html", "2026-10-09").doesNotContain("auth_token=");
+			assertThat(response.get("reply_markup")).isEqualTo(Map.of("keyboard", List.of(List.of(Map.of("text", "Согласен на обработку данных · 2026-10-09"))), "resize_keyboard", true, "one_time_keyboard", true));
+		}
+		assertThat(jdbc.queryForObject("select count(*) from users", Long.class)).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from personal_data_consents", Long.class)).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens", Long.class)).isZero();
+	}
+
+	@Test
+	void telegramOldInferredConsentDoesNotQualifyButCurrentExplicitConsentDoes() {
+		User user = store.userForTelegram(67890L, 67890L, "fraer_user");
+		store.recordConsent(user.email(), "2026-10-09", "telegram_bot");
+		store.recordConsent(user.email(), "2026-06-21", "telegram_explicit");
+		assertThat(controller.telegramWebhook("secret", telegramUpdate(2, "/start"), request()).get("text")).asString().doesNotContain("auth_token=");
+		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens", Long.class)).isZero();
+		controller.telegramWebhook("secret", telegramUpdate(3, "Согласен на обработку данных · 2026-10-09"), request());
+		assertThat(controller.telegramWebhook("secret", telegramUpdate(4, "/start"), request()).get("text")).asString().contains("auth_token=");
+		assertThat(jdbc.queryForObject("select count(*) from personal_data_consents", Long.class)).isEqualTo(3L);
+	}
+
+	@Test
+	void telegramEditedForwardedAndIdlessMessagesCannotRecordConsent() {
+		var ordinary = telegramUpdate(2, "Согласен на обработку данных · 2026-10-09");
+		var message = new java.util.HashMap<>((Map<String, Object>) ordinary.get("message"));
+		controller.telegramWebhook("secret", Map.of("edited_message", message), request());
+		message.put("forward_origin", Map.of("type", "user"));
+		controller.telegramWebhook("secret", Map.of("message", message), request());
+		message.remove("forward_origin");
+		message.remove("message_id");
+		controller.telegramWebhook("secret", Map.of("message", message), request());
+		assertThat(jdbc.queryForObject("select count(*) from users", Long.class)).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from personal_data_consents", Long.class)).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens", Long.class)).isZero();
+	}
+
+	@Test
+	void telegramMissingStaleAndFutureDatesCannotRecordConsent() {
+		long now = Instant.now().getEpochSecond();
+		for (Object date : List.of("missing", now - 86401L, now + 120L, now + 0.5)) {
+			var message = new java.util.HashMap<>((Map<String, Object>) telegramUpdate(2, "Согласен на обработку данных · 2026-10-09").get("message"));
+			if ("missing".equals(date)) message.remove("date"); else message.put("date", date);
+			assertThat(controller.telegramWebhook("secret", Map.of("message", message), request()).get("text")).asString().doesNotContain("auth_token=");
+		}
+		assertThat(jdbc.queryForObject("select count(*) from users", Long.class)).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from personal_data_consents", Long.class)).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens", Long.class)).isZero();
+	}
+
+	@Test
+	void telegramReplayedAcceptanceCannotUndoRevocation() {
+		var acceptance = telegramUpdate(2, "Согласен на обработку данных · 2026-10-09");
+		controller.telegramWebhook("secret", acceptance, request());
+		jdbc.update("update personal_data_consents set revoked_at = ?", java.sql.Timestamp.from(Instant.now()));
+		assertThat(controller.telegramWebhook("secret", acceptance, request()).get("text")).asString().doesNotContain("auth_token=");
+		assertThat(controller.telegramWebhook("secret", telegramUpdate(3, "/start"), request()).get("text")).asString().doesNotContain("auth_token=");
+		assertThat(jdbc.queryForObject("select count(*) from personal_data_consents", Long.class)).isEqualTo(1L);
+		var fresh = new java.util.HashMap<>((Map<String, Object>) telegramUpdate(4, "Согласен на обработку данных · 2026-10-09").get("message"));
+		fresh.put("date", Instant.now().getEpochSecond() + 1L);
+		assertThat(controller.telegramWebhook("secret", Map.of("message", fresh), request()).get("text")).asString().contains("auth_token=");
+		assertThat(jdbc.queryForObject("select count(*) from personal_data_consents", Long.class)).isEqualTo(2L);
+	}
+
+	@Test
+	void telegramDelayedOrAmbiguouslyOrderedAcceptanceCannotUndoRevocation() {
+		controller.telegramWebhook("secret", telegramUpdate(2, "Согласен на обработку данных · 2026-10-09"), request());
+		long revokedSecond = Instant.now().getEpochSecond() - 10L;
+		jdbc.update("update personal_data_consents set revoked_at = ?", java.sql.Timestamp.from(Instant.ofEpochSecond(revokedSecond).plusMillis(500)));
+		for (long sentAt : List.of(revokedSecond - 1, revokedSecond)) {
+			var delayed = new java.util.HashMap<>((Map<String, Object>) telegramUpdate(3, "Согласен на обработку данных · 2026-10-09").get("message"));
+			delayed.put("date", sentAt);
+			assertThat(controller.telegramWebhook("secret", Map.of("message", delayed), request()).get("text")).asString().doesNotContain("auth_token=");
+		}
+		assertThat(jdbc.queryForObject("select count(*) from personal_data_consents", Long.class)).isEqualTo(1L);
+		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens", Long.class)).isEqualTo(1L);
+	}
+
+	@Test
+	void concurrentTelegramAcceptanceCreatesOneConsentAndIdentity() throws Exception {
+		var update = telegramUpdate(2, "Согласен на обработку данных · 2026-10-09");
+		var executor = Executors.newFixedThreadPool(2);
+		var gate = new CountDownLatch(1);
+		try {
+			var first = executor.submit(() -> { gate.await(); return controller.telegramWebhook("secret", update, request()); });
+			var second = executor.submit(() -> { gate.await(); return controller.telegramWebhook("secret", update, request()); });
+			gate.countDown();
+			var texts = List.of(first.get(5, TimeUnit.SECONDS).get("text").toString(), second.get(5, TimeUnit.SECONDS).get("text").toString());
+			assertThat(texts.stream().filter(text -> text.contains("auth_token=")).count()).isEqualTo(1L);
+		} finally { executor.shutdownNow(); }
+		assertThat(jdbc.queryForObject("select count(*) from users", Long.class)).isEqualTo(1L);
+		assertThat(jdbc.queryForObject("select count(*) from telegram_identities", Long.class)).isEqualTo(1L);
+		assertThat(jdbc.queryForObject("select count(*) from personal_data_consents", Long.class)).isEqualTo(1L);
+		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens", Long.class)).isEqualTo(1L);
 	}
 
 	@Test

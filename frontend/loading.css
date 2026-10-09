@@ -1,7 +1,7 @@
 /* The same cosmic canvas as the homepage, with an independent decorative loader. */
 body:has(#auth-loading-screen:not(.hidden)) {
   min-height: 100svh; color: #fee3e2;
-  background: radial-gradient(ellipse 65% 26% at 35% 0%, #daafe466, transparent), #33214a url('/assets/home/cosmos.png') right top / cover no-repeat;
+  background: radial-gradient(ellipse 65% 26% at 35% 0%, #daafe466, transparent), #33214a url('/assets/home/cosmos.webp') right top / cover no-repeat;
 }
 body:has(#auth-loading-screen:not(.hidden))::before { display: none; }
 body:has(#auth-loading-screen:not(.hidden)) #site-controls .site-home { display: none; }

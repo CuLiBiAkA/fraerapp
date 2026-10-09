@@ -2,6 +2,36 @@
 
 Last updated: 2026-10-09.
 
+Frontend/wording audit, prepared 2026-10-09 (deployment receipt below is pending):
+see `docs/frontend-audit-2026-10-09.md`. Responsive layout now handles enlarged
+text in catalogue/subscription/admin; shared header height drives reader stats.
+Account dialogs support keyboard access to the notifications disclosure/actions,
+and language buttons choose the requested language rather than toggling blindly.
+Support opens actual contacts. Seven lossless WebP interface assets save 27.1%
+over their PNG sources without changing visible pixels or alpha. Originals stay
+versioned. Builder fixes preview choice labels, scoped text substitutions on
+variable rename, editor navigation from the board, and visible recovery from
+localStorage failures. Shared nested asset imports must be deployed together.
+
+Legal documents and policy configuration use version 2026-10-09. Telegram now
+requires a separate explicit versioned consent message after showing document
+links, before first account/link creation. Old `telegram_bot` consent records do
+not count as explicit consent. The auth transaction includes account, consent
+and link issuance; replay receipts prevent duplicate delivery from invalidating
+the earlier link. Existing sessions/passkeys remain valid. Replies still use
+Telegram webhook method responses, without outbound Bot API calls. No schema
+change or JWT rotation is required. Runtime AUTH_PRIVACY_POLICY_VERSION must
+match documents, .env.example, compose and auth defaults. Terms describe current
+test-only subscriptions and moderation; privacy describes actual data/features.
+Legal text alignment is not a certification of provider geography/contracts or
+regulatory filings. Withdrawal also needs session/link revocation and data
+handling in both services; changing a consent timestamp alone is insufficient.
+
+`npm run test:browser` runs 13 current isolated Chromium suites, including
+frontend layout/keyboard, Builder editing/storage and 48 legal-page combinations.
+The obsolete chapters-ui script is intentionally excluded. UI API calls are
+synthetic; no real accounts, payments or messages are used for smoke tests.
+
 Security audit release 2026-10-09 (supersedes runtime image details below):
 eight confirmed security findings closed in API/auth/nginx; see
 `docs/codebase-audit-2026-10-09.md` for evidence, limits and residual P2/P3 work.

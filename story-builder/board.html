@@ -7,9 +7,9 @@
     <link rel="stylesheet" href="board.css?v=board-11">
     <link rel="stylesheet" href="/typography.css?v=2" data-builder-typography>
     <script>if (location.protocol === "file:") document.querySelector("[data-builder-typography]").href = "../frontend/typography.css?v=2";</script>
-    <link rel="stylesheet" href="theme.css?v=21">
-    <link rel="stylesheet" href="/site-controls.css?v=5">
-    <script type="module" src="/site-controls.js?v=5"></script>
+    <link rel="stylesheet" href="theme.css?v=24">
+    <link rel="stylesheet" href="/site-controls.css?v=6">
+    <script type="module" src="/site-controls.js?v=6"></script>
   </head>
   <body>
     <main class="board-shell">
@@ -67,6 +67,11 @@
         </div>
       </header>
 
+      <section id="board-storage-warning" class="local-draft-warning" role="alert" hidden>
+        <p id="board-storage-message"></p>
+        <button id="retry-saving" type="button">Retry saving</button>
+      </section>
+
       <section class="board-summary">
         <article class="summary-card">
           <strong id="summary-scenes-count">0</strong>
@@ -108,6 +113,6 @@
       </section>
     </main>
 
-    <script src="board.js?v=board-12" type="module"></script>
+    <script src="board.js?v=board-14" type="module"></script>
   </body>
 </html>

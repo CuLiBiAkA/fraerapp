@@ -4,9 +4,9 @@ body { margin:0; color:#fee3e2; background:radial-gradient(ellipse at 18% 8%,#46
 .subscription-shell { max-width:1100px; margin:auto; padding:28px 28px 60px; }
 .subscription-heading { max-width:740px; margin:12px 0 38px; }
 .subscription-eyebrow { font:500 12px/1.5 var(--font-control); letter-spacing:2px; color:#cab5d9; }
-h1,h2 { font-family:var(--font-heading),serif; line-height:1.2; font-weight:400; }
+h1,h2 { font-family:var(--font-heading),serif; line-height:1.2; font-weight:400; overflow-wrap:anywhere; }
 h1 { font-size:clamp(32px,4.8vw,54px); margin:16px 0; } h2 { font-size:29px; margin:16px 0; }
-.subscription-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:start; }
+.subscription-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:24px; align-items:start; }
 .subscription-card { padding:30px; border:1px solid #c0a3d84d; background:#352b4480; border-radius:24px; margin-bottom:24px; overflow-wrap:anywhere; }
 .subscription-access { background:#261f3280; }
 .subscription-badge { display:inline-block; color:#eddfac; border:1px solid #eddfac55; border-radius:20px; padding:3px 12px; font-size:13px; }
@@ -28,4 +28,4 @@ dialog::backdrop { background:#100a18b8; backdrop-filter:blur(5px); }
 .subscription-check { display:flex; align-items:start; gap:12px; margin-top:22px; }.subscription-check input { width:22px; height:22px; flex:none; }
 [role=status]:empty { display:none; } [role=status] { overflow-wrap:anywhere; }
 .subscription-skip { position:absolute; top:-100px; }.subscription-skip:focus { top:12px; left:12px; z-index:99; background:#15121e; }
-@media(max-width:650px) { .subscription-shell { padding:16px 18px 40px; }.subscription-grid { grid-template-columns:1fr; gap:0; }.subscription-card { padding:22px; }.subscription-heading { margin-bottom:28px; } }
+@media(max-width:650px) { .subscription-shell { padding:16px 18px 40px; }.subscription-grid { grid-template-columns:minmax(0,1fr); gap:0; }.subscription-card { padding:22px; }.subscription-heading { margin-bottom:28px; } }

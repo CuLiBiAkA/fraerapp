@@ -127,7 +127,7 @@ class AuthController {
 	@Value("${spring.mail.host:}")
 	private String smtpHost;
 
-	@Value("${auth.privacy-policy-version:2026-06-21}")
+	@Value("${auth.privacy-policy-version:2026-10-09}")
 	private String privacyPolicyVersion;
 
 	@Value("${auth.passkey.registration-recent-auth-seconds:600}")
@@ -255,18 +255,46 @@ class AuthController {
 			return Map.of("ok", true);
 		}
 		checkRate("telegram-login:" + message.userId(), 200, Duration.ofMinutes(15));
-		User user = store.userForTelegram(message.userId(), message.chatId(), message.username());
-		String identity = user.email();
-		store.recordConsent(identity, privacyPolicyVersion, "telegram_bot");
-		CreatedLoginLink generated = createLoginLink(
-				identity, telegramLoginRedirectPath, servletRequest, "telegram_bot", privacyPolicyVersion);
-		store.audit(user.id(), identity, "telegram_login_link_prepared",
-				"{\"source\":\"telegram_bot\",\"telegramUserId\":" + message.userId() + "}");
+		return store.transaction(() -> {
+			boolean accepts = message.explicitEligible() && telegramConsentText().equals(message.text());
+			TelegramAuthorization authorization = store.telegramAuthorization(message, privacyPolicyVersion, accepts).orElse(null);
+			if (authorization == null) return telegramConsentPrompt(message.chatId(), servletRequest);
+			if (authorization.replay()) {
+				// Webhook retries must not invalidate the link already returned for this consent message.
+				return telegramReply(message.chatId(), "Согласие уже сохранено. Используйте ранее полученную ссылку или отправьте /start для новой.");
+			}
+			User user = authorization.user();
+			CreatedLoginLink generated = createLoginLink(
+					user.email(), telegramLoginRedirectPath, servletRequest, "telegram_bot", privacyPolicyVersion);
+			store.audit(user.id(), user.email(), "telegram_login_link_prepared",
+					"{\"source\":\"telegram_bot\",\"telegramUserId\":" + message.userId() + "}");
+			return telegramReply(message.chatId(), telegramLoginMessage(generated.loginUrl(), generated.expiresAt()));
+		});
+	}
+
+	private String telegramConsentText() {
+		return "Согласен на обработку данных · " + privacyPolicyVersion;
+	}
+
+	private Map<String, Object> telegramConsentPrompt(long chatId, HttpServletRequest request) {
+		String base = requestBaseUrl(request);
+		String text = "Перед первым входом ознакомьтесь с отдельным согласием на обработку персональных данных (версия "
+				+ privacyPolicyVersion + "):\n" + base + "/personal-data-consent.html"
+				+ "\n\nПолитика обработки данных:\n" + base + "/privacy-policy.html"
+				+ "\n\nЕсли согласны и вам исполнилось 18 лет, нажмите кнопку ниже. Это отдельное согласие на обработку данных."
+				+ " Без подтверждения учетная запись и ссылка для входа не создаются.";
+		return Map.of("method", "sendMessage", "chat_id", chatId, "text", text, "disable_web_page_preview", true,
+				"reply_markup", Map.of("keyboard", List.of(List.of(Map.of("text", telegramConsentText()))),
+						"resize_keyboard", true, "one_time_keyboard", true));
+	}
+
+	private Map<String, Object> telegramReply(long chatId, String text) {
 		return Map.of(
 				"method", "sendMessage",
-				"chat_id", message.chatId(),
-				"text", telegramLoginMessage(generated.loginUrl(), generated.expiresAt()),
-				"disable_web_page_preview", true);
+				"chat_id", chatId,
+				"text", text,
+				"disable_web_page_preview", true,
+				"reply_markup", Map.of("remove_keyboard", true));
 	}
 
 	private CreatedLoginLink createLoginLink(String email, String requestedRedirect, HttpServletRequest servletRequest,
@@ -289,9 +317,6 @@ class AuthController {
 	private Optional<TelegramMessage> telegramMessage(Map<String, Object> update) {
 		Map<?, ?> message = mapValue(update.get("message"));
 		if (message == null) {
-			message = mapValue(update.get("edited_message"));
-		}
-		if (message == null) {
 			return Optional.empty();
 		}
 		Map<?, ?> chat = mapValue(message.get("chat"));
@@ -305,7 +330,15 @@ class AuthController {
 		if (chatId <= 0L || userId <= 0L || chatId != userId || booleanValue(from == null ? null : from.get("is_bot"))) {
 			return Optional.empty();
 		}
-		return Optional.of(new TelegramMessage(chatId, userId, username));
+		String text = message.get("text") instanceof String value ? value : "";
+		long messageId = longValue(message.get("message_id"));
+		long sentAt = longValue(message.get("date"));
+		long now = Instant.now().getEpochSecond();
+		boolean explicitEligible = messageId > 0L && sentAt > 0L && sentAt >= now - 86400L && sentAt <= now + 60L
+				&& !message.containsKey("forward_origin") && !message.containsKey("forward_from")
+				&& !message.containsKey("forward_from_chat") && !message.containsKey("forward_date")
+				&& !message.containsKey("via_bot") && !booleanValue(message.get("is_automatic_forward"));
+		return Optional.of(new TelegramMessage(chatId, userId, username, messageId, sentAt, text, explicitEligible));
 	}
 
 	private Map<?, ?> mapValue(Object value) {
@@ -1094,6 +1127,7 @@ class JwtCodec {
 class AuthStore {
 
 	private final JdbcTemplate jdbc;
+	private final ObjectMapper json = new ObjectMapper();
 	private final TransactionTemplate transactions;
 	private final SubscriptionService subscriptions;
 
@@ -1178,6 +1212,38 @@ class AuthStore {
 				""", telegramUserId, telegramChatId, user.id(), blankToNull(username), timestamp(now), timestamp(now),
 				timestamp(now), telegramUserId);
 		return userByTelegramId(telegramUserId).orElse(user);
+	}
+
+	Optional<TelegramAuthorization> telegramAuthorization(TelegramMessage message, String policyVersion, boolean accepts) {
+		// This existing durable lock also serializes first-time account/role creation across service instances.
+		// The caller's transaction includes consent and login-link issuance, so neither can commit alone.
+		lockAdminRole();
+		Optional<User> existing = userByTelegramId(message.userId());
+		String email = existing.map(User::email).orElseGet(() -> telegramEmail(message.userId()));
+		boolean active = jdbc.queryForObject("""
+				select count(*) from personal_data_consents
+				where email = ? and policy_version = ? and source = 'telegram_explicit' and revoked_at is null
+				""", Long.class, email, policyVersion) > 0L;
+		String receipt = json.createObjectNode().put("telegramMessageId", message.messageId())
+				.put("policyVersion", policyVersion).toString();
+		boolean replay = accepts && jdbc.queryForObject("""
+				select count(*) from auth_audit_events
+				where email = ? and event_type = 'telegram_consent_confirmed' and metadata = ?
+				""", Long.class, email, receipt) > 0L;
+		if (!active) {
+			if (!accepts || replay) return Optional.empty();
+			// A delayed, previously unprocessed acceptance must not undo a later revocation.
+			boolean revokedLater = jdbc.queryForObject("""
+					select count(*) from personal_data_consents where email = ? and revoked_at >= ?
+					""", Long.class, email, timestamp(Instant.ofEpochSecond(message.sentAt()))) > 0L;
+			if (revokedLater) return Optional.empty();
+		}
+		User user = userForTelegram(message.userId(), message.chatId(), message.username());
+		if (accepts && !replay) {
+			if (!active) recordConsent(email, policyVersion, "telegram_explicit");
+			audit(user.id(), email, "telegram_consent_confirmed", receipt);
+		}
+		return Optional.of(new TelegramAuthorization(user, replay));
 	}
 
 	Optional<User> userByTelegramId(long telegramUserId) {
@@ -1570,7 +1636,10 @@ record JwtClaims(String userId, String sessionId) {
 record SessionAuthentication(String authMethod, Instant authenticatedAt) {
 }
 
-record TelegramMessage(long chatId, long userId, String username) {
+record TelegramMessage(long chatId, long userId, String username, long messageId, long sentAt, String text, boolean explicitEligible) {
+}
+
+record TelegramAuthorization(User user, boolean replay) {
 }
 
 interface TelegramMessenger {

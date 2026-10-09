@@ -5,7 +5,7 @@ export function mountAccountDialogs() {
   template.innerHTML = `    <div id="settings-modal" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
       <div class="modal-backdrop" data-modal-close="settings"></div>
       <section class="modal-card compact-modal-card">
-        <button id="settings-modal-close" class="modal-close" type="button" aria-label="Закрыть"></button>
+        <button id="settings-modal-close" class="modal-close" type="button" aria-label="Закрыть" data-i18n-aria-label="closeControl"></button>
         <h2 id="settings-modal-title" data-i18n="settingsModalTitle">Настройки</h2>
         <div class="modal-setting-row">
           <span id="modal-sound-label" data-i18n="settingsSound">Звук</span>
@@ -40,7 +40,7 @@ export function mountAccountDialogs() {
     <div id="profile-modal" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
       <div class="modal-backdrop" data-modal-close="profile"></div>
       <section class="modal-card compact-modal-card">
-        <button id="profile-modal-close" class="modal-close" type="button" aria-label="Закрыть"></button>
+        <button id="profile-modal-close" class="modal-close" type="button" aria-label="Закрыть" data-i18n-aria-label="closeControl"></button>
         <h2 id="profile-modal-title" data-i18n="profileModalTitle">Аккаунт</h2>
         <p id="profile-modal-email" class="profile-email"></p>
         <p id="profile-account-status" role="status"></p>

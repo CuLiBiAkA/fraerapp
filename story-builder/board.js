@@ -36,6 +36,13 @@ const ui = {
     loadLayout: "Загрузить",
     deleteLayout: "Удалить",
     layoutPlaceholder: "Название раскладки",
+    savedLayoutLabel: "Сохранённая раскладка",
+    zoomInLabel: "Увеличить масштаб",
+    zoomOutLabel: "Уменьшить масштаб",
+    zoomResetLabel: "Вернуть масштаб 100%",
+    storageSaveFailed: "Не удалось сохранить изменения на этом устройстве. Черновик, заметки и раскладки остаются в открытой вкладке. Не закрывайте её. Переход в конструктор приостановлен до успешного сохранения.",
+    retrySaving: "Повторить сохранение",
+    savePending: "Изменения пока не сохранены",
     noLayouts: "Нет сохранённых раскладок",
     summaryScenes: "Сцен",
     summaryVariables: "Переменных",
@@ -106,6 +113,13 @@ const ui = {
     loadLayout: "Load",
     deleteLayout: "Delete",
     layoutPlaceholder: "Layout name",
+    savedLayoutLabel: "Saved layout",
+    zoomInLabel: "Zoom in",
+    zoomOutLabel: "Zoom out",
+    zoomResetLabel: "Reset zoom to 100%",
+    storageSaveFailed: "Changes could not be saved on this device. Your draft, notes and layouts remain in this tab. Keep it open. Opening the editor is paused until saving succeeds.",
+    retrySaving: "Retry saving",
+    savePending: "Changes have not been saved yet",
     noLayouts: "No saved layouts",
     summaryScenes: "Scenes",
     summaryVariables: "Variables",
@@ -201,9 +215,13 @@ const els = {
   summaryLinksLabel: document.querySelector("#summary-links-label"),
   langRu: document.querySelector("#lang-ru"),
   langEn: document.querySelector("#lang-en"),
+  storageWarning: document.querySelector("#board-storage-warning"),
+  storageMessage: document.querySelector("#board-storage-message"),
+  retrySaving: document.querySelector("#retry-saving"),
 };
 
-let currentLanguage = normalizeLanguage(localStorage.getItem(languageKey));
+const failedStorageKeys = new Set();
+let currentLanguage = normalizeLanguage(readLocalStorage(languageKey));
 let filterKind = "all";
 let searchTerm = "";
 let draft = loadDraft() || emptyDraft(currentLanguage);
@@ -228,6 +246,7 @@ function applyLanguage() {
   document.title = `FraerApp - ${text("title")}`;
   els.title.textContent = text("title");
   els.subtitle.textContent = text("boardFor", { title: draft.title || translate(currentLanguage, "newStoryTitle") });
+  renderStorageWarning();
   els.searchLabel.textContent = text("search");
   els.searchInput.placeholder = text("searchPlaceholder");
   els.filterAll.textContent = text("all");
@@ -244,6 +263,11 @@ function applyLanguage() {
   els.addNote.textContent = text("addNote");
   els.connectMode.textContent = connectState.enabled ? text("cancelConnect") : text("connectMode");
   els.layoutName.placeholder = text("layoutPlaceholder");
+  els.layoutName.setAttribute("aria-label", text("layoutPlaceholder"));
+  els.layoutSelect.setAttribute("aria-label", text("savedLayoutLabel"));
+  els.zoomIn.setAttribute("aria-label", text("zoomInLabel"));
+  els.zoomOut.setAttribute("aria-label", text("zoomOutLabel"));
+  els.zoomReset.setAttribute("aria-label", text("zoomResetLabel"));
   els.saveLayout.textContent = text("saveLayout");
   els.loadLayout.textContent = text("loadLayout");
   els.deleteLayout.textContent = text("deleteLayout");
@@ -350,7 +374,7 @@ function createVariableCards() {
       title: id,
       subtitle: `${text("variableKind")} · ${variable.type}`,
       meta: [pill(variable.type), pill(String(variable.value)), variable.showInStats ? pill("stats") : null].filter(Boolean),
-      href: `/index.html#variable:${encodeURIComponent(id)}`,
+      href: `index.html#variable:${encodeURIComponent(id)}`,
     });
     placeCard(card, entityKey("variable", id));
   });
@@ -365,7 +389,7 @@ function createAssetCards() {
       title: id,
       subtitle: `${text("assetKind")} · ${asset.type || "image"}`,
       meta: [pill(asset.type || "image"), pill(trimText(asset.url || "", 22))],
-      href: `/index.html#asset:${encodeURIComponent(id)}`,
+      href: `index.html#asset:${encodeURIComponent(id)}`,
     });
     placeCard(card, entityKey("asset", id));
   });
@@ -385,7 +409,7 @@ function createSceneCards() {
         scene.background ? pill(`${text("background")}: ${scene.background}`) : null,
         scene.music ? pill(`${text("music")}: ${scene.music}`) : null,
       ].filter(Boolean),
-      href: `/index.html#scene:${encodeURIComponent(id)}`,
+      href: `index.html#scene:${encodeURIComponent(id)}`,
     });
 
     const body = card.querySelector(".card-body");
@@ -402,7 +426,7 @@ function createSceneCards() {
         row.className = "choice-row";
         const choiceLabel = document.createElement("a");
         choiceLabel.className = "choice-label";
-        choiceLabel.href = `/index.html#scene:${encodeURIComponent(id)}`;
+        choiceLabel.href = `index.html#scene:${encodeURIComponent(id)}`;
         choiceLabel.textContent = trimText(choice.label || choice.id || "choice", 26);
         const target = document.createElement("div");
         target.className = "choice-targets";
@@ -1039,7 +1063,7 @@ function addSceneAsset(sceneId) {
   });
   persistDraft();
   render();
-  window.location.href = `/index.html#scene:${encodeURIComponent(sceneId)}`;
+  openEditor(`index.html#scene:${encodeURIComponent(sceneId)}`);
 }
 
 function addSceneVariable(sceneId) {
@@ -1054,7 +1078,7 @@ function addSceneVariable(sceneId) {
   });
   persistDraft();
   render();
-  window.location.href = `/index.html#scene:${encodeURIComponent(sceneId)}`;
+  openEditor(`index.html#scene:${encodeURIComponent(sceneId)}`);
 }
 
 function addChoiceCondition(sceneId, choiceIndex) {
@@ -1064,7 +1088,7 @@ function addChoiceCondition(sceneId, choiceIndex) {
   choice.conditions.push({ variable: draft.variables?.[0]?.name || "", op: ">=", value: 0 });
   persistDraft();
   render();
-  window.location.href = `/index.html#scene:${encodeURIComponent(sceneId)}`;
+  openEditor(`index.html#scene:${encodeURIComponent(sceneId)}`);
 }
 
 function addChoiceEffect(sceneId, choiceIndex) {
@@ -1074,7 +1098,7 @@ function addChoiceEffect(sceneId, choiceIndex) {
   choice.effects.push({ type: "set", variable: draft.variables?.[0]?.name || "", value: 0 });
   persistDraft();
   render();
-  window.location.href = `/index.html#scene:${encodeURIComponent(sceneId)}`;
+  openEditor(`index.html#scene:${encodeURIComponent(sceneId)}`);
 }
 
 function addNote() {
@@ -1485,10 +1509,10 @@ function saveNamedLayout() {
   const name = els.layoutName.value.trim();
   if (!name) return;
   savedLayouts[name] = cloneBoardState();
-  persistSavedLayouts();
+  const saved = persistSavedLayouts();
   renderLayoutOptions();
   els.layoutSelect.value = name;
-  updateLineHint(text("layoutSaved"));
+  updateLineHint(text(saved ? "layoutSaved" : "savePending"));
 }
 
 function autoSaveLayout() {
@@ -1512,14 +1536,64 @@ function deleteNamedLayout() {
   const name = els.layoutSelect.value;
   if (!name || !savedLayouts[name]) return;
   delete savedLayouts[name];
-  persistSavedLayouts();
+  const saved = persistSavedLayouts();
   renderLayoutOptions();
-  updateLineHint(text("layoutDeleted"));
+  updateLineHint(text(saved ? "layoutDeleted" : "savePending"));
+}
+
+function readLocalStorage(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function writeLocalStorage(key, value, reportFailure = true) {
+  try {
+    localStorage.setItem(key, value);
+    failedStorageKeys.delete(key);
+  } catch {
+    if (reportFailure) failedStorageKeys.add(key);
+    renderStorageWarning();
+    return false;
+  }
+  renderStorageWarning();
+  return true;
+}
+
+function renderStorageWarning() {
+  els.storageWarning.hidden = failedStorageKeys.size === 0;
+  els.storageMessage.textContent = text("storageSaveFailed");
+  els.retrySaving.textContent = text("retrySaving");
+}
+
+function retrySaving() {
+  persistDraft();
+  autoSaveLayout();
+  return failedStorageKeys.size === 0;
+}
+
+function saveBeforeLeaving() {
+  if (retrySaving()) return true;
+  els.storageWarning.scrollIntoView({ block: "center" });
+  els.retrySaving.focus();
+  return false;
+}
+
+function openEditor(url) {
+  if (saveBeforeLeaving()) window.location.href = url;
+}
+
+function guardEditorLink(event) {
+  const link = event.target.closest("a[href]");
+  if (!link) return;
+  const destination = new URL(link.href);
+  const editor = new URL("index.html", window.location.href);
+  if (destination.origin === editor.origin && destination.pathname === editor.pathname && !saveBeforeLeaving()) {
+    event.preventDefault();
+  }
 }
 
 function loadDraft() {
   try {
-    const raw = localStorage.getItem(draftStorageKey);
+    const raw = readLocalStorage(draftStorageKey);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -1527,12 +1601,12 @@ function loadDraft() {
 }
 
 function persistDraft() {
-  localStorage.setItem(draftStorageKey, JSON.stringify(draft));
+  return writeLocalStorage(draftStorageKey, JSON.stringify(draft));
 }
 
 function loadBoardState() {
   try {
-    const raw = localStorage.getItem(boardStateKey);
+    const raw = readLocalStorage(boardStateKey);
     return raw ? JSON.parse(raw) : defaultBoardState();
   } catch {
     return defaultBoardState();
@@ -1540,11 +1614,11 @@ function loadBoardState() {
 }
 
 function persistBoardState() {
-  localStorage.setItem(boardStateKey, JSON.stringify(boardState));
+  return writeLocalStorage(boardStateKey, JSON.stringify(boardState));
 }
 
 function persistSavedLayouts() {
-  localStorage.setItem(boardLayoutsKey, JSON.stringify(savedLayouts));
+  return writeLocalStorage(boardLayoutsKey, JSON.stringify(savedLayouts));
 }
 
 function cloneBoardState() {
@@ -1553,7 +1627,7 @@ function cloneBoardState() {
 
 function loadSavedLayouts() {
   try {
-    const raw = localStorage.getItem(boardLayoutsKey);
+    const raw = readLocalStorage(boardLayoutsKey);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -1562,7 +1636,7 @@ function loadSavedLayouts() {
 
 function loadLegacyPositions() {
   try {
-    const raw = localStorage.getItem(legacyPositionsKey);
+    const raw = readLocalStorage(legacyPositionsKey);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -1570,7 +1644,7 @@ function loadLegacyPositions() {
 }
 
 function loadLegacyZoom() {
-  const raw = Number(localStorage.getItem(legacyZoomKey));
+  const raw = Number(readLocalStorage(legacyZoomKey));
   if (Number.isFinite(raw)) {
     return clamp(raw, minZoom, maxZoom);
   }
@@ -1655,8 +1729,9 @@ els.addScene.onclick = addScene;
 els.addVariable.onclick = addVariable;
 els.addAsset.onclick = addAsset;
 els.addNote.onclick = addNote;
-els.backBuilder?.addEventListener("click", autoSaveLayout);
-els.openBuilder.addEventListener("click", autoSaveLayout);
+document.addEventListener("click", guardEditorLink, true);
+document.addEventListener("auxclick", guardEditorLink, true);
+els.retrySaving.onclick = retrySaving;
 els.connectMode.onclick = () => {
   connectState.enabled = !connectState.enabled;
   if (!connectState.enabled) connectState.source = "";
@@ -1671,13 +1746,13 @@ els.zoomIn.onclick = () => setZoom(boardState.zoom + 0.1);
 els.zoomReset.onclick = () => setZoom(1);
 els.langRu.onclick = () => {
   currentLanguage = "ru";
-  localStorage.setItem(languageKey, currentLanguage);
+  writeLocalStorage(languageKey, currentLanguage, false);
   render();
   setFilter(filterKind);
 };
 els.langEn.onclick = () => {
   currentLanguage = "en";
-  localStorage.setItem(languageKey, currentLanguage);
+  writeLocalStorage(languageKey, currentLanguage, false);
   render();
   setFilter(filterKind);
 };
@@ -1734,7 +1809,12 @@ document.addEventListener("pointerup", finishLineDrag);
 document.addEventListener("pointercancel", finishLineDrag);
 
 window.addEventListener("pagehide", autoSaveLayout);
-window.addEventListener("beforeunload", autoSaveLayout);
+window.addEventListener("beforeunload", (event) => {
+  if (!retrySaving()) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+});
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
     autoSaveLayout();

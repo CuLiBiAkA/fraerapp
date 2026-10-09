@@ -7,9 +7,9 @@ import {
 
 import { enhanceFilterSelect } from "./filter-select.js?v=1";
 import { observeHomeFit } from "./home-fit.js?v=6";
-import { createAccountUI } from "./account-ui.js?v=6";
-import { mountSiteControls } from "./site-controls.js?v=5";
-import { mountAccountDialogs } from "./account-dialogs.js?v=2";
+import { createAccountUI } from "./account-ui.js?v=7";
+import { mountSiteControls, updateSiteControlsLanguage } from "./site-controls.js?v=6";
+import { mountAccountDialogs } from "./account-dialogs.js?v=3";
 import { createCollectionReader } from "./collection-reader.js?v=4";
 import { readingBackground, decorateReadingStat } from "./reader-presentation.js?v=2";
 import { createReaderAds } from "./reader-ads.js?v=1";
@@ -103,6 +103,10 @@ const modalPasskeyButton = document.querySelector("#modal-passkey");
 
 const translations = {
   ru: {
+    closeControl: "Закрыть", previousStories: "Предыдущие истории", nextStories: "Следующие истории",
+    mainNavigation: "Главное меню", storyCatalog: "Каталог историй", storyPages: "Страницы историй",
+    gameActions: "Действия с историей", languageSwitcher: "Выбор языка", sceneRegion: "Чтение истории",
+    tableOfContents: "Оглавление истории", privacyFull: "Политика обработки персональных данных", consentFull: "Согласие на обработку персональных данных",
     myStories: "Мои истории", moderationButton: "Модерация",
     viewsLabel: "Просмотры", ratingLabel: "Оценка", rateStory: "Ваша оценка:", noRatings: "Пока нет оценок",
     genreUnknown: "Без жанра", favoritesOnly: "Избранное", addFavorite: "Добавить в избранное", removeFavorite: "Удалить из избранного",
@@ -132,7 +136,7 @@ const translations = {
     homeProfileGuestLabel: "Войти в профиль",
     homeProfileAccountLabel: "Открыть аккаунт",
     authModalTitle: "Начните знакомство с историей",
-    authModalText: "Сейчас вам доступен просмотр карточек историй. После регистрации вы сможете проходить истории, сохранять прогресс и открыть доступ ко всей библиотеке.",
+    authModalText: "Без входа доступны три демоистории. Войдите через Telegram, чтобы открыть всю библиотеку и сохранять прогресс. Если вы уже добавили passkey, используйте его для входа.",
     settingsModalTitle: "Настройки",
     settingsLanguage: "Язык",
     settingsSound: "Звук",
@@ -141,7 +145,6 @@ const translations = {
     notificationsHint: "Уведомления доступны в личном кабинете. Push-уведомления появятся позже.",
     settingsSupport: "Поддержка",
     settingsPasskey: "Привязать passkey",
-    supportSoon: "Контакт поддержки скоро появится здесь.",
     settingsPasskeyFailed: "Не удалось привязать passkey. Попробуйте снова или заново войдите через Telegram.",
     subscription: "Подписка",
     authorAccessRequired: "Подписка «Автор» открывает создание историй. Сейчас доступно тестовое оформление без оплаты.",
@@ -170,7 +173,7 @@ const translations = {
     telegramLoginUnavailable: "Вход через Telegram временно недоступен. Попробуйте позже.",
     passkeyUnavailable: "Вход по passkey недоступен в этом браузере",
     passkeySettingsTitle: "Безопасный вход",
-    passkeySettingsHint: "Добавьте Touch ID, Face ID, Windows Hello или ключ безопасности для входа без email-ссылки.",
+    passkeySettingsHint: "Добавьте Touch ID, Face ID, Windows Hello или ключ безопасности для входа без ссылки из Telegram.",
     passkeyNameLabel: "Название устройства",
     passkeyNamePlaceholder: "Мой телефон",
     passkeyRegister: "Добавить passkey",
@@ -192,7 +195,7 @@ const translations = {
     passkeyCredentialMissing: "Браузер не вернул passkey. Повторите попытку и завершите подтверждение Face ID, Touch ID или ключом безопасности.",
     passkeyAlreadyRegistered: "Этот passkey уже добавлен. Используйте другое устройство или удалите старый passkey в настройках.",
     passkeyNudgeTitle: "Добавьте быстрый вход",
-    passkeyNudgeText: "Привяжите passkey после первого входа, чтобы дальше входить без email-ссылок.",
+    passkeyNudgeText: "Привяжите passkey после первого входа, чтобы дальше входить без ссылки из Telegram.",
     passkeyNudgeOpen: "Открыть настройки",
     passkeyNudgeLater: "Позже",
     adminSummary: "Админка истории",
@@ -262,10 +265,14 @@ const translations = {
     importFirst: "Сначала импортируйте историю.",
     errorPrefix: "Ошибка: {message}",
     cookieBannerTitle: "Мы используем cookie",
-    cookieBannerText: "Cookie используются для входа, сохранения сессии и подсчёта просмотров историй.",
+    cookieBannerText: "Cookie поддерживают вход и сессию. Настройки и гостевой прогресс сохраняются в браузере. Подробнее об этих данных — в политике.",
     cookieAccept: "Понятно",
   },
   en: {
+    closeControl: "Close", previousStories: "Previous stories", nextStories: "Next stories",
+    mainNavigation: "Main navigation", storyCatalog: "Story catalog", storyPages: "Story pages",
+    gameActions: "Story actions", languageSwitcher: "Language selection", sceneRegion: "Read story",
+    tableOfContents: "Table of contents", privacyFull: "Personal data privacy policy", consentFull: "Consent to personal data processing",
     myStories: "My stories", moderationButton: "Moderation",
     viewsLabel: "Views", ratingLabel: "Rating", rateStory: "Your rating:", noRatings: "No ratings yet",
     genreUnknown: "No genre", favoritesOnly: "Favorites", addFavorite: "Add to favorites", removeFavorite: "Remove from favorites",
@@ -295,7 +302,7 @@ const translations = {
     homeProfileGuestLabel: "Sign in",
     homeProfileAccountLabel: "Open account",
     authModalTitle: "Start exploring the story",
-    authModalText: "You can browse story cards now. After sign-in you can play stories, save progress, and access the full library.",
+    authModalText: "You can read three demo stories without signing in. Sign in with Telegram to access the full library and save your progress. If you have already added a passkey, you can use it to sign in.",
     settingsModalTitle: "Settings",
     settingsLanguage: "Language",
     settingsSound: "Sound",
@@ -304,7 +311,6 @@ const translations = {
     notificationsHint: "Notifications are available in your account. Push notifications are coming later.",
     settingsSupport: "Support",
     settingsPasskey: "Add passkey",
-    supportSoon: "Support contact details will appear here soon.",
     settingsPasskeyFailed: "Could not add a passkey. Try again or sign in again through Telegram.",
     subscription: "Subscription",
     authorAccessRequired: "An Author subscription unlocks story creation. Test checkout is currently available without payment.",
@@ -333,7 +339,7 @@ const translations = {
     telegramLoginUnavailable: "Telegram sign-in is temporarily unavailable. Please try again later.",
     passkeyUnavailable: "Passkeys are unavailable in this browser or the connection is not secure.",
     passkeySettingsTitle: "Secure sign-in",
-    passkeySettingsHint: "Add Touch ID, Face ID, Windows Hello, or a security key to sign in without an email link.",
+    passkeySettingsHint: "Add Touch ID, Face ID, Windows Hello, or a security key to sign in without a Telegram link.",
     passkeyNameLabel: "Device name",
     passkeyNamePlaceholder: "My phone",
     passkeyRegister: "Add passkey",
@@ -355,7 +361,7 @@ const translations = {
     passkeyCredentialMissing: "The browser did not return a passkey. Try again and complete the Face ID, Touch ID, or security key prompt.",
     passkeyAlreadyRegistered: "This passkey is already added. Use another device or remove the old passkey in settings.",
     passkeyNudgeTitle: "Add quick sign-in",
-    passkeyNudgeText: "Bind a passkey after your first sign-in to continue without email links.",
+    passkeyNudgeText: "Bind a passkey after your first sign-in to sign in without a Telegram link.",
     passkeyNudgeOpen: "Open settings",
     passkeyNudgeLater: "Later",
     adminSummary: "Story admin",
@@ -425,7 +431,7 @@ const translations = {
     importFirst: "Import a story first.",
     errorPrefix: "Error: {message}",
     cookieBannerTitle: "We use cookies",
-    cookieBannerText: "Cookies are used for sign-in, session storage, and counting story views.",
+    cookieBannerText: "Cookies keep you signed in. Settings and guest progress are stored in your browser. Read the policy for details about this data.",
     cookieAccept: "Got it",
   },
 };
@@ -594,6 +600,10 @@ function applyTranslations() {
   document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
     node.placeholder = t(node.dataset.i18nPlaceholder);
   });
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((node) => {
+    node.setAttribute("aria-label", t(node.dataset.i18nAriaLabel));
+  });
+  updateSiteControlsLanguage();
   updateLanguageButtons();
   catalogSelect.refresh();
   homeSearchInput.setAttribute("aria-label", t("homeSearchLabel"));
@@ -614,6 +624,7 @@ function setLanguage(language) {
   currentLanguage = language === "en" ? "en" : "ru";
   storage.setLanguage(currentLanguage);
   applyTranslations();
+  accountUI.refresh();
   updateSoundLabel();
   if (!document.querySelector("#collection-screen")?.classList.contains("hidden")) {
     collectionReader.refresh();
@@ -2188,11 +2199,8 @@ document.querySelectorAll("[data-modal-close]").forEach((node) => {
   node.addEventListener("click", closeModals);
 });
 document.querySelector("#demo-welcome-register").addEventListener("click", openAuthModal);
-function toggleModalLanguage() {
-  setLanguage(currentLanguage === "ru" ? "en" : "ru");
-}
-modalLangRuButton.addEventListener("click", toggleModalLanguage);
-modalLangEnButton.addEventListener("click", toggleModalLanguage);
+modalLangRuButton.addEventListener("click", () => setLanguage("ru"));
+modalLangEnButton.addEventListener("click", () => setLanguage("en"));
 modalSoundToggle.addEventListener("click", () => {
   toggleSoundPreference();
 });
@@ -2206,7 +2214,7 @@ modalNotificationsToggle.addEventListener("click", () => {
   modalNotificationsToggle.setAttribute("aria-checked", String(enabled));
 });
 document.querySelector("#modal-support").addEventListener("click", () => {
-  modalSettingsStatus.textContent = t("supportSoon");
+  window.location.assign("/terms.html#contacts");
 });
 modalPasskeyButton.addEventListener("click", async () => {
   if (!storage.email) {
@@ -2253,8 +2261,12 @@ document.addEventListener("keydown", (event) => {
     if (modal === storyDetailScreen) closeStoryDetail();
     else closeModals();
   } else if (event.key === "Tab") {
-    const controls = [...modal.querySelectorAll("button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex='0']")]
-      .filter(node => node.getClientRects().length > 0);
+    const controls = [...modal.querySelectorAll("button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex='0'], summary")]
+      .filter(node => {
+        const closed = node.closest("details:not([open])");
+        return node.tabIndex >= 0 && node.getClientRects().length > 0
+          && (!closed || closed.querySelector(":scope > summary")?.contains(node));
+      });
     const first = controls[0];
     const last = controls.at(-1);
     if (event.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {

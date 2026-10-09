@@ -1,11 +1,12 @@
 import { canEditStories, filterAfterSubmit, storyLabels, workflowLabel } from "../story-workflow.js?v=1";
 import { reviewLimitMessage } from "../review-limit.js?v=1";
-import { decorateHelp, helpButton, helpTopics } from "./help.js?v=3";
+import { decorateHelp, helpButton, helpTopics } from "./help.js?v=4";
 
 import { initChapterTabs } from "./chapter-panel.js?v=1";
 import { genres, topics, fillClassification } from "./genre-topic.js?v=1";
 const selectChapterTab = initChapterTabs(document.querySelector("#chapter-workspace"));
 let chapterParent = null;
+const sceneTextControls = new WeakMap();
 
 const els = {
   runtimeUrl: document.querySelector("#runtime-url"),
@@ -47,6 +48,7 @@ const translations = {
     importJsonFile: "Импорт JSON-файла",
     pasteJson: "Вставить JSON",
     clearDraft: "Очистить черновик",
+    localDraftSaveFailed: "Не удалось сохранить черновик на этом устройстве. Изменения остаются в открытой вкладке. Скачайте JSON или сохраните главу на сервере перед закрытием.",
     backToSite: "На главную",
     invalidJson: "Не удалось открыть JSON: {message}",
     draftChanged: "История или сервер изменились во время операции. Действие остановлено; повторите его для нужной истории.",
@@ -226,6 +228,7 @@ const translations = {
     importJsonFile: "Import JSON File",
     pasteJson: "Paste JSON",
     clearDraft: "Clear draft",
+    localDraftSaveFailed: "The draft could not be saved on this device. Your changes remain in this tab. Download JSON or save the chapter to the server before closing it.",
     backToSite: "Home",
     invalidJson: "Could not open JSON: {message}",
     draftChanged: "The story or server changed during the operation. It was stopped; retry for the intended story.",
@@ -401,7 +404,7 @@ const authorStorageKey = "fraerapp.storyBuilderAuthor";
 const collapseStateKey = "fraerapp.storyBuilderCollapseState";
 const outlineStateKey = "fraerapp.storyBuilderOutlineState";
 const runtimeUrlStorageKey = "fraerapp.storyBuilderRuntimeUrl";
-let currentLanguage = localStorage.getItem(languageKey) || "ru";
+let currentLanguage = readLocalStorage(languageKey) || "ru";
 let collapseState = loadCollapseState();
 let outlineState = loadOutlineState();
 let lastAppliedHash = "";
@@ -421,15 +424,16 @@ let authorSession = null;
 let authorHomeCache = null;
 let authorFilter = "all";
 let builderWorkflowBusy = false;
+let draftStorageFailed = false;
 
 els.runtimeUrl.value = initialRuntimeUrl();
-localStorage.setItem(runtimeUrlStorageKey, els.runtimeUrl.value);
+writeLocalStorage(runtimeUrlStorageKey, els.runtimeUrl.value);
 els.runtimeUrl.addEventListener("input", () => {
-  localStorage.setItem(runtimeUrlStorageKey, els.runtimeUrl.value);
+  writeLocalStorage(runtimeUrlStorageKey, els.runtimeUrl.value);
 });
 
 function initialRuntimeUrl() {
-  const stored = localStorage.getItem(runtimeUrlStorageKey);
+  const stored = readLocalStorage(runtimeUrlStorageKey);
   const fallback = defaultRuntimeUrl();
   if (window.location.pathname.startsWith("/builder") && isLocalRuntimeUrl(stored)) {
     return fallback;
@@ -585,6 +589,7 @@ function endingScene(id, title, text, background, endingType, endingTitle) {
 }
 
 function applyTranslations() {
+  document.querySelector(".floating-tools").setAttribute("aria-label", currentLanguage === "en" ? "Quick builder actions" : "Быстрые действия конструктора");
   document.documentElement.lang = currentLanguage;
   document.title = t("pageTitle");
   document.querySelectorAll("[data-i18n]").forEach((node) => {
@@ -596,7 +601,7 @@ function applyTranslations() {
 
 function setLanguage(language) {
   currentLanguage = language === "en" ? "en" : "ru";
-  localStorage.setItem(languageKey, currentLanguage);
+  writeLocalStorage(languageKey, currentLanguage);
   draft = localizeDraftDefaults(draft);
   applyTranslations();
   render();
@@ -740,6 +745,7 @@ function setActiveContext(node) {
 
 function revealActiveOutline(link) {
   if (!link) return;
+  const ownFolder = link.closest(".outline-folder")?.querySelector(":scope > .tree-folder");
   link.closest(".tree-folder")?.classList.add("is-active-branch");
   link.closest(".outline-tree")?.querySelectorAll(".tree-folder.is-active-branch").forEach((folder) => {
     if (!folder.contains(link)) folder.classList.remove("is-active-branch");
@@ -755,6 +761,7 @@ function revealActiveOutline(link) {
     }
     parent = parent.parentElement;
   }
+  if (ownFolder) { ownFolder.open = true; ownFolder.classList.add("is-active-branch"); }
   const scroller = link.closest(".outline-tree");
   if (!scroller) return;
   const linkRect = link.getBoundingClientRect();
@@ -1565,10 +1572,13 @@ function textarea(value, onChange, rows = 3) {
 
 function sceneTextField(scene) {
   const wrap = div("field-wide variable-text-field");
-  const label = document.createElement("span");
+  const label = document.createElement("label");
   label.className = "field-label";
   label.textContent = t("textLabel");
   const control = textarea(scene.text, (value) => (scene.text = value), 4);
+  control.id = `scene-text-${draft.scenes.indexOf(scene)}`;
+  label.htmlFor = control.id;
+  sceneTextControls.set(scene, control);
   const tools = div("variable-insert-tools");
   const names = draft.variables.map((variable) => variable.name).filter(Boolean);
   if (!names.length) {
@@ -1858,14 +1868,16 @@ function collapsibleItem({ title, subtitle, key, onRemove, entityKind = "", enti
   const state = document.createElement("span");
   state.className = "summary-state";
   state.textContent = details.open ? t("expandedHint") : t("collapsedHint");
-  actions.append(state, summaryRemoveButton(onRemove));
+  actions.append(state);
 
   details.addEventListener("toggle", () => {
     state.textContent = details.open ? t("expandedHint") : t("collapsedHint");
   });
 
   summary.append(text, actions);
-  details.append(summary);
+  const tools = div("collapsible-tools");
+  tools.append(summaryRemoveButton(onRemove));
+  details.append(summary, tools);
   return details;
 }
 
@@ -2030,6 +2042,12 @@ function rememberVariableName(variable, name) {
 }
 
 function renameVariableReferencesInScene(scene, oldName, nextName) {
+  if (typeof scene.text === "string") {
+    scene.text = scene.text.replace(/(\{\{\s*)([^{}\s]+)(\s*}})/g, (placeholder, open, name, close) =>
+      name === oldName ? `${open}${nextName}${close}` : placeholder);
+    const control = sceneTextControls.get(scene);
+    if (control?.isConnected) control.value = scene.text;
+  }
   renameVariableReferences(scene.effects || [], oldName, nextName);
   (scene.choices || []).forEach((choice) => {
     (choice.conditions || []).forEach((condition) => {
@@ -2134,8 +2152,24 @@ function bindDraftStory(storyId, savedDocument = null, revision = null) {
 }
 
 function saveDraft() {
-  localStorage.setItem(storageKey, JSON.stringify(draft));
+  draftStorageFailed = !writeLocalStorage(storageKey, JSON.stringify(draft));
+  const warning = document.querySelector("#local-draft-warning");
+  warning.hidden = !draftStorageFailed;
+  warning.textContent = draftStorageFailed ? t("localDraftSaveFailed") : "";
   renderAuthorWorkspace();
+  return !draftStorageFailed;
+}
+
+function readLocalStorage(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function writeLocalStorage(key, value) {
+  try { localStorage.setItem(key, value); return true; } catch { return false; }
+}
+
+function removeLocalStorage(key) {
+  try { localStorage.removeItem(key); return true; } catch { return false; }
 }
 
 function hasUnsavedChanges() {
@@ -2149,7 +2183,7 @@ function updateServerDraftState() {
 
 function loadDraft() {
   try {
-    const raw = localStorage.getItem(storageKey);
+    const raw = readLocalStorage(storageKey);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -2161,9 +2195,9 @@ function saveAuthorSession(session) {
   authorSession = session;
   els.authorName.value = session?.email || "";
   if (session) {
-    localStorage.setItem(authorStorageKey, JSON.stringify(session));
+    writeLocalStorage(authorStorageKey, JSON.stringify(session));
   } else {
-    localStorage.removeItem(authorStorageKey);
+    removeLocalStorage(authorStorageKey);
   }
   renderAuthorWorkspace();
   updateAuthorGate();
@@ -2171,7 +2205,7 @@ function saveAuthorSession(session) {
 
 function loadAuthorSession() {
   try {
-    const raw = localStorage.getItem(authorStorageKey);
+    const raw = readLocalStorage(authorStorageKey);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -2179,12 +2213,12 @@ function loadAuthorSession() {
 }
 
 function saveCollapseState() {
-  localStorage.setItem(collapseStateKey, JSON.stringify(collapseState));
+  writeLocalStorage(collapseStateKey, JSON.stringify(collapseState));
 }
 
 function loadCollapseState() {
   try {
-    const raw = localStorage.getItem(collapseStateKey);
+    const raw = readLocalStorage(collapseStateKey);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -2197,12 +2231,12 @@ function outlineOpenState(key, fallback) {
 
 function saveOutlineOpenState(key, open) {
   outlineState[key] = Boolean(open);
-  localStorage.setItem(outlineStateKey, JSON.stringify(outlineState));
+  writeLocalStorage(outlineStateKey, JSON.stringify(outlineState));
 }
 
 function loadOutlineState() {
   try {
-    const raw = localStorage.getItem(outlineStateKey);
+    const raw = readLocalStorage(outlineStateKey);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -2382,13 +2416,14 @@ const panelWords = {
   saveHint: ['Сохранённая на сервере глава доступна с других устройств.', 'A chapter saved on the server is available on other devices.'],
   checkHint: ['Проверяем текущий JSON: сцены, переменные и переходы. Изменения сохранять не обязательно.', 'Check the current JSON: scenes, variables and transitions. Saving is not required.'],
   checkNote: ['Это проверка структуры, а не литературного текста. Полная серверная проверка выполняется перед отправкой модератору.', 'This checks structure, not literary quality. Full server validation runs before submission.'],
-  publicationHint: ['После одобрения модератором глава станет доступна читателям.', 'Readers can access the chapter after moderator approval.'],
+  publicationHint: ['Глава станет доступна читателям после одобрения и публикации модератором.', 'Readers can access the chapter after a moderator approves and publishes it.'],
   submitHint: ['Перед отправкой проверим главу и сохраним изменения. На модерации может быть одна ваша история с её главами.', 'We will check and save the chapter. Only one of your stories and its chapters can be under review at a time.'],
   previewHint: ['Текущий текст и варианты выборов. Это просмотр сцен, без прохождения и сохранения прогресса.', 'Current text and choices. This is a scene preview without playthrough or saved progress.'],
 };
 
 function renderAuthorWorkspace(home = authorHomeCache) {
   const en = currentLanguage === "en";
+  document.querySelector('.chapter-tabs').setAttribute('aria-label', en ? 'Chapter workspace' : 'Работа с главой');
   document.querySelectorAll('[data-panel-text]').forEach(node => {
     node.textContent = panelWords[node.dataset.panelText][en ? 1 : 0];
   });
@@ -2632,16 +2667,18 @@ function renderProjectOutlineExplorer() {
   els.sceneOutline.classList.add("outline-tree");
   const scenesRoot = outlineFolder("scenes", true, t("scenePackagesTitle"), contextId("scene-root"), 0);
   draft.scenes.forEach((scene, sceneIndex) => {
-    const folder = outlineFolder(`scene:${sceneIndex}:${scene.id || sceneIndex}`, true);
+    const label = `${sceneIndex + 1}. ${scene.title || scene.id || t("sceneDefaultTitle")}`;
+    const folder = outlineFolder(`scene:${sceneIndex}:${scene.id || sceneIndex}`, true, label);
+    folder.classList.add("has-outline-moves");
     const row = div("tree-row");
     row.append(
-      outlineButton(`${sceneIndex + 1}. ${scene.title || scene.id || t("sceneDefaultTitle")}`, contextId("scene", sceneIndex, scene.id || sceneIndex), 0, () => focusEntity("scene", scene.id || `${sceneIndex}`)),
+      outlineButton(label, contextId("scene", sceneIndex, scene.id || sceneIndex), 0, () => focusEntity("scene", scene.id || `${sceneIndex}`)),
       outlineMoveButton("↑", t("moveUp"), () => moveScene(sceneIndex, -1), sceneIndex === 0),
       outlineMoveButton("↓", t("moveDown"), () => moveScene(sceneIndex, 1), sceneIndex === draft.scenes.length - 1),
     );
-    folder.querySelector("summary").append(row);
-    folder.append(explorerSceneChildren(scene, sceneIndex));
-    scenesRoot.append(folder);
+    folder.querySelector(".outline-folder-tools").replaceChildren(row);
+    appendOutlineContent(folder, explorerSceneChildren(scene, sceneIndex));
+    appendOutlineContent(scenesRoot, folder);
   });
   els.sceneOutline.append(scenesRoot);
 }
@@ -2651,7 +2688,7 @@ function renderGlobalOutlineFolder(container, key, label, items) {
   container.classList.add("outline-tree");
   const folder = outlineFolder(key, true, label, items[0]?.contextId || "", 0);
   items.forEach((item) => {
-    folder.append(outlineLeaf(item.label, item.contextId, 1, () => focusEntity(item.kind, item.id)));
+    appendOutlineContent(folder, outlineLeaf(item.label, item.contextId, 1, () => focusEntity(item.kind, item.id)));
   });
   container.append(folder);
 }
@@ -2696,7 +2733,7 @@ function explorerSceneChildren(scene, sceneIndex) {
       contextId("scene", sceneIndex, "choice", choiceIndex, choice.id || choiceIndex),
       2,
     );
-    choiceFolder.append(explorerFolderWithLeaves(
+    appendOutlineContent(choiceFolder, explorerFolderWithLeaves(
       `scene:${sceneIndex}:choice:${choiceIndex}:conditions`,
       t("conditionsTitle"),
       contextId("scene", sceneIndex, "choice", choiceIndex, "conditions"),
@@ -2706,7 +2743,7 @@ function explorerSceneChildren(scene, sceneIndex) {
       })),
       2,
     ));
-    choiceFolder.append(explorerFolderWithLeaves(
+    appendOutlineContent(choiceFolder, explorerFolderWithLeaves(
       `scene:${sceneIndex}:choice:${choiceIndex}:effects`,
       t("choiceEffects"),
       contextId("scene", sceneIndex, "choice", choiceIndex, "effects"),
@@ -2716,7 +2753,7 @@ function explorerSceneChildren(scene, sceneIndex) {
       })),
       2,
     ));
-    choices.append(choiceFolder);
+    appendOutlineContent(choices, choiceFolder);
   });
   children.append(choices);
   return children;
@@ -2724,21 +2761,34 @@ function explorerSceneChildren(scene, sceneIndex) {
 
 function explorerFolderWithLeaves(key, label, targetContextId, leaves, depth = 1) {
   const folder = outlineFolder(key, false, label, targetContextId, depth);
-  leaves.forEach((leaf) => folder.append(outlineLeaf(leaf.label, leaf.context, Math.min(depth + 1, 2))));
+  leaves.forEach((leaf) => appendOutlineContent(folder, outlineLeaf(leaf.label, leaf.context, Math.min(depth + 1, 2))));
   return folder;
 }
 
 function outlineFolder(key, defaultOpen = false, label = "", targetContextId = "", depth = 0) {
+  const wrap = div("outline-folder");
   const folder = document.createElement("details");
   folder.className = "tree-folder";
   folder.open = outlineOpenState(key, defaultOpen);
   folder.ontoggle = () => saveOutlineOpenState(key, folder.open);
   const summary = document.createElement("summary");
+  summary.setAttribute("aria-label", label);
+  const caption = document.createElement("span");
+  caption.className = `outline-link depth-${depth} outline-summary-caption`;
+  caption.textContent = label;
+  caption.setAttribute("aria-hidden", "true");
+  summary.append(caption);
+  const tools = div("outline-folder-tools");
   if (label) {
-    summary.append(outlineButton(label, targetContextId, depth));
+    tools.append(outlineButton(label, targetContextId, depth));
   }
   folder.append(summary);
-  return folder;
+  wrap.append(folder, tools);
+  return wrap;
+}
+
+function appendOutlineContent(folder, content) {
+  folder.querySelector(":scope > .tree-folder").append(content);
 }
 
 function outlineLeaf(label, targetContextId, depth = 0, fallback = null) {
@@ -2753,6 +2803,7 @@ function outlineMoveButton(label, title, onClick, disabled) {
     onClick();
   }, "secondary small outline-move");
   control.title = title;
+  control.setAttribute("aria-label", title);
   control.disabled = disabled;
   return control;
 }
@@ -2895,7 +2946,7 @@ document.querySelector("#apply-paste").onclick = () => {
 };
 
 document.querySelector("#clear-draft").onclick = () => {
-  localStorage.removeItem(storageKey);
+  removeLocalStorage(storageKey);
   draft = emptyDraft();
   render();
 };
@@ -2909,7 +2960,7 @@ document.querySelector('#preview-chapter').onclick = () => {
     const title = document.createElement('h3'); title.textContent = scene.title || scene.id;
     const text = document.createElement('p'); text.className = 'chapter-prose'; text.textContent = scene.text;
     card.append(title, text);
-    for (const choice of scene.choices) { const row = document.createElement('p'); row.textContent = `${choice.text} → ${choice.target}`; card.append(row); }
+    for (const choice of scene.choices) { const row = document.createElement('p'); row.textContent = `${choice.label} → ${choice.target}`; card.append(row); }
     host.append(card);
   }
   document.querySelector('#chapter-preview-dialog').showModal();

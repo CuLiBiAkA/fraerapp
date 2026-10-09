@@ -3,7 +3,7 @@ body:has(#story-screen:not(.hidden)) {
   --library-unit: clamp(.65px, min(.069444vw, .097656svh), 1px);
   display: flex; flex-direction: column; min-height: 100svh;
   color: #fee3e2;
-  background: #33214a url('/assets/home/cosmos.png') right top / cover no-repeat;
+  background: #33214a url('/assets/home/cosmos.webp') right top / cover no-repeat;
   background-attachment: fixed;
 }
 body:has(#story-screen:not(.hidden)) .game { flex: 1; min-height: 0; }
@@ -21,18 +21,19 @@ body:has(#story-screen:not(.hidden)) .top-actions { display: none; }
 #story-screen .catalog-header { display: block; margin: 0; padding: 0; border: 0; }
 #story-screen .catalog-header > div:first-child { display: block; }
 #story-screen .eyebrow { margin: 0 0 calc(9 * var(--library-unit)); color: inherit; letter-spacing: 0; text-transform: none; font: 700 calc(28 * var(--library-unit))/calc(59 * var(--library-unit)) "Playfair Display SC", Georgia, serif; }
-#story-screen h1 { margin: 0; color: inherit; font: 700 calc(46 * var(--library-unit))/calc(65 * var(--library-unit)) "Playfair Display SC", Georgia, serif; }
+#story-screen h1 { margin: 0; color: inherit; overflow-wrap: anywhere; font: 700 calc(46 * var(--library-unit))/1.42 "Playfair Display SC", Georgia, serif; }
 #story-screen .catalog-header p:not(.eyebrow) { max-width: 820px; margin: calc(19 * var(--library-unit)) 0 0; color: inherit; font-size: max(16px, calc(22 * var(--library-unit))); line-height: calc(46 * var(--library-unit)); white-space: pre-line; }
-#story-screen .catalog-tools { width: min(calc(906 * var(--library-unit)), 100%); grid-template-columns: minmax(0, 1fr) minmax(240px, max-content); gap: calc(28 * var(--library-unit)); margin-top: calc(18 * var(--library-unit)); align-items: end; }
+#story-screen .catalog-tools { width: min(calc(906 * var(--library-unit)), 100%); grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: calc(28 * var(--library-unit)); margin-top: calc(18 * var(--library-unit)); align-items: end; }
+#story-screen .catalog-tools > div, #story-screen .filter-select { min-width: 0; }
 #story-screen .catalog-tools label { margin-bottom: calc(17 * var(--library-unit)); color: inherit; font-size: max(16px, calc(22 * var(--library-unit))); line-height: calc(46 * var(--library-unit)); font-weight: 400; }
 #story-screen .catalog-tools input, #story-screen .filter-select-trigger {
   width: 100%; min-height: max(44px, calc(55 * var(--library-unit))); padding: 8px 18px;
   border: 1px solid #ffffff; border-radius: 32px; background: #33214ac2; color: #fee3e2;
   font-size: max(16px, calc(22 * var(--library-unit))); font-weight: 400; box-shadow: none;
 }
-#story-screen #story-search { padding-right: 72px; font-size: max(16px, calc(18 * var(--library-unit))); background: #33214ac2 url('/assets/home/search-neon.png') right 20px center / 40px 40px no-repeat; }
+#story-screen #story-search { padding-right: 72px; font-size: max(16px, calc(18 * var(--library-unit))); background: #33214ac2 url('/assets/home/search-neon.webp') right 20px center / 40px 40px no-repeat; }
 #story-screen #story-search::placeholder { color: #fee3e2c9; }
-#story-screen .filter-select-trigger { display: flex; align-items: center; justify-content: space-between; text-align: left; gap: 16px; white-space: nowrap; }
+#story-screen .filter-select-trigger { display: flex; align-items: center; justify-content: space-between; text-align: left; gap: 16px; white-space: normal; overflow-wrap: anywhere; }
 #story-screen select[hidden] { display: none; }
 #story-screen .catalog-main { margin-top: calc(73 * var(--library-unit)); }
 #story-screen .story-list .catalog-empty { display: grid; place-items: center; grid-template-rows: auto; height: auto; min-height: 120px; padding: 24px; text-align: center; line-height: 1.5; }
@@ -65,7 +66,7 @@ body:has(#story-screen:not(.hidden)) .site-footer a { color: inherit; }
 @media (max-width: 700px) {
   #story-screen { padding: 18px 20px 32px; }
   .library-nav { gap: 12px; margin-bottom: 24px; }
-  #story-screen .catalog-tools { grid-template-columns: 1fr; gap: 14px; }
+  #story-screen .catalog-tools { grid-template-columns: minmax(0, 1fr); gap: 14px; }
   #story-screen h1 { font-size: clamp(27px, 6vw, 34px); }
   #story-screen .story-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
   #story-screen .story-list .story-card { height: 220px; border-radius: 20px; }

@@ -10,10 +10,11 @@ export function createAccountUI({ request, email, language }) {
       button.classList.add('account-icon');
       button.classList.toggle('account-signed', signed);
       button.classList.toggle('account-unread', signed && Boolean(account?.unreadCount));
-      button.querySelector('img').src = '/assets/home/account-neon.png';
+      button.querySelector('img').src = '/assets/home/account-neon.webp';
       button.setAttribute('aria-label', signed
         ? (account?.unreadCount ? (ru() ? `Аккаунт: ${account.unreadCount} непрочитанных уведомлений` : `Account: ${account.unreadCount} unread notifications`) : (ru() ? 'Открыть аккаунт' : 'Open account'))
         : (ru() ? 'Войти в профиль' : 'Sign in'));
+      button.title = button.getAttribute('aria-label');
     }
     document.querySelector('#profile-notification-title').textContent = (ru() ? 'Уведомления' : 'Notifications') + (account?.unreadCount ? ` (${account.unreadCount})` : '');
     notices.replaceChildren();

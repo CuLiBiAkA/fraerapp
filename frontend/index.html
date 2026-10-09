@@ -11,24 +11,24 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://fraerapp.ru/">
     <link rel="stylesheet" href="/styles.css?v=game-25">
-    <link rel="stylesheet" href="/home.css?v=cosmos-34">
+    <link rel="stylesheet" href="/home.css?v=cosmos-35">
     <link rel="stylesheet" href="/account-ui.css?v=2">
-    <link rel="stylesheet" href="/library.css?v=9">
-    <link rel="stylesheet" href="/story-cards.css?v=6">
+    <link rel="stylesheet" href="/library.css?v=10">
+    <link rel="stylesheet" href="/story-cards.css?v=7">
     <link rel="stylesheet" href="/typography.css?v=1">
-    <link rel="stylesheet" href="/loading.css?v=2">
+    <link rel="stylesheet" href="/loading.css?v=3">
   <link rel="stylesheet" href="/story-dialog.css?v=5">
   <link rel="stylesheet" href="/collections.css?v=3">
-    <link rel="stylesheet" href="/site-controls.css?v=5">
-  <link rel="stylesheet" href="/reader.css?v=4">
+    <link rel="stylesheet" href="/site-controls.css?v=6">
+  <link rel="stylesheet" href="/reader.css?v=5">
   </head>
   <body>
     <main class="game">
       <div id="app-notice" class="app-notice hidden" role="alert">
         <span id="app-notice-text"></span>
-        <button id="app-notice-close" type="button" aria-label="Закрыть">×</button>
+        <button id="app-notice-close" type="button" aria-label="Закрыть" data-i18n-aria-label="closeControl">×</button>
       </div>
-      <div class="top-actions" aria-label="Game actions">
+      <div class="top-actions" aria-label="Действия с историей" data-i18n-aria-label="gameActions">
         <div class="top-group top-group-session">
           <button id="menu-button" type="button" class="secondary hidden" data-i18n="menuButton">Stories</button>
           <button id="settings-button" type="button" class="secondary hidden" data-i18n="settingsButton">Настройки</button>
@@ -41,7 +41,7 @@
             <input id="volume-slider" type="range" min="0" max="100" step="1" value="45">
           </div>
         </div>
-        <div class="top-group language-actions" aria-label="Language switcher">
+        <div class="top-group language-actions" aria-label="Выбор языка" data-i18n-aria-label="languageSwitcher">
           <button id="lang-ru" type="button" class="secondary">RU</button>
           <button id="lang-en" type="button" class="secondary">EN</button>
         </div>
@@ -50,7 +50,7 @@
       <section id="auth-loading-screen" class="auth-loading-screen" role="status" aria-live="polite" aria-label="FraerApp">
         <div class="auth-loading-card">
           <div class="fairy-stage" aria-hidden="true">
-            <div class="fairy-flight"><img class="loading-fairy" src="/assets/home/loading-fairy.png" alt="" width="512" height="512"></div>
+            <div class="fairy-flight"><img class="loading-fairy" src="/assets/home/loading-fairy.webp" alt="" width="512" height="512"></div>
             <div class="fairy-ring">
               <i style="--spark:0"></i><i style="--spark:1"></i><i style="--spark:2"></i><i style="--spark:3"></i>
               <i style="--spark:4"></i><i style="--spark:5"></i><i style="--spark:6"></i><i style="--spark:7"></i>
@@ -64,18 +64,18 @@
 
       <section id="login-screen" class="home-screen hidden" aria-label="FraerApp">
         <header class="home-header">
-          <nav class="home-nav" aria-label="Главное меню">
+          <nav class="home-nav" aria-label="Главное меню" data-i18n-aria-label="mainNavigation">
             <form id="home-search-form" class="home-search-button" role="search">
               <input id="home-search-input" type="search" aria-label="Поиск историй" autocomplete="off">
               <button id="home-search" class="icon-button" type="submit" aria-label="Поиск историй">
-                <img src="/assets/home/search-neon.png" width="40" height="40" alt="">
+                <img src="/assets/home/search-neon.webp" width="40" height="40" alt="">
               </button>
             </form>
             <button id="home-settings" class="icon-button" type="button" aria-label="Настройки">
-              <img src="/assets/home/settings-neon.png" width="48" height="48" alt="">
+              <img src="/assets/home/settings-neon.webp" width="48" height="48" alt="">
             </button>
             <button id="home-profile" class="icon-button profile-button is-guest" type="button" aria-label="Войти в профиль">
-              <img src="/assets/home/account-neon.png" width="48" height="48" alt="">
+              <img src="/assets/home/account-neon.webp" width="48" height="48" alt="">
             </button>
           </nav>
         </header>
@@ -90,11 +90,11 @@
         </div>
 
         <section class="home-carousel" aria-label="Истории">
-          <button id="home-prev" class="carousel-arrow carousel-arrow-prev" type="button" aria-label="Предыдущие истории"><img src="/assets/home/arrow-neon.png" width="48" height="64" alt=""></button>
+          <button id="home-prev" class="carousel-arrow carousel-arrow-prev" type="button" aria-label="Предыдущие истории" data-i18n-aria-label="previousStories"><img src="/assets/home/arrow-neon.webp" width="48" height="64" alt=""></button>
           <div class="home-carousel-window">
             <div id="home-stories" class="home-story-track"></div>
           </div>
-          <button id="home-next" class="carousel-arrow carousel-arrow-next" type="button" aria-label="Следующие истории"><img src="/assets/home/arrow-neon.png" width="48" height="64" alt=""></button>
+          <button id="home-next" class="carousel-arrow carousel-arrow-next" type="button" aria-label="Следующие истории" data-i18n-aria-label="nextStories"><img src="/assets/home/arrow-neon.webp" width="48" height="64" alt=""></button>
         </section>
         <div class="home-catalog-links">
           <a id="home-all-stories" href="/history" data-i18n="homeAllStories" class="hidden">Все истории</a>
@@ -102,11 +102,11 @@
         <p id="home-search-status" class="home-search-status" role="status" aria-live="polite"></p>
       </section>
 
-      <section id="story-screen" class="catalog-screen hidden" aria-label="Stories">
+      <section id="story-screen" class="catalog-screen hidden" aria-label="Выберите историю" data-i18n-aria-label="storyScreenTitle">
         <nav class="library-nav" aria-label="Меню библиотеки">
         <a class="public-home-link" href="/" data-i18n="backHome">← На главную</a>
-          <button id="library-settings" type="button" aria-label="Настройки"><img src="/assets/home/settings-neon.png" width="48" height="48" alt=""></button>
-          <button id="library-profile" type="button" aria-label="Аккаунт"><img src="/assets/home/account-neon.png" width="48" height="48" alt=""></button>
+          <button id="library-settings" type="button" aria-label="Настройки"><img src="/assets/home/settings-neon.webp" width="48" height="48" alt=""></button>
+          <button id="library-profile" type="button" aria-label="Аккаунт"><img src="/assets/home/account-neon.webp" width="48" height="48" alt=""></button>
         </nav>
         <header class="catalog-header">
           <div>
@@ -133,10 +133,10 @@
           </div>
         </header>
 
-        <section class="catalog-main" aria-label="Story catalog">
+        <section class="catalog-main" aria-label="Каталог историй" data-i18n-aria-label="storyCatalog">
           <section id="collection-catalog" class="collections-panel" aria-label="Произведения с оглавлением"></section>
           <div id="stories" class="story-list"></div>
-          <div id="story-pagination" class="pagination hidden" aria-label="Story pages">
+          <div id="story-pagination" class="pagination hidden" aria-label="Страницы историй" data-i18n-aria-label="storyPages">
             <button id="stories-prev" type="button" class="secondary" data-i18n="prevPage">Назад</button>
             <span id="stories-page"></span>
             <button id="stories-next" type="button" class="secondary" data-i18n="nextPage">Далее</button>
@@ -147,7 +147,7 @@
       <section id="story-detail-screen" class="story-detail-overlay modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="story-detail-title">
         <div id="story-detail-backdrop" class="modal-backdrop"></div>
         <article class="story-detail-card modal-card">
-          <button id="story-detail-back" class="modal-close" type="button" aria-label="Закрыть"></button>
+          <button id="story-detail-back" class="modal-close" type="button" aria-label="Закрыть" data-i18n-aria-label="closeControl"></button>
           <div id="story-detail-cover" class="story-detail-cover"><span id="story-detail-status" class="story-status-badge hidden"></span></div>
           <div class="story-detail-copy">
             <div class="story-detail-heading">
@@ -172,7 +172,7 @@
         </article>
       </section>
 
-      <section id="settings-screen" class="settings-screen hidden" aria-label="Settings">
+      <section id="settings-screen" class="settings-screen hidden" aria-label="Настройки" data-i18n-aria-label="homeSettingsLabel">
         <a class="public-home-link" href="/" data-i18n="backHome">← На главную</a>
         <header class="catalog-header">
           <div>
@@ -184,7 +184,7 @@
 
         <article id="passkey-settings" class="passkey-settings">
           <h2 data-i18n="passkeySettingsTitle">Безопасный вход</h2>
-          <p data-i18n="passkeySettingsHint">Добавьте Touch ID, Face ID, Windows Hello или ключ безопасности для входа без email-ссылки.</p>
+          <p data-i18n="passkeySettingsHint">Добавьте Touch ID, Face ID, Windows Hello или ключ безопасности для входа без ссылки из Telegram.</p>
           <div class="passkey-register-row">
             <label>
               <span data-i18n="passkeyNameLabel">Название устройства</span>
@@ -197,7 +197,7 @@
         </article>
       </section>
 
-      <section id="scene-screen" class="scene-screen hidden" aria-label="Scene">
+      <section id="scene-screen" class="scene-screen hidden" aria-label="Чтение истории" data-i18n-aria-label="sceneRegion">
         <img id="scene-image" class="scene-image" alt="">
         <div class="shade"></div>
 
@@ -221,15 +221,15 @@
           <div id="choices" class="choices"></div>
         </article>
       </section>
-      <section id="collection-screen" class="collection-reader hidden" aria-label="Оглавление произведения"></section>
+      <section id="collection-screen" class="collection-reader hidden" aria-label="Оглавление истории" data-i18n-aria-label="tableOfContents"></section>
     </main>
 
     <div id="auth-modal" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
       <div class="modal-backdrop" data-modal-close="auth"></div>
       <section class="modal-card auth-card">
-        <button id="auth-modal-close" class="modal-close" type="button" aria-label="Закрыть"></button>
+        <button id="auth-modal-close" class="modal-close" type="button" aria-label="Закрыть" data-i18n-aria-label="closeControl"></button>
         <h2 id="auth-modal-title" data-i18n="authModalTitle">Начните знакомство с историей</h2>
-        <p data-i18n="authModalText">Сейчас вам доступен просмотр карточек историй. После регистрации вы сможете проходить истории, сохранять прогресс и открыть доступ ко всей библиотеке.</p>
+        <p data-i18n="authModalText">Без входа доступны три демоистории. Войдите через Telegram, чтобы открыть всю библиотеку и сохранять прогресс. Если вы уже добавили passkey, используйте его для входа.</p>
         <form id="login-form" class="login-form">
           <div class="login-card">
             <div class="passkey-login">
@@ -258,7 +258,7 @@
     <div id="engagement-modal" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="engagement-message">
       <div class="modal-backdrop" data-modal-close="engagement"></div>
       <section class="modal-card compact-modal-card">
-        <button id="engagement-close" class="modal-close" type="button" aria-label="Закрыть"></button>
+        <button id="engagement-close" class="modal-close" type="button" aria-label="Закрыть" data-i18n-aria-label="closeControl"></button>
         <p id="engagement-message"></p>
         <button id="engagement-login" class="outline-button" type="button" data-i18n="engagementLogin">Войти или зарегистрироваться</button>
       </section>
@@ -267,7 +267,7 @@
     <div id="demo-welcome-modal" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="demo-welcome-title" aria-describedby="demo-welcome-text">
       <div class="modal-backdrop" data-modal-close="demo-welcome"></div>
       <section class="modal-card compact-modal-card">
-        <button class="modal-close" type="button" data-modal-close="demo-welcome" aria-label="Закрыть"></button>
+        <button class="modal-close" type="button" data-modal-close="demo-welcome" aria-label="Закрыть" data-i18n-aria-label="closeControl"></button>
         <h2 id="demo-welcome-title" data-i18n="demoWelcomeTitle">Первый шаг в историю</h2>
         <p id="demo-welcome-text" data-i18n="demoWelcomeText">Каждая история начинается с первого шага. Гостям доступны три демоистории — познакомьтесь с миром FraerApp, попробуйте делать выбор и узнайте, как он меняет сюжет. Зарегистрируйтесь, чтобы открыть всю библиотеку и сохранять свой путь.</p>
         <div class="demo-welcome-actions">
@@ -280,16 +280,16 @@
     <footer class="site-footer">
       <span>FraerApp · 18+</span>
       <a href="/subscription/" data-i18n="subscription">Подписка</a>
-      <a href="/privacy-policy.html">Политика обработки персональных данных</a>
-      <a href="/personal-data-consent.html">Согласие на обработку персональных данных</a>
-      <a href="/terms.html">Пользовательское соглашение</a>
+      <a href="/privacy-policy.html" data-i18n="privacyFull">Политика обработки персональных данных</a>
+      <a href="/personal-data-consent.html" data-i18n="consentFull">Согласие на обработку персональных данных</a>
+      <a href="/terms.html" data-i18n="termsLink">Пользовательское соглашение</a>
     </footer>
 
     <aside id="cookie-banner" class="cookie-banner hidden" role="dialog" aria-live="polite" aria-label="Cookie">
-      <img class="cookie-icon" src="/assets/home/cookie-magic.png" width="48" height="48" alt="" aria-hidden="true">
+      <img class="cookie-icon" src="/assets/home/cookie-magic.webp" width="48" height="48" alt="" aria-hidden="true">
       <div class="cookie-copy">
         <strong data-i18n="cookieBannerTitle">Мы используем cookie</strong>
-        <p data-i18n="cookieBannerText">Cookie используются для входа, сохранения сессии и подсчёта просмотров историй.</p>
+        <p data-i18n="cookieBannerText">Cookie поддерживают вход и сессию. Настройки и гостевой прогресс сохраняются в браузере. Подробнее об этих данных — в политике.</p>
       </div>
       <div class="cookie-actions">
         <a href="/privacy-policy.html" target="_blank" rel="noopener" data-i18n="privacyLink">Политика</a>
@@ -300,7 +300,7 @@
     <aside id="passkey-nudge" class="passkey-nudge hidden" role="dialog" aria-live="polite" aria-label="Passkey">
       <div>
         <strong data-i18n="passkeyNudgeTitle">Добавьте быстрый вход</strong>
-        <p data-i18n="passkeyNudgeText">Привяжите passkey после первого входа, чтобы дальше входить без email-ссылок.</p>
+        <p data-i18n="passkeyNudgeText">Привяжите passkey после первого входа, чтобы дальше входить без ссылки из Telegram.</p>
       </div>
       <div class="passkey-nudge-actions">
         <button id="passkey-nudge-open" type="button" data-i18n="passkeyNudgeOpen">Открыть настройки</button>
@@ -308,6 +308,6 @@
       </div>
     </aside>
 
-    <script src="/engine.js?v=engine-88" type="module"></script>
+    <script src="/engine.js?v=engine-89" type="module"></script>
   </body>
 </html>

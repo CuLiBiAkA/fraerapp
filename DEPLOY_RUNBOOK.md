@@ -1,5 +1,46 @@
 # FraerApp deploy and ops runbook
 
+## Frontend and policy audit (prepared, 2026-10-09)
+
+Inspect Git, live service health and recent logs first. Backup
+`backups/frontend-audit-20261009-102654` contains verified custom dumps of both
+databases and runtime-before.tar.gz, including the prior environment. Rollback
+tags are `fraerapp-<api|auth-service|story-builder>-before-frontend:20261009-102654`.
+Keep the signing secret rotated by the previous security release and the edge
+JWKS denial when rolling back; this release does not change either.
+
+Publish changed frontend assets including seven WebP files and all nested cache
+imports; rebuild Builder. Build the tested auth JAR with the matching admin HTML
+and explicit Telegram consent flow; layer it over the current runtime image to
+preserve entrypoint/configuration. Set live AUTH_PRIVACY_POLICY_VERSION=2026-10-09
+without printing/changing other environment values, recreate auth and Builder,
+wait for health and check/reload nginx. API rebuild/recreation and migrations are
+not required. Keep old image tags and PNG assets available during rollback.
+
+Before release: npm test, npm run lint, npm run build, npm run test:browser with
+Playwright/Chromium on NODE_PATH, auth/API Gradle checks and auth bootJar,
+git diff --check. The browser runner includes 13 current suites; the old
+check-chapters-ui.mjs still targets retired UI and is not release evidence.
+Verify all six services, running auth JAR SHA-256, Builder/static file hashes,
+effective policy version, readiness, public pages/documents, plan endpoint,
+anonymous account/admin denial, webhook missing-secret denial and recent logs.
+No real Telegram sendMessage, payment or account mutation is a smoke test.
+
+New Telegram consent is an exact versioned reply-keyboard message with document
+links shown first. Delivery retries preserve the prior login link. No outbound
+Telegram request is added. Existing sessions/passkeys are intentionally kept;
+new Telegram login from an account without current explicit consent requests it.
+When processing withdrawal, verify the requester and handle existing sessions,
+refresh sessions, unused login links and data in both services; setting only
+personal_data_consents.revoked_at does not terminate access. Account deletion
+also removes consent replay receipts: a delayed fresh acceptance within 24 hours
+can recreate an empty account. Confirm no unexpected reappearance when finishing
+a deletion request; a durable minimal deletion tombstone requires a separate
+retention decision. Same-second revocation/confirmation fails closed.
+
+Commit/push/deployment status and final verification receipt will be recorded
+after the release completes. Initial output/ files remain excluded.
+
 ## Security audit and cat story (deployed, 2026-10-09)
 
 Backup `backups/code-audit-20261009-095441` contains PostgreSQL custom dumps for

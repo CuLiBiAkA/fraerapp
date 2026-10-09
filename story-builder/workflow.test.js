@@ -12,6 +12,7 @@ function harness(names, overrides = {}) {
     draft: { key: "story-a", variables: [], assets: [], scenes: [] },
     localStorage: { setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) },
     storageKey: "draft", t: key => key, render() {}, saveDraft() {}, structuredClone,
+    sceneTextControls: new WeakMap(),
     els: { runtimeUrl: { value: "https://example.test" }, apiResult: {}, authorAnalytics: {} },
     canAuthor: () => true, authorHeaders: () => ({}), loadAuthorHome: async () => {},
     importDraftToRuntime: async () => { calls.push("import"); },
@@ -266,8 +267,8 @@ test("scenario map edits preserve the saved draft identity", () => {
   const board=fs.readFileSync(new URL("./board.js",import.meta.url),"utf8");
   const stored={key:"a",runtimeStory:{storyId:"a-id",key:"a",base:"https://example.test"},scenes:[]};
   let value=JSON.stringify(stored);
-  const context=vm.createContext({draftStorageKey:"draft",localStorage:{getItem:()=>value,setItem:(key,next)=>{value=next;}}});
-  for(const name of ["loadDraft","persistDraft"]) vm.runInContext(board.match(new RegExp(`function ${name}\\([^]*?\\n\\}`))[0],context);
+  const context=vm.createContext({draftStorageKey:"draft",failedStorageKeys:new Set(),renderStorageWarning(){},localStorage:{getItem:()=>value,setItem:(key,next)=>{value=next;}}});
+  for(const name of ["readLocalStorage","writeLocalStorage","loadDraft","persistDraft"]) vm.runInContext(board.match(new RegExp(`function ${name}\\([^]*?\\n\\}`))[0],context);
   context.draft=context.loadDraft();
   context.draft.scenes.push({id:"new"});
   context.persistDraft();

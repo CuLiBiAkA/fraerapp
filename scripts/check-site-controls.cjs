@@ -10,7 +10,7 @@ for(const width of [1440,768,390,320]){
   if(p==='/api/account/notifications/fixture/read'){unread=false;return r.fulfill({json:{}});}
   if(p==='/api/author/home')return r.fulfill({json:{stories:[]}});
   if(p==='/api/catalog/stories')return r.fulfill({json:Array.from({length:4},(_,i)=>({key:'story'+i,slug:'story'+i,title:'История '+(i+1),coverUrl:'/assets/platform.svg'}))});
-  if(p==='/auth/admin')return r.fulfill({response:await r.fetch()});
+  if(p==='/auth/admin')return r.fulfill({path:path.join(base,'auth-service/src/main/resources/admin.html')});
   if(p.startsWith('/api/')||p.startsWith('/auth/'))return r.fulfill({json:[]});
   let f=path.join(base,p.startsWith('/builder/')?'story-builder':'frontend',p.startsWith('/builder/')?p.slice(9):p.slice(1));
   if(fs.existsSync(f)&&fs.statSync(f).isDirectory())f=path.join(f,'index.html');

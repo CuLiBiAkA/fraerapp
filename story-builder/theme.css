@@ -88,7 +88,7 @@ input:focus, select:focus, textarea:focus, .switch-field:focus-within {
 }
 #author-login, #apply-paste, button.add-button, button[id^="add-"],
 button.add-button:hover, button[id^="add-"]:hover {
-  background: var(--accent); color: #171020; border-color: var(--accent);
+  background: var(--accent); color: #fff; border-color: var(--accent);
 }
 button.danger, .summary-actions .danger, .story-picker-item button.danger, .danger-button {
   background: #f3e5ec; color: #813c59; border-color: #dcb9c9;
@@ -100,7 +100,7 @@ button.danger, .summary-actions .danger, .story-picker-item button.danger, .dang
 #paste-json { font-weight: 700; }
 input[type="file"]::file-selector-button {
   margin-right: 6px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px;
-  font: inherit; line-height: 1.2; color: #171020; cursor: pointer;
+  font: inherit; line-height: 1.2; color: #fff; cursor: pointer;
   background: var(--accent); border-color: var(--accent);
 }
 input[type="file"]:disabled::file-selector-button { cursor: not-allowed; opacity: .58; }
@@ -137,6 +137,7 @@ pre { background: var(--accent-soft); color: var(--ink); border-radius: 14px; }
 dialog { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 24px; box-shadow: 0 18px 50px #21152d80; padding: 28px; }
 dialog::backdrop { background: #21152d80; backdrop-filter: blur(6px); }
 #paste-error { color: #a32845; }
+.local-draft-warning { padding: 14px 18px; border: 1px solid #a32845; border-radius: 12px; background: var(--panel); color: #762039; overflow-wrap: anywhere; }
 dialog textarea { margin-block: 12px; }
 ::selection { background: var(--selected); color: var(--ink); }
 /* Builder relations use shared collection components without the reader's dark theme. */
@@ -145,7 +146,7 @@ dialog textarea { margin-block: 12px; }
 .builder .collections-panel :is(button, input, select, textarea),
 .builder .collection-card, .builder .collection-editor, .builder .collection-item { background: var(--panel); border-color: var(--line); }
 .builder .collection-transfer, .builder .collection-badge { border-color: var(--line); }
-.builder .collections-panel .add-button { background: var(--accent); color: #171020; }
+.builder .collections-panel .add-button { background: var(--accent); color: #fff; }
 .builder .collections-panel :focus-visible { outline-color: var(--accent); }
 .builder .collection-status.error { color: #a32845; }
 /* Scenario-map surfaces share the same palette while retaining type labels. */
@@ -182,6 +183,16 @@ button.builder-help-button { flex: 0 0 28px; width: 28px; height: 28px; min-heig
 .project-panel summary > .tree-row { grid-template-columns: minmax(0, 1fr) 28px 28px; gap: 6px; background: transparent; }
 .project-panel .outline-move { width: 28px; height: 36px; min-height: 36px; padding: 0; background: var(--accent-soft); }
 .project-panel .outline-children { margin-left: 14px; padding-left: 10px; }
+.project-panel .outline-folder { position: relative; min-width: 0; }
+.project-panel .outline-folder > .tree-folder > summary { grid-template-columns: 28px minmax(0, 1fr); min-height: 36px; }
+.project-panel .outline-summary-caption { visibility: hidden; }
+.project-panel .has-outline-moves > .tree-folder > summary { padding-right: 68px; }
+.project-panel .outline-folder-tools { position: absolute; inset: 0 0 auto 28px; min-width: 0; }
+.project-panel .outline-folder-tools > .tree-row { grid-template-columns: minmax(0, 1fr) 28px 28px; gap: 6px; }
+.project-panel .outline-folder-tools .outline-link { background: var(--accent-soft); }
+.project-panel .outline-folder-tools .outline-link.is-active { background: var(--selected); }
+.collapsible-tools { display: flex; justify-content: flex-end; grid-column: 1 / -1; }
+.board-tools #search-label, .board-tools .language-switch .is-active, .board-tools .tool-row > button.is-active { color: #fee3e2; }
 .layout { grid-template-columns: minmax(280px, 1fr) minmax(0, 2fr) minmax(260px, 1fr); }
 .layout > *, .board-topbar > *, .runtime-settings > *, .form-grid > * { min-width: 0; }
 .layout > .project-panel { position: static; align-self: stretch; display: block; max-height: none; overflow: visible; }

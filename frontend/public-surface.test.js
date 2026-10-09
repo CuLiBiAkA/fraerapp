@@ -286,8 +286,8 @@ test("library sorts by rating with unrated stories last and preserves default or
   assert.deepEqual([...select.matchAll(/value="([^"]+)"/g)].map((match) => match[1]), ["default", "favorites", "rating", "title", "publishedAt", "updatedAt"]);
 });
 
-test("either half of the modal language control toggles the current language", () => {
-  const source = engineJs.slice(engineJs.indexOf("function toggleModalLanguage("), engineJs.indexOf('modalSoundToggle.addEventListener("click"'));
+test("each modal language button selects its language and repeated selection is idempotent", () => {
+  const source = engineJs.slice(engineJs.indexOf('modalLangRuButton.addEventListener("click"'), engineJs.indexOf('modalSoundToggle.addEventListener("click"'));
   const handlers = {};
   const context = vm.createContext({
     currentLanguage: "ru",
@@ -300,7 +300,9 @@ test("either half of the modal language control toggles the current language", (
     for (const language of ["ru", "en"]) {
       context.currentLanguage = language;
       handlers[button]();
-      assert.equal(context.currentLanguage, language === "ru" ? "en" : "ru");
+      assert.equal(context.currentLanguage, button);
+      handlers[button]();
+      assert.equal(context.currentLanguage, button);
     }
   }
 });
