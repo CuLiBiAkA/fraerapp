@@ -1,7 +1,7 @@
 const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),assert=require('assert/strict');
 (async()=>{const browser=await chromium.launch();
 for(const width of [1440,768,390,320]){
- const context=await browser.newContext({viewport:{width,height:900}});let work=null,chapter=null,chapterReview='draft';const mutations=[];
+ const context=await browser.newContext({viewport:{width,height:900}});let work=null,chapter=null,chapterReview='draft',chapterGeneration=1;const mutations=[];
  const summary=()=>({id:'work',collectionId:'work',key:'city',title:work.title,kind:'collection',type:'story',generation:1,draftRevision:1,visibility:'private',reviewState:'draft',draftDocument:work,children:chapter?[{id:'chapter',kind:'scenario',title:chapter.title,reviewState:'draft'}]:[]});
  await context.route('https://fraerapp.ru/**',async route=>{
   const req=route.request(),p=new URL(req.url()).pathname,body=req.postDataJSON();
@@ -15,8 +15,8 @@ for(const width of [1440,768,390,320]){
   if(p==='/api/author/collections/parents')return send(work?[summary()]:[]);
   if(p==='/api/author/collections'&&req.method()==='POST'){work=body.document;return send(summary());}
   if(p==='/api/author/collections/work'){if(req.method()==='PUT')work=body.document;return send({...summary(),dependencies:chapter?[{id:'chapter',reviewState:chapterReview}]:[]});}
-  if(p==='/api/author/stories/import'){chapter=body;return send({storyId:'chapter',key:chapter.key,draftRevision:1});}
-  if(p==='/api/author/stories/chapter')return send({storyId:'chapter',generation:1,draftRevision:1,draftDocument:chapter});
+  if(p==='/api/author/stories/import'){chapter=body;return send({storyId:'chapter',key:chapter.key,generation:chapterGeneration,draftRevision:1});}
+  if(p==='/api/author/stories/chapter'){if(req.method()==='PUT'){assert.equal(body.generation,chapterGeneration);chapter=body.document;chapterGeneration++;}return send({storyId:'chapter',generation:chapterGeneration,draftRevision:chapterGeneration,draftDocument:chapter});}
   if(p==='/api/author/collections/work/chapters/review'){chapterReview='in_review';return send({items:[],atomic:true});}
   if(p==='/api/catalog/collections/city')return send({...summary(),schemaVersion:2,completionStatus:'in_development',items:[{id:'chapter',title:'Глава 1',kind:'scenario',season:'Сезон 1',allowIndependentStart:true}]});
   if(p==='/api/collections/work/runs')return send([{id:'reading'}]);
@@ -32,12 +32,14 @@ for(const width of [1440,768,390,320]){
  await p.waitForURL('**/my-stories/');await p.getByRole('button',{name:'+ Создать историю',exact:true}).click();
  await p.getByLabel('Название',{exact:true}).fill('Тайны города');
  await p.getByLabel('Описание',{exact:true}).fill('История, которая выходит по главам.');
+ await p.getByRole('tab',{name:'Главы',exact:true}).click();
  await p.getByRole('button',{name:'+ Добавить главу',exact:true}).click();
  await p.waitForURL('**/builder/?story=chapter&work=work');
  await p.getByRole('heading',{name:'Конструктор главы',exact:true}).waitFor();
  assert.equal(work.schemaVersion,2);assert.equal(work.items.length,1);assert.equal(work.items[0].target.id,'chapter');assert.equal(chapter.title,'Глава 1');
  assert.equal(await p.locator('#relations-editor').isVisible(),false);
  assert.equal(await p.locator('.topbar a[href*="my-stories"]').count(),0);
+ await p.waitForFunction(()=>document.querySelector('.builder-home')?.getAttribute('href')==='/my-stories/?collection=work');
  assert.equal(await p.locator('.builder-home').getAttribute('href'),'/my-stories/?collection=work');
  assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'chapter navigation fits the viewport');
  await p.locator('[data-meta="title"]').fill('Новая глава');await p.locator('[data-meta="title"]').blur();
@@ -46,6 +48,7 @@ for(const width of [1440,768,390,320]){
  assert.ok(p.url().includes('/builder/'),'cancel preserves unsaved chapter edits');
  assert.equal(await p.locator('[data-meta="title"]').inputValue(),'Новая глава');
  await p.locator('#import-runtime').click();await p.waitForFunction(()=>document.querySelector('#server-draft-state').textContent.includes('сервер'));
+ assert.equal(chapter.title,'Новая глава');assert.ok(mutations.some(m=>m.p==='/api/author/stories/chapter'&&m.body?.document?.title==='Новая глава'),'existing chapter saves through version-checked PUT');
  await p.getByRole('link',{name:'К главам истории',exact:true}).click();
  await p.getByRole('heading',{name:'Главы истории',exact:true}).waitFor();
  assert.equal(await p.getByRole('button',{name:/Добавить в папку|Создать папку/}).count(),0);

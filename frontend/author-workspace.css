@@ -1,7 +1,7 @@
 /* Author workspace uses the same light panels and typography as the Builder. */
-:root { color-scheme: light; --bg: #684e86; --panel: #f9eaea; --text: #4f3a68; --line: #7f64a4; --accent: #7f64a4; --soft: #7f64a42b; background: var(--bg); }
+:root { color-scheme: light; --bg: #684e86; --panel: #f9eaea; --text: #4f3a68; --line: #7f64a4; --accent: #72548f; --soft: #7f64a42b; background: var(--bg); }
 body { background: var(--bg); font-family: var(--font-body); }
-.workspace { width: min(1680px, calc(100% - 112px)); max-width: none; margin: 24px auto; padding: 0; color: #fee3e2; }
+.workspace { width: min(1180px, calc(100% - 48px)); max-width: none; margin: 24px auto; padding: 0; color: #fee3e2; }
 .workspace h1 { font: 400 40px/55px var(--font-heading); letter-spacing: .11em; margin: 0 0 24px; }
 .workspace :is(h2, h3) { font: 400 25px/37px var(--font-heading); letter-spacing: .06em; }
 .workspace :is(.collection-toolbar, .collection-card, .collection-editor, .collection-list > .folder-leaf, .workspace-card, .workspace-detail, .workspace-controls, .collections-panel > details) { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
@@ -28,6 +28,49 @@ body { background: var(--bg); font-family: var(--font-body); }
 .workspace details[open] > summary { margin-bottom: 10px; }
 .workspace .workspace-nav a[href="/"] { display: none; }
 .workspace :focus-visible { outline: 2px solid #4f3a68; outline-offset: 3px; }
+.workspace .collection-grid, .workspace .workspace-grid { display: block; }
+.workspace :is(.collection-list, .workspace-list) { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.author-title-row { display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px; }
+.author-title-row h1 { margin:0; }
+.author-utilities { display:flex;flex-wrap:wrap;gap:10px;margin:16px 0 24px; }
+.workspace .author-utilities [aria-pressed=true], .workspace .author-tabs [aria-selected=true] { background:var(--accent);color:#fff; }
+.workspace .author-story-card { display:grid;grid-template-columns:100px minmax(0,1fr);gap:18px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:18px;padding:20px;min-width:0;overflow-wrap:anywhere; }
+.author-story-card h2 { font:500 22px/1.4 var(--font-heading);letter-spacing:.02em;margin:0 0 10px; }
+.author-cover { width:100px;aspect-ratio:4/5;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:#e9dce7;display:grid;place-items:center;flex-shrink:0; }
+.author-cover img { width:100%;height:100%;object-fit:cover; }
+.author-cover-empty { font:48px/1 serif;color:#72548f; }
+.author-card-copy { min-width:0; }
+.author-card-status { font-size:13px;line-height:1.6;margin:0; }
+.author-card-description { display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:14px; }
+.author-card-actions { grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px; }
+.author-card-actions a { display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;color:var(--text);text-decoration:none; }
+.workspace .author-back { margin:0 0 18px; }
+.author-tabs { display:flex;gap:10px;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:20px; }
+.author-tabs>* { flex:1; }
+.workspace .author-tabs>button { padding:10px 8px;font-size:14px;overflow-wrap:normal; }
+.author-metadata>button { margin:12px 10px 0 0; }
+.author-metadata,.author-chapters { min-width:0; }
+.author-metadata .collection-fields { align-items:start; }
+.author-metadata .collection-fields>label { align-content:start; }
+.author-metadata .collection-fields>label:first-child,.author-metadata .collection-fields>label:has(textarea) { grid-column:1/-1; }
+.author-cover-setting { display:flex;align-items:center;flex-wrap:wrap;gap:18px;margin:20px 0; }
+.author-cover-library { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0; }
+.author-cover-library button { display:flex;flex-direction:column;gap:10px;min-width:0; }
+.author-cover-library .author-cover { width:100%;max-width:110px; }
+.author-cover-library [aria-pressed=true] { outline:2px solid var(--accent);outline-offset:2px; }
+.workspace-dialog { color:var(--text);background:var(--panel);font-family:var(--font-body); }
+.workspace-dialog :is(input,select,textarea,button) { background:var(--panel);color:var(--text);border-color:var(--line); }
+.workspace-dialog .error,.workspace .collection-editor .error,.workspace .workspace-detail .error { color:#942441; }
+.workspace-dialog :focus-visible { outline:2px solid var(--accent);outline-offset:3px; }
+.workspace-dialog label { margin:16px 0; }
+.workspace-dialog>button { margin:12px 8px 0 0; }
+.workspace :is(.collection-json,.workspace-document pre,.workspace-diff pre) { background:#eadce7;color:var(--text); }
+.workspace .collection-editor > h2 { margin-bottom:0; }
+.workspace .collection-editor .collection-actions { margin-bottom:0; }
+.workspace .author-recovery { display:flex;flex-wrap:wrap;gap:10px; }
+.workspace>:is(.author-title-row,.author-utilities) :focus-visible,.workspace>.author-back:focus-visible { outline-color:#fee3e2; }
+.author-section-nav { color:#fee3e2; }
+.author-section-nav :focus-visible { outline:2px solid #fee3e2;outline-offset:3px; }
 @media (max-width: 1180px) { .workspace { width: calc(100% - 48px); } }
 @media (max-width: 720px) {
   .workspace { width: calc(100% - 28px); margin-top: 18px; }
@@ -35,4 +78,11 @@ body { background: var(--bg); font-family: var(--font-body); }
   .workspace .collection-toolbar > label { flex-basis: 100%; }
   .workspace :is(.collection-toolbar, .collection-editor, .collection-card, .collection-list > .folder-leaf) { padding: 16px; }
   .workspace .collection-actions > * { flex-grow: 1; }
+  .workspace :is(.collection-list, .workspace-list) { grid-template-columns:minmax(0,1fr); }
+  .author-title-row { align-items:stretch;flex-direction:column; }
+  .workspace .author-story-card { grid-template-columns:78px minmax(0,1fr);gap:14px;padding:16px; }
+  .author-story-card .author-cover { width:78px; }
+  .author-story-card h2 { font-size:20px; }
+  .author-card-actions>* { flex:1; }
+  .author-cover-library { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }

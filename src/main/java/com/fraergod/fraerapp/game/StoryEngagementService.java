@@ -11,7 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 class StoryEngagementService {
  private final JdbcTemplate jdbc;
  private final JsonSupport json;
- StoryEngagementService(JdbcTemplate jdbc, JsonSupport json) { this.jdbc = jdbc; this.json = json; }
+ private final StoryAccessService access;
+ StoryEngagementService(JdbcTemplate jdbc, JsonSupport json,StoryAccessService access) { this.jdbc = jdbc; this.json = json;this.access=access; }
 
  record Metrics(String slug, String genre, long views, Double rating, long ratingCount, boolean favorite, Integer myRating, long endingCount, String completionStatus, long discoveredEndings) {}
 
@@ -20,6 +21,7 @@ class StoryEngagementService {
  @Transactional(readOnly=true)
  Metrics detail(String slug,String userId) {return metrics(userId,slug).stream().findFirst().orElseThrow(StoryNotFoundException::new);}
  private List<Metrics> metrics(String userId,String slug) {
+  var blocked=access.restrictedSerialChapterIds();
   return jdbc.query("""
    select s.published_slug, s.genre,
      (select count(*) from story_views v where v.story_id=s.id) as views,
@@ -34,9 +36,9 @@ class StoryEngagementService {
    from stories s where s.status='PUBLISHED' and s.visibility in ('public','unlisted') and s.published_revision is not null and s.published_slug is not null
    and ((cast(? as varchar) is null and s.visibility='public') or s.published_slug=?)
    and (cast(? as varchar) is not null or s.story_key in ('kak_shodit_v_tualet_pravilno','kak_pogladit_kota_ne_ubiv','night_train'))
-   """, (rs, row) -> new Metrics(rs.getString(1), rs.getString(2), rs.getLong(3),
+   """, (rs, row) -> blocked.contains(rs.getString(8))?null:new Metrics(rs.getString(1), rs.getString(2), rs.getLong(3),
      rs.getObject(4) == null ? null : rs.getDouble(4), rs.getLong(5), rs.getLong(6)>0,
-     rs.getObject(7) == null ? null : rs.getInt(7), endingCount(rs.getString(8)), rs.getString(9), rs.getLong(10)), userId, userId, userId, slug, slug, userId);
+     rs.getObject(7) == null ? null : rs.getInt(7), endingCount(rs.getString(8)), rs.getString(9), rs.getLong(10)), userId, userId, userId, slug, slug, userId).stream().filter(java.util.Objects::nonNull).toList();
  }
 
  private long endingCount(String storyId) {
@@ -46,8 +48,9 @@ class StoryEngagementService {
 
  // Lock one published story so simultaneous retries remain idempotent on both PostgreSQL and H2.
  private String lockStory(String slug) {
-  return jdbc.query("select id from stories where published_slug=? and status='PUBLISHED' and visibility in ('public','unlisted') and published_revision is not null for update",
+  String id=jdbc.query("select id from stories where published_slug=? and status='PUBLISHED' and visibility in ('public','unlisted') and published_revision is not null for update",
     (rs, row) -> rs.getString(1), slug).stream().findFirst().orElseThrow(StoryNotFoundException::new);
+  if(!access.parentAllowsReading(id))throw new StoryNotFoundException();return id;
  }
 
  @Transactional

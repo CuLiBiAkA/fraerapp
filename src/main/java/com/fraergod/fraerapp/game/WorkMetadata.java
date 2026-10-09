@@ -3,7 +3,8 @@ package com.fraergod.fraerapp.game;
 import java.util.List;
 import com.fasterxml.jackson.databind.JsonNode;
 
-record WorkMetadata(Integer schemaVersion, List<Relation> relations, InputContract inputContract) {
+record WorkMetadata(Integer schemaVersion, List<Relation> relations, InputContract inputContract,String coverUrl) {
+ WorkMetadata(Integer schemaVersion,List<Relation> relations,InputContract inputContract){this(schemaVersion,relations,inputContract,null);}
  record Target(String kind, String id, String key) {}
  record Mapping(String from, String to, String type) {}
  record Transfer(String mode, Integer contractVersion, List<Mapping> mapping) {}

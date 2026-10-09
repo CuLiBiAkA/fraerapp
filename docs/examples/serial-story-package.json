@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "kind": "fraerapp-work-package",
+  "root": {
+    "kind": "collection",
+    "key": "open_doors"
+  },
+  "scenarios": [
+    {
+      "key": "open_door_1",
+      "title": "Дверь для Миры",
+      "description": "Кошка находит гостеприимный дом.",
+      "genre": "Повседневность",
+      "topic": "Животные",
+      "completionStatus": "completed",
+      "version": 1,
+      "startSceneId": "door",
+      "variables": {
+        "name": "Мира",
+        "trust": {
+          "value": 0,
+          "showInStats": true
+        },
+        "waiting": {
+          "type": "timer",
+          "value": 60
+        },
+        "open": false
+      },
+      "assets": [],
+      "scenes": [
+        {
+          "id": "door",
+          "title": "У двери",
+          "text": "{{name}} ждёт у двери.",
+          "variables": {
+            "knocks": 0
+          },
+          "assets": [],
+          "background": null,
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "welcome",
+              "label": "Придержать дверь",
+              "target": "home",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "trust",
+                  "value": 1
+                },
+                {
+                  "set": "open",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "home",
+          "title": "Дома",
+          "text": "{{name}} шагает в свет.",
+          "variables": {},
+          "assets": [],
+          "background": null,
+          "music": null,
+          "animation": {},
+          "effects": [],
+          "ending": {
+            "type": "warm",
+            "title": "Тёплый приём"
+          },
+          "choices": []
+        }
+      ]
+    },
+    {
+      "key": "open_door_2",
+      "title": "Право вернуться",
+      "description": "Кошка находит гостеприимный дом.",
+      "genre": "Повседневность",
+      "topic": "Животные",
+      "completionStatus": "completed",
+      "version": 1,
+      "startSceneId": "door",
+      "variables": {
+        "name": "Мира",
+        "trust": {
+          "value": 0,
+          "showInStats": true
+        },
+        "waiting": {
+          "type": "timer",
+          "value": 60
+        },
+        "open": false
+      },
+      "assets": [],
+      "scenes": [
+        {
+          "id": "door",
+          "title": "У двери",
+          "text": "{{name}} возвращается. Доверие: {{trust}}.",
+          "variables": {
+            "knocks": 0
+          },
+          "assets": [],
+          "background": null,
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "welcome",
+              "label": "Придержать дверь",
+              "target": "home",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "trust",
+                  "value": 1
+                },
+                {
+                  "set": "open",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "home",
+          "title": "Дома",
+          "text": "{{name}} шагает в свет.",
+          "variables": {},
+          "assets": [],
+          "background": null,
+          "music": null,
+          "animation": {},
+          "effects": [],
+          "ending": {
+            "type": "warm",
+            "title": "Тёплый приём"
+          },
+          "choices": []
+        }
+      ]
+    }
+  ],
+  "collections": [
+    {
+      "schemaVersion": 2,
+      "key": "open_doors",
+      "type": "story",
+      "title": "Мира и открытые двери",
+      "description": "Две главы о кошке и гостеприимстве.",
+      "genre": "Повседневность",
+      "coverUrl": "/assets/platform.svg",
+      "completionStatus": "completed",
+      "items": [
+        {
+          "target": {
+            "kind": "scenario",
+            "key": "open_door_1"
+          },
+          "label": "Дверь для Миры",
+          "season": "Осень"
+        },
+        {
+          "target": {
+            "kind": "scenario",
+            "key": "open_door_2"
+          },
+          "label": "Право вернуться",
+          "season": "Осень"
+        }
+      ],
+      "transitions": []
+    }
+  ]
+}

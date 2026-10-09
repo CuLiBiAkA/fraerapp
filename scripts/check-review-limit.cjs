@@ -5,7 +5,7 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
  try{for(const language of ['ru','en'])for(const width of [1440,390]){
   const context=await browser.newContext({viewport:{width,height:1000}});
   await context.addInitScript(lang=>{localStorage.setItem('fraerapp.language',lang);localStorage.setItem('fraerapp.storyBuilderLanguage',lang);},language);
-  let blocked=true,saved=null;const mutations=[],errors=[];
+  let blocked=true,saved=null,chapterGeneration=1;const mutations=[],errors=[];
   const doc={schemaVersion:2,key:'book',title:'My story',type:'story',description:'',completionStatus:'in_development',items:[{target:{kind:'scenario',id:'chapter',key:'chapter'}}],transitions:[]};
   const detail=()=>({collectionId:'book',id:'book',key:'book',title:doc.title,reviewState:'draft',visibility:'private',generation:1,draftRevision:1,draftDocument:doc,reviewLimitReached:blocked});
   await context.route('https://fraerapp.ru/**',route=>{
@@ -13,7 +13,8 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
    if(!['GET','HEAD'].includes(req.method()))mutations.push(p);
    if(p==='/auth/me')return send({email:'author@example.test',roles:['author']});
    if(p==='/api/author/home')return send({stories:saved?[{storyId:'chapter',title:saved.title,reviewState:'draft',visibility:'private',draftRevision:1,reviewLimitReached:blocked}]:[]});
-   if(p==='/api/author/stories/import'){saved=req.postDataJSON();return send({storyId:'chapter',generation:1,draftRevision:1});}
+   if(p==='/api/author/stories/import'){saved=req.postDataJSON();return send({storyId:'chapter',generation:chapterGeneration,draftRevision:1});}
+   if(p==='/api/author/stories/chapter'){if(req.method()==='PUT'){const body=req.postDataJSON();assert.equal(body.generation,chapterGeneration);saved=body.document;chapterGeneration++;}return send({storyId:'chapter',generation:chapterGeneration,draftRevision:chapterGeneration,draftDocument:saved});}
    if(p==='/api/author/folders')return send({items:[{...detail(),kind:'collection',children:[]}],total:1});
    if(p==='/api/author/collections/book')return send(detail());
    if(p==='/api/author/collections/targets')return send([{kind:'scenario',id:'chapter',key:'chapter',title:'Chapter',owned:true}]);
@@ -26,10 +27,11 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
   await page.goto('https://fraerapp.ru/my-stories/?view=collections&collection=book');
   const submit=page.locator('[data-review-submit]').first();await submit.waitFor();
   assert.ok(await submit.isDisabled());assert.ok(await page.locator('.review-limit-notice').isVisible());
+  await page.getByRole('tab',{name:language==='ru'?'Об истории':'About story',exact:true}).click();
   const title=page.getByLabel(language==='ru'?'Название':'Title',{exact:true});await title.fill('Unsaved story title');
   const save=page.getByRole('button',{name:language==='ru'?'Сохранить':'Save',exact:true});assert.ok(await save.isEnabled());
   blocked=false;
-  await page.getByRole('button',{name:language==='ru'?'Обновить список':'Refresh list',exact:true}).click();
+  await page.getByRole('button',{name:language==='ru'?'Обновить сведения':'Refresh details',exact:true}).click();
   await page.waitForFunction(()=>!document.querySelector('[data-review-submit]').disabled);
   assert.equal(await title.inputValue(),'Unsaved story title');assert.ok(await page.locator('.review-limit-notice').isHidden());
   assert.equal(mutations.length,0);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));

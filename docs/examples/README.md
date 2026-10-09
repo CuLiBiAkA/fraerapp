@@ -1,12 +1,20 @@
-# Chapters example
+# Story package examples
 
-`chapters-package.json` is a synthetic authoring example; it is not seeded or
-published automatically. Import it through My folders and stories → Import folder
-from a file. This creates private drafts under the current author.
+`serial-story-package.json` is the current authoring example: one story with two
+ordered chapters and a season label. The package envelope has schemaVersion 1;
+the contained story has schemaVersion 2. Import it through **My stories → Import
+story**, review the preview, then confirm creation of private drafts. It is not
+seeded or published automatically. The prompt dialog downloads the same example
+without replacing the current Builder draft. See [the prompt guide](../prompts/authoring-guide.md).
 
-The example contains ordinary nested folders and a two-chapter story. Legacy JSON
-type values are retained for compatibility; they impose no nesting rules and all
-appear as folders. Authors can use any folder names. The ticket chapter
+## Legacy compatibility fixture
+
+`chapters-package.json` is a synthetic legacy compatibility fixture, not the
+recommended format for a new story. It is not seeded or published automatically.
+Import through My stories → Import story creates private drafts under the author.
+
+The legacy example contains nested collections and a two-chapter story. Historical
+JSON type values and nesting are retained for compatibility only. The ticket chapter
 transfers `courage` → `initialCourage` and `helpedConductor` → `metAlly` to the
 carriage chapter. The carriage's sequel link starts the independent keeper story.
 Only explicit fields are transferred; the second chapter requires a prior save.

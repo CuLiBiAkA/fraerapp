@@ -10,7 +10,7 @@ import { observeHomeFit } from "./home-fit.js?v=6";
 import { createAccountUI } from "./account-ui.js?v=7";
 import { mountSiteControls, updateSiteControlsLanguage } from "./site-controls.js?v=6";
 import { mountAccountDialogs } from "./account-dialogs.js?v=3";
-import { createCollectionReader } from "./collection-reader.js?v=6";
+import { createCollectionReader } from "./collection-reader.js?v=7";
 import { readingBackground, decorateReadingStat } from "./reader-presentation.js?v=2";
 import { createReaderAds } from "./reader-ads.js?v=1";
 
@@ -501,6 +501,7 @@ let soundVolume = clamp(Number.isFinite(storage.volume) ? storage.volume : 45, 0
 let lastImportedStoryId = null;
 let currentLanguage = storage.language;
 let currentState = null;
+let navigationGeneration = 0;
 let catalogStories = [];
 let catalogPage = 1;
 let choiceInFlight = false;
@@ -640,6 +641,8 @@ function setLanguage(language) {
   updateSoundLabel();
   if (!document.querySelector("#collection-screen")?.classList.contains("hidden")) {
     collectionReader.refresh();
+  } else if (activeStoryDetail && !storyDetailScreen.classList.contains("hidden")) {
+    renderStoryDetail(activeStoryDetail);
   } else if (currentState) {
     render(currentState);
   } else if (!storyScreen.classList.contains("hidden") && catalogStories.length > 0) {
@@ -1084,7 +1087,9 @@ async function ensureCatalogStories() {
   if (catalogStories.length > 0) {
     return catalogStories;
   }
+  const current = navigationGuard();
   const stories = await api.stories();
+  if (!current()) return [];
   catalogStories = Array.isArray(stories) ? stories : [];
   return catalogStories;
 }
@@ -1094,11 +1099,16 @@ function storyRoute(story) {
   return `/history/${encodeURIComponent(story.slug || story.key)}`;
 }
 
+function navigationGuard() {
+  const generation = navigationGeneration, email = storage.email;
+  return () => generation === navigationGeneration && email === storage.email;
+}
+
 function navigateTo(path, { replace = false } = {}) {
   if (window.location.pathname !== path) {
     const method = replace ? "replaceState" : "pushState";
-    const detailFrom = path.startsWith("/history/")
-      ? (window.location.pathname.startsWith("/history/") ? window.history.state?.detailFrom : window.location.pathname)
+    const detailFrom = /^\/(history|collections)\//.test(path)
+      ? (/^\/(history|collections)\//.test(window.location.pathname) ? window.history.state?.detailFrom : window.location.pathname)
       : undefined;
     window.history[method]({ detailFrom }, document.title, path);
   }
@@ -1106,17 +1116,24 @@ function navigateTo(path, { replace = false } = {}) {
 }
 
 async function handleRoute() {
+  navigationGeneration++;
+  const current = navigationGuard();
   closeModals();
+  collectionReader.close();
   appNotice.classList.add("hidden");
   try {
     const path = normalizePath(window.location.pathname);
     if (path.startsWith("/collections/")) {
       currentState = null;
+      stopSound({ resetPreference: true });
+      if (storage.email) await renderHistoryRoute();
+      else { showOnly(loginScreen); renderHomeCarousel(); }
+      if (!current()) return;
       await collectionReader.open(decodeURIComponent(path.slice("/collections/".length)));
       return;
     }
     if (path.startsWith("/read/")) {
-      if (!storage.email) { await showPublicHome(); openAuthModal(); return; }
+      if (!storage.email) { await showPublicHome(); if (current()) openAuthModal(); return; }
       await continueStory(decodeURIComponent(path.slice("/read/".length)));
       return;
     }
@@ -1135,6 +1152,7 @@ async function handleRoute() {
       return;
     }
     await showPublicHome();
+    if (!current()) return;
     const requestedPanel = new URLSearchParams(location.search).get("panel");
     if (requestedPanel) {
       const url = new URL(location.href); url.searchParams.delete("panel"); history.replaceState({}, "", url);
@@ -1143,8 +1161,19 @@ async function handleRoute() {
       if (requestedPanel === "favorites") document.querySelector("#profile-favorites").click();
     }
   } catch {
+    if (!current()) return;
     showOnly(storyScreen);
-    storiesList.replaceChildren(emptyCatalogMessage(t("catalogLoadFailed")));
+    const failure = emptyCatalogMessage(t("catalogLoadFailed"));
+    failure.querySelector(".story-description").textContent = currentLanguage === "en"
+      ? "Check your connection and try again. Your saves are safe."
+      : "Проверьте соединение и попробуйте ещё раз. Ваши сохранения на месте.";
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "secondary";
+    retry.textContent = currentLanguage === "en" ? "Try again" : "Повторить";
+    retry.onclick = async () => { retry.disabled = true; await handleRoute(); };
+    failure.append(retry);
+    storiesList.replaceChildren(failure);
     storyPagination.classList.add("hidden");
   }
 }
@@ -1157,22 +1186,28 @@ function normalizePath(path) {
 }
 
 async function renderHistoryRoute() {
+  const current = navigationGuard();
   stopSound({ resetPreference: true });
   await ensureCatalogStories();
+  if (!current()) return;
   catalogPage = 1;
   renderStoryPage();
 }
 
 async function renderStoryDetailRoute(rawSlug) {
+  const current = navigationGuard();
   stopSound({ resetPreference: true });
   const slug = decodeURIComponent(rawSlug || "");
   const stories = await ensureCatalogStories();
+  if (!current()) return;
   const catalogStory = stories.find((item) => item.kind !== "collection" && [item.slug, item.key, item.storyId].includes(slug));
   let story;
   try {
     story = await loadPublicStoryDetail(catalogStory?.slug || slug);
+    if (!current()) return;
     if (catalogStory) Object.assign(catalogStory, story);
   } catch (error) {
+    if (!current()) return;
     if (![401, 403, 404].includes(error.status)) throw error;
     await navigateTo(storage.email ? "/history" : "/", { replace: true });
     if (!storage.email) openAuthModal();
@@ -1182,13 +1217,14 @@ async function renderStoryDetailRoute(rawSlug) {
     if (storage.email) await renderHistoryRoute();
     else { showOnly(loginScreen); renderHomeCarousel(); }
   }
+  if (!current()) return;
   const serialParent = story.entryContext?.parents?.find(parent => parent.schemaVersion === 2);
   if (serialParent) { await navigateTo(`/collections/${encodeURIComponent(serialParent.key)}`, { replace: true }); return; }
   renderStoryDetail(story);
   try {
     await request(`/api/catalog/engagement/${encodeURIComponent(story.slug)}/view`, { method: "POST" });
     await refreshStoryMetrics(story);
-    if (window.location.pathname === storyRoute(story)) renderStoryDetail(story);
+    if (current() && window.location.pathname === storyRoute(story)) renderStoryDetail(story);
   } catch { /* Keep the story readable when statistics are temporarily unavailable. */ }
 }
 
@@ -1209,13 +1245,32 @@ async function loadPublicStoryDetail(slug) {
 }
 
 async function refreshStoryMetrics(story) {
-  const metrics = await request(`/api/catalog/engagement/${encodeURIComponent(story.slug)}`);
+  const endpoint = story.kind === "collection"
+    ? `/api/catalog/collections/${encodeURIComponent(story.collectionId || story.id || story.key)}`
+    : `/api/catalog/engagement/${encodeURIComponent(story.slug)}`;
+  const metrics = await request(endpoint);
   Object.assign(story, metrics);
-  const listed = catalogStories.find(entry => entry.kind !== "collection" && entry.slug === story.slug);
-  if (listed) Object.assign(listed, metrics);
+  updateCatalogStory(story);
+}
+
+let activeStoryDetail = null;
+const pendingRatings = new WeakSet();
+const pendingReadingActions = new WeakSet();
+const pendingFavorites = new Set();
+function updateCatalogStory(story) {
+  const route = storyRoute(story);
+  const listed = catalogStories.find(entry => storyRoute(entry) === route);
+  if (listed) Object.assign(listed, story);
+  document.querySelectorAll(".engagement-card").forEach(card => {
+    if (card.dataset.catalogRoute === route) renderStoryCardStats(card.querySelector(".story-card-stats"), story);
+  });
 }
 
 function renderStoryDetail(story) {
+  if (activeStoryDetail !== story) document.querySelector("#story-reading-status").textContent = "";
+  activeStoryDetail = story;
+  const collection = story.kind === "collection";
+  document.querySelector("#collection-screen").classList.toggle("hidden", !collection);
   document.querySelector("#story-interaction-status").textContent = "";
   const opening = storyDetailScreen.classList.contains("hidden");
   if (opening) storyDetailReturnFocus = document.activeElement;
@@ -1224,6 +1279,22 @@ function renderStoryDetail(story) {
   if (opening) storyDetailBack.focus();
   storyDetailCover.style.backgroundImage = `url("${storyCoverAsset(story)}")`;
   storyDetailTitle.textContent = story.title;
+  const byline = document.querySelector("#story-detail-byline");
+  byline.textContent = [story.genre, story.authorName ? `${currentLanguage === "en" ? "Author" : "Автор"}: ${story.authorName}` : ""].filter(Boolean).join(" · ");
+  byline.hidden = !byline.textContent;
+  const contentsLink = document.querySelector("#story-detail-contents");
+  contentsLink.classList.toggle("hidden", !collection);
+  if (collection) {
+    const count = story.items?.length || 0;
+    contentsLink.textContent = currentLanguage === "en" ? `Contents · ${count} ${count === 1 ? "chapter" : "chapters"} ↓`
+      : `Оглавление · ${count} ${count % 10 === 1 && count % 100 !== 11 ? "глава" : [2,3,4].includes(count % 10) && ![12,13,14].includes(count % 100) ? "главы" : "глав"} ↓`;
+    contentsLink.onclick = () => {
+      const contents = document.querySelector("#collection-screen");
+      contents.scrollIntoView({ block: "start" });
+      const heading = contents.querySelector("h2");
+      if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
+    };
+  }
   storyDetailDescription.textContent = story.description || story.key;
   const completionLabels = currentLanguage === "en"
     ? { completed: "Completed", in_development: "In development", abandoned: "On hold" }
@@ -1233,19 +1304,26 @@ function renderStoryDetail(story) {
   completionBadge.classList.toggle("hidden", !completionBadge.textContent);
   const discovered = Math.min(story.endingCount ?? 0, story.discoveredEndings ?? 0);
   const completed = discovered > 0 || story.lastSessionStatus === "finished";
-  const progress = completed ? 100 : Math.min(99, Math.max(0, Math.round(story.completionRate || 0)));
-  document.querySelector("#story-reader-progress").classList.toggle("hidden", story.completionStatus !== "completed");
+  const readerProgress = collection ? story.readerProgress || story : story;
+  const progress = collection ? Math.min(100, Math.max(0, Math.round(readerProgress.completionRate || 0)))
+    : completed ? 100 : Math.min(99, Math.max(0, Math.round(story.completionRate || 0)));
+  document.querySelector("#story-reader-progress").classList.toggle("hidden", collection ? !readerProgress.lastRunId : story.completionStatus !== "completed");
   document.querySelector("#story-reader-progress-bar").value = progress;
-  document.querySelector("#story-reader-progress-label").textContent = currentLanguage === "en"
+  document.querySelector("#story-reader-progress-label").textContent = collection
+    ? (currentLanguage === "en" ? `Chapters read: ${readerProgress.completedCount || 0} of ${readerProgress.progressTotal || 0}` : `Прочитано глав: ${readerProgress.completedCount || 0} из ${readerProgress.progressTotal || 0}`)
+    : currentLanguage === "en"
     ? `Your progress: ${progress > 0 && progress < 100 ? "≈ " : ""}${progress}%`
     : `Ваш прогресс: ${progress > 0 && progress < 100 ? "≈ " : ""}${progress}%`;
   document.querySelector("#story-detail-favorite").replaceChildren(favoriteButton(story));
   storyDetailMeta.replaceChildren(
     metric(t("viewsLabel"), story.views ?? 0),
-    metric(t("ratingLabel"), story.rating == null ? "—" : story.rating.toFixed(1)),
-    metric(currentLanguage === "en" ? "Endings discovered" : "Пройдено концовок", `${discovered} ${currentLanguage === "en" ? "of" : "из"} ${story.endingCount ?? "—"}`),
+    metric(`${t("ratingLabel")} (${story.ratingCount || 0})`, story.rating == null ? "—" : story.rating.toFixed(1)),
+    metric(currentLanguage === "en" ? "Endings discovered" : "Пройдено концовок", story.endingCount == null ? "—" : `${discovered} ${currentLanguage === "en" ? "of" : "из"} ${story.endingCount}`),
     metric(t("publishedDate", { date: "" }).replace(":", "").trim(), formatDate(story.publishedAt)),
   );
+  if (story.updatedAt && story.updatedAt !== story.publishedAt) {
+    storyDetailMeta.append(metric(t("updatedDate", { date: "" }).replace(":", "").trim(), formatDate(story.updatedAt)));
+  }
   const interactions = document.querySelector("#story-interactions");
   interactions.replaceChildren();
   const ratingLabel = document.createElement("span");
@@ -1257,43 +1335,78 @@ function renderStoryDetail(story) {
     button.textContent = score <= (story.myRating || 0) ? "★" : "☆";
     button.setAttribute("aria-label", `${t("ratingLabel")}: ${score} / 5`);
     button.setAttribute("aria-pressed", String(story.myRating === score));
+    button.disabled = pendingRatings.has(story);
     button.onclick = async () => {
       if (!storage.email) return openEngagementLogin("ratingGuest");
-      interactions.querySelectorAll("button").forEach((item) => item.disabled = true);
+      if (pendingRatings.has(story)) return;
+      pendingRatings.add(story);
+      const controls = [...interactions.querySelectorAll("button")];
+      controls.forEach((item) => item.disabled = true);
       try {
-        await request(`/api/catalog/engagement/${encodeURIComponent(story.slug)}/rating`, { method: "PUT", body: { score } });
+        const endpoint = collection
+          ? `/api/catalog/collections/${encodeURIComponent(story.collectionId || story.id || story.key)}/rating`
+          : `/api/catalog/engagement/${encodeURIComponent(story.slug)}/rating`;
+        await request(endpoint, { method: "PUT", body: { score } });
         await refreshStoryMetrics(story);
-        if (window.location.pathname === storyRoute(story)) renderStoryDetail(story);
+        pendingRatings.delete(story);
+        if (activeStoryDetail === story && !storyDetailScreen.classList.contains("hidden")) renderStoryDetail(story);
       } catch (error) {
+        if (activeStoryDetail !== story || storyDetailScreen.classList.contains("hidden")) return;
         if (error.status === 401) openEngagementLogin("ratingGuest");
         else document.querySelector("#story-interaction-status").textContent = t("engagementFailed");
-      } finally { interactions.querySelectorAll("button").forEach((item) => item.disabled = false); }
+      } finally {
+        pendingRatings.delete(story);
+        controls.forEach((item) => item.disabled = false);
+        if (activeStoryDetail === story) interactions.querySelectorAll("button").forEach(item => item.disabled = false);
+      }
     };
     interactions.append(button);
   }
+  // ChapterReadingService remains the authority for serial start/continue.
+  // Both types share this header, statistics, voting and the same action slots.
+  if (collection) {
+    const entry = document.querySelector("#story-entry-context");
+    if (entry) entry.hidden = true;
+    return;
+  }
   const canContinue = story.lastSessionId && story.lastSessionStatus !== "finished";
   const restartLabel = currentLanguage === "en" ? "Start again" : "Начать сначала";
+  storyDetailAction.classList.remove("hidden");
   storyDetailAction.textContent = canContinue ? t("continueButton") : completed ? restartLabel : t("startButton");
   storyDetailAction.onclick = () => {
     if (!storage.email) {
       openAuthModal();
       return;
     }
-    const action = canContinue ? continueStory(story.lastSessionId) : startStoryRun(story.key);
-    action.catch((error) => setStatus(t("errorPrefix", { message: error.message })));
+    runStoryDetailAction(() => canContinue ? continueStory(story.lastSessionId) : startStoryRun(story.key));
   };
   const restartButton = document.querySelector("#story-detail-restart");
   restartButton.textContent = restartLabel;
   restartButton.classList.toggle("hidden", !canContinue);
   restartButton.onclick = () => {
     if (!storage.email) return openAuthModal();
-    startStoryRun(story.key).catch((error) => setStatus(t("errorPrefix", { message: error.message })));
+    runStoryDetailAction(() => startStoryRun(story.key));
   };
   collectionReader.storyEntry(story);
+  if (pendingReadingActions.has(story)) storyDetailAction.disabled = restartButton.disabled = true;
   if (opening && !storage.email) {
     openModal(document.querySelector("#demo-welcome-modal"));
     storyDetailScreen.inert = true;
   }
+}
+
+async function runStoryDetailAction(action) {
+  const story = activeStoryDetail;
+  if (pendingReadingActions.has(story)) return;
+  pendingReadingActions.add(story);
+  const controls = [storyDetailAction, document.querySelector("#story-detail-restart")];
+  const disabled = controls.map(control => control.disabled);
+  const status = document.querySelector("#story-reading-status");
+  controls.forEach(control => control.disabled = true);
+  status.textContent = t("loading");
+  try { await action(); if (activeStoryDetail === story) status.textContent = ""; }
+  catch (error) { if (activeStoryDetail === story) status.textContent = t("errorPrefix", { message: error.message }); }
+  finally { pendingReadingActions.delete(story); if (activeStoryDetail === story) controls.forEach((control, i) => control.disabled = disabled[i]); }
 }
 
 async function startStory(storyKey) {
@@ -1301,18 +1414,22 @@ async function startStory(storyKey) {
 }
 
 async function startStoryRun(storyKey, { confirmNewRun = false } = {}) {
+  const current = navigationGuard();
   if (confirmNewRun && !confirm(t("newRunConfirm"))) {
     return;
   }
   stopSound({ resetPreference: true });
   const session = await api.createSession(storyKey);
+  if (!current()) return;
   storage.setGame(session);
   render(session);
 }
 
 async function continueStory(sessionId) {
+  const current = navigationGuard();
   stopSound({ resetPreference: true });
   const state = await api.state(sessionId);
+  if (!current()) return;
   storage.setGame(state);
   render(state);
 }
@@ -1325,6 +1442,7 @@ async function openStoryMenu() {
 }
 
 function openSettings() {
+  navigationGeneration++;
   stopSound({ resetPreference: true });
   currentState = null;
   showOnly(settingsScreen);
@@ -1408,12 +1526,15 @@ async function openBuilder(destination = "/builder/") {
 }
 
 async function showPublicHome() {
+  const current = navigationGuard();
   stopSound({ resetPreference: true });
   currentState = null;
   try {
     const stories = await api.stories();
+    if (!current()) return;
     catalogStories = Array.isArray(stories) ? stories : [];
   } catch (error) {
+    if (!current()) return;
     catalogStories = [];
     setStatus(t("errorPrefix", { message: t("catalogLoadFailed") }));
   }
@@ -1588,6 +1709,7 @@ function renderStoryPage() {
 
 function fillStoryCard(card, story, coverClass) {
   card.classList.add("engagement-card");
+  card.dataset.catalogRoute = storyRoute(story);
   const link = document.createElement("a");
   link.href = storyRoute(story);
   link.className = "story-card-link";
@@ -1609,16 +1731,14 @@ function fillStoryCard(card, story, coverClass) {
   title.textContent = story.title;
   const stats = document.createElement("div");
   stats.className = "story-card-stats";
-  if (story.kind === "collection") {
-    const chapters = document.createElement("span");
-    chapters.textContent = currentLanguage === "en" ? "Chapters" : "По главам";
-    const completion = document.createElement("span");
-    const labels = currentLanguage === "en"
-      ? { completed: "Completed", in_development: "In progress", abandoned: "On hold" }
-      : { completed: "Завершена", in_development: "В разработке", abandoned: "Приостановлена" };
-    completion.textContent = labels[story.completionStatus] || "";
-    stats.append(chapters, completion);
-  } else {
+  renderStoryCardStats(stats, story);
+  info.append(title, stats); link.append(cover, info);
+  card.append(link, favoriteButton(story));
+}
+
+function renderStoryCardStats(stats, story) {
+    if (!stats) return;
+    stats.replaceChildren();
     const views = document.createElement("span");
     views.textContent = `◉ ${new Intl.NumberFormat(currentLanguage, { notation: "compact", maximumFractionDigits: 1 }).format(story.views ?? 0)}`;
     views.setAttribute("aria-label", `${t("viewsLabel")}: ${story.views ?? 0}`);
@@ -1626,9 +1746,6 @@ function fillStoryCard(card, story, coverClass) {
     rating.textContent = `☆ ${story.rating == null ? "—" : story.rating.toFixed(1)}`;
     rating.setAttribute("aria-label", `${t("ratingLabel")}: ${story.rating == null ? t("noRatings") : story.rating.toFixed(1)}, ${story.ratingCount || 0}`);
     stats.append(views, rating);
-  }
-  info.append(title, stats); link.append(cover, info);
-  card.append(link, favoriteButton(story));
 }
 
 function openEngagementLogin(message) {
@@ -1643,6 +1760,7 @@ function favoriteButton(story) {
   button.type = "button";
   button.className = "story-favorite";
   button.dataset.catalogRoute = storyRoute(story);
+  button.disabled = pendingFavorites.has(storyRoute(story));
   button.setAttribute("aria-label", t(story.favorite ? "removeFavorite" : "addFavorite"));
   button.setAttribute("aria-pressed", String(Boolean(story.favorite)));
   const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -1671,14 +1789,22 @@ function favoriteButton(story) {
   button.onclick = async (event) => {
     event.stopPropagation();
     if (!storage.email) return openEngagementLogin("favoriteGuest");
-    button.disabled = true;
+    const current = navigationGuard();
+    const actor = storage.email, route = storyRoute(story);
+    if (pendingFavorites.has(route)) return;
+    pendingFavorites.add(route);
+    document.querySelectorAll(".story-favorite").forEach(control => { if (control.dataset.catalogRoute === route) control.disabled = true; });
     try {
       const collection = story.kind === "collection";
       const endpoint = collection
         ? `/api/catalog/collections/${encodeURIComponent(story.collectionId || story.id || story.key)}/favorite`
         : `/api/catalog/engagement/${encodeURIComponent(story.slug)}/favorite`;
       const result = await request(endpoint, { method: "PUT", body: collection ? { favorite: !story.favorite } : { selected: !story.favorite } });
+      if (storage.email !== actor) return;
       story.favorite = result.favorite;
+      if (activeStoryDetail && storyRoute(activeStoryDetail) === route) activeStoryDetail.favorite = result.favorite;
+      const listed = catalogStories.find(entry => storyRoute(entry) === storyRoute(story));
+      if (listed) listed.favorite = story.favorite;
       // Update in place: re-sorting favorites here changes the active carousel card.
       document.querySelectorAll(".story-favorite").forEach((control) => {
         if (control.dataset.catalogRoute !== storyRoute(story)) return;
@@ -1686,8 +1812,11 @@ function favoriteButton(story) {
         control.setAttribute("aria-label", t(story.favorite ? "removeFavorite" : "addFavorite"));
       });
     } catch (error) {
-      openEngagementLogin(error.status === 401 ? "favoriteGuest" : "engagementFailed");
-    } finally { button.disabled = false; }
+      if (current()) openEngagementLogin(error.status === 401 ? "favoriteGuest" : "engagementFailed");
+    } finally {
+      pendingFavorites.delete(route);
+      document.querySelectorAll(".story-favorite").forEach(control => { if (control.dataset.catalogRoute === route) control.disabled = false; });
+    }
   };
   return button;
 }
@@ -2102,6 +2231,8 @@ settingsButton.addEventListener("click", () => {
 });
 
 logoutButton.addEventListener("click", async () => {
+  navigationGeneration++;
+  collectionReader.close();
   stopSound({ resetPreference: true });
   try {
     await api.logout();
@@ -2211,11 +2342,21 @@ homePrevButton.addEventListener("click", () => moveHomeCarousel(-1));
 homeNextButton.addEventListener("click", () => moveHomeCarousel(1));
 let storyDetailReturnFocus = null;
 function closeStoryDetail() {
+  navigationGeneration++;
   const destination = !storage.email || window.history.state?.detailFrom === "/" ? "/" : "/history";
+  const returnRoute = activeStoryDetail ? storyRoute(activeStoryDetail) : null;
   storyDetailScreen.classList.add("hidden");
+  collectionReader.close();
+  activeStoryDetail = null;
   document.body.classList.remove("modal-open");
   window.history.replaceState({}, document.title, destination);
+  if (destination === "/history") renderStoryPage();
+  else { showOnly(loginScreen); renderHomeCarousel(); }
   if (storyDetailReturnFocus?.isConnected) storyDetailReturnFocus.focus();
+  else {
+    const link = [...document.querySelectorAll(".story-card-link")].find(node => node.getAttribute("href") === returnRoute);
+    (link || (destination === "/history" ? storySearch : homeSearchInput)).focus();
+  }
   storyDetailReturnFocus = null;
 }
 storyDetailBack.addEventListener("click", closeStoryDetail);
@@ -2264,6 +2405,8 @@ modalPasskeyButton.addEventListener("click", async () => {
   }
 });
 profileLogoutButton.addEventListener("click", async () => {
+  navigationGeneration++;
+  collectionReader.close();
   try {
     await api.logout();
   } catch (error) {
@@ -2329,7 +2472,9 @@ const accountUI = createAccountUI({ request, email: () => storage.email, languag
 const readerAds = createReaderAds({request, language: () => storage.language});
 const collectionReader = createCollectionReader({
   screen:document.querySelector("#collection-screen"), sceneScreen,
-  showScreen:showOnly, navigate:navigateTo, onFavoriteChange:() => { catalogStories = []; },
+  present:renderStoryDetail, updateCatalog:updateCatalogStory, navigate:navigateTo,
+  primaryAction:storyDetailAction, restartAction:document.querySelector("#story-detail-restart"),
+  readingStatus:document.querySelector("#story-reading-status"),
   signedIn:()=>Boolean(storage.email), signIn:openAuthModal,
   onSession:(session,runId)=>{stopSound({resetPreference:true});storage.setGame(session);history.pushState({},"",`/read/${encodeURIComponent(session.sessionId)}${runId?`?run=${encodeURIComponent(runId)}`:""}`);render(session);},
 });

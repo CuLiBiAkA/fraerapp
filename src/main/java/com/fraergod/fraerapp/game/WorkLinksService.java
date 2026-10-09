@@ -77,7 +77,7 @@ class WorkLinksService {
    if(strict&&r.stateTransfer()!=null&&"mapped".equals(r.stateTransfer().mode()))validateMapping(d,targetDocument(t,owner),r.stateTransfer());
    relations.add(new WorkMetadata.Relation(r.id(),r.type(),t,r.label(),r.stateTransfer()));
   }
-  return new StoryDocument(d.key(),d.title(),d.description(),d.genre(),d.completionStatus(),d.version(),d.startSceneId(),d.variables(),d.assets(),d.scenes(),new WorkMetadata(1,relations,m.inputContract()),d.topic());
+  return new StoryDocument(d.key(),d.title(),d.description(),d.genre(),d.completionStatus(),d.version(),d.startSceneId(),d.variables(),d.assets(),d.scenes(),new WorkMetadata(1,relations,m.inputContract(),m.coverUrl()),d.topic());
  }
  StoryDocument targetDocument(WorkMetadata.Target t,String owner) {
   if(!"scenario".equals(t.kind()))throw bad("Scenario required");

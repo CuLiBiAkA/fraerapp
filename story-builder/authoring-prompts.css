@@ -1,0 +1,22 @@
+.authoring-prompts { box-sizing: border-box; width: min(850px, calc(100% - 24px)); max-width: none; max-height: calc(100dvh - 24px); overflow: auto; margin: auto; padding: clamp(16px, 3vw, 28px); border: 1px solid #a18bb5; border-radius: 20px; background: #f9eaea; color: #4f3a68; font-family: inherit; }
+.authoring-prompts::backdrop { background: rgb(28 12 48 / 65%); }
+.authoring-prompts * { box-sizing: border-box; min-width: 0; }
+.authoring-prompts h2 { margin: 0 0 12px; font: inherit; font-size: 1.5rem; font-weight: 650; }
+.authoring-prompts p { line-height: 1.5; overflow-wrap: anywhere; }
+.authoring-prompts label { display: grid; gap: 8px; margin-block: 12px; }
+.authoring-prompts input, .authoring-prompts textarea, .authoring-prompts select, .authoring-prompts button { font: inherit; color: inherit; }
+.authoring-prompts select, .authoring-prompts textarea { width: 100%; max-width: 100%; border: 1px solid #9376ac; background: #fff7f4; border-radius: 10px; padding: 10px; }
+.authoring-prompts textarea { resize: vertical; }
+.authoring-prompts #prompt-output { font-family: ui-monospace, monospace; font-size: .85rem; min-height: 160px; }
+.authoring-prompts button, .authoring-prompts .prompt-actions a { min-height: 44px; border: 1px solid #80619e; border-radius: 10px; padding: 10px 14px; background: #80619e; color: #fff7f4; cursor: pointer; text-align: center; overflow-wrap: anywhere; text-decoration: none; }
+.authoring-prompts button:disabled { opacity: .55; cursor: default; }
+.authoring-prompts button.secondary, .authoring-prompts .prompt-actions a { background: transparent; color: #4f3a68; }
+.authoring-prompts :focus-visible { outline: 3px solid #4f3a68; outline-offset: 3px; }
+.authoring-prompts .prompt-options { display: grid; grid-template-columns: 2fr 1.5fr 1fr; gap: 12px; }
+.authoring-prompts .prompt-context-option { display: flex; align-items: center; min-height: 44px; }
+.authoring-prompts .prompt-context-option input { width: 22px; height: 22px; flex: 0 0 auto; accent-color: #80619e; }
+.authoring-prompts .prompt-note { font-size: .9rem; }
+.authoring-prompts .prompt-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.authoring-prompts details { margin-top: 20px; border-top: 1px solid #b5a1c7; padding-top: 12px; }
+.authoring-prompts summary { cursor: pointer; min-height: 44px; align-content: center; }
+@media (max-width: 600px) { .authoring-prompts .prompt-options { grid-template-columns: 1fr; gap: 0; } .authoring-prompts .prompt-actions > * { flex: 1 1 130px; } }

@@ -1,6 +1,7 @@
 import { canEditStories, filterAfterSubmit, storyLabels, workflowLabel } from "../story-workflow.js?v=1";
 import { reviewLimitMessage } from "../review-limit.js?v=1";
-import { decorateHelp, helpButton, helpTopics } from "./help.js?v=4";
+import { decorateHelp, helpButton, helpTopics } from "./help.js?v=5";
+import { openAuthoringPrompts, copyPromptText } from "./authoring-prompts.js?v=1";
 
 import { initChapterTabs } from "./chapter-panel.js?v=1";
 import { genres, topics, fillClassification } from "./genre-topic.js?v=1";
@@ -42,17 +43,23 @@ const translations = {
     authorSessionRefresh: "Проверить вход",
     runtimeApiLabel: "API рантайма",
     adminTokenLabel: "Админ-действия требуют роль admin",
-    loadExample: "Загрузить пример",
-    copyJson: "Копировать JSON",
-    downloadJson: "Скачать JSON",
-    importJsonFile: "Импорт JSON-файла",
-    pasteJson: "Вставить JSON",
+    loadExample: "Открыть пример главы",
+    copyJson: "Копировать JSON главы",
+    downloadJson: "Скачать JSON главы",
+    importJsonFile: "Импорт JSON главы",
+    pasteJson: "Вставить JSON главы",
+    authoringPrompts: "Промпты для ИИ",
+    myStories: "Мои истории",
+    replaceDraft: "Заменить открытый черновик? Сначала скачайте JSON, если хотите сохранить текущие изменения. Серверная версия не изменится до сохранения.",
+    packageInChapter: "Это пакет целой истории. Импортируйте его в разделе «Мои истории» → «Импорт истории». Текущая глава не изменена.",
+    draftSaveConflict: "Глава изменилась в другой вкладке или её версия устарела. Ваши изменения остались здесь и не перезаписали сервер. Скачайте JSON главы для переноса правок, затем откройте актуальную версию.",
+    reloadServerDraft: "Открыть актуальную версию",
     clearDraft: "Очистить черновик",
     localDraftSaveFailed: "Не удалось сохранить черновик на этом устройстве. Изменения остаются в открытой вкладке. Скачайте JSON или сохраните главу на сервере перед закрытием.",
     backToSite: "На главную",
     invalidJson: "Не удалось открыть JSON: {message}",
     draftChanged: "История или сервер изменились во время операции. Действие остановлено; повторите его для нужной истории.",
-    storyMetadata: "Метаданные истории",
+    storyMetadata: "Настройки главы",
     keyLabel: "Ключ",
     titleLabel: "Название",
     versionLabel: "Версия",
@@ -83,8 +90,8 @@ const translations = {
     switchUnsaved: "В текущей истории есть изменения только в этом браузере. Открыть другую историю и заменить их?",
     leaveChapterUnsaved: "Изменения главы ещё не сохранены на сервере. Вернуться к списку глав без сохранения?",
     validationTitle: "Проверка",
-    storyJsonTitle: "JSON истории",
-    pasteStoryJson: "Вставить JSON истории",
+    storyJsonTitle: "JSON главы",
+    pasteStoryJson: "Вставить JSON главы",
     cancelButton: "Отмена",
     applyButton: "Применить",
     newStoryKey: "new_story",
@@ -223,17 +230,23 @@ const translations = {
     authorSessionRefresh: "Check sign-in",
     runtimeApiLabel: "Runtime API",
     adminTokenLabel: "Admin actions require the admin role",
-    loadExample: "Load Example",
-    copyJson: "Copy JSON",
-    downloadJson: "Download JSON",
-    importJsonFile: "Import JSON File",
-    pasteJson: "Paste JSON",
+    loadExample: "Open chapter example",
+    copyJson: "Copy chapter JSON",
+    downloadJson: "Download chapter JSON",
+    importJsonFile: "Import chapter JSON",
+    pasteJson: "Paste chapter JSON",
+    authoringPrompts: "AI prompts",
+    myStories: "My stories",
+    replaceDraft: "Replace the open draft? Download its JSON first if you want to keep your current changes. The server version will not change until you save.",
+    packageInChapter: "This is a complete story package. Import it in My stories → Import story. The current chapter has not changed.",
+    draftSaveConflict: "The chapter changed in another tab or this version is outdated. Your edits remain here and have not overwritten the server. Download chapter JSON to preserve your changes, then open the current version.",
+    reloadServerDraft: "Open current version",
     clearDraft: "Clear draft",
     localDraftSaveFailed: "The draft could not be saved on this device. Your changes remain in this tab. Download JSON or save the chapter to the server before closing it.",
     backToSite: "Home",
     invalidJson: "Could not open JSON: {message}",
     draftChanged: "The story or server changed during the operation. It was stopped; retry for the intended story.",
-    storyMetadata: "Story metadata",
+    storyMetadata: "Chapter settings",
     keyLabel: "Key",
     titleLabel: "Title",
     versionLabel: "Version",
@@ -264,8 +277,8 @@ const translations = {
     switchUnsaved: "The current story has changes stored only in this browser. Open another story and replace them?",
     leaveChapterUnsaved: "Chapter changes have not been saved to the server. Return to the chapter list without saving?",
     validationTitle: "Validation",
-    storyJsonTitle: "Story JSON",
-    pasteStoryJson: "Paste Story JSON",
+    storyJsonTitle: "Chapter JSON",
+    pasteStoryJson: "Paste chapter JSON",
     cancelButton: "Cancel",
     applyButton: "Apply",
     newStoryKey: "new_story",
@@ -1349,6 +1362,7 @@ function extractTextVariables(text) {
 }
 
 function fromStoryJson(story) {
+  if (story?.kind === 'fraerapp-work-package') throw new Error(t('packageInChapter'));
   if (!story || typeof story !== "object" || Array.isArray(story) || !Array.isArray(story.scenes)) {
     throw new Error("Ожидается объект истории с массивом scenes / Expected a story object with a scenes array");
   }
@@ -1361,6 +1375,7 @@ function fromStoryJson(story) {
       throw new Error("Неверная структура связей или входного контракта / Invalid relations or input contract shape");
     }
   }
+  const previousBinding = story.key === draft.key ? draft.runtimeStory : null;
   draft = {
     key: story.key || t("newStoryKey"),
     title: story.title || t("newStoryTitle"),
@@ -1415,6 +1430,7 @@ function fromStoryJson(story) {
       })),
     })),
   };
+  if (previousBinding) draft.runtimeStory = previousBinding;
   render();
 }
 
@@ -2006,11 +2022,9 @@ async function removeAssetAt(list, index, scene = null) {
       if (candidate.music === deleted.id) candidate.music = "";
     });
   }
-  try {
-    await deleteUploadedAsset(deleted);
-  } finally {
-    render();
-  }
+  // Removing a reference is a draft edit. Persist it with the same generation
+  // check as text changes; immutable media bytes remain available to old saves.
+  render();
 }
 
 function renameVariable(variable, nextName, scene = null) {
@@ -2148,8 +2162,8 @@ function getDraftStoryId() {
     ? binding.storyId : null;
 }
 
-function bindDraftStory(storyId, savedDocument = null, revision = null) {
-  draft.runtimeStory = { storyId, key: draft.key, base: els.runtimeUrl.value.replace(/\/$/, ""), savedDocument, revision };
+function bindDraftStory(storyId, savedDocument = null, revision = null, generation = null) {
+  draft.runtimeStory = { storyId, key: draft.key, base: els.runtimeUrl.value.replace(/\/$/, ""), savedDocument, revision, generation };
   saveDraft();
 }
 
@@ -2344,9 +2358,9 @@ async function uploadAssetFile(asset, file, scope = "global") {
   if (asset.type) {
     form.append("type", asset.type);
   }
-  if (scope === "local") {
-    form.append("scope", "local");
-  }
+  // Store bytes without modifying the server document. Both global and local
+  // references are then saved atomically with the bound document generation.
+  form.append("scope", "local");
   const payload = await fetchJson(`${base}/api/author/stories/${storyId}/assets`, {
     method: "POST",
     headers: {
@@ -2358,38 +2372,15 @@ async function uploadAssetFile(asset, file, scope = "global") {
   asset.id = payload.id;
   asset.type = payload.type;
   asset.url = payload.url;
-  asset.metadata = payload.metadata ? JSON.stringify(payload.metadata, null, 2) : "";
+  const metadata = payload.metadata ? { ...payload.metadata } : null;
+  if (metadata && scope !== "local") delete metadata.scope;
+  asset.metadata = metadata ? JSON.stringify(metadata, null, 2) : "";
   if (draft !== uploadDraft || draft.key !== uploadKey || base !== els.runtimeUrl.value.replace(/\/$/, "")) throw new Error(t("draftChanged"));
   renderPreview();
   saveDraft();
   await importDraftToRuntime();
   els.apiResult.textContent = t("uploadAssetDone", { id: payload.id });
   return payload;
-}
-
-async function deleteUploadedAsset(asset) {
-  const storyId = getDraftStoryId();
-  if (!asset?.url || !isUploadedAssetUrl(asset.url) || !canAuthor() || !storyId) {
-    return null;
-  }
-  const base = els.runtimeUrl.value.replace(/\/$/, "");
-  const params = new URLSearchParams({ url: asset.url });
-  if (asset.id) {
-    params.set("assetKey", asset.id);
-  }
-  const payload = await fetchJson(`${base}/api/author/stories/${storyId}/assets?${params}`, {
-    method: "DELETE",
-    headers: {
-      Accept: "application/json",
-      ...authorHeaders(false),
-    },
-  });
-  els.apiResult.textContent = t("deleteAssetDone", { id: asset.id || asset.url });
-  return payload;
-}
-
-function isUploadedAssetUrl(url) {
-  return typeof url === "string" && url.startsWith("/uploads/");
 }
 
 async function loginAuthor() {
@@ -2413,7 +2404,7 @@ window.addEventListener("focus",()=>{
 
 const panelWords = {
   chapter: ['Моя глава', 'My chapter'], check: ['Проверка', 'Validation'], publication: ['Публикация', 'Publication'],
-  save: ['Сохранить главу', 'Save chapter'], preview: ['Предпросмотр', 'Preview'], close: ['Закрыть', 'Close'],
+  save: ['Сохранить главу', 'Save chapter'], preview: ['Просмотр сцен', 'Scene preview'], close: ['Закрыть', 'Close'],
   checkAgain: ['Проверить ещё раз', 'Check again'], submit: ['Отправить на модерацию', 'Submit for moderation'],
   saveHint: ['Сохранённая на сервере глава доступна с других устройств.', 'A chapter saved on the server is available on other devices.'],
   checkHint: ['Проверяем текущий JSON: сцены, переменные и переходы. Изменения сохранять не обязательно.', 'Check the current JSON: scenes, variables and transitions. Saving is not required.'],
@@ -2439,12 +2430,12 @@ function renderAuthorWorkspace(home = authorHomeCache) {
   const index = items.findIndex(item => item.target.id === getDraftStoryId());
   const parentId = chapterParent?.collectionId || chapterParent?.id;
   const parentLink = document.querySelector('.builder-home');
-  parentLink.href = parentId ? `/my-stories/?collection=${encodeURIComponent(parentId)}` : '/';
-  parentLink.querySelector('span').textContent = parentId ? (en ? 'Story chapters' : 'К главам истории') : t('backToSite');
-  parentLink.onclick = parentId ? event => {
+  parentLink.href = parentId ? `/my-stories/?collection=${encodeURIComponent(parentId)}` : '/my-stories/';
+  parentLink.querySelector('span').textContent = parentId ? (en ? 'Story chapters' : 'К главам истории') : t('myStories');
+  parentLink.onclick = event => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     if (hasUnsavedChanges() && !confirm(t('leaveChapterUnsaved'))) event.preventDefault();
-  } : null;
+  };
   document.querySelector('#chapter-story-name').textContent = chapterParent?.title || chapterParent?.draftDocument?.title || (en ? 'Independent draft' : 'Отдельный черновик');
   document.querySelector('#chapter-number').textContent = index < 0 ? '' : [items[index].season, `${en ? 'Chapter' : 'Глава'} ${index + 1}`].filter(Boolean).join(' · ');
   document.querySelector('#chapter-title').textContent = draft.title || draft.key;
@@ -2867,7 +2858,7 @@ async function openAuthorStory(storyId) {
   history.replaceState({}, "", url);
   const story = detail.draftDocument;
   fromStoryJson(story);
-  bindDraftStory(storyId, JSON.stringify(toStoryJson()), detail.draftRevision);
+  bindDraftStory(storyId, JSON.stringify(toStoryJson()), detail.draftRevision, detail.generation);
   els.apiResult.textContent = "";
   renderAuthorWorkspace();
 }
@@ -2885,6 +2876,7 @@ async function authorWorkflow(storyId, action, knownStory = null, alreadyBusy = 
     const payload = await authorFetch(`/api/author/stories/${storyId}/${action}`, {
       method: "POST", ...(["review", "withdraw"].includes(action) ? { body: JSON.stringify({ generation: story.generation, replaceReview }) } : {}),
     });
+    acceptOwnGeneration(payload);
     if (action === "review") authorFilter = filterAfterSubmit(authorFilter);
     await loadAuthorHome();
     els.apiResult.textContent = action === "review" ? t("reviewSent", { revision: payload.submittedRevision }) : t("changeSaved");
@@ -2893,6 +2885,16 @@ async function authorWorkflow(storyId, action, knownStory = null, alreadyBusy = 
     if (error.status === 409) { await loadAuthorHome(); if(error.code!=="REVIEW_LIMIT_REACHED")throw new Error(t("staleStory")); }
     throw error;
   } finally { if (!alreadyBusy) { builderWorkflowBusy = false; updateAuthorGate(); } }
+}
+
+function acceptOwnGeneration(summary) {
+  const binding = draft.runtimeStory;
+  if (!summary || summary.storyId !== getDraftStoryId() || !Number.isInteger(summary.generation)
+    || summary.draftRevision !== binding?.revision) return;
+  // Only the receipt of our successful command can advance the saved base.
+  // A refreshed list may describe someone else's changes and is not sufficient.
+  binding.generation = summary.generation;
+  saveDraft();
 }
 
 document.querySelector("#add-variable").onclick = () => {
@@ -2909,13 +2911,30 @@ document.querySelector("#add-scene").onclick = addSceneAndFocus;
 els.quickAddScene.onclick = addSceneAndFocus;
 
 document.querySelector("#load-example").onclick = () => {
+  if (!confirm(t('replaceDraft'))) return;
+  chapterParent = null;
   draft = exampleDraft();
   render();
 };
 
 document.querySelector("#copy-json").onclick = async () => {
-  await navigator.clipboard.writeText(JSON.stringify(toStoryJson(), null, 2));
+  const text = JSON.stringify(toStoryJson(), null, 2);
+  try { await navigator.clipboard.writeText(text); }
+  catch { els.pasteArea.value = text; els.pasteDialog.showModal(); await copyPromptText(text, els.pasteArea, null); }
 };
+
+document.querySelector('#authoring-prompts-button').onclick = () => openAuthoringPrompts({
+  language: currentLanguage, kind: 'chapter', getContext: async kind => {
+    if (kind === 'chapter') return toStoryJson();
+    const parentId = chapterParent?.collectionId || chapterParent?.id;
+    if (!parentId) throw new Error('Open a story to export its package');
+    const packageValue = await authorFetch(`/api/author/collections/${encodeURIComponent(parentId)}/export`);
+    // Include the deliberate current edit, not a silently stale saved chapter.
+    const index = packageValue.scenarios.findIndex(chapter => chapter.key === draft.key);
+    if (index >= 0) packageValue.scenarios[index] = toStoryJson();
+    return packageValue;
+  },
+});
 
 document.querySelector("#download-json").onclick = () => {
   const blob = new Blob([JSON.stringify(toStoryJson(), null, 2)], { type: "application/json" });
@@ -2930,7 +2949,10 @@ document.querySelector("#import-file").onchange = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
   try {
-    fromStoryJson(JSON.parse(await file.text()));
+    const value = JSON.parse(await file.text());
+    if (value?.kind === 'fraerapp-work-package') throw new Error(t('packageInChapter'));
+    if (!confirm(t('replaceDraft'))) return;
+    fromStoryJson(value);
     els.apiResult.textContent = "";
   } catch (error) {
     els.apiResult.textContent = t("invalidJson", { message: error.message });
@@ -2947,7 +2969,10 @@ document.querySelector("#paste-json").onclick = () => {
 document.querySelector("#apply-paste").onclick = () => {
   const errorMessage = document.querySelector("#paste-error");
   try {
-    fromStoryJson(JSON.parse(els.pasteArea.value));
+    const value = JSON.parse(els.pasteArea.value);
+    if (value?.kind === 'fraerapp-work-package') throw new Error(t('packageInChapter'));
+    if (!confirm(t('replaceDraft'))) return;
+    fromStoryJson(value);
     errorMessage.textContent = "";
     els.pasteDialog.close();
   } catch (error) {
@@ -2956,7 +2981,9 @@ document.querySelector("#apply-paste").onclick = () => {
 };
 
 document.querySelector("#clear-draft").onclick = () => {
+  if (!confirm(t('replaceDraft'))) return;
   removeLocalStorage(storageKey);
+  chapterParent = null;
   draft = emptyDraft();
   render();
 };
@@ -2981,19 +3008,41 @@ async function importDraftToRuntime(base = els.runtimeUrl.value.replace(/\/$/, "
   const importedDraft = draft;
   const importedKey = draft.key;
   const savedDocument = JSON.stringify(toStoryJson());
-  const payload = await fetchJson(`${base}/api/author/stories/import`, {
-    method: "POST",
-    headers: {
-      ...authorHeaders(true),
-      Accept: "application/json",
-    },
-    body: savedDocument,
-  });
+  const storyId = getDraftStoryId();
+  const generation = draft.runtimeStory?.generation;
+  if (storyId && !Number.isInteger(generation)) {
+    throw Object.assign(new Error(t('draftSaveConflict')), { status: 409, code: 'DRAFT_GENERATION_REQUIRED' });
+  }
+  let payload;
+  try {
+    payload = await fetchJson(storyId ? `${base}/api/author/stories/${encodeURIComponent(storyId)}` : `${base}/api/author/stories/import`, {
+      method: storyId ? "PUT" : "POST",
+      headers: { ...authorHeaders(true), Accept: "application/json" },
+      body: storyId ? JSON.stringify({ generation, document: JSON.parse(savedDocument) }) : savedDocument,
+    });
+  } catch (error) {
+    if (storyId && error.status === 409) error.code = 'DRAFT_SAVE_CONFLICT';
+    throw error;
+  }
   if (payload.storyId && draft === importedDraft && draft.key === importedKey && base === els.runtimeUrl.value.replace(/\/$/, "")) {
-    bindDraftStory(payload.storyId, savedDocument, payload.draftRevision);
+    bindDraftStory(payload.storyId, savedDocument, payload.draftRevision, payload.generation);
   }
   await loadAuthorHome();
   return payload;
+}
+
+function showDraftSaveConflict() {
+  els.apiResult.replaceChildren();
+  const message = document.createElement('span'); message.textContent = t('draftSaveConflict');
+  const reload = document.createElement('button'); reload.type = 'button'; reload.className = 'secondary'; reload.textContent = t('reloadServerDraft');
+  reload.onclick = async () => {
+    const id = getDraftStoryId(); if (!id) return;
+    reload.disabled = true;
+    try { await openAuthorStory(id); }
+    catch (error) { message.textContent = error.message; }
+    finally { reload.disabled = false; }
+  };
+  els.apiResult.append(message, document.createElement('br'), reload);
 }
 
 async function runtimeCall(action) {
@@ -3026,7 +3075,8 @@ async function runtimeCall(action) {
           const workId = new URLSearchParams(window.location.search).get("work");
           if (workId) {
             const parent = await authorFetch(`/api/author/collections/${encodeURIComponent(workId)}`);
-            await authorFetch(`/api/author/collections/${encodeURIComponent(workId)}/chapters/review`, {method:"POST",body:JSON.stringify({storyId:imported.storyId,storyGeneration:imported.generation,generation:parent.generation,replaceReview:true})});
+            const submitted = await authorFetch(`/api/author/collections/${encodeURIComponent(workId)}/chapters/review`, {method:"POST",body:JSON.stringify({storyId:imported.storyId,storyGeneration:imported.generation,generation:parent.generation,replaceReview:true})});
+            for (const item of submitted.items || []) acceptOwnGeneration(item);
             els.apiResult.textContent = currentLanguage === "en" ? "Chapter submitted for review. Other drafts remain private." : "Глава отправлена на проверку. Остальные черновики остаются у вас.";
             await loadAuthorHome();
           } else await authorWorkflow(imported.storyId, "review", imported, true);
@@ -3048,7 +3098,8 @@ async function runtimeCall(action) {
     }
     throw new Error(t("authorRoleMissing"));
   } catch (error) {
-    els.apiResult.textContent = error.message;
+    if (['DRAFT_SAVE_CONFLICT', 'DRAFT_GENERATION_REQUIRED'].includes(error.code)) showDraftSaveConflict();
+    else els.apiResult.textContent = error.message;
   } finally {
     builderWorkflowBusy = false;
     updateAuthorGate();

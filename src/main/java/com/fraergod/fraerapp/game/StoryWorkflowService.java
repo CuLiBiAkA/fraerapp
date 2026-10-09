@@ -107,6 +107,16 @@ class StoryWorkflowService {
  Map<String,Object> importAdminDraft(String body,String creatorPlayerId) {
   return importDraft(body,null,Objects.requireNonNull(creatorPlayerId));
  }
+ @Transactional
+ Map<String,Object> saveDocument(String id,String playerId,int generation,Map<String,Object> input) {
+  collections.structureLock();
+  Story story=lock(id);owner(story,playerId);editable(story);expected(workspace(id),generation);
+  if(input==null)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Story document is required");
+  StoryDocument document=json.readStory(json.write(input));
+  if(!Objects.equals(story.getKey(),document.key()))
+   throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Story key is immutable");
+  return importDraft(json.write(input),playerId,playerId);
+ }
  private Map<String,Object> importDraft(String body,String playerId,String newOwnerPlayerId) {
   collections.structureLock();
   StoryDocument doc=json.readStory(body);
@@ -291,6 +301,7 @@ class StoryWorkflowService {
   if(doc.scenes()!=null)for(var scene:doc.scenes())if(scene.assets()!=null)all.addAll(scene.assets());
   for(var asset:all)if(asset.url()!=null&&asset.url().startsWith("/uploads/")&&!asset.url().startsWith("/uploads/"+id+"/"))
    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Upload resources to this story before referencing them");
+  if(doc.metadata()!=null)CoverPaths.validate(doc.metadata().coverUrl(),id);
  }
  private void notifyAuthor(Story s,String action,String reason,Integer revision,String reviewer) {
   if(s.getOwnerPlayerId()==null)return;
@@ -360,6 +371,7 @@ class StoryWorkflowService {
  }
  void checkMedia(StoryDocument document) {checkMedia(document,false);}
  private void checkMedia(StoryDocument document,boolean allowPlaceholders) {
+  if(document.metadata()!=null)CoverPaths.validatePath(document.metadata().coverUrl());
   List<StoryDocument.AssetDocument> resources=new ArrayList<>(document.assets()==null?List.of():document.assets());
   if(document.scenes()!=null)for(var scene:document.scenes())if(scene.assets()!=null)resources.addAll(scene.assets());
   for(var asset:resources) {

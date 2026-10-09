@@ -12,11 +12,15 @@ class CollectionController {
  private final CurrentUserService user;
  private final WorkLinksService links;
  private final JsonSupport json;
- CollectionController(CollectionService collections,StoryWorkflowService workflow,ChapterReadingService reading,WorkPackageService packages,CurrentUserService user,WorkLinksService links,JsonSupport json){this.collections=collections;this.workflow=workflow;this.reading=reading;this.packages=packages;this.user=user;this.links=links;this.json=json;}
+ private final CollectionMetricsService metrics;
+ CollectionController(CollectionService collections,StoryWorkflowService workflow,ChapterReadingService reading,WorkPackageService packages,CurrentUserService user,WorkLinksService links,JsonSupport json,CollectionMetricsService metrics){this.collections=collections;this.workflow=workflow;this.reading=reading;this.packages=packages;this.user=user;this.links=links;this.json=json;this.metrics=metrics;}
  record Draft(int generation,CollectionDocument document) {}
  record Create(CollectionDocument document) {}
  record Submission(int generation,Boolean replaceReview) {}
  record Favorite(boolean favorite) {}
+ record Rating(@jakarta.validation.constraints.NotNull @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(5) @jakarta.validation.constraints.Digits(integer=1,fraction=0) java.math.BigDecimal score) {}
+ @PutMapping("/api/catalog/collections/{id}/rating") Object rating(@PathVariable String id,@jakarta.validation.Valid @RequestBody Rating value){metrics.rate(id,user.requirePlayerId(),value.score().intValueExact());return Map.of("saved",true);}
+ @PostMapping("/api/catalog/collections/{id}/view") Object view(@PathVariable String id){metrics.view(id,user.requirePlayerId());return Map.of("recorded",true);}
  record Request(String requestId,Boolean newAttempt) {}
  @GetMapping("/api/author/collections") Object mine(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="100") int size,@RequestParam(defaultValue="") String q,@RequestParam(defaultValue="all") String type,@RequestParam(defaultValue="all") String status){return collections.mine(user.requireOwnerReaderPlayerId(),page,size,q,type,status);}
  @GetMapping("/api/author/collections/parents") Object parents(@RequestParam String scenarioId){return collections.parents(user.requireOwnerReaderPlayerId(),scenarioId);}
@@ -41,8 +45,9 @@ class CollectionController {
  @GetMapping("/api/moderation/collections/{id}/descendants") Object descendants(@PathVariable String id){user.requireModerator();return packages.descendants(id);}
  @PostMapping("/api/moderation/collections/{id}/restrict-descendants") Object restrict(@PathVariable String id,@RequestBody WorkPackageService.Restriction c){return packages.restrict(id,c,user.requireModerator());}
  @PostMapping("/api/moderation/collections/{id}/{action}") Object decide(@PathVariable String id,@PathVariable String action,@RequestBody StoryWorkflowService.Decision c){return workflow.decideCollection(id,action,c,user.requireModerator());}
- @GetMapping("/api/catalog/collections") Object catalog(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="100") int size,@RequestParam(defaultValue="") String q,@RequestParam(defaultValue="all") String type,@RequestParam(defaultValue="false") boolean favorites){return collections.catalog(user.optionalIdentity().isEmpty(),user.optionalPlayerId(),page,size,q,type,favorites);}
- @GetMapping("/api/catalog/collections/{id}") Object publicDetail(@PathVariable String id){return collections.publicDetail(id,user.optionalIdentity().isEmpty(),user.optionalPlayerId());}
+ @GetMapping("/api/catalog/collections") Object catalog(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="100") int size,@RequestParam(defaultValue="") String q,@RequestParam(defaultValue="all") String type,@RequestParam(defaultValue="false") boolean favorites){return privateResponse(collections.catalog(user.optionalIdentity().isEmpty(),user.optionalPlayerId(),page,size,q,type,favorites));}
+ @GetMapping("/api/catalog/collections/{id}") Object publicDetail(@PathVariable String id){return privateResponse(collections.publicDetail(id,user.optionalIdentity().isEmpty(),user.optionalPlayerId()));}
+ private Object privateResponse(Object body){return org.springframework.http.ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore().cachePrivate()).body(body);}
  @GetMapping("/api/catalog/stories/{slug}/entry-context") Object entry(@PathVariable String slug){return reading.entryContext(slug,user.optionalPlayerId(),user.optionalIdentity().isEmpty());}
  @PutMapping("/api/catalog/collections/{id}/favorite") Object favorite(@PathVariable String id,@RequestBody Favorite value){return collections.favorite(id,user.requirePlayerId(),value.favorite());}
  @GetMapping("/api/collections/{id}/runs") Object runs(@PathVariable String id){return reading.runs(id,user.requirePlayerId());}

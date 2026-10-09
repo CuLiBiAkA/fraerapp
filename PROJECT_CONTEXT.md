@@ -2,6 +2,41 @@
 
 Last updated: 2026-10-09.
 
+Unified story experience — release candidate, 2026-10-09:
+`docs/story-experience-unification.md` is the current repair/verification record.
+This supersedes the earlier limitations below about collection statistics,
+path-only covers and the separate author folder/contents presentation. Both work
+types use the same reader card and detail dialog across home, catalogue and
+favorites, with common cover, author, dates, rating, view and reading controls.
+Serial contents occupy a section of that dialog. Existing URLs and saves remain.
+V21 adds work-level collection votes (one user/work), daily UTC view deduplication
+and publication-event dates; private draft activity is not a public update date.
+Serial progress counts chapters; final endings belong to the last chapter of a
+completed story. Legacy v1 metrics without a reliable definition remain null.
+Hidden/archived serial parents also deny direct chapter reads and protected media.
+
+My stories uses common work cards and separate list/editor screens, explicit
+trash, metadata/chapters tabs, shared cover selection/upload and draft recovery.
+Moderation retains its revision and approval controls. Standalone metadata can
+be edited without replacing scenes or IDs; PUT /api/author/stories/{id} accepts
+generation + document and rejects stale saves. Covers use metadata.coverUrl for
+standalone documents and collection.coverUrl for serial works; upload paths must
+belong to that work. Collection cover uploads do not change the draft implicitly.
+
+The shared RU/EN prompt dialog is available from author pages, Builder and its
+map, plus `/builder/prompts.html`. It prepares creation/edit instructions for a
+chapter or whole package, with optional explicit source inclusion and copy/file
+export. It does not call an AI provider. `docs/prompts/authoring-guide.md` describes
+the current schema, supported mechanics and limitations. Scene preview remains
+a text/choice preview. New stories use schema 2; legacy schema 1 import survives.
+Release must include API migration/JAR, all frontend imports and rebuilt Builder;
+auth configuration, JWT secret, policy version and existing story data stay intact.
+Checks before release: 107 API, 59 auth, 109 Node tests and all 20 browser suites
+pass; API bootJar is rebuilt, lint/production validation and diff checks pass.
+Builder also uses generation-checked PUT, with file-only uploads before saving
+references. SQL aggregates avoid loading other readers' runs/saves into memory.
+Deployment status will be recorded after production verification.
+
 Author/contents journey repair, deployed from 9ff26c7 on 2026-10-09 after the user's followup:
 Home "Create your own" now refreshes author access and enters `/my-stories/`,
 where story metadata and chapters are created. The explicit Builder action still

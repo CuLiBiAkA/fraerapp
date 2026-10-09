@@ -1,3 +1,11 @@
+# Historical implementation brief — not an authoring template
+
+This file records a previous product implementation request. Its folder model is
+superseded by ordered schema 2 stories. For current story/chapter generation use
+[the author prompt guide](authoring-guide.md) and the shared **AI prompts** dialog
+in My stories or Builder. Preserve legacy JSON import compatibility without using
+this brief as instructions to generate new stories.
+
 # Промпт для Codex: истории и вложенные папки FraerApp
 
 Реализуй во FraerApp объединение своих историй и глав в обычные вложенные папки с произвольными названиями. Автор должен создавать и выпускать части независимо, читатель — видеть понятное оглавление и продолжать чтение, модератор — проверять конкретные изменения без повторной проверки всех ранее опубликованных текстов. Связи между произведениями должны настраиваться в метаданных через удобный интерфейс Builder и сохраняться при экспорте/импорте.

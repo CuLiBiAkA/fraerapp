@@ -49,9 +49,9 @@ const chapter={key:'editing-fixture',title:'Мира у двери',version:1,st
    assert.equal(await page.getByRole('textbox',{name:textName,exact:true}).nth(1).inputValue(),'Локальный счёт: {{score}}');
    await firstText.fill((await firstText.inputValue())+'!');
    await page.locator('#paste-json').click();
-   const dialog=page.getByRole('dialog',{name:lang==='ru'?'Вставить JSON истории':'Paste Story JSON',exact:true});
+   const dialog=page.getByRole('dialog',{name:lang==='ru'?'Вставить JSON главы':'Paste chapter JSON',exact:true});
    await dialog.waitFor();
-   const jsonArea=dialog.getByRole('textbox',{name:lang==='ru'?'Вставить JSON истории':'Paste Story JSON',exact:true});
+   const jsonArea=dialog.getByRole('textbox',{name:lang==='ru'?'Вставить JSON главы':'Paste chapter JSON',exact:true});
    const exported=JSON.parse(await jsonArea.inputValue());
    assert.equal(exported.scenes[0].text,'Счёт: {{ trust }}!');assert.equal(exported.scenes[0].choices[0].effects[0].inc,'trust');
    assert.equal(exported.scenes[1].variables.score,10);

@@ -1,5 +1,38 @@
 # FraerApp deploy and ops runbook
 
+## Unified story experience (release procedure, 2026-10-09)
+
+This release changes API, frontend and Builder. It includes additive migration
+V21 (collection views/ratings and publication dates), collection media access and
+version-checked scenario saving. Preserve published documents, all IDs, votes,
+favorites and reader saves. No content republishing, JWT rotation or auth rebuild
+is required. See `docs/story-experience-unification.md` for acceptance evidence.
+
+1. Inspect main/worktree, live six-service health and recent API/auth logs. Run
+   npm test/lint/build, the browser runner, and auth/API Gradle tests; build :bootJar.
+2. Back up both databases in custom pg_dump format and validate pg_restore --list.
+   Archive current runtime/configuration and tag running API/Builder rollback
+   images. Keep private backups private. Record newly added files for rollback.
+3. Commit/push the tested change and its context updates. Copy the verified API
+   JAR into a layer over the current API runtime image; retain its entrypoint,
+   user and environment. Transfer changed frontend/Builder imports together,
+   including author-ui/author-cover and all authoring-prompts files/examples.
+4. Rebuild Builder and recreate only API and Builder, then test/reload nginx.
+   Wait for healthy services. Confirm V21 succeeded and the running JAR hash.
+5. Verify public/origin routes and changed asset hashes, using the live edge TLS
+   bind from Docker. Include /my-stories/, /moderation/, /builder/prompts.html,
+   readiness and catalogue. Anonymous account access stays 401; /auth/jwks 404.
+6. Read the existing cat collection/QA runs with a temporary nonprivileged session;
+   revoke it afterwards. Do not fabricate production ratings or create runs as a
+   release check. Distinguish fixture browser flows from authenticated live reads.
+   Record final services, logs, commit, backup and image tags after verification.
+
+On rollback restore the archived static/Builder files, remove only listed new
+release files if needed, and recreate the tagged old API/Builder images. V21 is
+additive; leave its tables/columns in place when rolling back application code.
+Do not restore a pre-rotation JWT secret or restore a database over newer user
+activity merely to reverse UI changes. Keep policy version/email_off protections.
+
 ## Author and contents journey (deployed, 2026-10-09)
 
 Inspect local Git and live service health/logs. Back up the seven changed runtime

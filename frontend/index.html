@@ -17,8 +17,8 @@
     <link rel="stylesheet" href="/story-cards.css?v=7">
     <link rel="stylesheet" href="/typography.css?v=1">
     <link rel="stylesheet" href="/loading.css?v=3">
-  <link rel="stylesheet" href="/story-dialog.css?v=5">
-    <link rel="stylesheet" href="/collections.css?v=4">
+  <link rel="stylesheet" href="/story-dialog.css?v=6">
+    <link rel="stylesheet" href="/collections.css?v=5">
     <link rel="stylesheet" href="/site-controls.css?v=6">
   <link rel="stylesheet" href="/reader.css?v=5">
   </head>
@@ -153,6 +153,8 @@
               <h1 id="story-detail-title"></h1>
               <div id="story-detail-favorite"></div>
             </div>
+            <p id="story-detail-byline" class="story-detail-byline"></p>
+            <button id="story-detail-contents" class="story-contents-link hidden" type="button"></button>
             <p id="story-detail-description"></p>
             <div class="story-reader-row">
             <div id="story-reader-progress" class="hidden">
@@ -163,7 +165,9 @@
             </div>
             <div id="story-detail-meta" class="story-detail-meta"></div>
             <p id="story-interaction-status" role="status"></p>
+            <section id="collection-screen" class="collection-reader hidden" aria-label="Оглавление истории" data-i18n-aria-label="tableOfContents"></section>
           </div>
+          <p id="story-reading-status" role="status"></p>
           <div class="story-detail-actions">
           <button id="story-detail-restart" type="button" class="outline-button hidden">Начать сначала</button>
           <button id="story-detail-action" type="button" class="outline-button" data-i18n="startButton">Начать</button>
@@ -220,7 +224,6 @@
           <div id="choices" class="choices"></div>
         </article>
       </section>
-      <section id="collection-screen" class="collection-reader hidden" aria-label="Оглавление истории" data-i18n-aria-label="tableOfContents"></section>
     </main>
 
     <div id="auth-modal" class="modal-layer hidden" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
@@ -307,6 +310,6 @@
       </div>
     </aside>
 
-    <script src="/engine.js?v=engine-91" type="module"></script>
+    <script src="/engine.js?v=engine-92" type="module"></script>
   </body>
 </html>

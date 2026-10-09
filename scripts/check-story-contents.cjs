@@ -38,7 +38,9 @@ const completed = { id: runId, completionStatus: 'completed', completedCount: 3,
       page.on('pageerror', error => errors.push(error.message));
       await page.goto(`${origin}/collections/${cat.key}`);
       const screen = page.locator('#collection-screen');
-      await screen.getByRole('button', { name: language === 'en' ? 'Start' : 'Начать', exact: true }).waitFor();
+      await page.locator('#story-detail-screen').getByRole('button', { name: language === 'en' ? 'Start' : 'Начать', exact: true }).waitFor();
+      assert.equal(await page.locator('#story-detail-title').textContent(), cat.title, 'serial and standalone share the actual detail header');
+      assert.equal(await page.locator('#story-interactions button').count(), 5, 'chaptered work has the same voting controls');
       assert.equal(await page.locator('.top-actions').isVisible(), false, 'the old menu must not overlap shared navigation');
       assert.match(await page.locator('body').evaluate(node => getComputedStyle(node).backgroundImage), /cosmos/, 'contents share the library background');
       for (const chapter of cat.items) assert.equal(await screen.getByText(chapter.label, { exact: true }).count(), 1);
@@ -46,6 +48,11 @@ const completed = { id: runId, completionStatus: 'completed', completedCount: 3,
       await page.reload();
       await screen.getByText(language === 'en' ? 'Story completed.' : 'История пройдена.', { exact: true }).waitFor();
       await page.screenshot({ path: `/private/tmp/story-contents-${live ? 'published' : 'local'}-${language}-${width}.png`, fullPage: true });
+      await page.locator('#story-detail-contents').click();
+      const dialogBounds = await page.locator('.story-detail-copy').boundingBox();
+      const contentsHeading = await screen.getByRole('heading', { name: language === 'en' ? 'Chapters' : 'Главы', exact: true }).boundingBox();
+      assert.ok(contentsHeading.y >= dialogBounds.y - 2 && contentsHeading.y < dialogBounds.y + dialogBounds.height, 'contents shortcut visibly opens the chapter list');
+      await page.screenshot({ path: `/private/tmp/story-chapters-${live ? 'published' : 'local'}-${language}-${width}.png`, fullPage: true });
       for (const chapter of cat.items) assert.equal(await screen.getByText(chapter.label, { exact: true }).count(), 1, 'each chapter appears once after a run exists');
       assert.doesNotMatch(await screen.locator('select').textContent(), /[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9-]{23}/i, 'internal run IDs must not appear in labels');
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

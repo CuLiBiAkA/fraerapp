@@ -55,6 +55,9 @@ class FolderWorkspaceService {
   var m=new LinkedHashMap<String,Object>();
   m.put("kind",w.kind());m.put("id",w.id());m.put("key",w.key());m.put("type",w.type());m.put("title",w.title());
   m.put("reviewState",w.review());m.put("visibility",w.visibility());m.put("generation",w.generation());m.put("draftRevision",w.draftRevision());m.put("submittedRevision",w.submitted());m.put("publishedRevision",w.published());m.put("pending",w.pending());m.put("restricted",w.restricted());
+  m.put("hasDraft",!Objects.equals(w.published(),w.draftRevision()));
+  if(w.document() instanceof CollectionDocument doc){m.put("schemaVersion",doc.schemaVersion());m.put("coverUrl",doc.coverUrl());m.put("description",doc.description());m.put("genre",doc.genre());m.put("completionStatus",doc.completionStatus());}
+  if(w.document() instanceof StoryDocument doc){m.put("schemaVersion",null);m.put("coverUrl",doc.metadata()==null?null:doc.metadata().coverUrl());m.put("description",doc.description());m.put("genre",doc.genre());m.put("completionStatus",doc.completionStatus());}
   var children=new ArrayList<Map<String,Object>>();m.put("children",children);int count=w.pending()?1:0;
   if(snapshots){
    m.put("document",w.document());m.put("publishedDocument",w.publishedDocument());
@@ -69,6 +72,7 @@ class FolderWorkspaceService {
   if(w.pending()&&"collection".equals(w.kind()))for(var d:collections.database().queryForList("select target_kind,target_id,requested_revision from collection_review_dependencies where collection_id=? and collection_revision=?",w.id(),w.submitted()))pinned.put(d.get("target_kind")+":"+d.get("target_id"),(Integer)d.get("requested_revision"));
   for(var item:w.children()){
    var c=child(all,item.target());
+   if(c==null&&!snapshots)continue;
    if(c==null||!Objects.equals(w.owner(),c.owner())){
     String reason="A folder contains a missing or foreign work. Edit and submit the folder again.";m.put("reviewConflict",reason);conflicts.add(reason);continue;
    }
@@ -92,6 +96,7 @@ class FolderWorkspaceService {
  @Transactional(readOnly=true)
  Map<String,Object> list(String owner,boolean moderation,int page,int size,String q,String status,String visibility,String type){
   var all=works(owner,moderation);Set<String> nested=new HashSet<>();
+  if(!moderation){boolean trash="deleted".equals(status)||"deleted".equals(visibility);all.entrySet().removeIf(entry->"deleted".equals(entry.getValue().visibility())!=trash);}
   for(var w:all.values())for(var item:w.children()){var c=child(all,item.target());if(c!=null&&Objects.equals(w.owner(),c.owner()))nested.add(c.identity());}
   var roots=new ArrayList<Map<String,Object>>();Set<String> seen=new HashSet<>();
   // Multiple legacy catalog memberships still produce a single application.

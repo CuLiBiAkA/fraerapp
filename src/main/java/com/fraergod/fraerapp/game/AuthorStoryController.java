@@ -49,6 +49,10 @@ class AuthorStoryController {
  @PostMapping("/stories/import") Object importStory(@RequestBody String body) {
   return workflow.importDraft(body,currentUser.requireAuthorPlayerId());
  }
+ record Draft(@jakarta.validation.constraints.NotNull @jakarta.validation.constraints.Min(0) Integer generation,Map<String,Object> document) {}
+ @PutMapping("/stories/{id}") Object save(@PathVariable String id,@jakarta.validation.Valid @RequestBody Draft command) {
+  return workflow.saveDocument(id,currentUser.requireAuthorPlayerId(),command.generation(),command.document());
+ }
  @PostMapping("/stories/{id}/publish") Object publish(@PathVariable String id) {
   currentUser.requireAuthorPlayerId();
   throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Submit the story for moderation before publication");

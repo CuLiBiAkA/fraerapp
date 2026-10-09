@@ -84,7 +84,8 @@ test("guest direct detail relies on server visibility check and does not request
 test("per-story engagement refresh updates an unlisted card without leaking it into catalogue", async () => {
   const catalogStories=[{slug:"listed",views:1}];
   const story={slug:"unlisted",views:2};
-  const context=loadFunction(engine,"refreshStoryMetrics",{catalogStories,request:async()=>({slug:"unlisted",views:3})});
+  const context=loadFunction(engine,"refreshStoryMetrics",{catalogStories,document:{querySelectorAll:()=>[]},request:async()=>({slug:"unlisted",views:3})});
+  for (const name of ["storyRoute","updateCatalogStory"]) vm.runInContext(engine.match(new RegExp(`function ${name}\\([^]*?\\n\\}`))[0],context);
   await context.refreshStoryMetrics(story);
   assert.equal(story.views,3); assert.deepEqual(catalogStories,[{slug:"listed",views:1}]);
 });

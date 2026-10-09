@@ -22,7 +22,7 @@ function harness(names, overrides = {}) {
     confirm: () => true,
     window: {location:{}}, URLSearchParams,
     authorHomeCache: null, authorFilter: "all", builderWorkflowBusy: false,
-    filterAfterSubmit, updateAuthorGate() {}, renderAuthorWorkspace() {},
+    filterAfterSubmit, updateAuthorGate() {}, renderAuthorWorkspace() {}, acceptOwnGeneration() {},
     validateStory: () => [], renderPreview() {}, selectChapterTab() {},
     toStoryJson: () => ({key:"story-a"}),
     ...overrides,
@@ -129,6 +129,58 @@ test("an import completing after switching drafts cannot bind the new draft", as
   resolve({ storyId: "story-a-id" });
   await operation;
   assert.equal(context.getDraftStoryId(), null);
+});
+
+test("bound chapter saves use the original generation and never retry a conflict with a refreshed generation", async () => {
+  const requests=[];let context;
+  const setup=harness(['importDraftToRuntime','getDraftStoryId','bindDraftStory'],{
+    toStoryJson:()=>({key:context.draft.key,title:context.draft.title}),
+    fetchJson:async(url,options)=>{requests.push({url,method:options.method,body:JSON.parse(options.body)});throw Object.assign(new Error('Changed elsewhere'),{status:409});},
+  });
+  context=setup.context;context.draft.title='Unsaved text';context.bindDraftStory('bound-id','previous-document',3,7);
+  const before=JSON.stringify(context.draft);
+  await assert.rejects(()=>context.importDraftToRuntime(),error=>error.status===409);
+  assert.equal(JSON.stringify(context.draft),before,'Conflict preserves local text and its original binding');
+  assert.deepEqual(requests,[{url:'https://example.test/api/author/stories/bound-id',method:'PUT',body:{generation:7,document:{key:'story-a',title:'Unsaved text'}}}]);
+});
+
+test("an older saved draft without generation cannot overwrite the server through import", async () => {
+  let writes=0;
+  const {context}=harness(['importDraftToRuntime','getDraftStoryId','bindDraftStory'],{fetchJson:async()=>{writes++;return {};}});
+  context.bindDraftStory('bound-id','old-document',3);
+  await assert.rejects(()=>context.importDraftToRuntime(),error=>error.code==='DRAFT_GENERATION_REQUIRED');
+  assert.equal(writes,0);assert.equal(context.draft.runtimeStory.savedDocument,'old-document');
+});
+
+test("same-key AI import retains the bound chapter ID and saves by generation", async () => {
+  const requests=[];let context;
+  const names=['fromStoryJson','toStoryJson','serializeVariable','serializeConditions','serializeEffects','variableType','variableValue','detectType','coerceValue','parseMetadata','parseCondition','parseEffects','defaultValue','importDraftToRuntime','getDraftStoryId','bindDraftStory'];
+  const setup=harness(names,{fetchJson:async(url,options)=>{requests.push({url,method:options.method,body:JSON.parse(options.body)});return {storyId:'bound-id',draftRevision:4,generation:8};}});
+  context=setup.context;
+  const source={key:'story-a',title:'Before AI',version:1,startSceneId:'end',variables:{},assets:[],scenes:[{id:'end',title:'End',text:'Saved text',choices:[],ending:{type:'ending',title:'End'}}]};
+  context.fromStoryJson(source);context.bindDraftStory('bound-id',JSON.stringify(context.toStoryJson()),3,7);
+  context.fromStoryJson({...source,title:'After AI'});await context.importDraftToRuntime();
+  assert.equal(requests[0].url,'https://example.test/api/author/stories/bound-id');assert.equal(requests[0].method,'PUT');assert.equal(requests[0].body.generation,7);assert.equal(requests[0].body.document.title,'After AI');
+  assert.equal(context.draft.runtimeStory.storyId,'bound-id');assert.equal(context.draft.runtimeStory.generation,8);
+});
+
+test("new unbound drafts retain POST import and bind the returned generation", async () => {
+  const requests=[];
+  const {context}=harness(['importDraftToRuntime','getDraftStoryId','bindDraftStory'],{fetchJson:async(url,options)=>{requests.push({url,method:options.method});return {storyId:'created-id',draftRevision:1,generation:0};}});
+  await context.importDraftToRuntime();
+  assert.deepEqual(requests,[{url:'https://example.test/api/author/stories/import',method:'POST'}]);assert.equal(context.draft.runtimeStory.generation,0);
+});
+
+test("successful own review advances only the matching saved document generation", async () => {
+  const {context}=harness(['authorWorkflow','acceptOwnGeneration','getDraftStoryId','bindDraftStory'],{
+    authorFetch:async()=>({storyId:'bound-id',draftRevision:3,generation:8,submittedRevision:3}),
+  });
+  context.bindDraftStory('bound-id','saved-document',3,7);
+  await context.authorWorkflow('bound-id','review',{generation:7,reviewState:'draft'});
+  assert.equal(context.draft.runtimeStory.generation,8);assert.equal(context.draft.runtimeStory.savedDocument,'saved-document');
+  context.acceptOwnGeneration({storyId:'bound-id',draftRevision:4,generation:9});
+  assert.equal(context.draft.runtimeStory.generation,8,'Another revision cannot silently replace our saved base');
+  context.acceptOwnGeneration({storyId:'another-id',draftRevision:3,generation:9});assert.equal(context.draft.runtimeStory.generation,8);
 });
 
 test("renaming a scene updates start, target and fallback without changing other links", () => {
@@ -239,10 +291,18 @@ test("first global and scene-local upload saves a draft, uploads, and saves the 
     context=setup.context;
     await context.uploadAssetFile(asset,"fake-file",scope);
     assert.deepEqual(steps,["save","upload","save"]);
-    assert.equal(uploadedForm.get("scope"),scope==="local"?"local":undefined);
+    assert.equal(uploadedForm.get("scope"),"local",'Upload stores bytes only; document references use the later generation-checked save');
     assert.equal(asset.url,"/uploads/new-story/immutable.png");
     assert.equal(context.getDraftStoryId(),"new-story");
   }
+});
+
+test("removing uploaded media is a local draft change until the generation-checked document save", async () => {
+  const asset={id:'bg',type:'image',url:'/uploads/bound-id/cover.png'};
+  const {context,calls}=harness(['removeAssetAt'],{draft:{key:'story-a',assets:[asset],scenes:[{background:'bg',music:'',assets:[]},{background:'bg',assets:[{id:'bg',url:'/assets/platform.svg'}]}],runtimeStory:{storyId:'bound-id',generation:7}}});
+  await context.removeAssetAt(context.draft.assets,0);
+  assert.deepEqual(calls,[],'No separate server asset mutation can invalidate the document generation');
+  assert.equal(context.draft.assets.length,0);assert.equal(context.draft.scenes[0].background,'');assert.equal(context.draft.scenes[1].background,'bg');assert.equal(context.draft.runtimeStory.generation,7);
 });
 
 test("opening a server draft binds the document and revision from the same response", async () => {

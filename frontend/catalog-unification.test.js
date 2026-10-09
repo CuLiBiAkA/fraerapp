@@ -12,7 +12,7 @@ function catalogue(request, signedIn = true) {
 
 test('one catalogue includes every collection page and keeps equal slugs in different domains independent', async () => {
   const requests = [];
-  const collections = Array.from({ length: 101 }, (_, i) => ({ collectionId: `c-${i}`, key: i ? `collection-${i}` : 'shared', title: `Story ${i}`, favorite: i === 100 }));
+  const collections = Array.from({ length: 101 }, (_, i) => ({ collectionId: `c-${i}`, key: i ? `collection-${i}` : 'shared', title: `Story ${i}`, favorite: i === 100, views: 9, rating: 4.5, ratingCount: 2 }));
   const load = catalogue(async path => {
     requests.push(path);
     if (path === '/api/catalog/stories') return [{ slug: 'shared', key: 'shared', title: 'Standalone' }];
@@ -25,7 +25,9 @@ test('one catalogue includes every collection page and keeps equal slugs in diff
   assert.equal(items[0].rating, 4);
   assert.equal(items[1].kind, 'collection');
   assert.equal(items[1].favorite, false);
-  assert.equal(items[1].rating, undefined, 'a chaptered story has no fabricated aggregate rating');
+  assert.equal(items[1].rating, 4.5, 'a chaptered story carries its own work rating without adopting a same-key scenario rating');
+  assert.equal(items[1].ratingCount, 2);
+  assert.equal(items[1].views, 9);
   assert.equal(items.at(-1).favorite, true);
   assert.ok(requests.includes('/api/catalog/collections?size=100&page=1'));
 });

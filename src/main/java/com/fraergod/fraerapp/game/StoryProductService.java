@@ -176,12 +176,13 @@ class StoryProductService {
 						finishedRuns,
 						storyProgress(snapshot, lastSession),
 						story.getPublishedAt(),
-						story.getUpdatedAt(),
+						story.getPublishedAt(),
 						lastSession == null ? null : lastSession.getUpdatedAt(),
 						lastSession == null ? null : lastSession.getId(),
 						lastSession == null ? null : lastSession.getSaveName(),
 						lastSession == null ? null : lastSession.getStatus().name().toLowerCase(),
-						lastScene == null ? null : lastScene.title());
+						lastScene == null ? null : lastScene.title(),
+						cover(story));
 				})
 				.toList();
 	}
@@ -189,7 +190,7 @@ class StoryProductService {
 	@Transactional(readOnly = true)
 	PublishedStoryDetails publishedStory(String slug) {
 		Story story = stories.findByPublishedSlug(slug)
-				.filter(StoryAccessService::available)
+				.filter(access::readable)
 				.orElseThrow(StoryNotFoundException::new);
 		return new PublishedStoryDetails(
 				story.getPublishedSlug(),
@@ -200,8 +201,11 @@ class StoryProductService {
 				sessions.countByStoryId(story.getId()),
 				sessions.countByStoryIdAndStatus(story.getId(), SessionStatus.FINISHED),
 				story.getPublishedAt(),
-				story.getUpdatedAt());
+				story.getPublishedAt(),
+				cover(story));
 	}
+
+	private String cover(Story story) {return story.getMetadataJson()==null?null:json.readValue(story.getMetadataJson(),WorkMetadata.class).coverUrl();}
 
 	private Map<String, GameSession> lastSessionByStoryId(String playerId) {
 		if (playerId == null || playerId.isBlank() || !players.existsById(playerId)) {
@@ -369,7 +373,8 @@ class StoryProductService {
 			String lastSessionId,
 			String lastSaveName,
 			String lastSessionStatus,
-			String lastSceneTitle) {
+			String lastSceneTitle,
+			String coverUrl) {
 	}
 
 	record PublishedStoryDetails(
@@ -381,7 +386,8 @@ class StoryProductService {
 			long totalRuns,
 			long finishedRuns,
 			Instant publishedAt,
-			Instant updatedAt) {
+			Instant updatedAt,
+			String coverUrl) {
 	}
 
 	record UploadedAsset(String id, String type, String url, Map<String, Object> metadata) {

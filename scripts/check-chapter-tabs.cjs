@@ -1,13 +1,14 @@
 const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),assert=require('assert/strict');
 (async()=>{const browser=await chromium.launch();
 for(const width of [1722,1440,1024,768,390,320]){
- const c=await browser.newContext({viewport:{width,height:1000}});const mutations=[];let review='draft',saved=null;
+ const c=await browser.newContext({viewport:{width,height:1000}});const mutations=[];let review='draft',saved=null,generation=0;
  await c.route('https://fraerapp.ru/**',r=>{
   const req=r.request(),p=new URL(req.url()).pathname;const send=json=>r.fulfill({json});
-  if(req.method()==='POST')mutations.push(p);
+  if(['POST','PUT'].includes(req.method()))mutations.push(p);
   if(p==='/auth/me')return send({email:'author@example.test',roles:['author']});
-  if(p==='/api/author/home')return send({stories:saved?[{storyId:'chapter',title:saved.title,reviewState:review,visibility:'private',draftRevision:1}]:[]});
-  if(p==='/api/author/stories/import'){saved=req.postDataJSON();return send({storyId:'chapter',generation:1,draftRevision:1});}
+  if(p==='/api/author/home')return send({stories:saved?[{storyId:'chapter',title:saved.title,reviewState:review,visibility:'private',draftRevision:1,generation}]:[]});
+  if(p==='/api/author/stories/import'){saved=req.postDataJSON();generation=1;return send({storyId:'chapter',generation,draftRevision:1});}
+  if(p==='/api/author/stories/chapter'&&req.method()==='PUT'){const body=req.postDataJSON();assert.equal(body.generation,generation);saved=body.document;generation++;return send({storyId:'chapter',generation,draftRevision:1});}
   if(p==='/api/author/stories/chapter/review'){review='in_review';return send({submittedRevision:1});}
   if(p.startsWith('/auth/')||p.startsWith('/api/'))return send({notifications:[],unreadCount:0});
   let f=path.join(process.cwd(),p.startsWith('/builder/')?'story-builder':'frontend',p.startsWith('/builder/')?p.slice(9):p.slice(1));

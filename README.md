@@ -193,58 +193,44 @@ Builder features:
 - add conditions;
 - add effects;
 - mark scenes as endings;
-- preview generated Story JSON;
-- copy/download/import JSON;
+- preview chapter text, choices and generated JSON (the preview is not an interactive playthrough);
+- copy/download/import chapter JSON and create RU/EN AI prompts for chapters or complete story packages;
 - autosave draft in `localStorage`;
-- import JSON into FraerApp runtime;
-- validate and publish the last imported story.
-
-Runtime import settings in the Builder:
-
-```text
-Runtime API: http://localhost:8088
-Admin token: dev-admin-token
-```
+- save private drafts to FraerApp using the signed-in author's session;
+- validate and submit a chapter or story for moderation; publication is a moderator action.
 
 Workflow:
 
-1. Open `http://localhost:8090`.
-2. Click `Load Example` or create a story manually.
-3. Fix validation errors if any.
-4. Click `Import to Runtime`.
-5. Click `Publish Last Import`.
-6. Open `http://localhost:8088`.
-7. Login and choose the published story.
+1. Sign in on `http://localhost:8088` with author access and open **My stories**.
+2. Create the shared story card and add chapters. Opening a chapter enters Builder.
+3. Build its scenes manually or use **AI prompts**. Whole-story output is a `fraerapp-work-package` (package schema 1, story schema 2); import it in My stories. Single-chapter JSON is imported into Builder.
+4. Check the changes, structural validation and every branch. The scene preview lists text and choices; it does not execute a playthrough.
+5. Save the draft and submit it for moderation. Importing or saving never publishes automatically.
+6. A moderator reviews the exact submitted revision and explicitly publishes it. Existing published content stays available while a new draft is being edited.
+
+The Builder uses the same authenticated session as the site. There is no admin-token input or token-based author publication. Prompt preparation is local: no AI integration or automatic draft transmission. Including existing text requires an explicit checkbox. See [the author prompt guide](docs/prompts/authoring-guide.md), [a minimal current package](docs/examples/serial-story-package.json), and [the complete cat story](story-builder/scenarios/koshka-i-otkrytye-dveri.package.json).
 
 ## Документация Story JSON
 
 FraerApp работает как движок сценариев: сюжет хранится в JSON, импортируется в базу данных и исполняется backend-ом через игровые сессии. Frontend только показывает текущую сцену и отправляет выбранные действия.
 
-Админский токен по умолчанию:
+Авторские запросы используют действующую сессию FraerApp и роль автора. Для изменяющих запросов требуется `X-Fraer-Request: same-origin`. Не храните токены в сценарии или промпте.
 
-```text
-dev-admin-token
-```
-
-Для админских запросов нужен header:
+Создание нового черновика главы:
 
 ```http
-X-Admin-Token: dev-admin-token
+POST /api/author/stories/import
 ```
 
-Импорт сценария:
+Сохранение уже открытой главы выполняется через `PUT /api/author/stories/{storyId}` с `{generation,document}`. Конструктор использует generation той версии, которую открыл или сам сохранил. При конфликте изменения остаются в браузере: скачайте JSON и явно откройте актуальную версию перед переносом правок. Загрузка медиа хранит файл отдельно; ссылка добавляется тем же защищённым сохранением документа.
+
+Отправка сохранённой главы на модерацию (с актуальной generation из ответа сервера):
 
 ```http
-POST /api/admin/stories/import
+POST /api/author/stories/{storyId}/review
 ```
 
-Публикация сценария:
-
-```http
-POST /api/admin/stories/{storyId}/publish
-```
-
-После публикации сценарий появляется в списке доступных историй.
+Импорт пакета всей истории имеет отдельную предварительную проверку в «Моих историях». Публикация происходит после решения модератора; импорт не публикует сценарии. Главы входят в общую историю и не должны появляться отдельными карточками каталога.
 
 ### Общая Структура
 
@@ -269,7 +255,7 @@ POST /api/admin/stories/{storyId}/publish
 - `version` - версия сценария.
 - `startSceneId` - id стартовой сцены.
 - `variables` - начальные переменные игровой сессии.
-- `assets` - картинки, музыка, звуки, видео или спрайты.
+- `assets` - изображения и аудио; проигрыватель использует фон и один музыкальный канал. Типы `video` и `sprite` в старых файлах не означают поддержку их отображения.
 - `scenes` - сцены сценария.
 
 Лучше использовать стабильные id в стиле `night_train`, `platform`, `open_door`.
@@ -306,8 +292,8 @@ POST /api/admin/stories/{storyId}/publish
 Поля:
 
 - `id` - уникальный id ассета внутри сценария.
-- `type` - тип ассета: `image`, `music`, `sound`, `video`, `sprite`.
-- `url` - путь или URL, доступный браузеру.
+- `type` - для действующего проигрывателя используйте `image`, `music` или `sound`. Аудио назначается в поле сцены `music`; отдельного звукового триггера нет.
+- `url` - существующий безопасный путь `/assets/...` или `/uploads/...` своей главы, полученный после загрузки в конструкторе. Произвольные внешние URL, `data:`, query/fragment и обход путей не поддерживаются.
 - `metadata` - необязательные дополнительные данные.
 
 Сцены ссылаются на ассеты по `id`:
@@ -655,25 +641,13 @@ Backend не исполняет анимации. Он только хранит
 
 ### Хранение Файлов
 
-В H2 хранятся метаданные сценария, сцены, choices, URL ассетов, игровые сессии и JSON переменных.
+В PostgreSQL хранятся метаданные сценария, сцены, choices, URL ассетов, игровые сессии и JSON переменных. H2 используется только тестами.
 
-Бинарные файлы не хранятся в БД. Картинки, музыка и звуки должны лежать в `frontend/assets`, upload-директории, object storage или другом статическом хранилище.
+Бинарные файлы не хранятся в БД. Картинки, музыка и звуки лежат в `frontend/assets` или upload-директории; доступ к загрузкам проверяет API. Произвольный внешний object-storage URL в сценарии не разрешён.
 
 ## Story JSON Format
 
-FraerApp works as a Story Engine: the plot is data, not Java code. You can import a Story JSON through the admin panel or through `POST /api/admin/stories/import`, publish it, and then players can start game sessions for that story.
-
-Default admin token:
-
-```text
-dev-admin-token
-```
-
-Admin requests require:
-
-```http
-X-Admin-Token: dev-admin-token
-```
+FraerApp works as a Story Engine: the plot is data, not Java code. Authors import chapter JSON through Builder or `POST /api/author/stories/import`, validate and save private drafts, then submit exact revisions for moderation. Complete story packages are previewed and imported in My stories. Moderator approval and explicit publication make content available to readers. Requests use the authenticated FraerApp session and `X-Fraer-Request: same-origin`; there is no admin-token publishing flow. See [the author prompt guide](docs/prompts/authoring-guide.md) for the complete supported format.
 
 ### Top-Level Shape
 
@@ -698,7 +672,7 @@ Fields:
 - `version` - integer content version.
 - `startSceneId` - id of the first scene.
 - `variables` - initial session variables.
-- `assets` - images, music, sounds, videos or sprites.
+- `assets` - images and audio; legacy video/sprite asset types do not provide playback support.
 - `scenes` - story graph nodes.
 
 Use stable ids like `night_train`, `platform`, `open_door`. Lowercase letters, digits and underscores are safest.
@@ -735,8 +709,8 @@ Assets describe files. The database stores URLs and metadata, not binary files.
 Fields:
 
 - `id` - unique asset id inside the story.
-- `type` - `image`, `music`, `sound`, `video` or `sprite`.
-- `url` - path or URL served to the browser.
+- `type` - `image`, `music` or `sound` for the current reader. Audio uses scene.music, without an independent sound trigger.
+- `url` - an existing safe `/assets/...` path or this chapter's `/uploads/...` path returned by Builder upload. External URLs, `data:`, query/fragment strings and path traversal are not supported.
 - `metadata` - optional JSON object.
 
 Scenes reference assets by id:

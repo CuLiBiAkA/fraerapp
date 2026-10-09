@@ -110,7 +110,7 @@ test("signed-in homepage keeps the public shell but enables user actions", () =>
   assert.match(engineJs, /homeReadButton\.addEventListener\("click", \(\) => \{[\s\S]*navigateTo\("\/history"\)/);
   assert.match(engineJs, /storyDetailAction\.onclick = \(\) => \{[\s\S]*if \(!storage\.email\)[\s\S]*openAuthModal\(\)/);
   assert.match(engineJs, /const canContinue = story\.lastSessionId && story\.lastSessionStatus !== "finished"/);
-  assert.match(engineJs, /const action = canContinue \? continueStory\(story\.lastSessionId\) : startStoryRun\(story\.key\)/);
+  assert.match(engineJs, /runStoryDetailAction\(\(\) => canContinue \? continueStory\(story\.lastSessionId\) : startStoryRun\(story\.key\)\)/);
 });
 
 test("create stays visible and refreshes author access before opening story creation", async () => {

@@ -9,8 +9,8 @@ export const helpTopics = {
     ['Relations and chapters', 'Add chapters to a story in My stories and optionally group them by season. Reading in order carries global values into the next chapter automatically. Separate relations can connect your own works.', 'If the reader chooses a character’s name in chapter one, the next chapter of that story remembers it. Local variables stay in their scenes. A separate sequel can link to another work with explicit value transfer.'],
   ],
   storyMetadata: [
-    ['Метаданные истории', 'Это основные сведения об истории: название, описание, жанр, тема и технический ключ. Здесь же выбирается стартовая сцена — с неё читатель начнёт прохождение.', 'Название: «Поезд в полночь». Жанр: мистика. Стартовая сцена: «Перрон». Ключ — короткое уникальное имя, например midnight_train.'],
-    ['Story metadata', 'The basic details of your story: title, description, genre, topic and technical key. The start scene determines where the reader begins.', 'Title: Midnight Train. Genre: mystery. Start scene: Platform. Use a short unique key such as midnight_train.'],
+    ['Настройки главы', 'Название, описание, жанр, тема, ключ и стартовая сцена открытой главы. Общие название, описание, обложка, порядок глав и сезоны всей истории задаются в «Моих историях».', 'Название главы: «Перрон». Ключ: midnight_train_1. Чтобы изменить обложку всей истории, вернитесь по ссылке «К главам истории».'],
+    ['Chapter settings', 'The open chapter’s title, description, genre, topic, key and start scene. Edit the whole story’s title, description, cover, chapter order and seasons in My stories.', 'Chapter title: Platform. Key: midnight_train_1. To change the whole story cover, use Story chapters to return to its settings.'],
   ],
   variablesTitle: [
     ['Глобальные переменные', 'Переменная хранит то, что история должна запомнить: число, текст или ответ «да/нет». Глобальные переменные доступны во всех сценах одного прохождения. Используйте их для денег, отношений с героями или найденных предметов.', 'Создайте число coins со значением 10. Покупка билета уменьшит его до 7. В следующей сцене у читателя останется 7 монет. Локальная переменная, напротив, доступна только в своей сцене.'],
@@ -65,8 +65,8 @@ export const helpTopics = {
     ['Validation', 'This block shows structural errors. Fix them before submitting. Automatic validation does not judge the plot, so also play through your story.', 'If a choice points to a missing scene, create that scene or choose another destination.'],
   ],
   storyJsonTitle: [
-    ['JSON истории', 'Это текстовая запись всей истории: сцен, переменных, материалов и переходов. Её можно скачать как файл для резервной копии. Чтобы создавать историю, не обязательно редактировать этот текст вручную.', 'Нажмите «Скачать JSON» перед большими изменениями. Позже файл можно открыть через «Импорт JSON-файла».'],
-    ['Story JSON', 'This is the text representation of the story: scenes, variables, assets and transitions. Download it as a backup. You do not need to edit this text manually to create a story.', 'Choose Download JSON before major changes. Later, reopen the file using Import JSON file.'],
+    ['JSON главы', 'Это текстовая запись открытой главы: сцен, переменных, материалов и переходов. Пакет всей истории с оглавлением и остальными главами экспортируется и импортируется в «Моих историях». Кнопка «Промпты для ИИ» готовит инструкции для обоих форматов.', 'Перед большими изменениями нажмите «Скачать JSON главы». Ответ ИИ для одной главы откройте через «Импорт JSON главы»; пакет всей истории импортируйте в «Моих историях».'],
+    ['Chapter JSON', 'This describes the open chapter: scenes, variables, assets and transitions. Export and import the complete story package, including its contents and all chapters, in My stories. AI prompts provides instructions for both formats.', 'Use Download chapter JSON before major edits. Import AI output for a single chapter using Import chapter JSON; import a whole story package in My stories.'],
   ],
 };
 

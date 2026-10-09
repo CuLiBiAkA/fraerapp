@@ -256,6 +256,7 @@ function applyLanguage() {
   els.filterNotes.textContent = text("notes");
   els.autoLayout.textContent = text("autoLayout");
   els.openBuilder.textContent = text("openBuilder");
+  document.querySelector('#open-prompts').textContent = currentLanguage === 'en' ? 'AI prompts' : 'Промпты для ИИ';
   if (els.backBuilder) els.backBuilder.textContent = text("backBuilder");
   els.addScene.textContent = text("addScene");
   els.addVariable.textContent = text("addVariable");
