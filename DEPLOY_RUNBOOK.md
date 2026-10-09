@@ -1,5 +1,24 @@
 # FraerApp deploy and ops runbook
 
+## Author and contents journey (prepared, 2026-10-09)
+
+Inspect local Git and live service health/logs. Back up the seven changed runtime
+files and retain the running Builder image: frontend engine.js/index.html,
+collection-reader.js, library.css, collections.css; story-builder app.js/index.html.
+Release frontend assets together (engine-91, reader v6, library v12, collections
+v4), rebuild/recreate only story-builder (app v55), wait for its health, then test
+and reload edge nginx to resolve its current upstream. API/auth/DB/env unchanged.
+Run Node/lint/build/diff checks and the 15-suite browser runner. Focused cases:
+check-serial-stories.cjs starts at Home Create, enters story creation, creates a
+chapter, cancels leaving unsaved text, saves, returns directly to chapters, saves
+a season and submits the chapter. check-story-contents.cjs covers new/returning
+readers with the cat story at four widths in RU/EN. Run picker labels must not
+contain internal UUIDs; chapter titles occur once; old navigation stays hidden.
+For published rendering, CHECK_LIVE_CONTENTS=1 uses an independently fetched
+reader-visible snapshot of cat contents/QA runs; browser API writes are aborted.
+Verify Builder/static hashes, six healthy services, readiness/catalogue, anonymous
+account denial and fresh API/auth logs. Record backup and source commit below.
+
 ## Unified catalogue (deployed, 2026-10-09)
 
 Publish frontend/index.html (engine-90 and library.css v11), engine.js,

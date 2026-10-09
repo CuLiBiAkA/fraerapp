@@ -2,6 +2,28 @@
 
 Last updated: 2026-10-09.
 
+Author/contents journey repair, prepared 2026-10-09 after the user's followup:
+Home "Create your own" now refreshes author access and enters `/my-stories/`,
+where story metadata and chapters are created. The explicit Builder action still
+opens a standalone draft. In a chapter the existing top back link opens its
+verified parent story, and cancelling an unsaved-change prompt keeps the text.
+The shared story structure remains schema v2; no new authoring model or migration.
+Serial contents now use one chapter list for new and returning readers, with
+readable run numbers/progress instead of UUIDs. Historical v1 nested navigation
+is preserved. Contents reuse the library background/footer and suppress the old
+overlapping menu; scoped spacing, cover sizing and labels fit mobile widths.
+Assets: engine-91, collection-reader v6, library.css v12, collections.css v4,
+Builder app v55. Node 96/96 and all 15 current browser suites pass; focused
+author/contents checks include 320/390/768/1440, RU/EN contents, cancelled return,
+save, season, chapter review, initial/finished reading and no duplicate chapters.
+Real cat contents and the four existing QA runs were read separately; the
+temporary QA session was revoked, with no content/progress writes.
+Remaining authoring limitations: the shared story cover is entered as an asset
+path; a season is a chapter label; chapter preview is a scene/choice list, not an
+interactive playthrough. The published cat package was imported through API,
+not manually authored in the browser. See `docs/cat-open-doors-coverage.md`.
+Production receipt will follow the frontend + Builder release.
+
 Unified reader catalogue, deployed from 921a81d on 2026-10-09 after the user's screenshot:
 the separate "Stories in chapters" block is removed. Both public scenario and
 collection entries use fillStoryCard in the same library grid and signed-in

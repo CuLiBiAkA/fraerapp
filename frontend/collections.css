@@ -37,6 +37,13 @@
 .collection-reader ol { padding-inline-start: 24px; }
 .collection-reader li { margin: 16px 0; }
 .collection-reader .collection-cover { max-width: 260px; max-height: 320px; object-fit: cover; border-radius: 14px; }
+#collection-screen { width: min(900px, calc(100% - 32px)); padding: clamp(18px, 3vw, 32px); background: #5a427cdb; line-height: 1.55; }
+#collection-screen h1 { line-height: 1.25; margin: 12px 0; }
+#collection-screen > a:first-child { display: flex; width: fit-content; align-items: center; min-height: 44px; margin-bottom: 12px; }
+#collection-screen .collection-status:empty { display: none; }
+#collection-screen label { display: grid; gap: 6px; }
+#collection-screen select { width: 100%; }
+#collection-screen .collection-cover { display: block; width: min(100%, 400px); max-width: 100%; height: auto; margin-block: 20px; }
 .chapter-navigation { padding: 14px; border: 1px solid #ffffff66; border-radius: 14px; display: grid; gap: 10px; margin: 16px 0; }
 .chapter-navigation button, .chapter-navigation a { width: auto; }
 .chapter-navigation[hidden] { display: none; }

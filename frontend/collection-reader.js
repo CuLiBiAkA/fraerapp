@@ -29,7 +29,8 @@ export function createCollectionReader({screen,sceneScreen,showScreen,navigate,o
       const list=el("ol");let season="";for(const item of data.items||[]){const li=el("li");if(item.season&&item.season!==season)li.append(el("h3",item.season));season=item.season||"";li.append(data.schemaVersion===2?el("span",item.label||item.title||item.key):href(item.label||item.title||item.key,route(item)));list.append(li);}contents.append(el("h2",words("Главы", "Chapters")),list);
       if(!data.items?.length)contents.append(el("p",words("Доступных частей пока нет.", "No parts are available yet.")));
       if(data.items?.some(item=>item.kind==="scenario")&&signedIn()){
-        const runPanel=el("section");screen.append(runPanel);
+        const runPanel=data.schemaVersion===2?contents:el("section");
+        if(runPanel!==contents)screen.append(runPanel);
         const id=data.collectionId||data.id;
         const runs=await request(`/api/collections/${id}/runs`);if(seq!==generation)return;
         const available=Array.isArray(runs)?runs:runs.items||[];
@@ -41,7 +42,11 @@ export function createCollectionReader({screen,sceneScreen,showScreen,navigate,o
           else await renderRun(run.id||run.runId,runPanel);
         },status));
         if(available.length){
-          const picker=select(words("Ваши прохождения", "Your runs"),available.map((r,i)=>[r.id||r.runId,`${words("Прохождение", "Run")} ${available.length-i} · ${r.updatedAt||r.createdAt||r.id}`]),available[0].id||available[0].runId);
+          const picker=select(words("Ваши прохождения", "Your runs"),available.map((r,i)=>{
+            const total=r.availableCount??r.items?.length??0,finished=r.completedCount??r.items?.filter(item=>item.status==="finished").length??0;
+            const progress=total?words(` · ${finished}/${total} глав`,` · ${finished}/${total} chapters`):"";
+            return [r.id||r.runId,`${words("Прохождение", "Run")} ${available.length-i}${progress}`];
+          }),available[0].id||available[0].runId);
           picker.input.onchange=()=>renderRun(picker.input.value,runPanel).catch(error=>{status.textContent=errorMessage(error);});screen.insertBefore(picker.label,runPanel);await renderRun(picker.input.value,runPanel);
         }
       }else if(data.items?.some(item=>item.kind==="scenario"))actions.append(action(words("Войти и читать", "Sign in to read"),async()=>signIn(),status));
@@ -51,7 +56,7 @@ export function createCollectionReader({screen,sceneScreen,showScreen,navigate,o
     const seq=(runRequests.get(host)||0)+1;runRequests.set(host,seq);
     const run=await request(`/api/collection-runs/${encodeURIComponent(id)}`);
     if(!host.isConnected||runRequests.get(host)!==seq)return;host.replaceChildren();
-    const status=statusNode();host.append(el("h2",words("Продолжить чтение", "Continue reading")),status);
+    const status=statusNode();host.append(el("h2",words("Главы", "Chapters")),status);
     const items=run.items||[], finished=items.filter(item=>String(item.status).toLowerCase()==="finished").length;
     const nextIndex=items.findIndex(item=>item.status!=="finished"),next=items[nextIndex];
     if(next&&(next.sessionId||next.allowIndependentStart!==false||sourceFor(next,items[nextIndex-1]))){

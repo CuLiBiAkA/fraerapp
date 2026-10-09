@@ -1,13 +1,13 @@
 /* Figma library 176:13, using the shared homepage artwork and controls. */
-body:has(#story-screen:not(.hidden)) {
+body:has(:is(#story-screen, #collection-screen):not(.hidden)) {
   --library-unit: clamp(.65px, min(.069444vw, .097656svh), 1px);
   display: flex; flex-direction: column; min-height: 100svh;
   color: #fee3e2;
   background: #33214a url('/assets/home/cosmos.webp') right top / cover no-repeat;
   background-attachment: fixed;
 }
-body:has(#story-screen:not(.hidden)) .game { flex: 1; min-height: 0; }
-body:has(#story-screen:not(.hidden)) .top-actions { display: none; }
+body:has(:is(#story-screen, #collection-screen):not(.hidden)) .game { flex: 1; min-height: 0; }
+body:has(:is(#story-screen, #collection-screen):not(.hidden)) .top-actions { display: none; }
 #story-screen {
   width: min(1440px, 100%); min-height: 0; margin: 0 auto;
   padding: calc(32 * var(--library-unit)) calc(81 * var(--library-unit)) calc(60 * var(--library-unit));
@@ -51,8 +51,8 @@ body:has(#story-screen:not(.hidden)) .top-actions { display: none; }
 #story-screen :is(.story-key, .story-description, .story-meta, .save-context, .progress-row, .story-actions) { display: none; }
 #story-screen .story-card:focus-visible { outline: 2px solid #fee3e2; outline-offset: 4px; }
 #story-screen .story-card:hover { transform: translateY(-3px); }
-body:has(#story-screen:not(.hidden)) .site-footer { flex: none; width: 100%; max-width: none; margin: 0; min-height: 56px; padding: 18px 24px; gap: 12px 32px; color: #fee3e2; background: #daafe473; font-size: 13px; backdrop-filter: blur(8px); }
-body:has(#story-screen:not(.hidden)) .site-footer a { color: inherit; }
+body:has(:is(#story-screen, #collection-screen):not(.hidden)) .site-footer { flex: none; width: 100%; max-width: none; margin: 0; min-height: 56px; padding: 18px 24px; gap: 12px 32px; color: #fee3e2; background: #daafe473; font-size: 13px; backdrop-filter: blur(8px); }
+body:has(:is(#story-screen, #collection-screen):not(.hidden)) .site-footer a { color: inherit; }
 /* Typography verified against Figma 176:13: both field values are Montserrat 18/25. */
 #story-screen #story-search, #story-screen .filter-select-trigger {
   font-family: "Montserrat", sans-serif; font-size: max(16px, calc(18 * var(--library-unit))); font-weight: 400; line-height: 25px;

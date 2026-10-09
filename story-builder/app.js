@@ -81,6 +81,7 @@ const translations = {
     withdrawConfirm: "Отозвать заявку «{title}»? Черновик и предыдущая публикация сохранятся.",
     archiveConfirm: "Архивировать «{title}»? История станет недоступна читателям. Данные и прогресс сохранятся.",
     switchUnsaved: "В текущей истории есть изменения только в этом браузере. Открыть другую историю и заменить их?",
+    leaveChapterUnsaved: "Изменения главы ещё не сохранены на сервере. Вернуться к списку глав без сохранения?",
     validationTitle: "Проверка",
     storyJsonTitle: "JSON истории",
     pasteStoryJson: "Вставить JSON истории",
@@ -261,6 +262,7 @@ const translations = {
     withdrawConfirm: "Withdraw submission for “{title}”? The draft and previous publication are retained.",
     archiveConfirm: "Archive “{title}”? Readers will lose access. Data and progress are retained.",
     switchUnsaved: "The current story has changes stored only in this browser. Open another story and replace them?",
+    leaveChapterUnsaved: "Chapter changes have not been saved to the server. Return to the chapter list without saving?",
     validationTitle: "Validation",
     storyJsonTitle: "Story JSON",
     pasteStoryJson: "Paste Story JSON",
@@ -2435,6 +2437,14 @@ function renderAuthorWorkspace(home = authorHomeCache) {
   if(current?.reviewLimitReached)document.querySelector('[data-panel-text="submitHint"]').textContent=reviewLimitMessage(currentLanguage);
   const items = chapterParent?.draftDocument?.items || [];
   const index = items.findIndex(item => item.target.id === getDraftStoryId());
+  const parentId = chapterParent?.collectionId || chapterParent?.id;
+  const parentLink = document.querySelector('.builder-home');
+  parentLink.href = parentId ? `/my-stories/?collection=${encodeURIComponent(parentId)}` : '/';
+  parentLink.querySelector('span').textContent = parentId ? (en ? 'Story chapters' : 'К главам истории') : t('backToSite');
+  parentLink.onclick = parentId ? event => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (hasUnsavedChanges() && !confirm(t('leaveChapterUnsaved'))) event.preventDefault();
+  } : null;
   document.querySelector('#chapter-story-name').textContent = chapterParent?.title || chapterParent?.draftDocument?.title || (en ? 'Independent draft' : 'Отдельный черновик');
   document.querySelector('#chapter-number').textContent = index < 0 ? '' : [items[index].season, `${en ? 'Chapter' : 'Глава'} ${index + 1}`].filter(Boolean).join(' · ');
   document.querySelector('#chapter-title').textContent = draft.title || draft.key;

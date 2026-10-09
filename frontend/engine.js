@@ -10,7 +10,7 @@ import { observeHomeFit } from "./home-fit.js?v=6";
 import { createAccountUI } from "./account-ui.js?v=7";
 import { mountSiteControls, updateSiteControlsLanguage } from "./site-controls.js?v=6";
 import { mountAccountDialogs } from "./account-dialogs.js?v=3";
-import { createCollectionReader } from "./collection-reader.js?v=5";
+import { createCollectionReader } from "./collection-reader.js?v=6";
 import { readingBackground, decorateReadingStat } from "./reader-presentation.js?v=2";
 import { createReaderAds } from "./reader-ads.js?v=1";
 
@@ -1392,14 +1392,14 @@ function createHomeStory() {
     openAuthModal();
     return;
   }
-  return openBuilder();
+  return openBuilder("/my-stories/");
 }
 
-async function openBuilder() {
+async function openBuilder(destination = "/builder/") {
   try {
     const result = await request("/auth/refresh", { method: "POST" });
     storage.setUser(result.user);
-    if (hasAnyRole(storage.roles, ["author", "admin"])) window.location.href = "/builder/";
+    if (hasAnyRole(storage.roles, ["author", "admin"])) window.location.href = destination;
     else window.location.href = "/subscription/";
   } catch {
     openAuthModal();

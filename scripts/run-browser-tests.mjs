@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const checks = [
   'unified-catalog', 'frontend-audit', 'legal-pages', 'builder-editing', 'site-controls',
   'admin-panel', 'subscriptions', 'reader-ads', 'notifications',
-  'reader-layout', 'review-limit', 'serial-stories', 'builder-help', 'chapter-tabs',
+  'reader-layout', 'review-limit', 'serial-stories', 'story-contents', 'builder-help', 'chapter-tabs',
 ];
 for (const name of checks) {
   console.log(`Browser check: ${name}`);

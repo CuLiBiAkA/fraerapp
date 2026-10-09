@@ -8,6 +8,7 @@ for(const width of [1440,768,390,320]){
   const send=json=>route.fulfill({json});
   if(req.method()!=='GET')mutations.push({p,body});
   if(p==='/auth/me')return send({email:'author@example.test',roles:['author']});
+  if(p==='/auth/refresh')return send({user:{email:'author@example.test',roles:['author']}});
   if(p==='/api/account')return send({unreadCount:0,notifications:[]});
   if(p==='/api/author/folders')return send({items:work?[summary()]:[],total:work?1:0});
   if(p==='/api/author/collections/targets')return send(chapter?[{id:'chapter',key:chapter.key,kind:'scenario',type:'scenario',title:chapter.title,owned:true,reviewState:'draft'}]:[]);
@@ -27,7 +28,8 @@ for(const width of [1440,768,390,320]){
   if(!fs.existsSync(f))f=path.join(process.cwd(),'frontend/index.html');return route.fulfill({path:f});
  });
  const p=await context.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));
- await p.goto('https://fraerapp.ru/my-stories/');await p.getByRole('button',{name:'+ Создать историю',exact:true}).click();
+ await p.goto('https://fraerapp.ru/');await p.locator('#home-create').click();
+ await p.waitForURL('**/my-stories/');await p.getByRole('button',{name:'+ Создать историю',exact:true}).click();
  await p.getByLabel('Название',{exact:true}).fill('Тайны города');
  await p.getByLabel('Описание',{exact:true}).fill('История, которая выходит по главам.');
  await p.getByRole('button',{name:'+ Добавить главу',exact:true}).click();
@@ -36,10 +38,15 @@ for(const width of [1440,768,390,320]){
  assert.equal(work.schemaVersion,2);assert.equal(work.items.length,1);assert.equal(work.items[0].target.id,'chapter');assert.equal(chapter.title,'Глава 1');
  assert.equal(await p.locator('#relations-editor').isVisible(),false);
  assert.equal(await p.locator('.topbar a[href*="my-stories"]').count(),0);
- await p.locator('[data-site-account]').click();
- await p.getByRole('button',{name:'Мои истории',exact:true}).click();
- await p.locator('.collection-card > summary').click();
- await p.getByRole('button',{name:'Открыть историю',exact:true}).click();
+ assert.equal(await p.locator('.builder-home').getAttribute('href'),'/my-stories/?collection=work');
+ assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'chapter navigation fits the viewport');
+ await p.locator('[data-meta="title"]').fill('Новая глава');await p.locator('[data-meta="title"]').blur();
+ p.once('dialog',dialog=>dialog.dismiss());
+ await p.getByRole('link',{name:'К главам истории',exact:true}).click();
+ assert.ok(p.url().includes('/builder/'),'cancel preserves unsaved chapter edits');
+ assert.equal(await p.locator('[data-meta="title"]').inputValue(),'Новая глава');
+ await p.locator('#import-runtime').click();await p.waitForFunction(()=>document.querySelector('#server-draft-state').textContent.includes('сервер'));
+ await p.getByRole('link',{name:'К главам истории',exact:true}).click();
  await p.getByRole('heading',{name:'Главы истории',exact:true}).waitFor();
  assert.equal(await p.getByRole('button',{name:/Добавить в папку|Создать папку/}).count(),0);
  await p.getByLabel('Сезон (необязательно)',{exact:true}).fill('Сезон 1');
@@ -54,6 +61,8 @@ for(const width of [1440,768,390,320]){
  assert.deepEqual(errors,[]);console.log(width+': create story → add chapter → builder → chapter list → season saved');
  if(width===1440)await p.screenshot({path:'/tmp/serial-author.png',fullPage:true});
  await p.goto('https://fraerapp.ru/collections/city');await p.getByText('Вы прочитали все вышедшие главы. Продолжение готовится.',{exact:true}).waitFor();
+ assert.equal(await p.locator('#collection-screen').getByText('Глава 1',{exact:true}).count(),1,'one chapter list after starting a run');
+ assert.doesNotMatch(await p.locator('#collection-screen select').textContent(),/reading/,'run IDs are not reader-facing labels');
  assert.equal(await p.getByRole('button',{name:'Начать сначала',exact:true}).count(),1);
  assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);
  console.log(width+': reader sees one story, season, restart and awaiting release');await context.close();

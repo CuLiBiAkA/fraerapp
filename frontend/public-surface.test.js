@@ -113,7 +113,7 @@ test("signed-in homepage keeps the public shell but enables user actions", () =>
   assert.match(engineJs, /const action = canContinue \? continueStory\(story\.lastSessionId\) : startStoryRun\(story\.key\)/);
 });
 
-test("create stays visible and refreshes author access before opening the builder", async () => {
+test("create stays visible and refreshes author access before opening story creation", async () => {
   const source = engineJs.slice(engineJs.indexOf("function updateTopActions("), engineJs.indexOf("function syncRoleActionButtons("));
   const createSource = engineJs.slice(engineJs.indexOf("function createHomeStory("), engineJs.indexOf("async function showPublicHome("));
   for (const roles of [null, ["player"], ["author"], ["admin"]]) {
@@ -139,7 +139,7 @@ test("create stays visible and refreshes author access before opening the builde
     await context.createHomeStory();
     assert.equal(authOpened, roles === null);
     assert.equal(profileOpened, false);
-    assert.equal(context.window.location.href, roles ? roles.some((role) => ["author", "admin"].includes(role)) ? "/builder/" : "/subscription/" : "");
+    assert.equal(context.window.location.href, roles ? roles.some((role) => ["author", "admin"].includes(role)) ? "/my-stories/" : "/subscription/" : "");
   }
 });
 
