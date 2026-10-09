@@ -36,6 +36,10 @@ pass; API bootJar is rebuilt, lint/production validation and diff checks pass.
 Builder also uses generation-checked PUT, with file-only uploads before saving
 references. SQL aggregates avoid loading other readers' runs/saves into memory.
 Deployment status will be recorded after production verification.
+Post-release cache inspection found the Builder HTML still referenced collections
+CSS v2; it now references v5 like reader/author pages. This reference alignment
+needs a Builder rebuild only. Public verification must use the exact versioned
+URLs from released HTML/modules: the CDN can legitimately retain older bare URLs.
 
 Author/contents journey repair, deployed from 9ff26c7 on 2026-10-09 after the user's followup:
 Home "Create your own" now refreshes author access and enters `/my-stories/`,
