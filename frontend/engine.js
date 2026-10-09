@@ -10,7 +10,7 @@ import { observeHomeFit } from "./home-fit.js?v=6";
 import { createAccountUI } from "./account-ui.js?v=7";
 import { mountSiteControls, updateSiteControlsLanguage } from "./site-controls.js?v=6";
 import { mountAccountDialogs } from "./account-dialogs.js?v=3";
-import { createCollectionReader } from "./collection-reader.js?v=4";
+import { createCollectionReader } from "./collection-reader.js?v=5";
 import { readingBackground, decorateReadingStat } from "./reader-presentation.js?v=2";
 import { createReaderAds } from "./reader-ads.js?v=1";
 
@@ -554,11 +554,12 @@ const api = {
     return request(`/auth/passkeys/${encodeURIComponent(credentialId)}`, { method: "DELETE" });
   },
   async stories() {
-    const [stories, metrics] = await Promise.all([
+    const [stories, metrics, collections] = await Promise.all([
       request("/api/catalog/stories"), request("/api/catalog/engagement"),
+      storage.email ? loadCollectionCatalog() : Promise.resolve([]),
     ]);
     const bySlug = new Map(metrics.map((item) => [item.slug, item]));
-    return stories.map((story) => ({ ...story, ...bySlug.get(story.slug) }));
+    return [...stories.map((story) => ({ ...story, ...bySlug.get(story.slug) })), ...collections];
   },
   createSession(storyKey) {
     return request("/api/sessions", { method: "POST", body: { storyKey } });
@@ -576,6 +577,17 @@ const api = {
     return request(`/api/admin/stories/${storyId}/publish`, { method: "POST" });
   },
 };
+
+async function loadCollectionCatalog() {
+  const collections = new Map();
+  const size = 100;
+  for (let page = 0; ; page++) {
+    const result = await request(`/api/catalog/collections?size=${size}&page=${page}`);
+    const items = Array.isArray(result) ? result : result.items || [];
+    for (const item of items) collections.set(item.collectionId || item.id || item.key, { ...item, kind: "collection" });
+    if (items.length < size) return [...collections.values()];
+  }
+}
 
 function t(key, params = {}) {
   const template = translations[currentLanguage]?.[key] ?? translations.ru[key] ?? key;
@@ -1078,6 +1090,7 @@ async function ensureCatalogStories() {
 }
 
 function storyRoute(story) {
+  if (story.kind === "collection") return `/collections/${encodeURIComponent(story.key || story.collectionId || story.id)}`;
   return `/history/${encodeURIComponent(story.slug || story.key)}`;
 }
 
@@ -1154,7 +1167,7 @@ async function renderStoryDetailRoute(rawSlug) {
   stopSound({ resetPreference: true });
   const slug = decodeURIComponent(rawSlug || "");
   const stories = await ensureCatalogStories();
-  const catalogStory = stories.find((item) => [item.slug, item.key, item.storyId].includes(slug));
+  const catalogStory = stories.find((item) => item.kind !== "collection" && [item.slug, item.key, item.storyId].includes(slug));
   let story;
   try {
     story = await loadPublicStoryDetail(catalogStory?.slug || slug);
@@ -1198,7 +1211,7 @@ async function loadPublicStoryDetail(slug) {
 async function refreshStoryMetrics(story) {
   const metrics = await request(`/api/catalog/engagement/${encodeURIComponent(story.slug)}`);
   Object.assign(story, metrics);
-  const listed = catalogStories.find(entry => entry.slug === story.slug);
+  const listed = catalogStories.find(entry => entry.kind !== "collection" && entry.slug === story.slug);
   if (listed) Object.assign(listed, metrics);
 }
 
@@ -1414,7 +1427,7 @@ function getHomeStories() {
   const query = homeSearchInput.value.trim().toLowerCase();
   const demoKeys = ["kak_shodit_v_tualet_pravilno", "kak_pogladit_kota_ne_ubiv", "night_train"];
   const stories = catalogStories.filter((story) => storyMatchesQuery(story, query)
-    && (storage.email || demoKeys.includes(story.key)));
+    && (storage.email || (story.kind !== "collection" && demoKeys.includes(story.key))));
   if (storage.email) stories.sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)));
   else stories.sort((a, b) => demoKeys.indexOf(a.key) - demoKeys.indexOf(b.key));
   return stories;
@@ -1549,7 +1562,6 @@ function favoriteEmptyMessage() {
 
 function renderStoryPage() {
   showOnly(storyScreen);
-  collectionReader.catalog(storySearch.value.trim(), storySort.value === "favorites");
   storiesList.replaceChildren();
   const query = storySearch.value.trim().toLowerCase();
   const filtered = sortStories(catalogStories.filter((story) => storyMatchesQuery(story, query)
@@ -1597,13 +1609,25 @@ function fillStoryCard(card, story, coverClass) {
   title.textContent = story.title;
   const stats = document.createElement("div");
   stats.className = "story-card-stats";
-  const views = document.createElement("span");
-  views.textContent = `◉ ${new Intl.NumberFormat(currentLanguage, { notation: "compact", maximumFractionDigits: 1 }).format(story.views ?? 0)}`;
-  views.setAttribute("aria-label", `${t("viewsLabel")}: ${story.views ?? 0}`);
-  const rating = document.createElement("span");
-  rating.textContent = `☆ ${story.rating == null ? "—" : story.rating.toFixed(1)}`;
-  rating.setAttribute("aria-label", `${t("ratingLabel")}: ${story.rating == null ? t("noRatings") : story.rating.toFixed(1)}, ${story.ratingCount || 0}`);
-  stats.append(views, rating); info.append(title, stats); link.append(cover, info);
+  if (story.kind === "collection") {
+    const chapters = document.createElement("span");
+    chapters.textContent = currentLanguage === "en" ? "Chapters" : "По главам";
+    const completion = document.createElement("span");
+    const labels = currentLanguage === "en"
+      ? { completed: "Completed", in_development: "In progress", abandoned: "On hold" }
+      : { completed: "Завершена", in_development: "В разработке", abandoned: "Приостановлена" };
+    completion.textContent = labels[story.completionStatus] || "";
+    stats.append(chapters, completion);
+  } else {
+    const views = document.createElement("span");
+    views.textContent = `◉ ${new Intl.NumberFormat(currentLanguage, { notation: "compact", maximumFractionDigits: 1 }).format(story.views ?? 0)}`;
+    views.setAttribute("aria-label", `${t("viewsLabel")}: ${story.views ?? 0}`);
+    const rating = document.createElement("span");
+    rating.textContent = `☆ ${story.rating == null ? "—" : story.rating.toFixed(1)}`;
+    rating.setAttribute("aria-label", `${t("ratingLabel")}: ${story.rating == null ? t("noRatings") : story.rating.toFixed(1)}, ${story.ratingCount || 0}`);
+    stats.append(views, rating);
+  }
+  info.append(title, stats); link.append(cover, info);
   card.append(link, favoriteButton(story));
 }
 
@@ -1618,7 +1642,7 @@ function favoriteButton(story) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "story-favorite";
-  button.dataset.storySlug = story.slug;
+  button.dataset.catalogRoute = storyRoute(story);
   button.setAttribute("aria-label", t(story.favorite ? "removeFavorite" : "addFavorite"));
   button.setAttribute("aria-pressed", String(Boolean(story.favorite)));
   const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -1649,11 +1673,15 @@ function favoriteButton(story) {
     if (!storage.email) return openEngagementLogin("favoriteGuest");
     button.disabled = true;
     try {
-      const result = await request(`/api/catalog/engagement/${encodeURIComponent(story.slug)}/favorite`, { method: "PUT", body: { selected: !story.favorite } });
+      const collection = story.kind === "collection";
+      const endpoint = collection
+        ? `/api/catalog/collections/${encodeURIComponent(story.collectionId || story.id || story.key)}/favorite`
+        : `/api/catalog/engagement/${encodeURIComponent(story.slug)}/favorite`;
+      const result = await request(endpoint, { method: "PUT", body: collection ? { favorite: !story.favorite } : { selected: !story.favorite } });
       story.favorite = result.favorite;
       // Update in place: re-sorting favorites here changes the active carousel card.
       document.querySelectorAll(".story-favorite").forEach((control) => {
-        if (control.dataset.storySlug !== story.slug) return;
+        if (control.dataset.catalogRoute !== storyRoute(story)) return;
         control.setAttribute("aria-pressed", String(Boolean(story.favorite)));
         control.setAttribute("aria-label", t(story.favorite ? "removeFavorite" : "addFavorite"));
       });
@@ -2301,7 +2329,7 @@ const accountUI = createAccountUI({ request, email: () => storage.email, languag
 const readerAds = createReaderAds({request, language: () => storage.language});
 const collectionReader = createCollectionReader({
   screen:document.querySelector("#collection-screen"), sceneScreen,
-  catalogHost:document.querySelector("#collection-catalog"), showScreen:showOnly, navigate:navigateTo,
+  showScreen:showOnly, navigate:navigateTo, onFavoriteChange:() => { catalogStories = []; },
   signedIn:()=>Boolean(storage.email), signIn:openAuthModal,
   onSession:(session,runId)=>{stopSound({resetPreference:true});storage.setGame(session);history.pushState({},"",`/read/${encodeURIComponent(session.sessionId)}${runId?`?run=${encodeURIComponent(runId)}`:""}`);render(session);},
 });

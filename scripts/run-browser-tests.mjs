@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 // Playwright and its Chromium must be installed or exposed through NODE_PATH.
 // The obsolete check-chapters-ui.mjs targets a retired editor and is excluded.
 const checks = [
-  'frontend-audit', 'legal-pages', 'builder-editing', 'site-controls',
+  'unified-catalog', 'frontend-audit', 'legal-pages', 'builder-editing', 'site-controls',
   'admin-panel', 'subscriptions', 'reader-ads', 'notifications',
   'reader-layout', 'review-limit', 'serial-stories', 'builder-help', 'chapter-tabs',
 ];

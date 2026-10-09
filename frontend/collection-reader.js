@@ -1,6 +1,6 @@
 import {el,link,button,field,select,words,typeName,request,errorMessage} from "./collection-ui.js?v=4";
 
-export function createCollectionReader({screen,sceneScreen,catalogHost,showScreen,navigate,onSession,signedIn,signIn}) {
+export function createCollectionReader({screen,sceneScreen,showScreen,navigate,onSession,signedIn,signIn,onFavoriteChange}) {
   let generation=0, navGeneration=0, lastCollection=null;
   const runRequests=new WeakMap();
   const chapterNav=el("section",null,"chapter-navigation collection-reader hidden");chapterNav.setAttribute("aria-label",words("Главы и продолжения", "Chapters and continuations"));sceneScreen.querySelector(".story-panel").append(chapterNav);
@@ -12,21 +12,6 @@ export function createCollectionReader({screen,sceneScreen,catalogHost,showScree
   }
   function play(result,runId){onSession(result.session||result,result.runId||runId);}
   const sourceFor=(item,previous)=>previous?.id===item.previousId&&previous.status==="finished"?previous.sessionId:undefined;
-  async function catalog(query="",favorites=false,page=0){
-    const seq=++generation;catalogHost.replaceChildren();
-    if(!signedIn())return;
-    try{
-      const data=await request(`/api/catalog/collections?size=20&page=${page}&q=${encodeURIComponent(query)}&favorites=${favorites}`);if(seq!==generation)return;
-      const items=(Array.isArray(data)?data:data.items||[]).filter(item=>(!favorites||item.favorite)&&`${item.title} ${item.description} ${item.key}`.toLowerCase().includes(query.toLowerCase()));
-      if(!items.length&&page===0)return;
-      catalogHost.append(el("h2",words("Истории по главам", "Stories in chapters")));
-      const grid=el("div",null,"collection-list");
-      for(const item of items){const card=el("article",null,"collection-card");card.append(el("span",typeName(item.type),"collection-badge"),el("h3",item.title),el("p",item.description||""),href(words("Открыть оглавление", "Open contents"),route(item)));grid.append(card);}catalogHost.append(grid);
-      const pages=el("nav",null,"collection-actions");pages.setAttribute("aria-label",words("Страницы произведений", "Work pages"));
-      if(page>0)pages.append(button(words("← Назад", "← Previous"),()=>catalog(query,favorites,page-1)));
-      if((Array.isArray(data)?data:data.items||[]).length===20)pages.append(button(words("Далее →", "Next →"),()=>catalog(query,favorites,page+1)));catalogHost.append(pages);
-    }catch(error){if(seq===generation)catalogHost.append(el("p",errorMessage(error)));}
-  }
   async function open(key){
     ++generation;const seq=generation;showScreen(screen);screen.replaceChildren(href(words("← В библиотеку", "← Library"),"/history"));
     const status=statusNode();screen.append(status);status.textContent=words("Загружаем оглавление…", "Loading contents…");
@@ -39,7 +24,7 @@ export function createCollectionReader({screen,sceneScreen,catalogHost,showScree
       for(const parent of data.parents||data.breadcrumbs||[])breadcrumbs.append(href(`${parent.title} / `,route(parent)));screen.append(breadcrumbs);
       screen.append(el("p",data.completionStatus==="completed"?words("Завершена автором", "Completed by the author"):data.completionStatus==="abandoned"?words("Приостановлена", "Paused"):words("В разработке", "In progress")));
       const actions=el("div",null,"collection-actions");
-      const favorite=action(data.favorite?words("♥ В избранном", "♥ Favorited"):words("♡ В избранное", "♡ Favorite"),async()=>{if(!signedIn()){signIn();return;}await request(`/api/catalog/collections/${data.collectionId||data.id}/favorite`,{method:"PUT",body:{favorite:!data.favorite}});data.favorite=!data.favorite;favorite.textContent=data.favorite?words("♥ В избранном", "♥ Favorited"):words("♡ В избранное", "♡ Favorite");},status);actions.append(favorite);screen.append(actions);
+      const favorite=action(data.favorite?words("♥ В избранном", "♥ Favorited"):words("♡ В избранное", "♡ Favorite"),async()=>{if(!signedIn()){signIn();return;}await request(`/api/catalog/collections/${data.collectionId||data.id}/favorite`,{method:"PUT",body:{favorite:!data.favorite}});data.favorite=!data.favorite;onFavoriteChange?.();favorite.textContent=data.favorite?words("♥ В избранном", "♥ Favorited"):words("♡ В избранное", "♡ Favorite");},status);actions.append(favorite);screen.append(actions);
       const contents=el("section");screen.append(contents);
       const list=el("ol");let season="";for(const item of data.items||[]){const li=el("li");if(item.season&&item.season!==season)li.append(el("h3",item.season));season=item.season||"";li.append(data.schemaVersion===2?el("span",item.label||item.title||item.key):href(item.label||item.title||item.key,route(item)));list.append(li);}contents.append(el("h2",words("Главы", "Chapters")),list);
       if(!data.items?.length)contents.append(el("p",words("Доступных частей пока нет.", "No parts are available yet.")));
@@ -167,5 +152,5 @@ export function createCollectionReader({screen,sceneScreen,catalogHost,showScree
     }
     host.hidden=!host.childElementCount;host.append(status);
   }
-  return {catalog,open,session,storyEntry,close(){generation++;screen.classList.add("hidden");}, refresh(){if(lastCollection)return open(lastCollection.key);}};
+  return {open,session,storyEntry,close(){generation++;screen.classList.add("hidden");}, refresh(){if(lastCollection)return open(lastCollection.key);}};
 }

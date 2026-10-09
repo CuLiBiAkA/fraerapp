@@ -1,5 +1,26 @@
 # FraerApp deploy and ops runbook
 
+## Unified catalogue (prepared, 2026-10-09)
+
+Publish frontend/index.html (engine-90 and library.css v11), engine.js,
+collection-reader.js v5 and library.css together after backing up those files.
+Inspect live health and recent API/auth logs first. Static files are mounted;
+no service rebuild/recreation, nginx change or database migration is needed.
+Keep collection/scenario endpoints and published chapter exclusion unchanged.
+The separate collection list/host and its unused CSS selector are retired.
+
+Run npm test/lint/build, check-unified-catalog.cjs, check-frontend-audit.cjs,
+check-serial-stories.cjs, check-notifications.cjs, check-reader-layout.cjs and
+git diff --check. The main browser runner now includes 14 suites. Use a mixed
+catalogue with a real chaptered story and standalone stories: an empty collections
+fixture cannot verify their visual consistency. Cover, card size, one grid,
+search/favorites, equal keys across types and entry to the first chapter matter.
+Verify current production reader-visible catalogue metadata with the existing
+nonprivileged QA reader only; temporary verification sessions must be revoked.
+Never edit published stories or real users' favorites as a release smoke test.
+After release check all service health, public/origin file hashes, catalogue,
+readiness, anonymous account denial and recent logs; record the backup/commit.
+
 ## Frontend and policy audit (deployed, 2026-10-09)
 
 Inspect Git, live service health and recent logs first. Backup

@@ -2,6 +2,27 @@
 
 Last updated: 2026-10-09.
 
+Unified reader catalogue, prepared 2026-10-09 after the user's screenshot:
+the separate "Stories in chapters" block is removed. Both public scenario and
+collection entries use fillStoryCard in the same library grid and signed-in
+home carousel: same cover/genre/title/favorite layout, search and title/favorite
+ordering. Collection cards open their contents; scenarios retain /history links.
+Guest access remains restricted to the existing three demos. Collection pages
+are loaded in batches of 100 into the shared catalogue, rather than stopping at
+the old separate 20-item view. Favorite identity includes the route/type so an
+equal scenario/collection key cannot update the wrong heart. Contents favorite
+changes invalidate the shared cache. Existing backend chapter exclusion remains
+the authority; published chapters are not reinserted into the catalogue.
+Collections have no aggregate rating/view API: the shared card footer shows
+chapter format and publication completion status instead of fabricated metrics.
+Unknown collection dates retain the existing sort fallback. This is a frontend
+repair, with no story-data writes or API/auth/Builder rebuild. Assets: engine-90,
+collection-reader v5, library.css v11. Node 96/96; new mixed-catalogue browser
+regression passes RU/EN 320/390/768/1440, including cover, same card dimensions,
+search, title sort, favorite failure/retry, key collision and first-chapter start.
+Related frontend, serial story, notification and reader layout suites also pass.
+Production receipt will be added after the static release.
+
 Frontend/wording audit, deployed from e3aac92 on 2026-10-09:
 see `docs/frontend-audit-2026-10-09.md`. Responsive layout now handles enlarged
 text in catalogue/subscription/admin; shared header height drives reader stats.
