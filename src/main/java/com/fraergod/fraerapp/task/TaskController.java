@@ -2,6 +2,7 @@ package com.fraergod.fraerapp.task;
 
 import java.net.URI;
 import java.util.List;
+import com.fraergod.fraerapp.game.CurrentUserService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,24 +23,29 @@ import jakarta.validation.constraints.Size;
 class TaskController {
 
 	private final TaskRepository tasks;
+	private final CurrentUserService currentUser;
 
-	TaskController(TaskRepository tasks) {
+	TaskController(TaskRepository tasks, CurrentUserService currentUser) {
 		this.tasks = tasks;
+		this.currentUser = currentUser;
 	}
 
 	@GetMapping
 	List<Task> list() {
+		currentUser.requireAdmin();
 		return tasks.findAll();
 	}
 
 	@PostMapping
 	ResponseEntity<Task> create(@Valid @RequestBody TaskRequest request) {
+		currentUser.requireAdmin();
 		Task saved = tasks.save(new Task(request.title().trim()));
 		return ResponseEntity.created(URI.create("/api/tasks/" + saved.getId())).body(saved);
 	}
 
 	@PutMapping("/{id}")
 	Task update(@PathVariable Long id, @Valid @RequestBody TaskRequest request) {
+		currentUser.requireAdmin();
 		Task task = tasks.findById(id).orElseThrow(TaskNotFoundException::new);
 		task.setTitle(request.title().trim());
 		task.setCompleted(request.completed());
@@ -48,6 +54,7 @@ class TaskController {
 
 	@DeleteMapping("/{id}")
 	ResponseEntity<Void> delete(@PathVariable Long id) {
+		currentUser.requireAdmin();
 		if (!tasks.existsById(id)) {
 			throw new TaskNotFoundException();
 		}

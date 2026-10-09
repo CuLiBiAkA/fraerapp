@@ -626,7 +626,13 @@ function setLanguage(language) {
   }
 }
 
+let authRefreshPromise = null;
+
 async function request(path, options = {}) {
+  if (path === "/auth/refresh" && options.method === "POST") {
+    if (!await refreshAuthSession()) throw Object.assign(new Error("HTTP 401"), { status: 401 });
+    return { user: await requestAttempt("/auth/me", {}, false) };
+  }
   return requestAttempt(path, options, true);
 }
 
@@ -643,12 +649,7 @@ async function requestAttempt(path, options, allowRefresh) {
     body: options.rawBody || (options.body ? JSON.stringify(options.body) : undefined),
   });
   if (response.status === 401 && allowRefresh && shouldRefreshAuth(path)) {
-    const refreshed = await fetch("/auth/refresh", {
-      method: "POST",
-      headers: { Accept: "application/json" },
-      credentials: "include",
-    });
-    if (refreshed.ok) {
+    if (await refreshAuthSession()) {
       return requestAttempt(path, options, false);
     }
   }
@@ -668,6 +669,31 @@ async function requestAttempt(path, options, allowRefresh) {
     throw error;
   }
   return payload;
+}
+
+async function refreshAuthSession() {
+  if (!authRefreshPromise) {
+    authRefreshPromise = refreshAuthSessionAttempt().finally(() => { authRefreshPromise = null; });
+  }
+  return authRefreshPromise;
+}
+
+async function refreshAuthSessionAttempt() {
+  const response = await fetch("/auth/refresh", {
+    method: "POST", headers: { Accept: "application/json" }, credentials: "include",
+  });
+  if (response.ok) return true;
+  if (response.status === 401) {
+    // A different tab may have consumed the old refresh cookie. Give its response
+    // time to install the replacement, then check the live session without rotating again.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt) await new Promise(resolve => setTimeout(resolve, attempt * 150));
+      const session = await fetch("/auth/me", { headers: { Accept: "application/json" }, credentials: "include", cache: "no-store" });
+      if (session.ok) return true;
+      if (session.status !== 401) break;
+    }
+  }
+  return false;
 }
 
 function shouldRefreshAuth(path) {

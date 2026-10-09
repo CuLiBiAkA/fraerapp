@@ -1,5 +1,55 @@
 # FraerApp deploy and ops runbook
 
+## Security audit and cat story (deployed, 2026-10-09)
+
+Backup `backups/code-audit-20261009-095441` contains PostgreSQL custom dumps for
+both databases, verified by pg_restore --list, and restricted runtime-before.tar.gz
+including the former environment. Rollback tags:
+`fraerapp-api-before-audit:20261009-095441`,
+`fraerapp-auth-service-before-audit:20261009-095441`,
+`fraerapp-story-builder-before-audit:20261009-095441`.
+First applied the nginx JWKS denial and access-log/referrer mitigation. Then
+layered verified local API/auth app.jar over existing runtime images, preserving
+entrypoint/command/environment/user/workdir, rebuilt Builder and installed changed
+static/source files. Rotated AUTH_JWT_SECRET to a fresh random secret without
+printing it, recreated API/auth/Builder and checked/reloaded nginx. No migrations.
+All six services healthy; release-receipt.json records API/auth JAR SHA-256.
+
+Never restore the disclosed JWT secret or remove edge `/auth/jwks` denial when
+rolling back. Keep the new shared secret in both services; the nginx denial
+protects the public endpoint even when an old auth image is temporarily used.
+Old access JWTs become invalid at rotation; valid refresh sessions recover via
+the normal refresh API. Check live health, anonymous tasks denial, empty direct
+auth JWKS, public endpoint denial, frontend/Builder hashes and recent logs. Use
+the actual current edge bind address from Docker inspection, not assumed localhost.
+Some public requests using Python's default User-Agent receive a Cloudflare 403;
+verify with a browser User-Agent and compare origin independently.
+
+Publication uses authenticated APIs, never direct publication-table writes or a
+standalone forged JWT. For an explicitly authorized operator release, confirm an
+existing active administrator independently. A short-lived one-time login token
+may be inserted with only its SHA-256 hash and consumed by POST /auth/verify;
+keep raw token/cookies in process memory, audit the operation, do not send mail
+or Telegram as a smoke test, and revoke only that temporary session afterward.
+Do not restore/grant roles to obtain access. For package publication: preview,
+import, refetch final generations, review-batch, read exact submitted snapshots,
+then folder decision. Self-review by admin requires ownOverride and a reason.
+
+Cat story was imported and approved through this flow, collection
+`ba19a890-10d3-4374-9b8c-e168d6f7c713`; cat-publication.json records IDs and four
+isolated QA-reader runs. All 30 scenes and 3 endings verified in production;
+starting chapter 3 first correctly returns 409. Operator/QA sessions revoked.
+New stories require sign-in under existing guest-demo policy. Re-running import
+must inspect conflicts and current review state; never blindly overwrite it.
+Two original WAV files accompany the package. The feature/operation matrix is
+`docs/cat-open-doors-coverage.md`; full findings are in the dated audit report.
+
+Verification: 96 API + 52 auth tests; 86 Node tests through updated npm test;
+syntax, production validation and diff checks. Chromium chapter-tabs, serial
+stories, Builder-help and review-limit passed at documented desktop/mobile sizes.
+These UI fixtures use synthetic API data; production API story playthrough is
+recorded separately. Initial local output/ files remain outside this release.
+
 ## Reader advertisements and accumulated release (deployed, 2026-10-09)
 
 Released API/auth/Builder from fc2d78e, frontend from d7107d0; all feature commits

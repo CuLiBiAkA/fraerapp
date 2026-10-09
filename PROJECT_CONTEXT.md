@@ -2,6 +2,34 @@
 
 Last updated: 2026-10-09.
 
+Security audit release 2026-10-09 (supersedes runtime image details below):
+eight confirmed security findings closed in API/auth/nginx; see
+`docs/codebase-audit-2026-10-09.md` for evidence, limits and residual P2/P3 work.
+HS256 signing secrets are never JWKS: edge blocks `/auth/jwks`, auth returns an
+empty key set. The production shared JWT secret was rotated in API and auth.
+Telegram login requires a configured webhook secret and a private matching chat;
+magic/refresh tokens are atomically consumed with issuance. Reader/Builder use
+single-flight refresh plus live-session recovery for cross-tab races. Legacy
+tasks CRUD is admin-only. Public author/reader attribution uses a neutral random
+player-ID alias instead of email/Telegram-derived login names. Query strings and
+Referer are excluded from nginx access logs; entry HTML suppresses referrers.
+GameService now compares JSON numbers by value and gives scene-local media
+priority. Frontend engine-88 and Builder-52 are deployed with tested API/auth JARs.
+
+Backup `backups/code-audit-20261009-095441` contains verified dumps of both DBs,
+previous runtime/configuration and rollback images; release/publication receipts
+record JAR hashes and exact collection IDs. All six services healthy; 96 API,
+52 auth and 86 Node tests pass, plus current Builder/browser journeys.
+Published test story «Мира и искусство открытых дверей», collection
+`ba19a890-10d3-4374-9b8c-e168d6f7c713`, key `koshka_i_otkrytye_dveri`:
+3 chapters, 2 seasons, 30 scenes, 46 choices, 3 endings. Package and coverage
+matrix are versioned; actual production reader API visited all scenes and endings.
+It follows existing signed-in catalogue access and is not added to the three
+guest demos. A dedicated nonprivileged QA reader owns four verification runs;
+temporary operator/reader sessions were revoked. Existing users' content was
+not edited. Known residual issues and exact unsupported story mechanics are
+documented in the audit and `docs/cat-open-doors-coverage.md`.
+
 Release 2026-10-09: moderation quota, test subscriptions and reader advertising
 are committed, pushed to main and deployed. API/auth/Builder images use
 `fraerapp-<service>:reader-fc2d78e`; the final frontend fix is `d7107d0`.

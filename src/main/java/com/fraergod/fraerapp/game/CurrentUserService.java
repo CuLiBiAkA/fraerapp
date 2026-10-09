@@ -7,7 +7,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 @Service
-class CurrentUserService {
+public class CurrentUserService {
 
 	private final PlayerRepository players;
 	private final CurrentSessionClient currentSession;
@@ -42,7 +42,7 @@ class CurrentUserService {
 		return playerFor(identity).getId();
 	}
 
-	void requireAdmin() {
+	public void requireAdmin() {
 		requireRole("admin");
 	}
 

@@ -66,6 +66,11 @@ public class Player {
 		return username;
 	}
 
+	/** Public attribution must not reveal the email/Telegram-derived login name. */
+	public String getPublicName() {
+		return "Участник #" + id.substring(0, 8);
+	}
+
 	public String getUserId() {
 		return userId;
 	}

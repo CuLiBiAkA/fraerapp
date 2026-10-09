@@ -1,0 +1,540 @@
+{
+  "key": "koshka_i_otkrytye_dveri_2",
+  "title": "Дверь, которую придерживают",
+  "description": "Осенний ветер испытывает Мирину любовь к дверям. За одним из порогов обнаруживается человек, которому очень нужен гость.",
+  "genre": "Повседневность",
+  "topic": "Животные",
+  "completionStatus": "completed",
+  "version": 1,
+  "startSceneId": "rain",
+  "variables": {
+    "имя": "Мира",
+    "доверие": {
+      "value": 1,
+      "showInStats": true
+    },
+    "смелость": {
+      "value": 0,
+      "showInStats": true
+    },
+    "открыто": {
+      "value": 0,
+      "showInStats": true
+    },
+    "обещание": false,
+    "лента": false,
+    "клин": false,
+    "соседка": false,
+    "эхо": "дом",
+    "настроение": "сонное",
+    "путь": "не выбран",
+    "минута_солнца": {
+      "type": "timer",
+      "value": 60
+    }
+  },
+  "assets": [
+    {
+      "id": "room",
+      "type": "image",
+      "url": "/assets/stories/cat-sofa-background-v2.png",
+      "metadata": {
+        "title": "Дом Миры",
+        "alt": "Полосатая кошка на диване в солнечной комнате"
+      }
+    },
+    {
+      "id": "purr",
+      "type": "music",
+      "url": "/assets/stories/cat-open-doors-purr.wav",
+      "metadata": {
+        "title": "Тихое домашнее мурчание",
+        "original": true
+      }
+    },
+    {
+      "id": "chime",
+      "type": "sound",
+      "url": "/assets/stories/cat-open-doors-chime.wav",
+      "metadata": {
+        "title": "Два тёплых звона",
+        "original": true
+      }
+    }
+  ],
+  "scenes": [
+    {
+      "id": "rain",
+      "title": "Дождь за стеклом",
+      "text": "Дождь рисовал на окне длинные дорожки. Мира помнила вчерашний коридор, а Соня искала ленту для дверного упора. На столе ещё держалось солнечное пятно: по кошачьим часам у него оставалось {{минута_солнца}} мгновений.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "help",
+          "label": "Прийти помогать всей кошкой",
+          "target": "workbench",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "настроение",
+              "value": "ласковое"
+            }
+          ]
+        },
+        {
+          "id": "sulk",
+          "label": "Пойти к прихожей и сердито ждать",
+          "target": "shared_hall",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "настроение",
+              "value": "сердитое"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "workbench",
+      "title": "Узор из ленты и лап",
+      "text": "Соня продела ленту в мягкий упор. Мира придержала свободный конец лапой: наконец-то человеческое занятие, для которого созданы кошки.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "ribbon",
+          "label": "Подождать, пока Соня завяжет крепкий узел",
+          "target": "shared_hall",
+          "fallbackTarget": null,
+          "conditions": [
+            {
+              "var": "минута_солнца",
+              "op": ">",
+              "value": 0
+            }
+          ],
+          "effects": [
+            {
+              "set": "лента",
+              "value": true
+            },
+            {
+              "set": "минута_солнца",
+              "value": 30
+            }
+          ]
+        },
+        {
+          "id": "hurry",
+          "label": "Поймать ленточный хвост раньше времени",
+          "target": "wrong_knot",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "лента",
+              "value": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wrong_knot",
+      "title": "Бант не по назначению",
+      "text": "Вместо упора получился {{узел}} на Сонином пальце. Мира отвела взгляд: среди профессиональных помощниц такое называется творческим вариантом. Пришлось всё развязать.",
+      "variables": {
+        "узел": "бантик"
+      },
+      "assets": [],
+      "background": "room",
+      "music": "chime",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        {
+          "id": "untangle",
+          "label": "Отпустить ленту и сделать невинное лицо",
+          "target": "shared_hall",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "inc": "смелость",
+              "value": -0.5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "shared_hall",
+      "title": "Дверь с сушёными яблоками",
+      "text": "Соседка Вера стояла у порога с чашкой. — Заходите на минутку, — сказала она Соне. — У меня сегодня ужасно тихо. Мира поняла только «заходите», но интонацию запомнила целиком.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "greet",
+          "label": "Поздороваться мягким «мрр»",
+          "target": "neighbor",
+          "fallbackTarget": "wind",
+          "conditions": [
+            {
+              "var": "настроение",
+              "op": "!=",
+              "value": "сердитое"
+            }
+          ],
+          "effects": []
+        },
+        {
+          "id": "listen",
+          "label": "Сначала послушать голос Веры",
+          "target": "neighbor",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "настроение",
+              "value": "тихое"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "neighbor",
+      "title": "Человек по другую сторону",
+      "text": "Вера присела, не протягивая рук. Мира сама подошла понюхать её пальцы. Оказалось, за дверью жил человек, который умел ждать кошку. Это делало дверь особенно ценной.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "lean",
+          "label": "Прижаться щекой к её ладони",
+          "target": "threshold",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "соседка",
+              "value": true
+            },
+            {
+              "inc": "доверие",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "id": "quiet_visit",
+          "label": "Остаться рядом, сохранив кошачью дистанцию",
+          "target": "threshold",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "соседка",
+              "value": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "threshold",
+      "title": "Сквозняк с характером",
+      "text": "Из форточки дунуло. Дверь качнулась, и Мира насторожила уши. Любовь к открытым дверям требовала неожиданной подробности: иногда их нужно придерживать.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "prop",
+          "label": "Показать Соне приготовленную ленту",
+          "target": "tea",
+          "fallbackTarget": "wind",
+          "conditions": [
+            {
+              "var": "лента",
+              "op": "==",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "inc": "открыто",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "id": "push",
+          "label": "Попробовать удержать дверь одной храбростью",
+          "target": "wind",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "inc": "смелость",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wind",
+      "title": "Хлопок и тишина",
+      "text": "Соня успела подхватить дверь, прежде чем та хлопнула. Мира отступила в безопасный угол, очень возмущённая поведением воздуха. Просто открыть бывает мало. Нужно ещё придумать, как оставить открытым.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": null,
+      "animation": {},
+      "effects": [],
+      "choices": [
+        {
+          "id": "repair",
+          "label": "Принести Соне мягкий клин",
+          "target": "repair",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "inc": "открыто",
+              "value": -1
+            }
+          ]
+        },
+        {
+          "id": "wait_out",
+          "label": "Переждать ветер рядом с людьми",
+          "target": "tea",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "inc": "доверие",
+              "value": 0.5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "repair",
+      "title": "Изобретение с отпечатком лапы",
+      "text": "Соня подложила мягкий клин и проверила, надёжно ли он держится. Вера нарисовала на нём маленькую лапу. Мира обнюхала подпись: работа была коллективной, но научное руководство, несомненно, кошачьим.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [
+        {
+          "set": "лента",
+          "value": true
+        }
+      ],
+      "choices": [
+        {
+          "id": "approve",
+          "label": "Одобрить тихим урчанием",
+          "target": "tea",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "клин",
+              "value": true
+            },
+            {
+              "set": "настроение",
+              "value": "вдумчивое"
+            },
+            {
+              "inc": "доверие",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tea",
+      "title": "Место рядом с чашкой",
+      "text": "Соня и Вера пили чай. Мира лежала там, откуда видны обе комнаты, и слушала, как человеческие паузы становятся уютными. В тот день она впервые полюбила дверь ещё и за то, кого та соединяла.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "chime",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "stay",
+          "label": "Побыть рядом, пока разговор сам не закончится",
+          "target": "second_end",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "second_end",
+      "title": "Дверь, которую придерживают",
+      "text": "Возвращаясь домой на шлейке рядом с Соней, Мира оглянулась на Верин порог. Открытых дверей в её жизни было уже {{открыто}}, а доверия — {{доверие}}. Самые хорошие двери открываются с двух сторон.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": null,
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [
+        {
+          "inc": "открыто",
+          "value": 1
+        },
+        {
+          "set": "минута_солнца",
+          "value": 60
+        }
+      ],
+      "ending": {
+        "type": "neutral",
+        "title": "Дверь, которую придерживают"
+      },
+      "choices": []
+    }
+  ],
+  "metadata": {
+    "schemaVersion": 1,
+    "relations": [
+      {
+        "id": "morning",
+        "type": "prequel",
+        "target": {
+          "kind": "scenario",
+          "key": "koshka_i_otkrytye_dveri_1"
+        },
+        "label": "Вспомнить первое утро",
+        "stateTransfer": {
+          "mode": "independent"
+        }
+      },
+      {
+        "id": "spring",
+        "type": "branch",
+        "target": {
+          "kind": "scenario",
+          "key": "koshka_i_otkrytye_dveri_3"
+        },
+        "label": "Другая сторона знакомого порога",
+        "stateTransfer": {
+          "mode": "mapped",
+          "contractVersion": 1,
+          "mapping": [
+            {
+              "from": "доверие",
+              "to": "доверие",
+              "type": "number"
+            },
+            {
+              "from": "обещание",
+              "to": "обещание",
+              "type": "boolean"
+            },
+            {
+              "from": "настроение",
+              "to": "настроение",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    ],
+    "inputContract": {
+      "version": 1,
+      "allowIndependentStart": false,
+      "fields": [
+        {
+          "name": "доверие",
+          "type": "number",
+          "required": true,
+          "min": -20,
+          "max": 100,
+          "defaultValue": 1
+        },
+        {
+          "name": "обещание",
+          "type": "boolean",
+          "required": true,
+          "defaultValue": false
+        },
+        {
+          "name": "настроение",
+          "type": "string",
+          "required": false,
+          "defaultValue": "сонное",
+          "allowedValues": [
+            "сонное",
+            "ласковое",
+            "игривое",
+            "сердитое",
+            "тихое",
+            "вдумчивое"
+          ]
+        }
+      ]
+    }
+  }
+}

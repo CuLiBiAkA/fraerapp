@@ -308,7 +308,7 @@ class StoryProductService {
 		if (playerId == null || playerId.isBlank()) {
 			return "System";
 		}
-		return players.findById(playerId).map(Player::getUsername).orElse("Unknown");
+		return players.findById(playerId).map(Player::getPublicName).orElse("Unknown");
 	}
 
 	record AuthorStorySummary(

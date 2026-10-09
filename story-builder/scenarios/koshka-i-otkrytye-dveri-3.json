@@ -1,0 +1,543 @@
+{
+  "key": "koshka_i_otkrytye_dveri_3",
+  "title": "Дом с правом вернуться",
+  "description": "Весной Соня готовит Мире подарок. Каким станет дом, зависит от того, чему кошка научилась по обе стороны порога.",
+  "genre": "Повседневность",
+  "topic": "Животные",
+  "completionStatus": "completed",
+  "version": 1,
+  "startSceneId": "spring",
+  "variables": {
+    "имя": "Мира",
+    "доверие": {
+      "value": 1,
+      "showInStats": true
+    },
+    "смелость": {
+      "value": 0,
+      "showInStats": true
+    },
+    "открыто": {
+      "value": 0,
+      "showInStats": true
+    },
+    "обещание": false,
+    "лента": false,
+    "клин": false,
+    "соседка": false,
+    "эхо": "дом",
+    "настроение": "сонное",
+    "путь": "не выбран",
+    "минута_солнца": {
+      "type": "timer",
+      "value": 60
+    }
+  },
+  "assets": [
+    {
+      "id": "room",
+      "type": "image",
+      "url": "/assets/stories/cat-sofa-background-v2.png",
+      "metadata": {
+        "title": "Дом Миры",
+        "alt": "Полосатая кошка на диване в солнечной комнате"
+      }
+    },
+    {
+      "id": "purr",
+      "type": "music",
+      "url": "/assets/stories/cat-open-doors-purr.wav",
+      "metadata": {
+        "title": "Тихое домашнее мурчание",
+        "original": true
+      }
+    },
+    {
+      "id": "chime",
+      "type": "sound",
+      "url": "/assets/stories/cat-open-doors-chime.wav",
+      "metadata": {
+        "title": "Два тёплых звона",
+        "original": true
+      }
+    }
+  ],
+  "scenes": [
+    {
+      "id": "spring",
+      "title": "Весна входит без стука",
+      "text": "Весной солнечные пятна стали длиннее кошки. Соня и Вера принесли бумагу, ткань и мягкие упоры. — Сделаем тебе настоящий маршрут, — сказала Соня. Все наружные двери останутся надёжно закрыты; зато комнатные смогут подружиться.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "plan",
+          "label": "Разложить план на полу и сразу на него лечь",
+          "target": "sketch",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "путь",
+              "value": "вместе"
+            }
+          ]
+        },
+        {
+          "id": "nap_first",
+          "label": "Сначала выбрать самый тёплый порог",
+          "target": "sun_dial",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "путь",
+              "value": "тихо"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sketch",
+      "title": "Архитектор с усами",
+      "text": "Соня нарисовала спальню, гостиную и тёплую лоджию с надёжной сеткой. Мира поставила лапу на линию между комнатами. Она не хотела уйти из дома. Она хотела, чтобы дом никогда не забывал про возможность пройти дальше.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [
+        {
+          "inc": "смелость",
+          "value": 0.5
+        }
+      ],
+      "choices": [
+        {
+          "id": "share_plan",
+          "label": "Позвать Веру посмотреть на кошачий чертёж",
+          "target": "sun_dial",
+          "fallbackTarget": "ribbon_path",
+          "conditions": [
+            {
+              "var": "соседка",
+              "op": "==",
+              "value": true
+            }
+          ],
+          "effects": [
+            {
+              "inc": "доверие",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "id": "draw_small",
+          "label": "Оставить на плане только любимые места",
+          "target": "sun_dial",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "путь",
+              "value": "тихо"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sun_dial",
+      "title": "Пауза длиной в солнечный ус",
+      "text": "Соня дала клею подсохнуть. На кошачьих часах было {{пауза}} спокойных мгновений. Мира следила за пылинкой и выяснила, что ожидание тоже бывает комнатой с открытой дверью.",
+      "variables": {
+        "пауза": {
+          "type": "timer",
+          "value": 30
+        }
+      },
+      "assets": [],
+      "background": "room",
+      "music": null,
+      "animation": {},
+      "effects": [],
+      "choices": [
+        {
+          "id": "patient",
+          "label": "Выдержать всю крошечную паузу",
+          "target": "ribbon_path",
+          "fallbackTarget": null,
+          "conditions": [
+            {
+              "var": "пауза",
+              "op": "==",
+              "value": 30
+            }
+          ],
+          "effects": [
+            {
+              "inc": "доверие",
+              "value": 0.5
+            }
+          ]
+        },
+        {
+          "id": "countdown",
+          "label": "Отсчитать половину паузы хвостом",
+          "target": "ribbon_path",
+          "fallbackTarget": null,
+          "conditions": [
+            {
+              "var": "пауза",
+              "op": "!=",
+              "value": 0
+            }
+          ],
+          "effects": [
+            {
+              "set": "пауза",
+              "value": 15
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ribbon_path",
+      "title": "Полоса света",
+      "text": "Из спальни в гостиную легла длинная полоса света. Соня поставила безопасные упоры и убрала ленту, чтобы Мира в ней не запуталась. Маршрут был готов, но главная приёмщица ещё не выдала заключение.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [
+        {
+          "set": "клин",
+          "value": true
+        }
+      ],
+      "choices": [
+        {
+          "id": "inspect_route",
+          "label": "Проверить каждый знакомый порог",
+          "target": "choice_room",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "лента",
+              "value": false
+            },
+            {
+              "inc": "открыто",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "id": "request_revision",
+          "label": "Потребовать ещё одну мягкую подушку",
+          "target": "committee",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "путь",
+              "value": "проверка"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "committee",
+      "title": "Комиссия по открытым дверям",
+      "text": "Мира села на чертёж и не сдвинулась. Вера добавила подушку. Соня передвинула упор на палец. Комиссия обнюхала изменения. Для счастья иногда достаточно маленькой уступки — особенно если уступают тебе.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "chime",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "approve",
+          "label": "Милостиво принять работу",
+          "target": "choice_room",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "inc": "смелость",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "id": "more_cushions",
+          "label": "Потребовать подушку у каждой двери",
+          "target": "funny_end",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "путь",
+              "value": "проверка"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "choice_room",
+      "title": "Самая важная дверь",
+      "text": "Все комнатные двери были открыты, и впервые Мира не знала, куда торопиться. Соня ждала на диване. Из соседней квартиры доносился Верин смех. Между ними оставалось место для маленького самостоятельного решения.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "invite",
+          "label": "Позвать обеих людей в общий солнечный круг",
+          "target": "shared_end",
+          "fallbackTarget": "quiet_end",
+          "conditions": [
+            {
+              "var": "доверие",
+              "op": ">=",
+              "value": 4
+            },
+            {
+              "var": "соседка",
+              "op": "==",
+              "value": true
+            },
+            {
+              "var": "клин",
+              "op": "==",
+              "value": true
+            }
+          ],
+          "effects": []
+        },
+        {
+          "id": "quiet",
+          "label": "Остаться у своего порога и смотреть на свет",
+          "target": "quiet_end",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": []
+        },
+        {
+          "id": "inspector",
+          "label": "Продолжить обход с важным видом",
+          "target": "last_round",
+          "fallbackTarget": null,
+          "conditions": [
+            {
+              "var": "открыто",
+              "op": ">",
+              "value": 0
+            }
+          ],
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "last_round",
+      "title": "Последний обход",
+      "text": "Мира прошла из комнаты в комнату и вернулась. Двери никуда не делись, даже пока она на них не смотрела. Это было большим открытием: любовь не требует караулить каждую щёлочку круглые сутки.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [
+        {
+          "inc": "открыто",
+          "value": 1
+        }
+      ],
+      "choices": [
+        {
+          "id": "return_to_people",
+          "label": "Закончить обход у Сониных ног",
+          "target": "shared_end",
+          "fallbackTarget": "quiet_end",
+          "conditions": [
+            {
+              "var": "доверие",
+              "op": ">",
+              "value": 3
+            }
+          ],
+          "effects": []
+        },
+        {
+          "id": "stamp",
+          "label": "Поставить последнюю воображаемую печать",
+          "target": "funny_end",
+          "fallbackTarget": null,
+          "conditions": [
+            {
+              "var": "открыто",
+              "op": ">=",
+              "value": 1
+            }
+          ],
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "shared_end",
+      "title": "Дом, который открывается навстречу",
+      "text": "Соня позвала Веру в гости, и обе устроились в солнечном круге рядом с Мирой. Кошка растянулась на границе двух комнат. Теперь она знала: открытая дверь — это не просьба уйти. Это обещание, что можно прийти. И вернуться. Особенно туда, где произносят твоё имя: {{имя}}.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": null,
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [
+        {
+          "set": "путь",
+          "value": "вместе"
+        }
+      ],
+      "ending": {
+        "type": "good",
+        "title": "Дом, который открывается навстречу"
+      },
+      "choices": []
+    },
+    {
+      "id": "quiet_end",
+      "title": "Счастье шириной в щёлочку",
+      "text": "Мира выбрала свой любимый порог. Соня села неподалёку с книгой и ничего от неё не требовала. Не все приключения заканчиваются большим праздником. Иногда целый мир помещается в полоске света под открытой дверью — и этого достаточно.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": null,
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [
+        {
+          "set": "путь",
+          "value": "тихо"
+        }
+      ],
+      "ending": {
+        "type": "neutral",
+        "title": "Счастье шириной в щёлочку"
+      },
+      "choices": []
+    },
+    {
+      "id": "funny_end",
+      "title": "Главная по дверям",
+      "text": "К вечеру у каждой комнатной двери лежала подушка, а на холодильнике появилась записка: «Перед закрытием согласовать с Мирой». Мира уснула на самой неудобной для прохода подушке. Должность была ответственная. Дом справлялся с ней сообща.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": null,
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [
+        {
+          "set": "путь",
+          "value": "проверка"
+        }
+      ],
+      "ending": {
+        "type": "comic",
+        "title": "Главная по дверям"
+      },
+      "choices": []
+    }
+  ],
+  "metadata": {
+    "schemaVersion": 1,
+    "relations": [
+      {
+        "id": "remember",
+        "type": "related",
+        "target": {
+          "kind": "scenario",
+          "key": "koshka_i_otkrytye_dveri_1"
+        },
+        "label": "С чего началась любовь к дверям",
+        "stateTransfer": null
+      }
+    ],
+    "inputContract": {
+      "version": 1,
+      "allowIndependentStart": false,
+      "fields": [
+        {
+          "name": "доверие",
+          "type": "number",
+          "required": true,
+          "min": -20,
+          "max": 100,
+          "defaultValue": 1
+        },
+        {
+          "name": "обещание",
+          "type": "boolean",
+          "required": true,
+          "defaultValue": false
+        },
+        {
+          "name": "настроение",
+          "type": "string",
+          "required": false,
+          "defaultValue": "сонное",
+          "allowedValues": [
+            "сонное",
+            "ласковое",
+            "игривое",
+            "сердитое",
+            "тихое",
+            "вдумчивое"
+          ]
+        }
+      ]
+    }
+  }
+}

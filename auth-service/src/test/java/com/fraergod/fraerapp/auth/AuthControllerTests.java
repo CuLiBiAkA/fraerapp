@@ -188,6 +188,196 @@ class AuthControllerTests {
 	}
 
 	@Test
+	void publicJwksNeverExportsTheSymmetricSigningKey() throws Exception {
+		var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controller).build();
+		var response = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/auth/jwks"))
+				.andReturn().getResponse();
+		assertThat(response.getStatus()).isEqualTo(200);
+		assertThat(new ObjectMapper().readTree(response.getContentAsString()).path("keys").size()).isZero();
+		assertThat(response.getContentAsString()).doesNotContain("test-secret", "dGVzdC1zZWNyZXQ", "\"k\"");
+	}
+
+	@Test
+	void telegramOnlyIssuesCredentialsForTheSendersPrivateChat() {
+		telegram.enabled = true;
+		ReflectionTestUtils.setField(controller, "telegramBotEnabled", true);
+		ReflectionTestUtils.setField(controller, "telegramWebhookSecret", "secret");
+		List<Map<String, Object>> chats = List.of(
+				Map.of("id", -123L, "type", "group"),
+				Map.of("id", -100123L, "type", "supergroup"),
+				Map.of("id", 67890L, "type", "channel"),
+				Map.of("id", 67890L),
+				Map.of("id", 12345L, "type", "private"),
+				Map.of("id", 67890.5, "type", "private"),
+				Map.of("id", "67890", "type", "private"));
+		for (Map<String, Object> chat : chats) {
+			var update = Map.<String, Object>of("message", Map.of("chat", chat,
+					"from", Map.of("id", 67890L, "is_bot", false), "text", "/start login"));
+			assertThat(controller.telegramWebhook("secret", update, request())).containsOnlyKeys("ok");
+		}
+		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens", Long.class)).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from telegram_identities", Long.class)).isZero();
+	}
+
+	@Test
+	void telegramRequiresAConfiguredMatchingWebhookSecret() {
+		telegram.enabled = true;
+		ReflectionTestUtils.setField(controller, "telegramBotEnabled", true);
+		ReflectionTestUtils.setField(controller, "telegramBotUsername", "test_bot");
+		var update = Map.<String, Object>of("message", Map.of("chat", Map.of("id", 67890L, "type", "private"),
+				"from", Map.of("id", 67890L, "is_bot", false), "text", "/start login"));
+		for (String configured : List.of("", " ")) {
+			ReflectionTestUtils.setField(controller, "telegramWebhookSecret", configured);
+			assertThat(controller.telegramLogin()).containsEntry("enabled", false);
+			assertThatThrownBy(() -> controller.telegramWebhook(null, update, request())).isInstanceOf(ResponseStatusException.class);
+		}
+		ReflectionTestUtils.setField(controller, "telegramWebhookSecret", "secret");
+		assertThatThrownBy(() -> controller.telegramWebhook(null, update, request())).isInstanceOf(ResponseStatusException.class);
+		assertThatThrownBy(() -> controller.telegramWebhook("wrong", update, request())).isInstanceOf(ResponseStatusException.class);
+		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens", Long.class)).isZero();
+	}
+
+	@Test
+	void invalidVerificationAttemptsCannotLockOutOtherUsersOrAllocateRateEntries() {
+		ReflectionTestUtils.setField(controller, "devMode", false);
+		for (int i = 0; i < 30; i++) {
+			String invalidToken = "unknown-" + i;
+			assertThatThrownBy(() -> controller.verify(new AuthController.VerifyRequest(invalidToken), new MockHttpServletResponse()))
+					.isInstanceOf(ResponseStatusException.class)
+					.satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED));
+		}
+		assertThat((Map<?, ?>) ReflectionTestUtils.getField(controller, "rate")).isEmpty();
+		verifyLinkFor("unaffected-reader@example.test");
+		assertThat(jdbc.queryForObject("select count(*) from sessions", Long.class)).isEqualTo(1);
+	}
+
+	@Test
+	void manyIndependentValidLoginLinksDoNotShareAVerificationQuota() {
+		ReflectionTestUtils.setField(controller, "devMode", false);
+		for (int i = 0; i < 25; i++) verifyLinkFor("independent-" + i + "@example.test");
+		assertThat(jdbc.queryForObject("select count(*) from sessions", Long.class)).isEqualTo(25);
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void limiterExpiresOldEntriesAndAdmitsNewIdentitiesAtCapacity() {
+		Map<String, AuthController.Window> rate = (Map<String, AuthController.Window>) ReflectionTestUtils.getField(controller, "rate");
+		ReflectionTestUtils.setField(controller, "devMode", false);
+		rate.put("login:limited@example.test", new AuthController.Window(5, Instant.now().plusSeconds(900)));
+		for (int i = 0; i < 9_999; i++) rate.put("existing-" + i, new AuthController.Window(1, Instant.now().plusSeconds(900)));
+		rate.put("expired", new AuthController.Window(30, Instant.now().minusSeconds(1)));
+		assertThat(controller.passkeyAuthenticationOptions(request())).contains("challengeId");
+		assertThat(rate).hasSize(10_000).doesNotContainKey("expired").containsKey("login:limited@example.test");
+		assertThatThrownBy(() -> controller.loginLink(new AuthController.LoginLinkRequest("limited@example.test", "/", true), request()))
+				.isInstanceOf(ResponseStatusException.class)
+				.satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS));
+		Map<String, AuthController.Window> overflow = (Map<String, AuthController.Window>) ReflectionTestUtils.getField(controller, "rateOverflow");
+		assertThat(overflow).containsOnlyKeys("passkey-authentication-start");
+		verifyLinkFor("overflow-reader@example.test");
+		assertThat(overflow).containsOnlyKeys("passkey-authentication-start", "verify");
+		assertThat(jdbc.queryForObject("select count(*) from passkey_challenges", Long.class)).isEqualTo(1);
+	}
+
+	@Test
+	void concurrentMagicLinkReplayIssuesExactlyOneSession() throws Exception {
+		String raw = "single-use-login";
+		store.createMagicLink("single-use@example.test", sha256(raw), "/", Instant.now().plusSeconds(900));
+		CountDownLatch reads = new CountDownLatch(2);
+		AuthStore racingStore = new AuthStore(jdbc, new SubscriptionService(jdbc, true)) {
+			@Override Optional<MagicLink> magicLink(String hash) {
+				Optional<MagicLink> result = super.magicLink(hash);
+				awaitBothReads(reads);
+				return result;
+			}
+		};
+		ReflectionTestUtils.setField(controller, "store", racingStore);
+		assertOneSuccessfulAuthentication(() -> controller.verify(new AuthController.VerifyRequest(raw), new MockHttpServletResponse()));
+		assertThat(jdbc.queryForObject("select count(*) from users", Long.class)).isEqualTo(1);
+		assertThat(jdbc.queryForObject("select count(*) from sessions", Long.class)).isEqualTo(1);
+		assertThat(jdbc.queryForObject("select count(*) from refresh_tokens", Long.class)).isEqualTo(1);
+	}
+
+	@Test
+	void concurrentRefreshReplayIssuesExactlyOneReplacement() throws Exception {
+		User user = store.user("single-refresh@example.test", true).orElseThrow();
+		store.createSession("rotation-session", user.id(), Instant.now().plusSeconds(3600), "magic_link", Instant.now());
+		store.createRefresh("rotation-old", "rotation-session", sha256("rotation-raw"), Instant.now().plusSeconds(3600));
+		CountDownLatch reads = new CountDownLatch(2);
+		AuthStore racingStore = new AuthStore(jdbc, new SubscriptionService(jdbc, true)) {
+			@Override Optional<RefreshToken> refresh(String hash) {
+				Optional<RefreshToken> result = super.refresh(hash);
+				awaitBothReads(reads);
+				return result;
+			}
+		};
+		ReflectionTestUtils.setField(controller, "store", racingStore);
+		assertOneSuccessfulAuthentication(() -> controller.refresh("rotation-raw", new MockHttpServletResponse()));
+		assertThat(jdbc.queryForObject("select count(*) from refresh_tokens where revoked_at is null", Long.class)).isEqualTo(1);
+		assertThat(jdbc.queryForObject("select count(*) from refresh_tokens", Long.class)).isEqualTo(2);
+	}
+
+	@Test
+	void failedIssuanceRollsBackMagicLinkConsumptionAndSessionCreation() {
+		store.user("retry-login@example.test", true);
+		String raw = "retry-login-token";
+		store.createMagicLink("retry-login@example.test", sha256(raw), "/", Instant.now().plusSeconds(900));
+		ReflectionTestUtils.setField(controller, "jwt", failingJwt());
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		assertThatThrownBy(() -> controller.verify(new AuthController.VerifyRequest(raw), response)).isInstanceOf(IllegalStateException.class);
+		assertThat(store.magicLink(sha256(raw)).orElseThrow().usedAt()).isNull();
+		assertThat(jdbc.queryForObject("select count(*) from sessions", Long.class)).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from refresh_tokens", Long.class)).isZero();
+		assertThat(response.getHeaders("Set-Cookie")).isEmpty();
+		ReflectionTestUtils.setField(controller, "jwt", jwt);
+		controller.verify(new AuthController.VerifyRequest(raw), new MockHttpServletResponse());
+	}
+
+	@Test
+	void failedIssuanceRollsBackRefreshRotation() {
+		User user = store.user("retry-refresh@example.test", true).orElseThrow();
+		store.createSession("retry-session", user.id(), Instant.now().plusSeconds(3600), "magic_link", Instant.now());
+		store.createRefresh("retry-old", "retry-session", sha256("retry-raw"), Instant.now().plusSeconds(3600));
+		ReflectionTestUtils.setField(controller, "jwt", failingJwt());
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		assertThatThrownBy(() -> controller.refresh("retry-raw", response)).isInstanceOf(IllegalStateException.class);
+		assertThat(store.refresh(sha256("retry-raw")).orElseThrow().revokedAt()).isNull();
+		assertThat(jdbc.queryForObject("select count(*) from refresh_tokens", Long.class)).isEqualTo(1);
+		assertThat(response.getHeaders("Set-Cookie")).isEmpty();
+		ReflectionTestUtils.setField(controller, "jwt", jwt);
+		controller.refresh("retry-raw", new MockHttpServletResponse());
+	}
+
+	private JwtCodec failingJwt() {
+		return new JwtCodec("test-secret-test-secret-test-secret") {
+			@Override String encode(User user, String sessionId, Instant expiresAt) {
+				throw new IllegalStateException("Synthetic signing failure");
+			}
+		};
+	}
+
+	private static void awaitBothReads(CountDownLatch reads) {
+		reads.countDown();
+		try {
+			if (!reads.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Concurrent reads did not meet");
+		}
+		catch (InterruptedException error) { Thread.currentThread().interrupt(); throw new IllegalStateException(error); }
+	}
+
+	private void assertOneSuccessfulAuthentication(Runnable attempt) throws Exception {
+		var executor = Executors.newFixedThreadPool(2);
+		try {
+			java.util.concurrent.Callable<Integer> request = () -> {
+				try { attempt.run(); return 200; }
+				catch (ResponseStatusException error) { return error.getStatusCode().value(); }
+			};
+			var first = executor.submit(request);
+			var second = executor.submit(request);
+			assertThat(List.of(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS))).containsExactlyInAnyOrder(200, 401);
+		}
+		finally { executor.shutdownNow(); }
+	}
+
+	@Test
 	void adminUserFiltersApplyBeforePaginationAndClampAnEmptyLastPage() throws Exception {
 		User administrator = admin("filter-admin@example.test");
 		for (int i = 0; i < 3; i++) {
@@ -480,6 +670,7 @@ class AuthControllerTests {
 		telegram.enabled = true;
 		ReflectionTestUtils.setField(controller, "telegramBotEnabled", true);
 		ReflectionTestUtils.setField(controller, "telegramBotUsername", "@culibiaka_bot");
+		ReflectionTestUtils.setField(controller, "telegramWebhookSecret", "secret");
 
 		Map<String, Object> response = controller.telegramLogin();
 
@@ -497,7 +688,7 @@ class AuthControllerTests {
 				"update_id", 1,
 				"message", Map.of(
 						"message_id", 2,
-						"chat", Map.of("id", 12345L),
+						"chat", Map.of("id", 67890L, "type", "private"),
 						"from", Map.of("id", 67890L, "is_bot", false, "username", "fraer_user"),
 						"text", "/start login"));
 
@@ -505,7 +696,7 @@ class AuthControllerTests {
 
 		String identity = "telegram-67890@telegram.fraerapp.local";
 		assertThat(response).containsEntry("method", "sendMessage")
-				.containsEntry("chat_id", 12345L)
+				.containsEntry("chat_id", 67890L)
 				.containsEntry("disable_web_page_preview", true);
 		assertThat(response.get("text")).asString().contains("auth_token=");
 		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens where email = ? and redirect_path = ?",

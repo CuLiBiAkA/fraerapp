@@ -247,8 +247,8 @@ class GameService {
 				scene.getSceneKey(),
 				scene.getTitle(),
 				interpolateText(scene.getText(), sceneVariables),
-				background == null ? localAssetUrls.get(scene.getBackgroundAssetId()) : background.getUrl(),
-				music == null ? localAssetUrls.get(scene.getMusicAssetId()) : music.getUrl(),
+				localAssetUrls.getOrDefault(scene.getBackgroundAssetId(), background == null ? null : background.getUrl()),
+				localAssetUrls.getOrDefault(scene.getMusicAssetId(), music == null ? null : music.getUrl()),
 				json.readObject(scene.getAnimationJson()),
 				json.readObject(scene.getEndingJson()),
 				runtimeChoices);
@@ -415,8 +415,14 @@ class GameService {
 
 	private boolean compare(Object actual, String op, Object expected) {
 		return switch (op) {
-			case "==" -> java.util.Objects.equals(actual, expected);
-			case "!=" -> !java.util.Objects.equals(actual, expected);
+			case "==", "!=" -> {
+				// Jackson and effects may represent the same story number as Integer,
+				// Long or Double; the JSON value, not its Java wrapper, owns equality.
+				boolean equal = actual instanceof Number left && expected instanceof Number right
+						? left.doubleValue() == right.doubleValue()
+						: java.util.Objects.equals(actual, expected);
+				yield "==".equals(op) ? equal : !equal;
+			}
 			case ">", ">=", "<", "<=" -> compareNumbers(actual, op, expected);
 			default -> false;
 		};
@@ -513,7 +519,7 @@ class GameService {
 		if (playerId == null || playerId.isBlank()) {
 			return "System";
 		}
-		return players.findById(playerId).map(Player::getUsername).orElse("Unknown");
+		return players.findById(playerId).map(Player::getPublicName).orElse("Unknown");
 	}
 
 	record StorySummary(String key, String title, String description) {

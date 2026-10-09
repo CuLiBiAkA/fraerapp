@@ -2248,14 +2248,34 @@ async function authorFetchAttempt(path, options = {}, allowRefresh = true) {
   return payload;
 }
 
+const authorRefreshPromises = new Map();
+
 async function refreshAuth(base = els.runtimeUrl.value.replace(/\/$/, "")) {
+  if (!authorRefreshPromises.has(base)) {
+    authorRefreshPromises.set(base, performAuthRefresh(base).finally(() => { authorRefreshPromises.delete(base); }));
+  }
+  return authorRefreshPromises.get(base);
+}
+
+async function performAuthRefresh(base) {
   const response = await fetch(`${base}/auth/refresh`, {
     method: "POST",
     headers: { Accept: "application/json", "X-Fraer-Request": "same-origin" },
     credentials: "include",
   });
+  if (response.status === 401) {
+    // Another tab can win one-time refresh rotation before its new cookies arrive.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt) await new Promise(resolve => setTimeout(resolve, attempt * 150));
+      const session = await fetch(`${base}/auth/me`, {
+        headers: { Accept: "application/json" }, credentials: "include", cache: "no-store",
+      });
+      if (session.ok) return;
+      if (session.status !== 401) break;
+    }
+  }
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+    throw Object.assign(new Error(`HTTP ${response.status}`), { status: response.status });
   }
 }
 

@@ -37,7 +37,7 @@ for(const width of [1440,768,390,320]){
  assert.equal(await p.locator('#relations-editor').isVisible(),false);
  assert.equal(await p.locator('.topbar a[href*="my-stories"]').count(),0);
  await p.locator('[data-site-account]').click();
- await p.getByRole('link',{name:'Мои истории',exact:true}).click();
+ await p.getByRole('button',{name:'Мои истории',exact:true}).click();
  await p.locator('.collection-card > summary').click();
  await p.getByRole('button',{name:'Открыть историю',exact:true}).click();
  await p.getByRole('heading',{name:'Главы истории',exact:true}).waitFor();

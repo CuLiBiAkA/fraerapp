@@ -1,0 +1,568 @@
+{
+  "key": "koshka_i_otkrytye_dveri_1",
+  "title": "Каждая щёлочка — обещание",
+  "description": "Одна кошка, одна квартира и очень серьёзный вопрос: зачем придуманы двери, если их можно открыть?",
+  "genre": "Повседневность",
+  "topic": "Животные",
+  "completionStatus": "completed",
+  "version": 1,
+  "startSceneId": "sunspot",
+  "variables": {
+    "имя": "Мира",
+    "доверие": {
+      "value": 1,
+      "showInStats": true
+    },
+    "смелость": {
+      "value": 0,
+      "showInStats": true
+    },
+    "открыто": {
+      "value": 0,
+      "showInStats": true
+    },
+    "обещание": false,
+    "лента": false,
+    "клин": false,
+    "соседка": false,
+    "эхо": "дом",
+    "настроение": "сонное",
+    "путь": "не выбран",
+    "минута_солнца": {
+      "type": "timer",
+      "value": 60
+    }
+  },
+  "assets": [
+    {
+      "id": "room",
+      "type": "image",
+      "url": "/assets/stories/cat-sofa-background-v2.png",
+      "metadata": {
+        "title": "Дом Миры",
+        "alt": "Полосатая кошка на диване в солнечной комнате"
+      }
+    },
+    {
+      "id": "purr",
+      "type": "music",
+      "url": "/assets/stories/cat-open-doors-purr.wav",
+      "metadata": {
+        "title": "Тихое домашнее мурчание",
+        "original": true
+      }
+    },
+    {
+      "id": "chime",
+      "type": "sound",
+      "url": "/assets/stories/cat-open-doors-chime.wav",
+      "metadata": {
+        "title": "Два тёплых звона",
+        "original": true
+      }
+    }
+  ],
+  "scenes": [
+    {
+      "id": "sunspot",
+      "title": "Утро размером с кошку",
+      "text": "Мира проснулась в солнечном пятне. На кухне звякнула чашка, а дверь спальни осталась приоткрытой. У людей утро начинается с кофе. У Миры — с проверки, не стало ли в доме на одну закрытую дверь больше.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "ask",
+          "label": "Потереться о Сонину ладонь",
+          "target": "kitchen",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "inc": "доверие",
+              "value": 1
+            },
+            {
+              "set": "настроение",
+              "value": "ласковое"
+            }
+          ]
+        },
+        {
+          "id": "rush",
+          "label": "Влететь на кухню пушистой запятой",
+          "target": "kitchen",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "inc": "смелость",
+              "value": 1
+            },
+            {
+              "set": "настроение",
+              "value": "игривое"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kitchen",
+      "title": "Договор у чайника",
+      "text": "— {{имя}}, — сказала Соня, — в общий коридор идём вместе. Входную дверь нельзя оставлять настежь, а вот в комнате я поставлю мягкий упор. Мира посмотрела на ручку двери: прекрасное предложение, требующее тщательного обнюхивания.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {},
+      "effects": [],
+      "choices": [
+        {
+          "id": "listen",
+          "label": "Дослушать и боднуть ладонь в знак согласия",
+          "target": "corridor",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "обещание",
+              "value": true
+            },
+            {
+              "inc": "доверие",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "id": "sneak",
+          "label": "Прокрасться к прихожей, пока чайник шумит",
+          "target": "corridor",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "обещание",
+              "value": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "corridor",
+      "title": "Две загадки прихожей",
+      "text": "Слева стоял шкаф, приоткрытый ровно на кошачий ус. Справа была входная дверь. Из-за шкафа пахло шерстяными шарфами; из-за двери — целым миром. Мира любила обе возможности и считала несправедливым выбирать только одну.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "wardrobe",
+          "label": "Сначала заглянуть в шкаф",
+          "target": "wardrobe",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": []
+        },
+        {
+          "id": "try_door",
+          "label": "Набраться смелости и попроситься за порог",
+          "target": "landing",
+          "fallbackTarget": "wait",
+          "conditions": [
+            {
+              "var": "обещание",
+              "op": "==",
+              "value": true
+            },
+            {
+              "var": "смелость",
+              "op": ">=",
+              "value": 1
+            }
+          ],
+          "effects": [
+            {
+              "inc": "смелость",
+              "value": 1
+            },
+            {
+              "inc": "открыто",
+              "value": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wardrobe",
+      "title": "Маленькая акустика большого шкафа",
+      "text": "Здесь у слова «{{эхо}}» был запах шарфа. Мира тронула дверцу лапой. Шкаф отвечал негромко: это был стук номер {{стук}}. Самое приятное в тайниках — возможность выйти из них, когда захочется.",
+      "variables": {
+        "эхо": "шкаф",
+        "стук": 0
+      },
+      "assets": [
+        {
+          "id": "room",
+          "type": "image",
+          "url": "/assets/stories/cat-sofa-background-v1.png",
+          "metadata": {
+            "title": "Тот же дом с другого порога"
+          }
+        },
+        {
+          "id": "purr",
+          "type": "music",
+          "url": "/assets/stories/cat-open-doors-chime.wav",
+          "metadata": {
+            "title": "Звон ручки шкафа"
+          }
+        },
+        {
+          "id": "shelf",
+          "type": "image",
+          "url": "/assets/stories/cat-sofa-background-v1.png"
+        }
+      ],
+      "background": "room",
+      "music": "purr",
+      "animation": {},
+      "effects": [
+        {
+          "inc": "стук",
+          "value": 1
+        }
+      ],
+      "choices": [
+        {
+          "id": "knock",
+          "label": "Ещё раз толкнуть дверцу лапой",
+          "target": "wardrobe",
+          "fallbackTarget": "wardrobe_pause",
+          "conditions": [
+            {
+              "var": "стук",
+              "op": "<",
+              "value": 3
+            }
+          ],
+          "effects": [
+            {
+              "inc": "стук",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "id": "leave",
+          "label": "Оставить шкафу короткое «мур» и выйти",
+          "target": "corridor",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "эхо",
+              "value": "мур"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wardrobe_pause",
+      "title": "Шкаф тоже хочет тишины",
+      "text": "Соня обернулась на перестук. — Там нет второй кошки, — сказала она. Мира сделала вид, что проверяла петли. Дверца осталась открытой: убедительный результат научной работы.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": null,
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "return",
+          "label": "Вернуться в прихожую с видом специалиста",
+          "target": "corridor",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "wait",
+      "title": "Закрыто — не значит навсегда",
+      "text": "Мира потянула носом у порога. Соня мягко заслонила выход: сначала нужно договориться. Кошка вздохнула всем хвостом. Открытая дверь особенно хороша, когда по другую сторону тебя ждут.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [],
+      "choices": [
+        {
+          "id": "ask_again",
+          "label": "Посидеть рядом и дождаться Сони",
+          "target": "landing",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "обещание",
+              "value": true
+            },
+            {
+              "inc": "доверие",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "id": "rest",
+          "label": "Выбрать пока знакомый коврик",
+          "target": "quiet_corner",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "set": "настроение",
+              "value": "тихое"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "landing",
+      "title": "За порогом — вместе",
+      "text": "Соня надела на Миру привычную шлейку и вышла с ней в закрытый общий коридор. Входная дверь за ними закрылась. Зато соседская была приоткрыта, и оттуда доносилось тихое радио. Мира приподняла хвост вопросительным знаком.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [
+        {
+          "set": "путь",
+          "value": "вместе"
+        }
+      ],
+      "choices": [
+        {
+          "id": "inspect",
+          "label": "Смело обнюхать новый коврик",
+          "target": "mat",
+          "fallbackTarget": null,
+          "conditions": [
+            {
+              "var": "смелость",
+              "op": ">",
+              "value": 0
+            }
+          ],
+          "effects": []
+        },
+        {
+          "id": "watch",
+          "label": "Посмотреть на всё из-под Сониной ладони",
+          "target": "quiet_corner",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "mat",
+      "title": "Коврик с кисточками",
+      "text": "У чужого порога Мира остановилась. Соня поправила ленту на застёжке шлейки. Кошка запомнила запах сушёных яблок и решила, что знакомство можно продолжить завтра.",
+      "variables": {
+        "лента": false
+      },
+      "assets": [],
+      "background": "room",
+      "music": "purr",
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [
+        {
+          "set": "лента",
+          "value": true
+        },
+        {
+          "inc": "открыто",
+          "value": 1
+        }
+      ],
+      "choices": [
+        {
+          "id": "home",
+          "label": "Вернуться домой, пока впечатлений в самый раз",
+          "target": "first_end",
+          "fallbackTarget": "quiet_corner",
+          "conditions": [
+            {
+              "var": "открыто",
+              "op": "<=",
+              "value": 3
+            }
+          ],
+          "effects": []
+        },
+        {
+          "id": "soft_step",
+          "label": "Оступить кисточку, не будя её",
+          "target": "quiet_corner",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": [
+            {
+              "inc": "смелость",
+              "value": -0.5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "quiet_corner",
+      "title": "Тихое открытие",
+      "text": "Мира устроилась на своём коврике. Не обязательно шагать в каждую открытую дверь. Иногда достаточно видеть щёлочку света и знать: выбор у тебя есть.",
+      "variables": {},
+      "assets": [],
+      "background": null,
+      "music": null,
+      "animation": {},
+      "effects": [],
+      "choices": [
+        {
+          "id": "settle",
+          "label": "Свернуться так, чтобы видеть порог",
+          "target": "first_end",
+          "fallbackTarget": null,
+          "conditions": [],
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "first_end",
+      "title": "Первое открытие",
+      "text": "Вечером Соня подставила под дверь спальни мягкий упор. Мира уснула поперёк порога. В домашнем словаре слово «{{эхо}}» по-прежнему означало тепло, а число открытий выросло до {{открыто}}. Завтра дом обещал стать ещё немного больше.",
+      "variables": {},
+      "assets": [],
+      "background": "room",
+      "music": null,
+      "animation": {
+        "type": "fade-in",
+        "durationMs": 600
+      },
+      "effects": [
+        {
+          "inc": "открыто",
+          "value": 1
+        }
+      ],
+      "ending": {
+        "type": "neutral",
+        "title": "Первое открытие"
+      },
+      "choices": []
+    }
+  ],
+  "metadata": {
+    "schemaVersion": 1,
+    "relations": [
+      {
+        "id": "tomorrow",
+        "type": "sequel",
+        "target": {
+          "kind": "scenario",
+          "key": "koshka_i_otkrytye_dveri_2"
+        },
+        "label": "Завтра за соседской дверью",
+        "stateTransfer": {
+          "mode": "mapped",
+          "contractVersion": 1,
+          "mapping": [
+            {
+              "from": "доверие",
+              "to": "доверие",
+              "type": "number"
+            },
+            {
+              "from": "обещание",
+              "to": "обещание",
+              "type": "boolean"
+            },
+            {
+              "from": "настроение",
+              "to": "настроение",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    ],
+    "inputContract": {
+      "version": 1,
+      "allowIndependentStart": true,
+      "fields": [
+        {
+          "name": "доверие",
+          "type": "number",
+          "required": true,
+          "min": -20,
+          "max": 100,
+          "defaultValue": 1
+        },
+        {
+          "name": "обещание",
+          "type": "boolean",
+          "required": true,
+          "defaultValue": false
+        },
+        {
+          "name": "настроение",
+          "type": "string",
+          "required": false,
+          "defaultValue": "сонное",
+          "allowedValues": [
+            "сонное",
+            "ласковое",
+            "игривое",
+            "сердитое",
+            "тихое",
+            "вдумчивое"
+          ]
+        }
+      ]
+    }
+  }
+}

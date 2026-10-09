@@ -5,12 +5,14 @@ import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -88,7 +90,9 @@ class AuthController {
 	private final TelegramMessenger telegram;
 	private final SubscriptionService subscriptions;
 	private final Map<String, List<DevLink>> devLinks = new ConcurrentHashMap<>();
-	private final Map<String, Window> rate = new ConcurrentHashMap<>();
+	private static final int MAX_RATE_WINDOWS = 10_000;
+	private final Map<String, Window> rate = new LinkedHashMap<>();
+	private final Map<String, Window> rateOverflow = new LinkedHashMap<>();
 
 	@Value("${auth.magic-link-ttl-seconds:900}")
 	private long magicLinkTtl;
@@ -224,7 +228,7 @@ class AuthController {
 	@GetMapping("/telegram/login")
 	Map<String, Object> telegramLogin() {
 		boolean enabled = telegramBotEnabled && telegram.configured() && telegramBotUsername != null
-				&& !telegramBotUsername.isBlank();
+				&& !telegramBotUsername.isBlank() && telegramWebhookSecret != null && !telegramWebhookSecret.isBlank();
 		if (!enabled) {
 			return Map.of("enabled", false);
 		}
@@ -241,8 +245,9 @@ class AuthController {
 		if (!telegramBotEnabled || !telegram.configured()) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Telegram login is disabled");
 		}
-		if (telegramWebhookSecret != null && !telegramWebhookSecret.isBlank()
-				&& !telegramWebhookSecret.equals(secretToken)) {
+		if (telegramWebhookSecret == null || telegramWebhookSecret.isBlank() || secretToken == null
+				|| !MessageDigest.isEqual(telegramWebhookSecret.getBytes(StandardCharsets.UTF_8),
+						secretToken.getBytes(StandardCharsets.UTF_8))) {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid Telegram webhook secret");
 		}
 		TelegramMessage message = telegramMessage(update).orElse(null);
@@ -291,10 +296,13 @@ class AuthController {
 		}
 		Map<?, ?> chat = mapValue(message.get("chat"));
 		Map<?, ?> from = mapValue(message.get("from"));
-		long chatId = longValue(chat == null ? null : chat.get("id"));
+		if (chat == null || !"private".equals(chat.get("type"))) {
+			return Optional.empty();
+		}
+		long chatId = longValue(chat.get("id"));
 		long userId = longValue(from == null ? null : from.get("id"));
 		String username = stringValue(from == null ? null : from.get("username"));
-		if (chatId == 0L || userId == 0L || booleanValue(from == null ? null : from.get("is_bot"))) {
+		if (chatId <= 0L || userId <= 0L || chatId != userId || booleanValue(from == null ? null : from.get("is_bot"))) {
 			return Optional.empty();
 		}
 		return Optional.of(new TelegramMessage(chatId, userId, username));
@@ -305,16 +313,9 @@ class AuthController {
 	}
 
 	private long longValue(Object value) {
-		if (value instanceof Number number) {
-			return number.longValue();
-		}
-		if (value instanceof String string && !string.isBlank()) {
-			try {
-				return Long.parseLong(string);
-			}
-			catch (NumberFormatException ex) {
-				return 0L;
-			}
+		// Telegram IDs are JSON integers. Never truncate decimals or reinterpret strings.
+		if (value instanceof Integer || value instanceof Long) {
+			return ((Number) value).longValue();
 		}
 		return 0L;
 	}
@@ -334,23 +335,30 @@ class AuthController {
 
 	@PostMapping("/verify")
 	Map<String, Object> verify(@Valid @RequestBody VerifyRequest request, HttpServletResponse response) {
-		checkRate("verify", devMode ? 200 : 20, Duration.ofMinutes(15));
-		MagicLink link = store.magicLink(sha256(request.token()))
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid login link"));
-		if (link.usedAt() != null || link.expiresAt().isBefore(Instant.now())) {
-			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Login link expired");
-		}
-		User user = isBootstrapAdmin(link.email())
-				? store.bootstrapAdmin(link.email()).orElseGet(() -> store.user(link.email(), true).orElseThrow())
-				: store.user(link.email(), true).orElseThrow();
-		if (user.blockedAt() != null) {
-			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is blocked");
-		}
-		store.consumeMagicLink(link.id());
-		TokenPair pair = issue(user, "magic_link");
-		addCookies(response, pair);
-		store.audit(user.id(), user.email(), "login_link_verified", "{}");
-		return Map.of("user", userView(user), "redirectPath", link.redirectPath() == null ? "/" : link.redirectPath());
+		VerifiedLogin login = store.transaction(() -> {
+			MagicLink link = store.magicLink(sha256(request.token()))
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid login link"));
+			if (link.usedAt() != null || !link.expiresAt().isAfter(Instant.now())) {
+				throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Login link expired");
+			}
+			// Unknown tokens allocate no limiter state; one user's link cannot exhaust another's allowance.
+			// The edge additionally limits requests before they reach the database.
+			checkRate("verify:" + link.id(), devMode ? 200 : 20, Duration.ofMinutes(15));
+			if (!store.consumeMagicLink(link.id())) {
+				throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Login link expired");
+			}
+			User user = isBootstrapAdmin(link.email())
+					? store.bootstrapAdmin(link.email()).orElseGet(() -> store.user(link.email(), true).orElseThrow())
+					: store.user(link.email(), true).orElseThrow();
+			if (user.blockedAt() != null) {
+				throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is blocked");
+			}
+			TokenPair pair = issue(user, "magic_link");
+			store.audit(user.id(), user.email(), "login_link_verified", "{}");
+			return new VerifiedLogin(user, pair, link.redirectPath() == null ? "/" : link.redirectPath());
+		});
+		addCookies(response, login.pair());
+		return Map.of("user", userView(login.user()), "redirectPath", login.redirectPath());
 	}
 
 	@PostMapping("/refresh")
@@ -370,11 +378,16 @@ class AuthController {
 			store.revokeSession(token.sessionId());
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User is blocked");
 		}
-		store.revokeRefresh(token.id());
-		TokenPair pair = rotate(user, token.sessionId());
-		store.replaceRefresh(token.id(), pair.refreshId());
+		TokenPair pair = store.transaction(() -> {
+			if (!store.revokeRefresh(token.id())) {
+				throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expired");
+			}
+			TokenPair replacement = rotate(user, token.sessionId());
+			store.replaceRefresh(token.id(), replacement.refreshId());
+			store.audit(user.id(), user.email(), "refreshed", "{}");
+			return replacement;
+		});
 		addCookies(response, pair);
-		store.audit(user.id(), user.email(), "refreshed", "{}");
 		return Map.of("user", userView(user));
 	}
 
@@ -879,14 +892,22 @@ class AuthController {
 		return value;
 	}
 
-	private void checkRate(String key, int limit, Duration duration) {
-		Window window = rate.compute(key, (ignored, existing) -> {
-			Instant now = Instant.now();
-			if (existing == null || existing.resetAt().isBefore(now)) {
-				return new Window(1, now.plus(duration));
-			}
-			return new Window(existing.count() + 1, existing.resetAt());
-		});
+	private synchronized void checkRate(String key, int limit, Duration duration) {
+		Instant now = Instant.now();
+		rate.entrySet().removeIf(entry -> !entry.getValue().resetAt().isAfter(now));
+		rateOverflow.entrySet().removeIf(entry -> !entry.getValue().resetAt().isAfter(now));
+		Map<String, Window> windows = rate;
+		String windowKey = key;
+		if (!rate.containsKey(key) && rate.size() >= MAX_RATE_WINDOWS) {
+			// Preserve active quotas under identity churn. Overflow has one bounded bucket per
+			// internally defined operation, while existing identities keep their own windows.
+			windows = rateOverflow;
+			windowKey = key.substring(0, key.indexOf(':'));
+		}
+		Window existing = windows.get(windowKey);
+		Window window = existing == null ? new Window(1, now.plus(duration))
+				: new Window(Math.min(existing.count(), limit) + 1, existing.resetAt());
+		windows.put(windowKey, window);
 		if (window.count() > limit) {
 			throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Too many requests");
 		}
@@ -954,6 +975,9 @@ class AuthController {
 	}
 
 	record TokenPair(String accessToken, String refreshToken, String refreshId) {
+	}
+
+	record VerifiedLogin(User user, TokenPair pair, String redirectPath) {
 	}
 
 	record DevLink(String email, String link, Instant expiresAt) {
@@ -1051,11 +1075,8 @@ class JwtCodec {
 	}
 
 	Map<String, Object> jwks() {
-		return Map.of("keys", List.of(Map.of(
-				"kty", "oct",
-				"kid", "fraerapp-dev",
-				"alg", "HS256",
-				"k", Base64.getUrlEncoder().withoutPadding().encodeToString(secret))));
+		// HS256 has no public key. Publishing an octet key would disclose the signing secret.
+		return Map.of("keys", List.of());
 	}
 
 	private String part(Object value) throws Exception {
@@ -1080,6 +1101,10 @@ class AuthStore {
 		this.jdbc = jdbc;
 		this.subscriptions = subscriptions;
 		this.transactions = new TransactionTemplate(new DataSourceTransactionManager(Objects.requireNonNull(jdbc.getDataSource())));
+	}
+
+	<T> T transaction(Supplier<T> operation) {
+		return transactions.execute(status -> operation.get());
 	}
 
 	Optional<User> bootstrapAdmin(String email) {
@@ -1280,8 +1305,10 @@ class AuthStore {
 		return links.stream().findFirst();
 	}
 
-	void consumeMagicLink(String id) {
-		jdbc.update("update email_login_tokens set used_at = ? where id = ? and used_at is null", timestamp(Instant.now()), id);
+	boolean consumeMagicLink(String id) {
+		Instant now = Instant.now();
+		return jdbc.update("update email_login_tokens set used_at = ? where id = ? and used_at is null and expires_at > ?",
+				timestamp(now), id, timestamp(now)) == 1;
 	}
 
 	void createSession(String id, String userId, Instant expiresAt, String authMethod, Instant authenticatedAt) {
@@ -1316,8 +1343,10 @@ class AuthStore {
 		return tokens.stream().findFirst();
 	}
 
-	void revokeRefresh(String id) {
-		jdbc.update("update refresh_tokens set revoked_at = ? where id = ? and revoked_at is null", timestamp(Instant.now()), id);
+	boolean revokeRefresh(String id) {
+		Instant now = Instant.now();
+		return jdbc.update("update refresh_tokens set revoked_at = ? where id = ? and revoked_at is null and expires_at > ?",
+				timestamp(now), id, timestamp(now)) == 1;
 	}
 
 	void replaceRefresh(String oldId, String newId) {

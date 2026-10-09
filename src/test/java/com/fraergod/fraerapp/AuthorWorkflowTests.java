@@ -97,7 +97,8 @@ class AuthorWorkflowTests extends ApiTestSupport {
 		ApiResponse details = request("GET", "/api/catalog/stories/" + slug, null, authorId, null);
 		assertThat(details.status()).isEqualTo(HttpStatus.OK.value());
 		assertThat(details.body()).containsEntry("slug", slug);
-		assertThat(details.body()).containsEntry("authorName", home.body().get("username"));
+			assertThat(details.body().get("authorName").toString()).startsWith("Участник #");
+			assertThat(details.body().get("authorName")).isNotEqualTo(home.body().get("username"));
 		ApiResponse guestCatalog = request("GET", "/api/catalog/stories", null, null, null);
 		assertThat(guestCatalog.status()).isEqualTo(200);
 		assertThat(readList(guestCatalog.rawBody())).allSatisfy(story ->
