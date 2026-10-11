@@ -1,6 +1,7 @@
 package com.fraergod.fraerapp.game;
 
 import java.util.*;
+import java.time.Instant;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -19,15 +20,15 @@ class CollectionService {
  private final ReviewCapacityService reviewCapacity;
  private final CollectionMetricsService metrics;
  record Row(String id,String key,String type,String owner,String draft,int draftRevision,Integer submitted,
-   Integer published,String review,String visibility,String reason,boolean restricted,int generation) {}
+   Integer published,String review,String visibility,String reason,boolean restricted,int generation,Instant deletedAt) {}
  CollectionService(JdbcTemplate jdbc,JsonSupport json,StoryRepository stories,PlayerRepository players,WorkLinksService links,ReviewCapacityService reviewCapacity,CollectionMetricsService metrics) {
   this.jdbc=jdbc;this.json=json;this.stories=stories;this.players=players;this.links=links;this.reviewCapacity=reviewCapacity;this.metrics=metrics;
  }
- private Row map(java.sql.ResultSet r,int n)throws java.sql.SQLException {return new Row(r.getString("id"),r.getString("collection_key"),r.getString("collection_type"),r.getString("owner_player_id"),r.getString("draft_json"),r.getInt("draft_revision"),(Integer)r.getObject("submitted_revision"),(Integer)r.getObject("published_revision"),r.getString("review_state"),r.getString("visibility"),r.getString("decision_reason"),r.getBoolean("restricted"),r.getInt("generation"));}
+ private Row map(java.sql.ResultSet r,int n)throws java.sql.SQLException {return new Row(r.getString("id"),r.getString("collection_key"),r.getString("collection_type"),r.getString("owner_player_id"),r.getString("draft_json"),r.getInt("draft_revision"),(Integer)r.getObject("submitted_revision"),(Integer)r.getObject("published_revision"),r.getString("review_state"),r.getString("visibility"),r.getString("decision_reason"),r.getBoolean("restricted"),r.getInt("generation"),r.getTimestamp("deleted_at")==null?null:r.getTimestamp("deleted_at").toInstant());}
  Row row(String id){return jdbc.query("select * from work_collections where id=? or collection_key=?",this::map,id,id).stream().findFirst().orElseThrow(StoryNotFoundException::new);}
  void structureLock(){jdbc.queryForObject("select id from collection_structure_lock where id=1 for update",Integer.class);}
  Row lock(String id){structureLock();return jdbc.query("select * from work_collections where id=? for update",this::map,id).stream().findFirst().orElseThrow(StoryNotFoundException::new);}
- void owner(Row r,String player){if(!Objects.equals(r.owner(),player))throw new ForbiddenRoleException();}
+ void owner(Row r,String player){if(!Objects.equals(r.owner(),player))throw new ForbiddenRoleException();TrashRetentionService.requireRetained(r.visibility(),r.deletedAt());}
  void expected(Row r,int generation){if(r.generation()!=generation)throw conflict("Collection changed. Reload before retrying.");}
  CollectionDocument document(Row r,Integer revision){if(revision==null)throw new StoryNotFoundException();return json.readCollection(jdbc.queryForObject("select document_json from collection_versions where collection_id=? and revision=?",String.class,r.id(),revision));}
  Map<String,Object> summary(Row r) {
@@ -36,11 +37,11 @@ class CollectionService {
   m.put("coverUrl",d.coverUrl());m.put("schemaVersion",d.schemaVersion());m.put("genre",d.genre());m.put("completionStatus",d.completionStatus());
   m.put("generation",r.generation());m.put("draftRevision",r.draftRevision());m.put("submittedRevision",r.submitted());m.put("publishedRevision",r.published());
   m.put("reviewState",r.review());m.put("visibility",r.visibility());m.put("decisionReason",r.reason());m.put("restricted",r.restricted());
-  m.put("ownerPlayerId",r.owner());m.put("hasDraft",!Objects.equals(r.published(),r.draftRevision()));m.put("reviewLimitReached",reviewCapacity.blocked(r.owner(),"collection",r.id()));return m;
+  m.put("ownerPlayerId",r.owner());m.put("hasDraft",!Objects.equals(r.published(),r.draftRevision()));reviewCapacity.addStatus(m,r.owner(),"collection",r.id());TrashRetentionService.describe(m,r.visibility(),r.deletedAt(),r.restricted(),r.published());return m;
  }
  @Transactional(readOnly=true)
- List<Map<String,Object>> mine(String owner,int page,int size,String q,String type,String state){return jdbc.query("select * from work_collections where owner_player_id=? and (lower(draft_title) like ? or lower(collection_key) like ?) and (?='all' or collection_type=?) and (?='all' or review_state=? or visibility=?) order by updated_at desc limit ? offset ?",this::map,owner,"%"+q.toLowerCase(Locale.ROOT)+"%","%"+q.toLowerCase(Locale.ROOT)+"%",type,type,state,state,state,Math.max(1,Math.min(100,size)),Math.max(0,page)*Math.max(1,Math.min(100,size))).stream().map(this::summary).toList();}
- List<Map<String,Object>> parents(String player,String scenarioId){var s=stories.findById(scenarioId).orElseThrow(StoryNotFoundException::new);if(!player.equals(s.getOwnerPlayerId()))throw new ForbiddenRoleException();return jdbc.query("select c.* from work_collections c join collection_memberships m on m.parent_id=c.id where m.target_kind='scenario' and m.target_id=? and c.owner_player_id=?",this::map,scenarioId,player).stream().map(this::summary).toList();}
+ List<Map<String,Object>> mine(String owner,int page,int size,String q,String type,String state){return jdbc.query("select * from work_collections where owner_player_id=? and visibility<>'purged' and (visibility<>'deleted' or deleted_at is null or deleted_at>?) and (lower(draft_title) like ? or lower(collection_key) like ?) and (?='all' or collection_type=?) and (?='all' or review_state=? or visibility=?) order by updated_at desc limit ? offset ?",this::map,owner,TrashRetentionService.cutoff(),"%"+q.toLowerCase(Locale.ROOT)+"%","%"+q.toLowerCase(Locale.ROOT)+"%",type,type,state,state,state,Math.max(1,Math.min(100,size)),Math.max(0,page)*Math.max(1,Math.min(100,size))).stream().map(this::summary).toList();}
+ List<Map<String,Object>> parents(String player,String scenarioId){var s=stories.findById(scenarioId).orElseThrow(StoryNotFoundException::new);if(!player.equals(s.getOwnerPlayerId()))throw new ForbiddenRoleException();TrashRetentionService.requireRetained(s.getVisibility(),s.getDeletedAt());return jdbc.query("select c.* from work_collections c join collection_memberships m on m.parent_id=c.id where m.target_kind='scenario' and m.target_id=? and c.owner_player_id=?",this::map,scenarioId,player).stream().filter(r->!TrashRetentionService.expired(r.visibility(),r.deletedAt())).map(this::summary).toList();}
  @Transactional(readOnly=true)
  Map<String,Object> queue(int page,int size,String q,String state,String visibility,String type) {
   size=Math.max(1,Math.min(100,size));page=Math.max(0,page);
@@ -99,7 +100,7 @@ class CollectionService {
   var targets=links.references(references);
   // All legacy type values now describe ordinary folders. Check the actual graph,
   // reserving both draft and published membership while publication is pending.
-  var memberships=jdbc.queryForList("select m.parent_id,m.target_kind,m.target_id from collection_memberships m join work_collections c on c.id=m.parent_id where c.owner_player_id=?",owner);
+  var memberships=jdbc.queryForList("select m.parent_id,m.target_kind,m.target_id from collection_memberships m join work_collections c on c.id=m.parent_id where c.owner_player_id=? and (m.in_published=true or (c.visibility<>'purged' and (c.visibility<>'deleted' or c.deleted_at is null or c.deleted_at>?)))",owner,TrashRetentionService.cutoff());
   Set<String> unique=new HashSet<>();var items=new ArrayList<CollectionDocument.Item>();
   for(var item:list(d.items())) {
    var t=targets.resolve(item.target(),owner,strict);String identity=t.kind()+":"+(t.id()==null?t.key():t.id());
@@ -164,12 +165,21 @@ class CollectionService {
  @Transactional
  Map<String,Object> takeDown(String id,String player,int generation,boolean delete,AuthIdentity actor) {
   Row r=lock(id);owner(r,player);expected(r,generation);if(r.restricted())throw new ForbiddenRoleException();
+  if("deleted".equals(r.visibility()))throw conflict("Restore collection before changing its availability");
   if(delete&&r.published()!=null)throw conflict("Published collections can be archived, not deleted by the author");
-  jdbc.update("update work_collections set visibility=?,submitted_revision=null,review_state=case when review_state='in_review' then 'draft' else review_state end,generation=generation+1 where id=?",delete?"deleted":"archived",id);
+  jdbc.update("update work_collections set visibility=?,deleted_at=?,submitted_revision=null,review_state=case when review_state='in_review' then 'draft' else review_state end,generation=generation+1 where id=?",delete?"deleted":"archived",delete?java.sql.Timestamp.from(Instant.now()):null,id);
   event(r,actor,delete?"author_delete":"author_archive",r.draftRevision(),"","");return summary(row(id));
+ }
+ @Transactional
+ Map<String,Object> restoreTrash(String id,String player,int generation,AuthIdentity actor) {
+  Row r=lock(id);owner(r,player);expected(r,generation);
+  if(!"deleted".equals(r.visibility())||r.restricted()||r.published()!=null)throw conflict("Only your own unpublished trash can be restored");
+  jdbc.update("update work_collections set visibility='private',deleted_at=null,submitted_revision=null,review_state='draft',generation=generation+1 where id=?",id);
+  event(r,actor,"author_restore",r.draftRevision(),"","");return summary(row(id));
  }
  Map<String,Object> decide(String id,String action,StoryWorkflowService.Decision c,AuthIdentity actor) {
   Row r=lock(id);expected(r,c.generation());boolean self=players.findById(r.owner()).map(p->actor.userId().equals(p.getUserId())).orElse(false);
+  TrashRetentionService.requireRetained(r.visibility(),r.deletedAt());
   ModerationPolicy.authorizeDecision(actor,self,action,c.ownOverride());boolean approve=List.of("approve","approve-publish").contains(action);
   String reason=ModerationPolicy.reason(c.reason(),!approve||self),note=ModerationPolicy.reason(c.internalNote(),false);
   if("publish-approved".equals(action)) {
@@ -187,7 +197,7 @@ class CollectionService {
    if((r.restricted()&&List.of("public","unlisted").contains(next))||("deleted".equals(r.visibility())&&!"restore".equals(action)))throw conflict("Restore availability explicitly first");
    if("restore".equals(action)&&!List.of("hidden","deleted","archived").contains(r.visibility()))throw conflict("Collection is not restricted");
    if(List.of("public","unlisted").contains(next)&&r.published()==null)throw conflict("Publish an approved revision explicitly first");
-   jdbc.update("update work_collections set visibility=?,restricted=?,decision_reason=? where id=?",next,List.of("hidden","archived","deleted").contains(next),reason,id);
+   jdbc.update("update work_collections set visibility=?,deleted_at=?,restricted=?,decision_reason=? where id=?",next,"deleted".equals(next)?java.sql.Timestamp.from(Instant.now()):null,List.of("hidden","archived","deleted").contains(next),reason,id);
    if("in_review".equals(r.review())&&List.of("hidden","archived","deleted").contains(next))
     jdbc.update("update work_collections set review_state='rejected' where id=?",id);
   }
@@ -238,11 +248,11 @@ class CollectionService {
  Set<String> listedChapterIds(){var result=new HashSet<String>();jdbc.query("select m.target_id,c.visibility,v.document_json from collection_memberships m join work_collections c on c.id=m.parent_id join collection_versions v on v.collection_id=c.id and v.revision=c.published_revision join stories s on s.id=m.target_id and s.owner_player_id=c.owner_player_id where m.in_published=true and m.target_kind='scenario'",rs->{if("public".equals(rs.getString(2))||json.readCollection(rs.getString(3)).serialStory())result.add(rs.getString(1));});return result;}
  List<Map<String,Object>> targets(String player,String q,int page,int size){var result=new ArrayList<Map<String,Object>>();String query=q==null?"":q.toLowerCase(Locale.ROOT);
   // Bounded paginated source queries avoid returning private targets owned by another user.
-  for(var s:jdbc.queryForList("select s.id,s.story_key,s.title,s.owner_player_id,s.visibility,w.draft_json from stories s join story_workspaces w on w.story_id=s.id where s.owner_player_id=? and (lower(s.title) like ? or lower(s.story_key) like ? or lower(w.draft_json) like ?) order by s.story_key limit ? offset ?",player,"%"+query+"%","%"+query+"%","%"+query+"%",Math.min(100,Math.max(1,size)),Math.max(0,page)*Math.min(100,Math.max(1,size)))){
+  for(var s:jdbc.queryForList("select s.id,s.story_key,s.title,s.owner_player_id,s.visibility,w.draft_json from stories s join story_workspaces w on w.story_id=s.id where s.owner_player_id=? and s.visibility not in ('deleted','purged') and (lower(s.title) like ? or lower(s.story_key) like ? or lower(w.draft_json) like ?) order by s.story_key limit ? offset ?",player,"%"+query+"%","%"+query+"%","%"+query+"%",Math.min(100,Math.max(1,size)),Math.max(0,page)*Math.min(100,Math.max(1,size)))){
    boolean own=Objects.equals(player,s.get("owner_player_id"));var m=new LinkedHashMap<String,Object>();m.put("id",s.get("id"));m.put("key",s.get("story_key"));m.put("kind","scenario");m.put("type","scenario");m.put("title",own?json.readStory((String)s.get("draft_json")).title():s.get("title"));m.put("owned",own);m.put("visibility",s.get("visibility"));
    var target=new WorkMetadata.Target("scenario",(String)s.get("id"),(String)s.get("story_key"));var doc=links.targetDocument(target,player);m.put("inputContract",doc.metadata()==null?null:json.readObject(json.write(doc.metadata().inputContract())));result.add(m);
   }
-  for(Row r:jdbc.query("select * from work_collections where owner_player_id=? and (lower(collection_key) like ? or lower(draft_title) like ?) order by collection_key limit ? offset ?",this::map,player,"%"+query+"%","%"+query+"%",Math.min(100,Math.max(1,size)),Math.max(0,page)*Math.min(100,Math.max(1,size)))){var d=json.readCollection(r.draft());result.add(Map.of("id",r.id(),"key",r.key(),"kind","collection","type",r.type(),"title",d.title(),"owned",true,"visibility",r.visibility()));}return result;
+  for(Row r:jdbc.query("select * from work_collections where owner_player_id=? and visibility not in ('deleted','purged') and (lower(collection_key) like ? or lower(draft_title) like ?) order by collection_key limit ? offset ?",this::map,player,"%"+query+"%","%"+query+"%",Math.min(100,Math.max(1,size)),Math.max(0,page)*Math.min(100,Math.max(1,size)))){var d=json.readCollection(r.draft());result.add(Map.of("id",r.id(),"key",r.key(),"kind","collection","type",r.type(),"title",d.title(),"owned",true,"visibility",r.visibility()));}return result;
  }
  List<Map<String,Object>> dependencies(String collectionId,int revision,CollectionDocument d,String owner){
   var result=new ArrayList<Map<String,Object>>();

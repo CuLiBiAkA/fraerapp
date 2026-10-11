@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
+import { fetchWithSession } from "./auth-session.js?v=1";
 
 const workspace = fs.readFileSync(new URL("./story-workspace.js", import.meta.url), "utf8");
 const engine = fs.readFileSync(new URL("./engine.js", import.meta.url), "utf8");
@@ -12,10 +13,11 @@ function loadFunction(source, name, values) {
   assert.ok(code, `missing function ${name}`); vm.runInContext(code[0], context); return context;
 }
 
-test("workspace access recovery refreshes an expired access session once and rechecks current roles", async () => {
+test("workspace access recovery refreshes an expired access session once and rechecks current roles", async t => {
   const calls=[];
   const responses=[{status:401,ok:false},{status:200,ok:true},{status:200,ok:true,json:async()=>({id:"owner",roles:["player"]})}];
-  const context=loadFunction(access,"readCurrentSession",{fetch:async(path,options)=>{calls.push({path,options});return responses.shift();}});
+  t.mock.method(globalThis,"fetch",async(path,options)=>{calls.push({path,options});return responses.shift();});
+  const context=loadFunction(access,"readCurrentSession",{fetchWithSession});
   const user=await context.readCurrentSession();
   assert.deepEqual(calls.map(call=>call.path),["/auth/me","/auth/refresh","/auth/me"]);
   assert.equal(calls[1].options.method,"POST");
@@ -23,12 +25,13 @@ test("workspace access recovery refreshes an expired access session once and rec
   assert.deepEqual(user.roles,["player"]);
 });
 
-test("workspace recovery does not refresh forbidden sessions or loop after failed refresh", async () => {
+test("workspace recovery does not refresh forbidden sessions or loop after failed refresh", async t => {
   for (const status of [401,403]) {
     let count=0;
-    const context=loadFunction(access,"readCurrentSession",{fetch:async()=>{count++;return {status,ok:false};}});
+    t.mock.method(globalThis,"fetch",async()=>{count++;return {status,ok:false};});
+    const context=loadFunction(access,"readCurrentSession",{fetchWithSession});
     await assert.rejects(context.readCurrentSession(),error=>error.status===status);
-    assert.equal(count,status===401?2:1);
+    assert.equal(count,status===401?5:1);
   }
 });
 

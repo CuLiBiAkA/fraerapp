@@ -10,9 +10,10 @@
     <link rel="stylesheet" href="/typography.css?v=2" data-builder-typography>
     <script>if (location.protocol === "file:") document.querySelector("[data-builder-typography]").href = "../frontend/typography.css?v=2";</script>
     <link rel="stylesheet" href="/collections.css?v=5">
-    <link rel="stylesheet" href="theme.css?v=24">
+    <link rel="stylesheet" href="/author-workspace.css?v=2">
+    <link rel="stylesheet" href="theme.css?v=25">
     <link rel="stylesheet" href="/site-controls.css?v=6">
-    <script type="module" src="/site-controls.js?v=6"></script>
+    <script type="module" src="/site-controls.js?v=7"></script>
   </head>
   <body>
     <header class="builder-navigation">
@@ -44,7 +45,7 @@
         </div>
       </header>
 
-      <section class="actions">
+      <section class="actions builder-toolbar" aria-label="Действия с главой" data-toolbar>
         <button id="authoring-prompts-button" type="button" data-i18n="authoringPrompts">Промпты для ИИ</button>
         <a class="file-button nav-link" href="board.html" data-i18n="boardView">Карта сценария</a>
         <button id="load-example" type="button" data-i18n="loadExample">Загрузить пример</button>
@@ -66,6 +67,9 @@
             <h2 data-i18n="projectStructureTitle">Структура</h2>
             <div class="project-tree-scroll">
               <div class="project-group">
+                <div id="metadata-outline" class="outline-list"></div>
+              </div>
+              <div class="project-group">
                 <div id="variable-outline" class="outline-list"></div>
               </div>
               <div class="project-group">
@@ -85,10 +89,9 @@
             <span>FraerApp Story Builder</span>
           </div>
 
-          <section class="band">
+          <section class="band" id="story-metadata">
             <h2 data-i18n="storyMetadata">Метаданные истории</h2>
             <div class="grid two">
-              <label><span data-i18n="keyLabel">Ключ</span> <input data-meta="key"></label>
               <label><span data-i18n="titleLabel">Название</span> <input data-meta="title"></label>
               <label><span data-i18n="versionLabel">Версия</span> <input data-meta="version" type="number" min="1"></label>
               <label><span data-i18n="startSceneLabel">Стартовая сцена</span> <select data-meta="startSceneId"></select></label>
@@ -97,6 +100,13 @@
             <div class="genre-topic-row">
               <label><span data-i18n="genreLabel">Жанр</span> <select data-meta="genre"></select></label>
               <label><span data-i18n="topicLabel">Тема</span> <select data-meta="topic"></select></label>
+            </div>
+            <div class="builder-cover-setting">
+              <img id="builder-cover-preview" alt="" hidden>
+              <div>
+                <button id="choose-story-cover" type="button" class="secondary" data-i18n="chooseCover">Выбрать обложку</button>
+                <p class="muted-hint" data-i18n="coverHint">Обложка показывается на карточке истории. Сохраните главу после выбора.</p>
+              </div>
             </div>
           </section>
 
@@ -195,6 +205,6 @@
       <button id="quick-add-scene" type="button" title="Добавить сцену">+ Сцена</button>
     </nav>
 
-    <script src="app.js?v=builder-56" type="module"></script>
+    <script src="app.js?v=builder-58" type="module"></script>
   </body>
 </html>

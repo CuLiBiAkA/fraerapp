@@ -1,3 +1,4 @@
+import { fetchWithSession } from './auth-session.js?v=1';
 import { credentialToJson, parseCreationOptions, parseRequestOptions, passkeysSupported } from './passkeys.js';
 import { mountSubscriptions } from './admin-subscriptions.js?v=1';
 import { mountReaderAds } from './admin-reader-ads.js?v=1';
@@ -5,7 +6,7 @@ import { mountReaderAds } from './admin-reader-ads.js?v=1';
 const $ = selector => document.querySelector(selector);
 const roles = {player:'Читатель', author:'Автор', moderator:'Модератор', admin:'Администратор'};
 const state = {me:null, admin:false, epoch:0, view:'users', users:[], authors:[], userPage:0, loginPage:0, userPages:0, loginPages:0, userSeq:0, loginSeq:0, authorSeq:0, selected:null, runtime:new Map(), mutation:false};
-let refreshing = null, userTimer, loginTimer, messageOwner = null, userContext = 0, messageContext = 0, inviteContext = 0;
+let userTimer, loginTimer, messageOwner = null, userContext = 0, messageContext = 0, inviteContext = 0;
 const date = value => value ? new Date(value).toLocaleString('ru-RU', {dateStyle:'medium', timeStyle:'short'}) : 'Нет данных';
 const roleNames = list => (list || []).map(role => roles[role] || role).join(', ');
 const subscriptions=mountSubscriptions({api,report,date,confirmAction,authorized:()=>state.admin,epoch:()=>state.epoch});
@@ -21,11 +22,7 @@ function errorText(error) {
   return {400:'Проверьте заполненные поля и повторите действие.',401:'Сессия закончилась. Войдите снова.',403:'Недостаточно прав. Проверьте доступ к аккаунту.',404:'Запись не найдена. Обновите список.',409:'Действие недоступно для текущего состояния. Обновите данные и повторите.',429:'Слишком много запросов. Подождите немного и попробуйте снова.'}[error.status] || 'Не удалось выполнить запрос. Проверьте соединение и повторите попытку.';
 }
 async function api(path, options={}, retry=true) {
-  const response=await fetch(path,{method:options.method || 'GET',credentials:'include',headers:{Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{})},body:options.body?JSON.stringify(options.body):undefined});
-  if(response.status===401 && retry && !/^\/auth\/(login-link|verify|refresh|passkeys\/authentication)/.test(path)) {
-    if(!refreshing) refreshing=fetch('/auth/refresh',{method:'POST',credentials:'include',headers:{Accept:'application/json'}}).then(r=>r.ok).catch(()=>false).finally(()=>{refreshing=null;});
-    if(await refreshing) return api(path,options,false);
-  }
+  const response=await fetchWithSession(path,{method:options.method || 'GET',credentials:'include',headers:{Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{})},body:options.body?JSON.stringify(options.body):undefined},{refresh:retry});
   const text=await response.text(); let payload;
   try { payload=text?JSON.parse(text):{}; } catch { payload={}; if(response.ok) throw new Error('Invalid response'); }
   if(!response.ok) { const error=new Error('Request failed'); error.status=response.status; error.code=payload?.code; error.detail=payload?.message || payload?.detail || ''; throw error; }

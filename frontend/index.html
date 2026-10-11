@@ -11,9 +11,9 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://fraerapp.ru/">
     <link rel="stylesheet" href="/styles.css?v=game-25">
-    <link rel="stylesheet" href="/home.css?v=cosmos-35">
+    <link rel="stylesheet" href="/home.css?v=cosmos-36">
     <link rel="stylesheet" href="/account-ui.css?v=2">
-    <link rel="stylesheet" href="/library.css?v=12">
+    <link rel="stylesheet" href="/library.css?v=13">
     <link rel="stylesheet" href="/story-cards.css?v=7">
     <link rel="stylesheet" href="/typography.css?v=1">
     <link rel="stylesheet" href="/loading.css?v=3">
@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="/collections.css?v=5">
     <link rel="stylesheet" href="/site-controls.css?v=6">
   <link rel="stylesheet" href="/reader.css?v=5">
+    <link rel="stylesheet" href="/draft-playtest.css?v=1">
   </head>
   <body>
     <main class="game">
@@ -97,7 +98,7 @@
           <button id="home-next" class="carousel-arrow carousel-arrow-next" type="button" aria-label="Следующие истории" data-i18n-aria-label="nextStories"><img src="/assets/home/arrow-neon.webp" width="48" height="64" alt=""></button>
         </section>
         <div class="home-catalog-links">
-          <a id="home-all-stories" href="/history" data-i18n="homeAllStories" class="hidden">Все истории</a>
+          <a id="home-all-stories" href="/history" data-i18n="homeAllStories">Все истории</a>
         </div>
         <p id="home-search-status" class="home-search-status" role="status" aria-live="polite"></p>
       </section>
@@ -273,7 +274,7 @@
         <h2 id="demo-welcome-title" data-i18n="demoWelcomeTitle">Первый шаг в историю</h2>
         <p id="demo-welcome-text" data-i18n="demoWelcomeText">Каждая история начинается с первого шага. Гостям доступны три демоистории — познакомьтесь с миром FraerApp, попробуйте делать выбор и узнайте, как он меняет сюжет. Зарегистрируйтесь, чтобы открыть всю библиотеку и сохранять свой путь.</p>
         <div class="demo-welcome-actions">
-          <button type="button" data-modal-close="demo-welcome" data-i18n="demoWelcomeContinue">Продолжить</button>
+          <button id="demo-welcome-continue" type="button" data-i18n="demoWelcomeContinue">Продолжить</button>
           <button id="demo-welcome-register" type="button" data-i18n="demoWelcomeRegister">Зарегистрироваться</button>
         </div>
       </section>
@@ -310,6 +311,6 @@
       </div>
     </aside>
 
-    <script src="/engine.js?v=engine-92" type="module"></script>
+    <script src="/engine.js?v=engine-94" type="module"></script>
   </body>
 </html>

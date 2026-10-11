@@ -1,6 +1,70 @@
 # FraerApp project context
 
-Last updated: 2026-10-09.
+Last updated: 2026-10-12.
+
+## Authoring and session release candidate (2026-10-12)
+
+The user authorized committing, pushing and deploying the combined author
+checklist and architecture/session cleanup below. Both tasks are finished;
+the untracked local `output/` artifacts are outside the release. Fresh release
+checks pass: 151 Node, 128 API and 69 auth tests, current 25-suite browser evidence,
+syntax/configuration validation and diff checks. Both Java 17 JARs were rebuilt
+from the tested sources. Builder prompts now uses the same theme v25 as its
+editor/map. Deployment remains pending until a verified receipt replaces this
+paragraph's candidate status. The two open product requirements remain open.
+
+## Author checklist (local, 2026-10-11; not deployed)
+
+`docs/author-checklist-2026-10-11.md` records the user checklist, defaults and open
+requirements. Builder has metadata-first context/outline, hidden save/export-time keys
+for new drafts, shared cover selection and a mobile toolbar. Upload preparation
+shows central crop guides and bounds raster images to 1920×1080 / 500 KiB in the
+browser and API; proportions/PNG alpha remain. Continue opens the three-demo
+catalogue; homepage geometry is shared across roles and mobile titles are readable.
+
+API V22 adds one new work admission per rolling 24 hours, preserving the existing
+pending capacity and same-work/chapter updates. Own unrestricted unpublished
+trash is restorable for 30 days; expired records become author-inaccessible
+tombstones while audit, media, revisions and reader saves remain. Expired child
+references become unavailable without hiding their surviving parent. Private
+playtests replay immutable scenarios or sequential schema-2 stories through the
+shared game evaluator and normal reader renderer without reader persistence or
+engagement/ad activity. Whole-story previews freeze chapter revisions and reuse
+the published chapter-order/global-state transfer policy. Independent-start
+contract defaults are honored. Legacy nested collections retain per-chapter
+preview. “Цензор истории” and real-time scene timer behavior await clarification.
+No production change is claimed here.
+
+## Architecture cleanup (local, 2026-10-11)
+
+`docs/architecture-cleanup-2026-10-11.md` records the current audit, ownership and
+verification limits. These changes are not deployed; older release sections below
+describe their recorded releases, not this working copy. A separate active task
+is also editing Builder/media, catalogue, trash and review quotas in this checkout.
+
+Browser clients now share `frontend/auth-session.js`: one refresh per runtime,
+bounded recovery if another tab rotated the cookie, then one original-request
+retry. Page adapters retain serialization and localized errors. API token failures
+return 401 at the servlet filter boundary, allowing that recovery to run.
+Builder and its tests share the pure `core.js` document validator; scoped variables,
+wrapped numbers, media and fallback targets are checked against the passed document.
+The unused player-ID `frontend/app.js` client is retired.
+
+Chapter replay remains owned by ChapterReadingService. Generic reset rejects a
+save used by a collection run, preventing mutation of attempts shared by forks.
+Legacy catalogue/relations follow the existing chapter visibility policy. Package
+import returns final scenario generations after forward references are resolved.
+
+Admin invitation writes are atomic. Auth V10 adds hashed-email coordination rows
+for login-link issuance; existing user/token/session data is retained. Invitation,
+verification, Telegram, bootstrap/first account creation and deletion acquire
+email ownership before their other locks; verification rechecks the token and
+Telegram rechecks its binding inside that transaction.
+Keep these rows during operation: deleting a row while an issuer waits can split
+lock ownership. Auth/refresh secrets and privacy policy are unchanged by this audit.
+The code map and README now point to current auth, PostgreSQL and authoring contracts.
+
+## Earlier release records
 
 Unified story experience — deployed, 2026-10-09:
 `docs/story-experience-unification.md` is the current repair/verification record.

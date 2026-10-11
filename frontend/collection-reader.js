@@ -1,4 +1,4 @@
-import {el,link,button,select,words,request,errorMessage} from "./collection-ui.js?v=5";
+import {el,link,button,select,words,request,errorMessage} from "./collection-ui.js?v=6";
 
 export function createCollectionReader({screen,sceneScreen,present,updateCatalog,primaryAction,restartAction,readingStatus,navigate,onSession,signedIn,signIn}) {
   let generation=0, navGeneration=0, lastCollection=null;

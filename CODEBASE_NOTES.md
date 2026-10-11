@@ -1,189 +1,78 @@
-# FraerApp Codebase Notes
+# FraerApp code map
 
-## Purpose
+Current entry points are summarized here. Read [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)
+for behavior/decisions and [DEPLOY_RUNBOOK.md](DEPLOY_RUNBOOK.md) before production
+work. Historical release notes are evidence of a past release, not live state.
 
-This project is a small story-game platform:
+## Runtime and authentication
 
-- `src/main/java/.../game` is the main story runtime and admin import/publish backend.
-- `frontend/` is the player-facing static client served by nginx.
-- `story-builder/` is a separate static authoring tool that builds Story JSON in the browser.
-- `src/main/java/.../task` is a simple task CRUD module, likely legacy/demo functionality.
+- `frontend/index.html` loads `frontend/engine.js`: reader, catalogue and navigation.
+  Shared collection, account and workspace modules own their respective surfaces.
+- `frontend/auth-session.js` owns browser refresh coordination and a bounded retry.
+  Page adapters still own request serialization, localized errors and UI state.
+- `JwtAuthFilter` verifies the access token and clears request-local identity.
+  Invalid credentials return 401 at the filter boundary.
+- `CurrentUserService` / `CurrentSessionClient` verify the live auth session and
+  roles. A JWT alone does not retain access after role removal or revocation.
+- `auth-service/.../AuthServiceApplication.java` contains the auth HTTP layer,
+  store and token support; subscription and passkey services have separate owners.
+- `TaskController` retains legacy CRUD, restricted to live administrators.
 
-## Runtime Shape
+## Story documents and publication
 
-- Backend: Spring Boot 4, Java 17, JPA, Flyway, PostgreSQL by default.
-- Edge: nginx serves `frontend/` and proxies `/api/*` to the Spring app.
-- Builder: separate Docker service on port `8090`.
-- Default compose URLs from `README.md`:
-  - runtime: `http://localhost:8088`
-  - builder: `http://localhost:8090`
+- `StoryDocument`, `CollectionDocument`, `WorkMetadata`: serialized contracts.
+- `StoryWorkflowService`: immutable draft/review/publication revisions, generation
+  checks, ownership, moderation and availability decisions.
+- `StoryAdminService`: validation and document/runtime conversion utilities.
+  Compatibility HTTP routes delegate to workflow; they are not another publisher.
+- `CollectionService`: collection documents and work-level presentation/engagement.
+- `WorkPackageService`: atomic package import/export and batch review, including
+  forward-reference resolution before returning final generations.
+- `StoryAccessService`: current availability and pinned revision access.
+- `FolderWorkspaceService`: author projections and filtering before pagination.
 
-## Important Backend Entry Points
+The format and supported mechanics are in [the authoring guide](docs/prompts/authoring-guide.md).
+New stories use schema 2; historical schema 1 remains compatible.
 
-- `src/main/java/com/fraergod/fraerapp/game/AuthController.java`
-  - `POST /api/auth/login`
-  - creates or loads a player, returns `playerId`
+## Reading state
 
-- `src/main/java/com/fraergod/fraerapp/game/GameController.java`
-  - `GET /api/stories`
-  - `POST /api/sessions`
-  - `GET /api/sessions/{sessionId}/state`
-  - `POST /api/sessions/{sessionId}/choice`
-  - `POST /api/sessions/{sessionId}/reset`
+- `GameService`: session ownership, scene/choice evaluation, effects and endings.
+- `ChapterReadingService`: frozen contents, ordered chapters, input transfer and
+  replay forks. Shared chain saves cannot be reset in place through the generic
+  session endpoint.
+- `WorkLinksService`: work references, relation contracts and state transfer.
+- `StoryProductService`: standalone catalogue/detail projections.
+- `ReaderAdService`: entitlement-checked reader pause state.
 
-- `src/main/java/com/fraergod/fraerapp/game/AdminStoryController.java`
-  - `POST /api/admin/stories/import`
-  - `POST /api/admin/stories/{storyId}/validate`
-  - `POST /api/admin/stories/{storyId}/publish`
-  - guarded by `X-Admin-Token`
+Public metadata must obey the same availability rules as reading and media.
+Published snapshots remain pinned to existing runs; private draft edits never
+replace them.
 
-- `src/main/java/com/fraergod/fraerapp/task/TaskController.java`
-  - legacy/simple CRUD under `POST/GET/PUT/DELETE /api/tasks`
+## Author interfaces
 
-## Core Domain Flow
+`frontend/story-workspace.js` and collection workspace modules provide author
+and moderator screens. `story-builder/app.js` edits chapter documents;
+`story-builder/board.js` provides the scene map. Local drafts preserve the bound
+server identity and generation. Uploads store bytes; saving references is an
+explicit generation-checked document write.
 
-Main gameplay logic is in `src/main/java/com/fraergod/fraerapp/game/GameService.java`.
+The removed `frontend/app.js` was an unreferenced client of retired player-name
+login and `/api/game/*` endpoints. Its removal does not remove a supported route,
+story format or saved game.
 
-- Player logs in and gets `playerId`.
-- Client requests published stories.
-- Client creates a session with story key and `X-Player-Id`.
-- Session stores variables JSON, current scene key, status.
-- Choosing an option:
-  - visible choices are filtered by `conditions`
-  - choice `effects` are applied
-  - target scene is loaded
-  - scene `effects` are applied
-  - if target scene has `ending`, session becomes `finished`
+## Persistence, deployment and verification
 
-Conditions/effects format:
+PostgreSQL is the runtime database for both services; H2 is test-only. Flyway
+migrations under each service own the schema. Media files are immutable bytes in
+the upload volume, protected through API access checks. See the runbook for
+coordinated database/media backups and runtime paths.
 
-- conditions support `==`, `!=`, `>`, `>=`, `<`, `<=`
-- effects support:
-  - `{ "set": "varName", "value": ... }`
-  - `{ "inc": "varName", "value": 1 }`
+`compose.yaml` defines the six application services plus optional observability.
+Frontend files are mounted; Builder and Java changes require image rebuilds.
+`build/` contains generated artifacts and test results, not authoritative source.
 
-## Story Import/Publish
-
-Main admin logic is in `src/main/java/com/fraergod/fraerapp/game/StoryAdminService.java`.
-
-- Import parses Story JSON into `StoryDocument`.
-- Validation checks:
-  - story key/title/start scene
-  - duplicate scene IDs
-  - duplicate choice IDs within a scene
-  - missing target scenes
-  - missing referenced assets
-- Re-import of an existing story key deletes child rows (`choices`, `scenes`, `assets`) and rewrites them.
-- Publish is allowed only after validation passes.
-
-## Data Model
-
-Flyway story schema is defined in `src/main/resources/db/migration/V3__create_story_engine.sql`.
-
-Main tables:
-
-- `stories`
-- `assets`
-- `scenes`
-- `choices`
-- `game_sessions`
-
-Earlier migrations:
-
-- `V1__create_tasks.sql`
-- `V2__create_players.sql`
-
-JSON-heavy fields are stored as CLOB:
-
-- story variables
-- scene animation/effects/ending
-- choice conditions/effects
-- asset metadata
-
-## Frontend Notes
-
-Current player client is `frontend/app.js` + `frontend/engine.js`.
-
-- `frontend/engine.js` matches current backend contract:
-  - uses `/api/stories`
-  - uses session-based endpoints under `/api/sessions/...`
-  - supports admin import/publish from the same UI
-  - stores `playerId`, `username`, `sessionId` in `localStorage`
-
-- `frontend/app.js` appears older/outdated:
-  - calls `/api/game/state`, `/api/game/choice`, `/api/game/reset`
-  - expects fields like `scene.imageUrl` and `state.username`
-  - does not match `GameController`
-
-Likely real entry point is `frontend/index.html` with `engine.js`, while `app.js` looks like stale code.
-
-## Story Builder Notes
-
-Main file: `story-builder/app.js`.
-
-- Entire builder state is client-side.
-- Draft is autosaved to `localStorage`.
-- Can:
-  - edit metadata, variables, assets, scenes, choices
-  - validate locally
-  - import/validate/publish against runtime API
-  - load example story
-  - import/export JSON
-
-Builder serializes to the same structure expected by backend admin import.
-
-## Infra / Config
-
-- `build.gradle`
-  - Spring Boot 4.0.5
-  - Java 17 toolchain
-  - actuator, JPA, Flyway, validation, Web MVC, springdoc
-
-- `src/main/resources/application.properties`
-  - default port `8080`
-  - PostgreSQL datasource via `SPRING_DATASOURCE_*`
-  - uploaded assets use `ASSET_STORAGE_PATH` defaulting to `/data/uploads`
-  - uploaded assets are served through `ASSET_PUBLIC_PATH` defaulting to `/uploads`
-  - swagger at `/swagger-ui.html`
-  - docs at `/api-docs`
-  - admin token default: `dev-admin-token`
-
-- `compose.yaml`
-  - `edge` exposes runtime on `8088` by default
-  - `story-builder` exposes `8090`
-  - `api` uses the `postgres` service with Docker volume `postgres-data`
-  - `api` stores uploaded story files in Docker volume `story-uploads` mounted at `/data/uploads`
-  - `auth-service` uses the `auth-postgres` service with Docker volume `auth-postgres-data`
-
-- `nginx/nginx.conf`
-  - serves static frontend
-  - proxies `/api/`, `/uploads/`, `/api-docs`, `/swagger-ui*`
-  - has basic rate limiting for API
-
-## Tests
-
-Most meaningful coverage is in `src/test/java/com/fraergod/fraerapp/GameFlowTests.java`.
-
-Covered flows:
-
-- published seeded story is listed
-- admin import/validate/publish
-- invalid story is rejected
-- session choice/effect/condition behavior
-- session ownership enforcement
-- ending marks session as finished
-
-## Useful Working Assumptions
-
-- The story engine is the real product; `task` module is secondary.
-- `build/` contains generated artifacts and prior test outputs, not source of truth.
-- There is no `.git` directory in the current workspace snapshot, so local git history/status is unavailable here.
-- `README.md` contains useful product context, but part of its Russian text is misencoded in the current file view.
-
-## Good First Places To Read Next Time
-
-- `src/main/java/com/fraergod/fraerapp/game/GameService.java`
-- `src/main/java/com/fraergod/fraerapp/game/StoryAdminService.java`
-- `src/test/java/com/fraergod/fraerapp/GameFlowTests.java`
-- `story-builder/app.js`
-- `frontend/engine.js`
+Use `npm test` for Node tests, `npm run test:browser` for isolated Chromium UI
+fixtures, and `sh gradlew :auth-service:test test --no-daemon` for Java checks.
+Use `:test --tests '*ClassName'` for an API-only focused run so the filter is not
+also applied to the auth-service task. See [README.md](README.md) for setup and
+the runbook for verification against a deployed release.

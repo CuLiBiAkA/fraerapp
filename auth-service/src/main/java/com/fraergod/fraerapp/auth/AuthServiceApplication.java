@@ -199,25 +199,28 @@ class AuthController {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
 		}
 		String email = AuthServiceApplication.normalizeEmail(request.email());
-		User user = store.user(email, request.createUser())
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-		if (user.blockedAt() != null) {
-			throw new ResponseStatusException(HttpStatus.CONFLICT, "User is blocked");
-		}
 		for (String role : request.safeGrantRoles()) {
-			if (!List.of("author", "moderator", "admin").contains(role)) {
+			if (role == null || !List.of("author", "moderator", "admin").contains(role)) {
 				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only author/moderator/admin can be pre-granted");
 			}
 		}
-		for (String role : request.safeGrantRoles()) {
-			store.grantRole(user.id(), role);
-			store.audit(admin.id(), admin.email(), "role_changed", roleChangeMetadata(user, role, true));
-		}
 		checkRate("admin-login:" + admin.id(), devMode ? 200 : 20, Duration.ofMinutes(15));
-		CreatedLoginLink generated = createLoginLink(
-				email, request.redirectPath(), servletRequest, "admin_resend", null);
-		store.audit(admin.id(), admin.email(), "admin_login_link_requested",
-				"{\"target\":\"" + email + "\"}");
+		CreatedLoginLink generated = store.withLoginLinkLock(email, () -> {
+			User user = store.user(email, request.createUser())
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+			if (user.blockedAt() != null) {
+				throw new ResponseStatusException(HttpStatus.CONFLICT, "User is blocked");
+			}
+			for (String role : request.safeGrantRoles()) {
+				store.grantRole(user.id(), role);
+				store.audit(admin.id(), admin.email(), "role_changed", roleChangeMetadata(user, role, true));
+			}
+			CreatedLoginLink link = createLoginLink(
+					email, request.redirectPath(), servletRequest, "admin_resend", null);
+			store.audit(admin.id(), admin.email(), "admin_login_link_requested",
+					"{\"target\":\"" + email + "\"}");
+			return link;
+		});
 		return Map.of(
 				"sent", true,
 				"email", email,
@@ -255,9 +258,10 @@ class AuthController {
 			return Map.of("ok", true);
 		}
 		checkRate("telegram-login:" + message.userId(), 200, Duration.ofMinutes(15));
-		return store.transaction(() -> {
+		String email = store.telegramAccountEmail(message.userId());
+		return store.withLoginLinkLock(email, () -> {
 			boolean accepts = message.explicitEligible() && telegramConsentText().equals(message.text());
-			TelegramAuthorization authorization = store.telegramAuthorization(message, privacyPolicyVersion, accepts).orElse(null);
+			TelegramAuthorization authorization = store.telegramAuthorization(message, privacyPolicyVersion, accepts, email).orElse(null);
 			if (authorization == null) return telegramConsentPrompt(message.chatId(), servletRequest);
 			if (authorization.replay()) {
 				// Webhook retries must not invalidate the link already returned for this consent message.
@@ -299,19 +303,21 @@ class AuthController {
 
 	private CreatedLoginLink createLoginLink(String email, String requestedRedirect, HttpServletRequest servletRequest,
 			String source, String consentVersion) {
-		String token = UUID.randomUUID() + "." + UUID.randomUUID();
-		String tokenHash = sha256(token);
-		String redirect = safeRedirect(requestedRedirect);
-		Instant expiresAt = Instant.now().plusSeconds(magicLinkTtl);
-		store.createMagicLink(email, tokenHash, redirect, expiresAt);
-		String separator = redirect.contains("?") ? "&" : "?";
-		String link = requestBaseUrl(servletRequest) + redirect + separator + "auth_token=" + token + "&redirect=" + url64(redirect.getBytes(StandardCharsets.UTF_8));
-		String metadata = consentVersion == null
-				? "{\"source\":\"" + source + "\"}"
-				: "{\"source\":\"" + source + "\",\"consentVersion\":\"" + consentVersion + "\"}";
-		store.audit(null, email, "login_link_requested", metadata);
-		store.invalidateOtherActiveMagicLinks(email, tokenHash);
-		return new CreatedLoginLink(link, expiresAt);
+		return store.withLoginLinkLock(email, () -> {
+			String token = UUID.randomUUID() + "." + UUID.randomUUID();
+			String tokenHash = sha256(token);
+			String redirect = safeRedirect(requestedRedirect);
+			Instant expiresAt = Instant.now().plusSeconds(magicLinkTtl);
+			store.createMagicLink(email, tokenHash, redirect, expiresAt);
+			String separator = redirect.contains("?") ? "&" : "?";
+			String link = requestBaseUrl(servletRequest) + redirect + separator + "auth_token=" + token + "&redirect=" + url64(redirect.getBytes(StandardCharsets.UTF_8));
+			String metadata = consentVersion == null
+					? "{\"source\":\"" + source + "\"}"
+					: "{\"source\":\"" + source + "\",\"consentVersion\":\"" + consentVersion + "\"}";
+			store.audit(null, email, "login_link_requested", metadata);
+			store.invalidateOtherActiveMagicLinks(email, tokenHash);
+			return new CreatedLoginLink(link, expiresAt);
+		});
 	}
 
 	private Optional<TelegramMessage> telegramMessage(Map<String, Object> update) {
@@ -368,15 +374,22 @@ class AuthController {
 
 	@PostMapping("/verify")
 	Map<String, Object> verify(@Valid @RequestBody VerifyRequest request, HttpServletResponse response) {
-		VerifiedLogin login = store.transaction(() -> {
-			MagicLink link = store.magicLink(sha256(request.token()))
+		String tokenHash = sha256(request.token());
+		MagicLink candidate = store.magicLink(tokenHash)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid login link"));
+		if (candidate.usedAt() != null || !candidate.expiresAt().isAfter(Instant.now())) {
+			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Login link expired");
+		}
+		// Unknown tokens allocate no limiter or lock state. Identify the recipient without
+		// locking a token first, then revalidate it under the same ownership as reissuance.
+		checkRate("verify:" + candidate.id(), devMode ? 200 : 20, Duration.ofMinutes(15));
+		VerifiedLogin login = store.withLoginLinkLock(candidate.email(), () -> {
+			MagicLink link = store.magicLink(tokenHash)
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid login link"));
-			if (link.usedAt() != null || !link.expiresAt().isAfter(Instant.now())) {
+			if (!candidate.id().equals(link.id()) || !candidate.email().equals(link.email())
+					|| link.usedAt() != null || !link.expiresAt().isAfter(Instant.now())) {
 				throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Login link expired");
 			}
-			// Unknown tokens allocate no limiter state; one user's link cannot exhaust another's allowance.
-			// The edge additionally limits requests before they reach the database.
-			checkRate("verify:" + link.id(), devMode ? 200 : 20, Duration.ofMinutes(15));
 			if (!store.consumeMagicLink(link.id())) {
 				throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Login link expired");
 			}
@@ -1141,8 +1154,26 @@ class AuthStore {
 		return transactions.execute(status -> operation.get());
 	}
 
+	// Own the email before touching roles, users or tokens, including link verification
+	// and first account creation. Nested issuance joins this transaction and lock.
+	<T> T withLoginLinkLock(String email, Supplier<T> operation) {
+		String key;
+		try {
+			key = java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+					.digest(AuthServiceApplication.normalizeEmail(email).getBytes(StandardCharsets.UTF_8)));
+		}
+		catch (java.security.NoSuchAlgorithmException unavailable) {
+			throw new IllegalStateException("Cannot identify login-link owner", unavailable);
+		}
+		return transaction(() -> {
+			jdbc.update("insert into login_link_issuance_locks(email_hash) values (?) on conflict do nothing", key);
+			jdbc.queryForObject("select email_hash from login_link_issuance_locks where email_hash = ? for update", String.class, key);
+			return operation.get();
+		});
+	}
+
 	Optional<User> bootstrapAdmin(String email) {
-		return transactions.execute(status -> {
+		return withLoginLinkLock(email, () -> {
 			lockAdminRole();
 			if (jdbc.queryForObject("select count(*) from bootstrap_admin_initializations where email = ?", Long.class, email) > 0) {
 				return userByEmail(email);
@@ -1162,12 +1193,16 @@ class AuthStore {
 		if (existing.isPresent() || !create) {
 			return existing;
 		}
-		String id = UUID.randomUUID().toString();
-		Instant now = Instant.now();
-		jdbc.update("insert into users(id, email, email_verified, created_at, updated_at) values (?, ?, ?, ?, ?)",
-				id, email, true, timestamp(now), timestamp(now));
-		grantRole(id, "player");
-		return userByEmail(email);
+		return withLoginLinkLock(email, () -> {
+			Optional<User> concurrent = userByEmail(email);
+			if (concurrent.isPresent()) return concurrent;
+			String id = UUID.randomUUID().toString();
+			Instant now = Instant.now();
+			jdbc.update("insert into users(id, email, email_verified, created_at, updated_at) values (?, ?, ?, ?, ?)",
+					id, email, true, timestamp(now), timestamp(now));
+			grantRole(id, "player");
+			return userByEmail(email);
+		});
 	}
 
 	Optional<User> userByEmail(String email) {
@@ -1214,12 +1249,21 @@ class AuthStore {
 		return userByTelegramId(telegramUserId).orElse(user);
 	}
 
-	Optional<TelegramAuthorization> telegramAuthorization(TelegramMessage message, String policyVersion, boolean accepts) {
+	String telegramAccountEmail(long telegramUserId) {
+		return userByTelegramId(telegramUserId).map(User::email).orElseGet(() -> telegramEmail(telegramUserId));
+	}
+
+	Optional<TelegramAuthorization> telegramAuthorization(TelegramMessage message, String policyVersion, boolean accepts, String lockedEmail) {
 		// This existing durable lock also serializes first-time account/role creation across service instances.
 		// The caller's transaction includes consent and login-link issuance, so neither can commit alone.
 		lockAdminRole();
 		Optional<User> existing = userByTelegramId(message.userId());
 		String email = existing.map(User::email).orElseGet(() -> telegramEmail(message.userId()));
+		// Deletion or a changed identity binding must not switch the lock owner after
+		// taking role/user locks. Recheck under the lock also used by account deletion.
+		if (!lockedEmail.equals(email)) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "Telegram identity changed; retry sign-in");
+		}
 		boolean active = jdbc.queryForObject("""
 				select count(*) from personal_data_consents
 				where email = ? and policy_version = ? and source = 'telegram_explicit' and revoked_at is null
@@ -1454,7 +1498,7 @@ class AuthStore {
 	}
 
 	void deleteUser(String userId, String email) {
-		transactions.executeWithoutResult(status -> {
+		withLoginLinkLock(email, () -> {
 			lockAdminRole();
 			lockUser(userId);
 			requireAnotherActiveAdmin(userId);
@@ -1472,6 +1516,7 @@ class AuthStore {
 			jdbc.update("delete from email_login_tokens where email = ?", email);
 			jdbc.update("delete from auth_audit_events where user_id = ? or email = ?", userId, email);
 			jdbc.update("delete from users where id = ?", userId);
+			return null;
 		});
 	}
 

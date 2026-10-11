@@ -1,4 +1,5 @@
-import { allowsWorkspace, workspaceTarget } from "./story-workflow.js?v=1";
+import { fetchWithSession } from "./auth-session.js?v=1";
+import { allowsWorkspace, workspaceTarget } from "./story-workflow.js?v=2";
 
 const language = localStorage.getItem("fraerapp.language") === "en" ? "en" : "ru";
 document.documentElement.lang = language;
@@ -14,11 +15,7 @@ mine.textContent = text("Мои истории", "My stories");
 const target = workspaceTarget(new URLSearchParams(location.search).get("next"));
 
 async function readCurrentSession() {
-  let response = await fetch("/auth/me", { credentials: "include", cache: "no-store", headers: { Accept: "application/json" } });
-  if (response.status === 401) {
-    const refreshed = await fetch("/auth/refresh", { method: "POST", credentials: "include", cache: "no-store", headers: { Accept: "application/json", "X-Fraer-Request": "same-origin" } });
-    if (refreshed.ok) response = await fetch("/auth/me", { credentials: "include", cache: "no-store", headers: { Accept: "application/json" } });
-  }
+  const response = await fetchWithSession("/auth/me", { credentials: "include", cache: "no-store", headers: { Accept: "application/json" } });
   if (!response.ok) { const error = new Error(); error.status = response.status; throw error; }
   return response.json();
 }

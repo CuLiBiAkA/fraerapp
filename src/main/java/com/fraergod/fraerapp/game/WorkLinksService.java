@@ -20,7 +20,7 @@ class WorkLinksService {
  static void name(String s,String label) {
   if(s==null||!s.matches("[\\p{L}\\p{N}_-]{1,120}")||s.startsWith("__"))throw bad("Invalid "+label);
  }
- record TargetInfo(String id,String key,String kind,String type,String owner,boolean listed) {}
+ record TargetInfo(String id,String key,String kind,String type,String owner,boolean listed,boolean retained) {}
  final class References {
   private final Map<String,TargetInfo> identities=new HashMap<>(),keys=new HashMap<>();
   private void add(TargetInfo t){identities.put(t.kind()+":"+t.id(),t);keys.put(t.kind()+":"+t.key(),t);}
@@ -29,6 +29,7 @@ class WorkLinksService {
    if(t==null||t.kind()==null||!List.of("scenario","collection").contains(t.kind()))throw bad("Target kind must be scenario or collection");
    var found=info(t);
    if(found!=null&&owner!=null&&!Objects.equals(owner,found.owner()))throw bad("Only your own works can be linked");
+   if(found!=null&&!found.retained())throw bad("A target is missing or unavailable");
    if(found==null||(!(owner!=null&&Objects.equals(owner,found.owner()))&&!found.listed())){
     if(strict)throw bad("A target is missing or unavailable");if(t.key()==null||t.key().isBlank())throw bad("Unresolved target requires a portable key");return new WorkMetadata.Target(t.kind(),null,t.key());
    }return new WorkMetadata.Target(found.kind(),found.id(),found.key());
@@ -38,23 +39,24 @@ class WorkLinksService {
   var ref=new References();var ids=new HashSet<String>();var keys=new HashSet<String>();var collectionIds=new HashSet<String>();var collectionKeys=new HashSet<String>();
   for(var t:targets){if(t==null)throw bad("Target is required");if("scenario".equals(t.kind())){if(t.id()!=null)ids.add(t.id());else if(t.key()!=null)keys.add(t.key());}else if("collection".equals(t.kind())){if(t.id()!=null)collectionIds.add(t.id());else if(t.key()!=null)collectionKeys.add(t.key());}else throw bad("Invalid target kind");}
   var scenarioRows=new ArrayList<Story>();if(!ids.isEmpty())scenarioRows.addAll(stories.findAllById(ids));if(!keys.isEmpty())scenarioRows.addAll(stories.findByKeyIn(keys));
-  for(var s:scenarioRows)ref.add(new TargetInfo(s.getId(),s.getKey(),"scenario","scenario",s.getOwnerPlayerId(),StoryAccessService.listed(s)));
+  for(var s:scenarioRows)ref.add(new TargetInfo(s.getId(),s.getKey(),"scenario","scenario",s.getOwnerPlayerId(),StoryAccessService.listed(s),!TrashRetentionService.expired(s.getVisibility(),s.getDeletedAt())));
   if(!collectionIds.isEmpty()||!collectionKeys.isEmpty()){
    var args=new ArrayList<Object>();var predicates=new ArrayList<String>();if(!collectionIds.isEmpty()){predicates.add("id in ("+String.join(",",Collections.nCopies(collectionIds.size(),"?"))+")");args.addAll(collectionIds);}if(!collectionKeys.isEmpty()){predicates.add("collection_key in ("+String.join(",",Collections.nCopies(collectionKeys.size(),"?"))+")");args.addAll(collectionKeys);}
-   jdbc.query("select id,collection_key,collection_type,owner_player_id,visibility,published_revision from work_collections where "+String.join(" or ",predicates),rs->{ref.add(new TargetInfo(rs.getString("id"),rs.getString("collection_key"),"collection",rs.getString("collection_type"),rs.getString("owner_player_id"),"public".equals(rs.getString("visibility"))&&rs.getObject("published_revision")!=null));},args.toArray());
+   jdbc.query("select id,collection_key,collection_type,owner_player_id,visibility,published_revision,deleted_at from work_collections where "+String.join(" or ",predicates),rs->{ref.add(new TargetInfo(rs.getString("id"),rs.getString("collection_key"),"collection",rs.getString("collection_type"),rs.getString("owner_player_id"),"public".equals(rs.getString("visibility"))&&rs.getObject("published_revision")!=null,!TrashRetentionService.expired(rs.getString("visibility"),TrashRetentionService.instant(rs.getObject("deleted_at")))));},args.toArray());
   }return ref;
  }
  WorkMetadata.Target resolve(WorkMetadata.Target t,String owner,boolean strict) {
   if(t==null||t.kind()==null||!List.of("scenario","collection").contains(t.kind()))throw bad("Target kind must be scenario or collection");
-  String id=null,key=null,targetOwner=null,visibility=null;
+  String id=null,key=null,targetOwner=null,visibility=null;boolean retained=true;
   if("scenario".equals(t.kind())) {
    Story s=t.id()!=null?stories.findById(t.id()).orElse(null):stories.findByKey(t.key()==null?"":t.key()).orElse(null);
-   if(s!=null){id=s.getId();key=s.getKey();targetOwner=s.getOwnerPlayerId();visibility=StoryAccessService.listed(s)?"public":"private";}
+   if(s!=null){id=s.getId();key=s.getKey();targetOwner=s.getOwnerPlayerId();visibility=StoryAccessService.listed(s)?"public":"private";retained=!TrashRetentionService.expired(s.getVisibility(),s.getDeletedAt());}
   } else {
-   var rows=jdbc.queryForList("select id,collection_key,owner_player_id,visibility,published_revision from work_collections where "+(t.id()!=null?"id":"collection_key")+"=?",t.id()!=null?t.id():t.key());
-   if(!rows.isEmpty()){var r=rows.get(0);id=(String)r.get("id");key=(String)r.get("collection_key");targetOwner=(String)r.get("owner_player_id");visibility=r.get("published_revision")==null?"private":(String)r.get("visibility");}
+   var rows=jdbc.queryForList("select id,collection_key,owner_player_id,visibility,published_revision,deleted_at from work_collections where "+(t.id()!=null?"id":"collection_key")+"=?",t.id()!=null?t.id():t.key());
+   if(!rows.isEmpty()){var r=rows.get(0);id=(String)r.get("id");key=(String)r.get("collection_key");targetOwner=(String)r.get("owner_player_id");visibility=r.get("published_revision")==null?"private":(String)r.get("visibility");retained=!TrashRetentionService.expired((String)r.get("visibility"),TrashRetentionService.instant(r.get("deleted_at")));}
   }
   if(id!=null&&owner!=null&&!Objects.equals(owner,targetOwner))throw bad("Only your own works can be linked");
+  if(id!=null&&!retained)throw bad("A target is missing or unavailable");
   if(id==null||(!(owner!=null&&Objects.equals(owner,targetOwner))&&!"public".equals(visibility))) {
    if(strict)throw bad("A target is missing or unavailable");
    if(t.key()==null||t.key().isBlank())throw bad("Unresolved target requires a portable key");
@@ -82,6 +84,7 @@ class WorkLinksService {
  StoryDocument targetDocument(WorkMetadata.Target t,String owner) {
   if(!"scenario".equals(t.kind()))throw bad("Scenario required");
   var s=stories.findById(t.id()).orElseThrow(StoryNotFoundException::new);
+  TrashRetentionService.requireRetained(s.getVisibility(),s.getDeletedAt());
   String body;
   if(owner!=null&&Objects.equals(owner,s.getOwnerPlayerId()))body=jdbc.queryForObject("select draft_json from story_workspaces where story_id=?",String.class,s.getId());
   else if(StoryAccessService.listed(s))body=jdbc.queryForObject("select snapshot_json from story_versions where story_id=? and version_number=?",String.class,s.getId(),s.getPublishedRevision());

@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
+import { webcrypto } from "node:crypto";
 import { filterAfterSubmit } from "../frontend/story-workflow.js";
+import { validateStory as validateStoryDocument } from "./core.js";
 
 const source = fs.readFileSync(new URL("./app.js", import.meta.url), "utf8");
 function harness(names, overrides = {}) {
@@ -24,7 +26,8 @@ function harness(names, overrides = {}) {
     authorHomeCache: null, authorFilter: "all", builderWorkflowBusy: false,
     filterAfterSubmit, updateAuthorGate() {}, renderAuthorWorkspace() {}, acceptOwnGeneration() {},
     validateStory: () => [], renderPreview() {}, selectChapterTab() {},
-    toStoryJson: () => ({key:"story-a"}),
+    toStoryJson: () => ({key:"story-a"}), ensureDraftKey() {}, crypto: webcrypto,
+    prepareImage: async file => file, applyAssetTypeFromFile() {},
     ...overrides,
   });
   for (const name of names) {
@@ -40,6 +43,22 @@ test("a moderation limit keeps the saved draft and explains waiting instead of a
   const {context}=harness(["authorWorkflow"],{authorFetch:async()=>{throw error;}});
   await assert.rejects(()=>context.authorWorkflow('second','review',{generation:1,reviewState:'draft'}),e=>e.code==='REVIEW_LIMIT_REACHED');
   assert.equal(context.builderWorkflowBusy,false);
+});
+
+test("Builder validates the supplied document independently of the active draft", () => {
+  const { context } = harness(["validateStory"], {
+    currentLanguage: "en", validateStoryDocument,
+    draft: { variables: [{ name: "score", type: "boolean", value: false }], scenes: [{ id: "start", variables: [] }] },
+  });
+  const story = { key: "other", title: "Other document", startSceneId: "start", variables: { score: { value: 3, showInStats: true } }, assets: [], scenes: [
+    { id: "start", text: "{{score}}", effects: [{ inc: "score", value: 1 }], choices: [] },
+  ] };
+  assert.deepEqual(Array.from(context.validateStory(story)), []);
+  context.draft.variables[0].type = "number";
+  story.variables.score = false;
+  assert.match(context.validateStory(story).join("\n"), /must target number variable score/);
+  context.currentLanguage = "ru";
+  assert.match(context.validateStory(story).join("\n"), /числовую переменную score/);
 });
 
 test("import/export preserves global definitions shadowed in one scene", () => {
@@ -169,6 +188,92 @@ test("new unbound drafts retain POST import and bind the returned generation", a
   const {context}=harness(['importDraftToRuntime','getDraftStoryId','bindDraftStory'],{fetchJson:async(url,options)=>{requests.push({url,method:options.method});return {storyId:'created-id',draftRevision:1,generation:0};}});
   await context.importDraftToRuntime();
   assert.deepEqual(requests,[{url:'https://example.test/api/author/stories/import',method:'POST'}]);assert.equal(context.draft.runtimeStory.generation,0);
+});
+
+test("new drafts get one unique key on first save and preserve it on failed save retry", async () => {
+  const documents = []; let context;
+  const setup = harness(['ensureDraftKey','importDraftToRuntime','getDraftStoryId','bindDraftStory'], {
+    draft: { key:'new_story', pendingKey:true, title:'My story' },
+    toStoryJson: () => ({key:context.draft.key,title:context.draft.title}),
+    fetchJson: async (_url,options) => { documents.push(JSON.parse(options.body)); if (documents.length===1) throw new Error('Offline'); return {storyId:'created-id',generation:1}; },
+  });
+  context = setup.context;
+  await assert.rejects(context.importDraftToRuntime(),/Offline/);
+  assert.match(context.draft.key,/^story_[a-f0-9]{32}$/);
+  const generated = context.draft.key;
+  await context.importDraftToRuntime();
+  assert.equal(documents[0].key,generated); assert.equal(documents[1].key,generated);
+  assert.equal(context.getDraftStoryId(),'created-id');
+  context.draft = {key:'new_story',pendingKey:true}; context.ensureDraftKey();
+  assert.notEqual(context.draft.key,generated);
+  context.draft = {key:'imported_authored_key'}; context.ensureDraftKey();
+  assert.equal(context.draft.key,'imported_authored_key');
+});
+
+test("a generated-key response never binds to a replacement draft", async () => {
+  let complete; const original = {key:'new_story',pendingKey:true}; let context;
+  const setup = harness(['ensureDraftKey','importDraftToRuntime','getDraftStoryId','bindDraftStory'], {
+    draft:original, toStoryJson:()=>({key:context.draft.key}),
+    fetchJson:()=>new Promise(resolve=>{complete=resolve;}),
+  }); context=setup.context;
+  const operation=context.importDraftToRuntime();
+  const replacement={key:'new_story',pendingKey:true}; context.draft=replacement;
+  complete({storyId:'previous-id',generation:1}); await operation;
+  assert.equal(context.draft,replacement); assert.equal(context.getDraftStoryId(),null);
+  assert.equal(context.draft.key,'new_story'); assert.equal(context.draft.pendingKey,true);
+});
+
+test("importing a legacy new_story key preserves its authored identity", () => {
+  const {context}=harness(['fromStoryJson','ensureDraftKey','getDraftStoryId']);
+  context.fromStoryJson({key:'new_story',title:'Legacy story',scenes:[]});
+  context.ensureDraftKey();
+  assert.equal(context.draft.key,'new_story');assert.equal(context.draft.pendingKey,false);
+});
+
+test("explicit exports assign unique keys, preserve reimported identity, and leave inspection pure", () => {
+  const fresh=()=>({key:'new_story',pendingKey:true,title:'New draft',variables:[],assets:[],scenes:[]});
+  const {context}=harness(['ensureDraftKey','exportStoryJson','toStoryJson','fromStoryJson','getDraftStoryId'],{draft:fresh()});
+  assert.equal(context.toStoryJson().key,'new_story');assert.equal(context.draft.pendingKey,true);
+  const exported=JSON.parse(JSON.stringify(context.exportStoryJson()));
+  assert.match(exported.key,/^story_[a-f0-9]{32}$/);assert.equal(Object.hasOwn(exported,'pendingKey'),false);
+  assert.equal(context.exportStoryJson().key,exported.key,'Repeated exports keep the same story identity');
+  context.fromStoryJson(exported);
+  assert.equal(context.exportStoryJson().key,exported.key,'Export then import does not fork or rename the story');
+  context.draft=fresh();const other=context.exportStoryJson();
+  assert.notEqual(other.key,exported.key,'Independent new drafts cannot export the same default key');
+  context.fromStoryJson({...exported,key:'new_story'});
+  assert.equal(context.exportStoryJson().key,'new_story','An explicit legacy imported key is never replaced');
+});
+
+test("cancelling image preparation leaves an unsaved draft and media untouched", async () => {
+  const asset={id:'picture',type:'music',url:'/existing.mp3'}, original={key:'new_story',pendingKey:true};
+  const {context,calls}=harness(['uploadAssetFile','ensureDraftKey','getDraftStoryId'], {draft:original,prepareImage:async()=>null});
+  assert.equal(await context.uploadAssetFile(asset,{type:'image/png'}),null);
+  assert.deepEqual(calls,[]);assert.equal(context.draft,original);assert.equal(original.key,'new_story');
+  assert.deepEqual(asset,{id:'picture',type:'music',url:'/existing.mp3'});
+});
+
+test("cover selection preserves other metadata and cannot change a replacement draft", async () => {
+  let options; const original={key:'a',metadata:{schemaVersion:1,relations:[{id:'next'}]}};
+  const {context}=harness(['openCoverPicker'], {draft:original,chooseCover:async value=>{options=value;}});
+  await context.openCoverPicker();options.onSelect('/assets/door.svg');
+  assert.equal(original.metadata.coverUrl,'/assets/door.svg');assert.equal(original.metadata.relations[0].id,'next');
+  const replacement={key:'b'};context.draft=replacement;options.onSelect('/assets/platform.svg');
+  assert.equal(replacement.metadata,undefined);assert.equal(context.els.apiResult.textContent,'draftChanged');
+});
+
+test("choosing a first cover serializes scenario metadata version 1 without exporting local key state", async () => {
+  let options;
+  const draft={key:'new_story',pendingKey:true,title:'A draft',variables:[],assets:[],scenes:[]};
+  const {context}=harness(['openCoverPicker','toStoryJson'], {draft,chooseCover:async value=>{options=value;}});
+  const before=JSON.stringify(draft);
+  await context.openCoverPicker();
+  assert.equal(JSON.stringify(draft),before,'Opening and leaving the picker without selection cannot change the draft');
+  options.onSelect('/assets/door.svg');
+  const document=JSON.parse(JSON.stringify(context.toStoryJson()));
+  assert.deepEqual(document.metadata,{schemaVersion:1,coverUrl:'/assets/door.svg'});
+  assert.equal(Object.hasOwn(document,'pendingKey'),false);
+  assert.equal(draft.pendingKey,true,'Choosing a library cover does not save or generate the draft key');
 });
 
 test("successful own review advances only the matching saved document generation", async () => {

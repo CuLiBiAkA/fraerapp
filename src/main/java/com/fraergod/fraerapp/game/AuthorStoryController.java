@@ -64,6 +64,9 @@ class AuthorStoryController {
  @PostMapping("/stories/{id}/withdraw") Object withdraw(@PathVariable String id,@RequestBody Submission command) {
   return workflow.withdraw(id,currentUser.requireAuthorPlayerId(),command.generation(),currentUser.requireIdentity());
  }
+ @PostMapping("/stories/{id}/restore") Object restore(@PathVariable String id,@RequestBody Submission command) {
+  return workflow.restoreTrash(id,currentUser.requireAuthorPlayerId(),command.generation(),currentUser.requireIdentity());
+ }
  @PostMapping("/stories/{id}/archive") Object archive(@PathVariable String id) {
   return workflow.takeDown(id,currentUser.requireAuthorPlayerId(),false,currentUser.requireIdentity());
  }

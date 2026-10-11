@@ -49,6 +49,7 @@ class StoryProductService {
 	List<AuthorStorySummary> authoredStories(String playerId) {
 		player(playerId);
 		return stories.findByOwnerPlayerIdOrderByUpdatedAtDesc(playerId).stream()
+				.filter(story -> !TrashRetentionService.expired(story.getVisibility(), story.getDeletedAt()))
 				.map(story -> new AuthorStorySummary(
 						story.getId(),
 						story.getKey(),
@@ -305,6 +306,7 @@ class StoryProductService {
 		if (story.getOwnerPlayerId() == null || !story.getOwnerPlayerId().equals(playerId)) {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Story belongs to another author");
 		}
+		TrashRetentionService.requireRetained(story.getVisibility(), story.getDeletedAt());
 		return story;
 	}
 

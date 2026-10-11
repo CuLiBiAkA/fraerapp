@@ -2,7 +2,7 @@
 const words = {
   ru: {
     draft: "Черновик", in_review: "На согласовании", approved: "Одобрена", rejected: "Нужны исправления",
-    public: "Публичная", unlisted: "По ссылке", private: "Не опубликована", hidden: "Скрыта модератором", archived: "В архиве", deleted: "В корзине",
+    public: "Публичная", unlisted: "По ссылке", private: "Не опубликована", hidden: "Скрыта модератором", archived: "В архиве", deleted: "В корзине", purged: "Срок хранения в корзине истёк", author_restore: "Черновик восстановлен автором",
     published: "Опубликована", previousPublication: "Последняя публикация", noPublication: "Не опубликована",
     all: "Все", drafts: "Черновики", review: "На согласовании", corrections: "Нужны исправления", publications: "Опубликованные", restricted: "Скрытые / архив", trash: "Корзина",
     edit: "Продолжить редактирование", submit: "Отправить на проверку", withdraw: "Отозвать заявку", preview: "Приватное превью", archive: "В архив", delete: "В корзину", restore: "Восстановить в приватную",
@@ -13,7 +13,7 @@ const words = {
   },
   en: {
     draft: "Draft", in_review: "In review", approved: "Approved", rejected: "Needs changes",
-    public: "Public", unlisted: "Unlisted", private: "Not published", hidden: "Hidden by moderator", archived: "Archived", deleted: "In trash",
+    public: "Public", unlisted: "Unlisted", private: "Not published", hidden: "Hidden by moderator", archived: "Archived", deleted: "In trash", purged: "Trash retention expired", author_restore: "Draft restored by author",
     published: "Published", previousPublication: "Last publication", noPublication: "Not published",
     all: "All", drafts: "Drafts", review: "In review", corrections: "Needs changes", publications: "Published", restricted: "Hidden / archived", trash: "Trash",
     edit: "Continue editing", submit: "Submit for review", withdraw: "Withdraw submission", preview: "Private preview", archive: "Archive", delete: "Move to trash", restore: "Restore as private",
@@ -52,7 +52,8 @@ export function isOwnStory(story, user) {
 }
 
 export function authorActions(story, user) {
-  if (!canEditStories(user) || story.visibility === "deleted") return [];
+  if (!canEditStories(user) || story.visibility === "purged") return [];
+  if (story.visibility === "deleted") return story.canRestoreTrash ? ["restore"] : [];
   const actions = ["edit"];
   if (story.hasDraft) actions.push("submit");
   if (story.reviewState === "in_review") actions.push("withdraw");
@@ -64,7 +65,7 @@ export function authorActions(story, user) {
 }
 
 export function moderationActions(story, user) {
-  if (!canModerateStories(user)) return [];
+  if (!canModerateStories(user) || story.visibility === "purged") return [];
   const mayRestoreOrApprove = !isOwnStory(story, user) || user.roles.includes("admin");
   if (story.visibility === "deleted") return mayRestoreOrApprove ? ["restore"] : [];
   const restricted = story.restricted || ["hidden", "archived"].includes(story.visibility);
@@ -115,7 +116,7 @@ export function matchesAuthorFilter(story, filter = "all", query = "") {
   const found = `${story.title || ""} ${story.key || ""} ${story.ownerName || ""}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
   if (!found) return false;
   if (filter === "trash") return story.visibility === "deleted";
-  if (story.visibility === "deleted") return false;
+  if (["deleted", "purged"].includes(story.visibility)) return false;
   switch (filter) {
     case "drafts": return Boolean(story.hasDraft);
     case "review": return story.reviewState === "in_review";

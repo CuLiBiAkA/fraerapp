@@ -66,6 +66,9 @@ class Story {
 	private Instant publishedAt;
 
 	private Instant archivedAt;
+	private Instant deletedAt;
+	Instant getDeletedAt() { return deletedAt; }
+	void setDeletedAt(Instant value) { deletedAt = value; }
 
 	@Column(nullable = false, length = 24)
 	private String visibility = "private";

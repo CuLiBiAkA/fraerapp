@@ -1,1122 +1,171 @@
-# FraerApp Story
+# FraerApp
 
-## Passwordless auth service
+FraerApp is a browser application for interactive stories. The reader and author
+interfaces use JavaScript; the API and authentication service use Java 17 and
+Spring Boot. Each service has its own PostgreSQL database. H2 is used in tests.
 
-FraerApp now uses a separate `auth-service` container for users, email identity, sessions, refresh tokens, roles, and magic-link login. The player API no longer trusts client-supplied `X-Player-Id`, and admin APIs no longer use `dev-admin-token`.
+## Start here
 
-Local dev flow:
+- [Project context](PROJECT_CONTEXT.md): architecture, current behavior and release history.
+- [Deploy runbook](DEPLOY_RUNBOOK.md): production inspection, backup, deployment and rollback.
+- [Authoring guide](docs/prompts/authoring-guide.md): current chapter/package format and supported mechanics.
+- [Story experience](docs/story-experience-unification.md): shared reader/author contracts and verification.
+- [Agent instructions](AGENTS.md): repository workflow and proportional checks.
 
-1. Set `AUTH_JWT_SECRET` to the same long random value for `api` and `auth-service`.
-2. Set `AUTH_BOOTSTRAP_ADMIN_EMAIL` for the first admin account.
-3. Run `docker compose up -d --build`.
-4. Request a link through `POST /auth/login-link` or the frontend email form.
-5. In dev mode, read the link from auth-service logs or `GET /auth/dev/magic-links?email=you@example.com`.
-6. Open the link. Auth sets httpOnly `fraer_access` and `fraer_refresh` cookies.
+Private runtime values belong in ignored `LOCAL_OPERATOR_NOTES.private.md` and
+local environment files. Verify live infrastructure before a release; historical
+addresses and container tags are not current configuration.
 
-The login form requires a separate personal-data consent. Its version is configured with `AUTH_PRIVACY_POLICY_VERSION`. Before public launch in Russia, complete `RU_COMPLIANCE_CHECKLIST.md` and fill all operator details in `frontend/legal-config.js`.
+## Services and ownership
 
-Admins can create a fresh login link for an existing unblocked user from `/auth/admin`. The URL is returned only to the authenticated admin for manual delivery and is never included in the public login response. Issuing a fresh link invalidates previous unused links for the same email. With SMTP disabled, regular public login requests return the same generic response without creating a token.
+| Component | Responsibility |
+| --- | --- |
+| `frontend/` | Reader, catalogue, account, subscriptions and author/moderator workspaces |
+| `story-builder/` | Chapter editing, scene map and local prompt preparation |
+| Main API, `src/main/java/` | Story documents, moderation, reading state, media access and engagement |
+| `auth-service/` | Identities, sessions, live roles, consent, passkeys and test subscriptions |
+| `postgres`, `auth-postgres` | Separate runtime databases managed by Flyway |
+| `edge` | Static frontend, same-origin proxies and private route access checks |
 
-For no-SMTP admin bootstrap, set `AUTH_ADMIN_LOGIN_LINK_LOG_ENABLED=true`. Only a login request for an existing unblocked admin or `AUTH_BOOTSTRAP_ADMIN_EMAIL` is then written to the auth-service log. Regular user links are never logged in production.
+`StoryWorkflowService` owns story revision/publication decisions.
+`ChapterReadingService` owns chapter progression, state transfer and replay forks.
+The API checks the active auth session and current roles on every authenticated
+request. Client-supplied player IDs and JWT role claims are not an access authority.
 
-### Passkeys
+Public frontend files are mounted into nginx. Builder files are baked into its
+image. API/auth code changes require rebuilding the corresponding service. Follow
+the runbook for asset versions, protected media, backups and coordinated release.
 
-After the first trusted magic-link login, a user can register a passkey from the main catalog or /auth/admin. Passkeys use WebAuthn with a discoverable credential and required user verification (device PIN, biometric, or security-key verification). The private key never leaves the user's authenticator; auth-service stores only the credential ID, COSE public key, signature counter, and audit metadata.
+## Local development
 
-Passkey registration requires a recent full authentication. Refreshing an old session does not reset that authentication age. Manual admin magic links remain available only for bootstrap and account recovery.
+Install Java 17, Docker Compose and Node.js. Copy `.env.example` to `.env`;
+supply local database passwords and one shared random `AUTH_JWT_SECRET` for API
+and auth. Keep these values out of Git. The example enables development login and
+insecure local cookies; production settings are described in the runbook.
 
-Production settings for https://fraerapp.ru:
+Start the six application services explicitly:
 
-    AUTH_PASSKEY_RP_ID=fraerapp.ru
-    AUTH_PASSKEY_RP_NAME=FraerApp
-    AUTH_PASSKEY_ORIGINS=https://fraerapp.ru
-    AUTH_PASSKEY_CHALLENGE_TTL_SECONDS=300
-    AUTH_PASSKEY_REGISTRATION_RECENT_AUTH_SECONDS=600
-
-Do not add wildcard origins or change the RP ID after users register credentials: existing passkeys are cryptographically bound to that RP ID. Local development defaults to RP ID localhost and the two local origins from .env.example.
-
-Roles:
-
-- `player` is granted automatically after the first verified email login.
-- `author` is required for `/api/author/**` and the story builder.
-- `admin` is required for `/api/admin/**` and role management.
-- The first admin is bootstrapped from `AUTH_BOOTSTRAP_ADMIN_EMAIL`.
-
-Role admin UI:
-
-- Open `http://localhost:8088/auth/admin`.
-- Sign in with the email from `AUTH_BOOTSTRAP_ADMIN_EMAIL` in local Docker.
-- In dev mode the page shows a direct magic-link shortcut after submitting the email.
-- Use the form to grant or remove `author` and `admin` roles for any email.
-
-Important env:
-
-- `AUTH_JWT_SECRET` - shared JWT HMAC secret used by auth-service and the main API.
-- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` - PostgreSQL database credentials for the main API.
-- `AUTH_POSTGRES_DB`, `AUTH_POSTGRES_USER`, `AUTH_POSTGRES_PASSWORD` - PostgreSQL database credentials for auth-service.
-- `AUTH_PUBLIC_BASE_URL` - public URL used in emailed magic links.
-- `AUTH_DEV_MODE` - when `true`, links are logged and available through the dev endpoint instead of SMTP.
-- `AUTH_COOKIE_SECURE` and `AUTH_COOKIE_SAME_SITE` - cookie policy.
-- `CORS_ALLOWED_ORIGINS` and `AUTH_CORS_ALLOWED_ORIGINS` - origins allowed to send credentialed requests.
-- `AUTH_BOOTSTRAP_ADMIN_EMAIL` - email that receives the initial `admin` role.
-- `AUTH_PASSKEY_RP_ID`, `AUTH_PASSKEY_RP_NAME`, `AUTH_PASSKEY_ORIGINS` - WebAuthn relying-party identity and exact allowed origins.
-- `AUTH_PASSKEY_CHALLENGE_TTL_SECONDS` - lifetime of a one-time registration or authentication challenge.
-- `AUTH_PASSKEY_REGISTRATION_RECENT_AUTH_SECONDS` - maximum age of the trusted login required to add a passkey.
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` - SMTP settings for magic-link email. For the first public setup the sender is `noreply@fraerapp.ru`.
-
-## Own SMTP Draft
-
-FraerApp can run an optional Docker Mailserver service for `noreply@fraerapp.ru`.
-
-Required DNS before public use:
-
-- `A mail.fraerapp.ru -> 95.52.72.36`
-- `MX fraerapp.ru -> mail.fraerapp.ru`
-- SPF for `fraerapp.ru`
-- DKIM generated by the mailserver setup command
-- DMARC for `fraerapp.ru`
-- reverse DNS/PTR for `95.52.72.36` to `mail.fraerapp.ru`
-
-Local files:
-
-```powershell
-Copy-Item .env.example .env
-Copy-Item mailserver.env.example mailserver.env
+```sh
+docker compose up -d --build postgres auth-postgres api auth-service story-builder edge
 ```
 
-Start app plus mailserver:
+Open `http://localhost:8088/`. Use `/builder/` through the same origin for the
+author editor and `/auth/admin` for administration. Builder's service also exposes
+port 8090, but its shared frontend modules are served through the edge origin;
+use `/builder/` for the complete interface. A configured API runtime must match
+the allowed auth, CORS and passkey origins.
 
-```powershell
-docker compose -f compose.yaml -f compose.mail.yaml up -d --build
+Telegram is the public sign-in path. Local development can use the admin/recovery
+email form at `/auth/admin`: set `AUTH_BOOTSTRAP_ADMIN_EMAIL`, request a link and,
+only with `AUTH_DEV_MODE=true`, use its development shortcut or the development
+magic-link endpoint. The first verified identity receives the Reader role.
+Bootstrap administrator access is initialized once; later revocation is retained.
+
+The optional `scripts/preview-frontend.py` preview reads public catalogue and
+Telegram configuration only. The bot link completes login on the public site;
+production sessions and passkeys do not authenticate the local preview.
+
+## Authentication and access
+
+- Roles are `player`, `author`, `moderator` and `admin`. Moderator access does
+  not imply author or administrator access.
+- Auth issues httpOnly access/refresh cookies. API clients may use a valid bearer
+  token backed by an active session. Cookie mutations need a same-origin signal.
+- Public registration uses explicit, versioned consent. Configure
+  `AUTH_PRIVACY_POLICY_VERSION` consistently with the published legal documents.
+- Passkeys require a recent full authentication. Refreshing a session does not
+  renew that age. Configure exact `AUTH_PASSKEY_RP_ID` and
+  `AUTH_PASSKEY_ORIGINS`; existing credentials are bound to that relying party.
+- Admin/manual email links remain available for recovery. Without SMTP, public
+  email requests give a generic response without issuing a usable link.
+  `AUTH_ADMIN_LOGIN_LINK_LOG_ENABLED` is an explicit operational fallback for
+  administrator bootstrap, documented in the runbook.
+- Subscriptions currently use a test checkout: no real charge, card collection
+  or automatic renewal. [Subscription contract](docs/subscriptions.md).
+- Reader advertising is an internal optional pause with no external ad network.
+  [Advertising contract](docs/reader-ads.md).
+
+The API fails closed when it cannot confirm the session. Signing secrets are
+never published through JWKS. Private pages, responses and uploads are not public
+cacheable content.
+
+## Create and publish a story
+
+1. Sign in with author access and open **My stories**. Create a story and chapters.
+2. Open a chapter in Builder; edit scenes, choices, variables and media. The scene
+   preview displays text and choices; it does not execute an interactive run.
+3. Use **AI prompts** to prepare instructions locally. No AI provider is called.
+   Including existing content requires an explicit choice.
+4. Import single-chapter JSON into Builder or a complete package into My stories.
+   Inspect the import preview, validate the structure and check every branch.
+5. Save a private draft and submit its exact revision for moderation. Existing
+   documents use generation-checked saves; stale changes are rejected without
+   discarding the author's text.
+6. A moderator approves and explicitly publishes the submitted revision.
+   Draft changes never replace the live publication or existing save snapshots.
+
+New stories use **story → chapters → scenes**, with optional season labels and
+automatic global-state transfer. Package schema 1 wraps story schema 2; these are
+different version fields. Existing schema-v1 collections and IDs remain supported.
+
+The authoritative format guide is [here](docs/prompts/authoring-guide.md).
+Examples: [minimal story package](docs/examples/serial-story-package.json),
+[full three-chapter story](story-builder/scenarios/koshka-i-otkrytye-dveri.package.json)
+and [mechanics coverage](docs/cat-open-doors-coverage.md).
+`story-builder/authoring-prompt-template.js` owns the generated prompt contract.
+
+Stories support global and scene-local variables/assets, typed conditions,
+`set`/`inc` effects, text substitutions, guarded transitions with
+`fallbackTarget`, backgrounds, scene audio and endings. Local names shadow
+global names in their scene. Timer variables are numeric values without a clock;
+a sound asset has no independent sound-effect trigger. See the guide for supported
+types and exact limits.
+
+## Data and media
+
+Flyway owns both PostgreSQL schemas. Runtime volumes are `postgres-data`,
+`auth-postgres-data` and `story-uploads`. Back up both databases and immutable
+upload bytes together; follow the runbook before restoring data.
+
+Media bytes live in `frontend/assets` or `ASSET_STORAGE_PATH`, not in database
+rows. `ASSET_PUBLIC_PATH` defaults to `/uploads`; API authorization protects
+these URLs. An upload from another work cannot be used as an owned cover.
+Arbitrary external URLs and path traversal are not supported.
+
+Game endpoints use `/api/sessions`, `/api/sessions/{id}/state` and
+`/api/sessions/{id}/choice`. Serial reading uses collection runs and chapter
+attempts. Start/replay through the contents flow so transferred state and earlier
+attempts remain intact. API definitions are in the controllers and OpenAPI;
+there is no player-name login or `X-Player-Id` authentication.
+
+## Verification
+
+```sh
+npm test
+npm run lint
+npm run build
+sh gradlew :auth-service:test test --no-daemon
+git diff --check
 ```
 
-Create the sender mailbox after the mailserver starts:
-
-```powershell
-docker exec -it fraerapp-mailserver setup email add noreply@fraerapp.ru <strong-password>
-docker exec -it fraerapp-mailserver setup alias add postmaster@fraerapp.ru noreply@fraerapp.ru
-docker exec -it fraerapp-mailserver setup config dkim
-```
-
-After DKIM generation, publish the generated DKIM DNS record before trusting delivery. The login UI tells users to check Spam if the magic-link message is not in Inbox.
-
-## PostgreSQL
-
-Runtime storage uses PostgreSQL for both the main API and `auth-service`. Flyway owns the schema, including catalog/session/story-author indexes and auth-session/token/audit indexes. H2 is kept only as an in-memory test dependency.
-
-Docker Compose creates two local PostgreSQL volumes:
-
-- `postgres-data` for story runtime data.
-- `auth-postgres-data` for users, roles, sessions, refresh tokens and auth audit events.
-
-Local backup examples:
-
-```powershell
-docker compose exec postgres pg_dump -U fraerapp -d fraerapp -Fc -f /tmp/fraerapp.dump
-docker compose cp postgres:/tmp/fraerapp.dump .\backups\fraerapp.dump
-docker compose exec auth-postgres pg_dump -U fraerapp_auth -d fraerapp_auth -Fc -f /tmp/fraerapp_auth.dump
-docker compose cp auth-postgres:/tmp/fraerapp_auth.dump .\backups\fraerapp_auth.dump
-```
-
-Local restore examples:
-
-```powershell
-docker compose cp .\backups\fraerapp.dump postgres:/tmp/fraerapp.dump
-docker compose exec postgres pg_restore -U fraerapp -d fraerapp --clean --if-exists /tmp/fraerapp.dump
-docker compose cp .\backups\fraerapp_auth.dump auth-postgres:/tmp/fraerapp_auth.dump
-docker compose exec auth-postgres pg_restore -U fraerapp_auth -d fraerapp_auth --clean --if-exists /tmp/fraerapp_auth.dump
-```
-
-For managed PostgreSQL, set `SPRING_DATASOURCE_URL`/`SPRING_DATASOURCE_USERNAME`/`SPRING_DATASOURCE_PASSWORD` for the API and `AUTH_DATASOURCE_URL`/`AUTH_DATASOURCE_USERNAME`/`AUTH_DATASOURCE_PASSWORD` for auth-service.
-
-## Observability
-
-FraerApp runs with a production-grade observability stack: Grafana, Prometheus, Loki, Promtail, node_exporter, cAdvisor, nginx exporter, and PostgreSQL exporters.
-
-Start the app:
-
-```powershell
-docker compose up -d --build
-```
-
-Open Grafana from the Docker host:
-
-```text
-http://localhost:3000
-```
-
-For local-network access, set `GRAFANA_BIND_IP=0.0.0.0` and open the host LAN IP:
-
-```text
-http://<host-lan-ip>:3000
-```
-
-For the current FraerApp server, that means `http://192.168.0.34:3000` if the firewall allows TCP 3000.
-
-The default dashboard is `FraerApp / FraerApp Overview`. Full setup details, panels, alert rules, and investigation playbooks are in `OBSERVABILITY.md`.
-
-## Story Builder
-
-Story Builder is a separate static service for creating Story JSON in the browser with forms and buttons.
-
-Location:
-
-```text
-story-builder/
-```
-
-Default URL:
-
-```text
-http://localhost:8090
-```
-
-Runtime remains available here:
-
-```text
-http://localhost:8088
-```
-
-Run both:
-
-```powershell
-docker compose up --build
-```
-
-Builder features:
-
-- edit story metadata;
-- add variables;
-- add assets;
-- add scenes;
-- add choices;
-- add conditions;
-- add effects;
-- mark scenes as endings;
-- preview chapter text, choices and generated JSON (the preview is not an interactive playthrough);
-- copy/download/import chapter JSON and create RU/EN AI prompts for chapters or complete story packages;
-- autosave draft in `localStorage`;
-- save private drafts to FraerApp using the signed-in author's session;
-- validate and submit a chapter or story for moderation; publication is a moderator action.
-
-Workflow:
-
-1. Sign in on `http://localhost:8088` with author access and open **My stories**.
-2. Create the shared story card and add chapters. Opening a chapter enters Builder.
-3. Build its scenes manually or use **AI prompts**. Whole-story output is a `fraerapp-work-package` (package schema 1, story schema 2); import it in My stories. Single-chapter JSON is imported into Builder.
-4. Check the changes, structural validation and every branch. The scene preview lists text and choices; it does not execute a playthrough.
-5. Save the draft and submit it for moderation. Importing or saving never publishes automatically.
-6. A moderator reviews the exact submitted revision and explicitly publishes it. Existing published content stays available while a new draft is being edited.
-
-The Builder uses the same authenticated session as the site. There is no admin-token input or token-based author publication. Prompt preparation is local: no AI integration or automatic draft transmission. Including existing text requires an explicit checkbox. See [the author prompt guide](docs/prompts/authoring-guide.md), [a minimal current package](docs/examples/serial-story-package.json), and [the complete cat story](story-builder/scenarios/koshka-i-otkrytye-dveri.package.json).
-
-## Документация Story JSON
-
-FraerApp работает как движок сценариев: сюжет хранится в JSON, импортируется в базу данных и исполняется backend-ом через игровые сессии. Frontend только показывает текущую сцену и отправляет выбранные действия.
-
-Авторские запросы используют действующую сессию FraerApp и роль автора. Для изменяющих запросов требуется `X-Fraer-Request: same-origin`. Не храните токены в сценарии или промпте.
-
-Создание нового черновика главы:
-
-```http
-POST /api/author/stories/import
-```
-
-Сохранение уже открытой главы выполняется через `PUT /api/author/stories/{storyId}` с `{generation,document}`. Конструктор использует generation той версии, которую открыл или сам сохранил. При конфликте изменения остаются в браузере: скачайте JSON и явно откройте актуальную версию перед переносом правок. Загрузка медиа хранит файл отдельно; ссылка добавляется тем же защищённым сохранением документа.
-
-Отправка сохранённой главы на модерацию (с актуальной generation из ответа сервера):
-
-```http
-POST /api/author/stories/{storyId}/review
-```
-
-Импорт пакета всей истории имеет отдельную предварительную проверку в «Моих историях». Публикация происходит после решения модератора; импорт не публикует сценарии. Главы входят в общую историю и не должны появляться отдельными карточками каталога.
-
-### Общая Структура
-
-```json
-{
-  "key": "night_train",
-  "title": "Train 404",
-  "description": "A small branching story.",
-  "version": 1,
-  "startSceneId": "platform",
-  "variables": {},
-  "assets": [],
-  "scenes": []
-}
-```
-
-Поля:
-
-- `key` - уникальный ключ сценария. По нему создается игровая сессия.
-- `title` - название сценария.
-- `description` - краткое описание.
-- `version` - версия сценария.
-- `startSceneId` - id стартовой сцены.
-- `variables` - начальные переменные игровой сессии.
-- `assets` - изображения и аудио; проигрыватель использует фон и один музыкальный канал. Типы `video` и `sprite` в старых файлах не означают поддержку их отображения.
-- `scenes` - сцены сценария.
-
-Лучше использовать стабильные id в стиле `night_train`, `platform`, `open_door`.
-
-### Переменные
-
-`variables` задают начальное состояние игрока в новой сессии.
-
-```json
-{
-  "trust": 0,
-  "hasTicket": false,
-  "visitedHall": false
-}
-```
-
-Переменные можно проверять в `conditions` и изменять через `effects`.
-
-### Ассеты
-
-Ассет описывает файл. В базе хранится ссылка на файл, а не сам бинарный файл.
-
-```json
-{
-  "id": "platform_bg",
-  "type": "image",
-  "url": "/assets/platform.svg",
-  "metadata": {
-    "author": "local"
-  }
-}
-```
-
-Поля:
-
-- `id` - уникальный id ассета внутри сценария.
-- `type` - для действующего проигрывателя используйте `image`, `music` или `sound`. Аудио назначается в поле сцены `music`; отдельного звукового триггера нет.
-- `url` - существующий безопасный путь `/assets/...` или `/uploads/...` своей главы, полученный после загрузки в конструкторе. Произвольные внешние URL, `data:`, query/fragment и обход путей не поддерживаются.
-- `metadata` - необязательные дополнительные данные.
-
-Сцены ссылаются на ассеты по `id`:
-
-```json
-{
-  "background": "platform_bg",
-  "music": "rain_theme"
-}
-```
-
-### Сцены
-
-Сцена - это узел дерева или графа сценария.
-
-```json
-{
-  "id": "platform",
-  "title": "Rainy platform",
-  "text": "The night train left without you.",
-  "background": "platform_bg",
-  "music": null,
-  "animation": {
-    "type": "fade-in",
-    "durationMs": 800
-  },
-  "effects": [],
-  "choices": []
-}
-```
-
-Поля:
-
-- `id` - уникальный id сцены внутри сценария.
-- `title` - заголовок сцены.
-- `text` - текст сцены.
-- `background` - id ассета фоновой картинки или `null`.
-- `music` - id музыкального ассета или `null`.
-- `animation` - настройки анимации для frontend.
-- `effects` - эффекты, которые применяются при входе в сцену.
-- `choices` - варианты выбора из этой сцены.
-- `ending` - признак концовки, если сцена завершает прохождение.
-
-Сейчас frontend поддерживает простую анимацию:
-
-```json
-{
-  "type": "fade-in",
-  "durationMs": 800
-}
-```
-
-Backend не исполняет анимации. Он только хранит JSON и отдает его frontend-у.
-
-### Выборы
-
-`choices` описывают переходы из одной сцены в другую.
-
-```json
-{
-  "id": "inspect_ticket",
-  "label": "Inspect the ticket",
-  "target": "ticket",
-  "conditions": [],
-  "effects": [
-    {
-      "set": "hasTicket",
-      "value": true
-    }
-  ]
-}
-```
-
-Поля:
-
-- `id` - уникальный id выбора внутри сцены.
-- `label` - текст кнопки.
-- `target` - id сцены, куда ведет выбор.
-- `conditions` - условия доступности выбора.
-- `effects` - изменения переменных после выбора.
-
-Важно: runtime API для игрока не отдает frontend-у `target`. Переход контролирует backend.
-
-### Эффекты
-
-Эффекты изменяют переменные игровой сессии.
-
-Установить значение:
-
-```json
-{
-  "set": "hasTicket",
-  "value": true
-}
-```
-
-Увеличить число:
-
-```json
-{
-  "inc": "trust",
-  "value": 1
-}
-```
-
-Поддерживаются эффекты:
-
-- `set`
-- `inc`
-
-Эффекты можно добавлять на сцену или на выбор.
-
-### Условия
-
-`conditions` определяют, будет ли выбор доступен игроку.
-
-```json
-{
-  "var": "trust",
-  "op": ">=",
-  "value": 2
-}
-```
-
-Поддерживаемые операторы:
-
-- `==`
-- `!=`
-- `>=`
-- `<=`
-- `>`
-- `<`
-
-Пример выбора, который доступен только если у игрока есть ключ:
-
-```json
-{
-  "id": "open_door",
-  "label": "Open the door",
-  "target": "good_end",
-  "conditions": [
-    {
-      "var": "hasKey",
-      "op": "==",
-      "value": true
-    }
-  ],
-  "effects": []
-}
-```
-
-Если условие не выполняется:
-
-- выбор не приходит в `state`;
-- backend отклонит этот выбор, даже если отправить его вручную.
-
-### Концовки
-
-Если в сцене есть поле `ending`, то при входе в эту сцену сессия становится завершенной.
-
-```json
-{
-  "id": "good_end",
-  "title": "Good Ending",
-  "text": "The key turns. You step into warm light.",
-  "background": "end_bg",
-  "music": null,
-  "animation": {
-    "type": "fade-in",
-    "durationMs": 600
-  },
-  "effects": [],
-  "ending": {
-    "type": "good",
-    "title": "You opened the way"
-  },
-  "choices": []
-}
-```
-
-Ответ backend-а будет содержать:
-
-```json
-"status": "finished"
-```
-
-### Минимальный Пример
-
-```json
-{
-  "key": "test_story",
-  "title": "Test Story",
-  "description": "Small imported story",
-  "version": 1,
-  "startSceneId": "start",
-  "variables": {
-    "score": 0,
-    "hasKey": false
-  },
-  "assets": [
-    {
-      "id": "start_bg",
-      "type": "image",
-      "url": "/assets/platform.svg"
-    },
-    {
-      "id": "door_bg",
-      "type": "image",
-      "url": "/assets/door.svg"
-    },
-    {
-      "id": "end_bg",
-      "type": "image",
-      "url": "/assets/departure.svg"
-    }
-  ],
-  "scenes": [
-    {
-      "id": "start",
-      "title": "Start",
-      "text": "You stand before a locked door.",
-      "background": "start_bg",
-      "music": null,
-      "animation": {
-        "type": "fade-in",
-        "durationMs": 800
-      },
-      "effects": [],
-      "choices": [
-        {
-          "id": "take_key",
-          "label": "Take the key",
-          "target": "door",
-          "conditions": [],
-          "effects": [
-            {
-              "set": "hasKey",
-              "value": true
-            },
-            {
-              "inc": "score",
-              "value": 1
-            }
-          ]
-        },
-        {
-          "id": "go_without_key",
-          "label": "Go without the key",
-          "target": "door",
-          "conditions": [],
-          "effects": []
-        }
-      ]
-    },
-    {
-      "id": "door",
-      "title": "The Door",
-      "text": "The door waits. If you have the key, a better ending is available.",
-      "background": "door_bg",
-      "music": null,
-      "animation": {
-        "type": "fade-in",
-        "durationMs": 600
-      },
-      "effects": [],
-      "choices": [
-        {
-          "id": "open_door",
-          "label": "Open the door",
-          "target": "good_end",
-          "conditions": [
-            {
-              "var": "hasKey",
-              "op": "==",
-              "value": true
-            }
-          ],
-          "effects": [
-            {
-              "inc": "score",
-              "value": 5
-            }
-          ]
-        },
-        {
-          "id": "wait",
-          "label": "Wait outside",
-          "target": "bad_end",
-          "conditions": [],
-          "effects": []
-        }
-      ]
-    },
-    {
-      "id": "good_end",
-      "title": "Good Ending",
-      "text": "The key turns. You step into warm light.",
-      "background": "end_bg",
-      "music": null,
-      "animation": {
-        "type": "fade-in",
-        "durationMs": 600
-      },
-      "effects": [],
-      "ending": {
-        "type": "good",
-        "title": "You opened the way"
-      },
-      "choices": []
-    },
-    {
-      "id": "bad_end",
-      "title": "Quiet Ending",
-      "text": "You wait until the lamps go out.",
-      "background": "door_bg",
-      "music": null,
-      "animation": {
-        "type": "fade-in",
-        "durationMs": 600
-      },
-      "effects": [],
-      "ending": {
-        "type": "bad",
-        "title": "You stayed outside"
-      },
-      "choices": []
-    }
-  ]
-}
-```
-
-### Правила Валидации
-
-При импорте и публикации проверяется:
-
-- `key` обязателен.
-- `title` обязателен.
-- `startSceneId` обязателен.
-- `startSceneId` должен указывать на существующую сцену.
-- id сцен должны быть уникальны внутри сценария.
-- id choices должны быть уникальны внутри сцены.
-- каждый `choice.target` должен указывать на существующую сцену.
-- `background` и `music`, если указаны, должны ссылаться на существующие asset id.
-- опубликованный сценарий не должен содержать битых ссылок.
-
-### Хранение Файлов
-
-В PostgreSQL хранятся метаданные сценария, сцены, choices, URL ассетов, игровые сессии и JSON переменных. H2 используется только тестами.
-
-Бинарные файлы не хранятся в БД. Картинки, музыка и звуки лежат в `frontend/assets` или upload-директории; доступ к загрузкам проверяет API. Произвольный внешний object-storage URL в сценарии не разрешён.
-
-## Story JSON Format
-
-FraerApp works as a Story Engine: the plot is data, not Java code. Authors import chapter JSON through Builder or `POST /api/author/stories/import`, validate and save private drafts, then submit exact revisions for moderation. Complete story packages are previewed and imported in My stories. Moderator approval and explicit publication make content available to readers. Requests use the authenticated FraerApp session and `X-Fraer-Request: same-origin`; there is no admin-token publishing flow. See [the author prompt guide](docs/prompts/authoring-guide.md) for the complete supported format.
-
-### Top-Level Shape
-
-```json
-{
-  "key": "night_train",
-  "title": "Train 404",
-  "description": "A small branching story.",
-  "version": 1,
-  "startSceneId": "platform",
-  "variables": {},
-  "assets": [],
-  "scenes": []
-}
-```
-
-Fields:
-
-- `key` - unique story identifier. Used when creating a session.
-- `title` - visible story title.
-- `description` - short description.
-- `version` - integer content version.
-- `startSceneId` - id of the first scene.
-- `variables` - initial session variables.
-- `assets` - images and audio; legacy video/sprite asset types do not provide playback support.
-- `scenes` - story graph nodes.
-
-Use stable ids like `night_train`, `platform`, `open_door`. Lowercase letters, digits and underscores are safest.
-
-### Variables
-
-Variables are copied into every new game session:
-
-```json
-{
-  "trust": 0,
-  "hasTicket": false,
-  "visitedHall": false
-}
-```
-
-They can be checked by `conditions` and changed by `effects`.
-
-### Assets
-
-Assets describe files. The database stores URLs and metadata, not binary files.
-
-```json
-{
-  "id": "platform_bg",
-  "type": "image",
-  "url": "/assets/platform.svg",
-  "metadata": {
-    "author": "local"
-  }
-}
-```
-
-Fields:
-
-- `id` - unique asset id inside the story.
-- `type` - `image`, `music` or `sound` for the current reader. Audio uses scene.music, without an independent sound trigger.
-- `url` - an existing safe `/assets/...` path or this chapter's `/uploads/...` path returned by Builder upload. External URLs, `data:`, query/fragment strings and path traversal are not supported.
-- `metadata` - optional JSON object.
-
-Scenes reference assets by id:
-
-```json
-{
-  "background": "platform_bg",
-  "music": "rain_theme"
-}
-```
-
-### Scenes
-
-A scene is one node of the story graph.
-
-```json
-{
-  "id": "platform",
-  "title": "Rainy platform",
-  "text": "The night train left without you.",
-  "background": "platform_bg",
-  "music": null,
-  "animation": {
-    "type": "fade-in",
-    "durationMs": 800
-  },
-  "effects": [],
-  "choices": []
-}
-```
-
-Fields:
-
-- `id` - unique scene id inside the story.
-- `title` - scene title.
-- `text` - scene text.
-- `background` - asset id for background image, or `null`.
-- `music` - asset id for music, or `null`.
-- `animation` - JSON config passed to frontend.
-- `effects` - effects applied when the scene is entered.
-- `choices` - outgoing choices.
-- `ending` - optional ending marker.
-
-Current frontend supports simple fade animation:
-
-```json
-{
-  "type": "fade-in",
-  "durationMs": 800
-}
-```
-
-Backend stores animation JSON and returns it to frontend. Backend does not execute animations.
-
-### Choices
-
-A choice is an edge from one scene to another.
-
-```json
-{
-  "id": "inspect_ticket",
-  "label": "Inspect the ticket",
-  "target": "ticket",
-  "conditions": [],
-  "effects": [
-    {
-      "set": "hasTicket",
-      "value": true
-    }
-  ]
-}
-```
-
-Fields:
-
-- `id` - unique choice id inside this scene.
-- `label` - button text.
-- `target` - target scene id.
-- `conditions` - rules for showing and allowing the choice.
-- `effects` - variable changes after selecting the choice.
-
-The player runtime API does not return `target` to frontend. Backend is the source of truth.
-
-### Effects
-
-Effects change session variables.
-
-Set a variable:
-
-```json
-{
-  "set": "hasTicket",
-  "value": true
-}
-```
-
-Increment a number:
-
-```json
-{
-  "inc": "trust",
-  "value": 1
-}
-```
-
-Supported effects in v1:
-
-- `set`
-- `inc`
-
-Effects can be placed on scenes or choices.
-
-### Conditions
-
-Conditions decide whether a choice is visible and selectable.
-
-```json
-{
-  "var": "trust",
-  "op": ">=",
-  "value": 2
-}
-```
-
-Supported operators:
-
-- `==`
-- `!=`
-- `>=`
-- `<=`
-- `>`
-- `<`
-
-Example:
-
-```json
-{
-  "id": "open_door",
-  "label": "Open the door",
-  "target": "good_end",
-  "conditions": [
-    {
-      "var": "hasKey",
-      "op": "==",
-      "value": true
-    }
-  ],
-  "effects": []
-}
-```
-
-If condition fails:
-
-- the choice is not returned in session state;
-- backend rejects it if frontend sends it manually.
-
-### Endings
-
-An ending scene marks the session as finished.
-
-```json
-{
-  "id": "good_end",
-  "title": "Good Ending",
-  "text": "The key turns. You step into warm light.",
-  "background": "end_bg",
-  "music": null,
-  "animation": {
-    "type": "fade-in",
-    "durationMs": 600
-  },
-  "effects": [],
-  "ending": {
-    "type": "good",
-    "title": "You opened the way"
-  },
-  "choices": []
-}
-```
-
-When a player reaches a scene with `ending`, response status becomes:
-
-```json
-"status": "finished"
-```
-
-### Full Minimal Example
-
-```json
-{
-  "key": "test_story",
-  "title": "Test Story",
-  "description": "Small imported story",
-  "version": 1,
-  "startSceneId": "start",
-  "variables": {
-    "score": 0,
-    "hasKey": false
-  },
-  "assets": [
-    {
-      "id": "start_bg",
-      "type": "image",
-      "url": "/assets/platform.svg"
-    },
-    {
-      "id": "door_bg",
-      "type": "image",
-      "url": "/assets/door.svg"
-    },
-    {
-      "id": "end_bg",
-      "type": "image",
-      "url": "/assets/departure.svg"
-    }
-  ],
-  "scenes": [
-    {
-      "id": "start",
-      "title": "Start",
-      "text": "You stand before a locked door.",
-      "background": "start_bg",
-      "music": null,
-      "animation": {
-        "type": "fade-in",
-        "durationMs": 800
-      },
-      "effects": [],
-      "choices": [
-        {
-          "id": "take_key",
-          "label": "Take the key",
-          "target": "door",
-          "conditions": [],
-          "effects": [
-            {
-              "set": "hasKey",
-              "value": true
-            },
-            {
-              "inc": "score",
-              "value": 1
-            }
-          ]
-        },
-        {
-          "id": "go_without_key",
-          "label": "Go without the key",
-          "target": "door",
-          "conditions": [],
-          "effects": []
-        }
-      ]
-    },
-    {
-      "id": "door",
-      "title": "The Door",
-      "text": "The door waits. If you have the key, a better ending is available.",
-      "background": "door_bg",
-      "music": null,
-      "animation": {
-        "type": "fade-in",
-        "durationMs": 600
-      },
-      "effects": [],
-      "choices": [
-        {
-          "id": "open_door",
-          "label": "Open the door",
-          "target": "good_end",
-          "conditions": [
-            {
-              "var": "hasKey",
-              "op": "==",
-              "value": true
-            }
-          ],
-          "effects": [
-            {
-              "inc": "score",
-              "value": 5
-            }
-          ]
-        },
-        {
-          "id": "wait",
-          "label": "Wait outside",
-          "target": "bad_end",
-          "conditions": [],
-          "effects": []
-        }
-      ]
-    },
-    {
-      "id": "good_end",
-      "title": "Good Ending",
-      "text": "The key turns. You step into warm light.",
-      "background": "end_bg",
-      "music": null,
-      "animation": {
-        "type": "fade-in",
-        "durationMs": 600
-      },
-      "effects": [],
-      "ending": {
-        "type": "good",
-        "title": "You opened the way"
-      },
-      "choices": []
-    },
-    {
-      "id": "bad_end",
-      "title": "Quiet Ending",
-      "text": "You wait until the lamps go out.",
-      "background": "door_bg",
-      "music": null,
-      "animation": {
-        "type": "fade-in",
-        "durationMs": 600
-      },
-      "effects": [],
-      "ending": {
-        "type": "bad",
-        "title": "You stayed outside"
-      },
-      "choices": []
-    }
-  ]
-}
-```
-
-### Validation Rules
-
-Import and publish validate these rules:
-
-- `key` is required.
-- `title` is required.
-- `startSceneId` is required.
-- `startSceneId` must point to an existing scene.
-- scene ids must be unique inside one story.
-- choice ids must be unique inside one scene.
-- every choice `target` must point to an existing scene.
-- `background` and `music`, when provided, must point to existing asset ids.
-- published stories must have no broken links.
-
-### Storage Notes
-
-The database stores story metadata, scenes, choices, asset URLs, game sessions and session variables JSON.
-
-Binary files are not stored in PostgreSQL. Uploaded images, music and sounds are stored by the API in `ASSET_STORAGE_PATH` (`/data/uploads` in Docker) and served through `ASSET_PUBLIC_PATH` (`/uploads`). In Docker Compose this directory is backed by the named volume `story-uploads`, so uploaded files live on the server/host volume and are available to all users by public URLs like `/uploads/{storyId}/{file}`. Static bundled assets can still live in `frontend/assets`.
-
-Браузерная narrative game / visual novel с веб-интерфейсом на JavaScript, Java REST API, H2 и Nginx как edge proxy.
-
-## Что внутри
-
-- `frontend/` - статичный JS-движок игры, экран входа, сцены, выборы, локальные SVG-ассеты.
-- `src/main/java/` - Spring Boot API для авторизации, игрового состояния и обработки выборов.
-- `src/main/resources/story/demo-story.json` - дерево демо-сюжета.
-- `src/main/resources/db/migration/` - миграции Flyway для H2.
-- `nginx/nginx.conf` - reverse proxy, gzip, security headers, rate limit и upstream `least_conn`.
-- `compose.yaml` - сборка API, запуск Nginx, healthcheck'и, restart policy, resource limits, volume для H2.
-
-## API игры
-
-- `POST /api/auth/login` - вход по имени игрока.
-- `GET /api/game/state` - текущая сцена игрока, нужен header `X-Player-Id`.
-- `POST /api/game/choice` - применить выбор из текущей сцены, нужен header `X-Player-Id`.
-- `POST /api/game/reset` - сбросить прогресс игрока к стартовой сцене.
-
-## Локальная проверка backend
-
-```powershell
-$env:JAVA_HOME='C:\Program Files\Java\jdk-17'
-$env:Path="$env:JAVA_HOME\bin;$env:Path"
-.\gradlew.bat test
-```
-
-## Запуск в Docker
-
-Сначала запустите Docker Desktop, затем:
-
-```powershell
-docker compose up --build
-```
-
-Откройте:
-
-- http://localhost:8088 - веб-интерфейс
-- http://localhost:8088/actuator/health - healthcheck API через Nginx
-- http://localhost:8088/swagger-ui.html - OpenAPI UI
-
-Порт можно поменять через `.env`:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-## Масштабирование
-
-Nginx уже настроен как балансировщик:
-
-```nginx
-upstream fraer_api {
-    least_conn;
-    server api:8080 max_fails=3 fail_timeout=10s;
-}
-```
-
-Для настоящего multi-replica режима лучше заменить H2 на отдельную сетевую БД вроде PostgreSQL. H2 здесь оставлен по задаче и хорошо подходит для демо, локальной разработки и тестов, но не для продакшен-хранилища с несколькими пишущими инстансами.
+`npm run build` validates production-facing static configuration; it is not a
+bundle build. `npm run test:browser` runs the current Chromium fixture suites
+using Playwright and its installed browser (or dependencies exposed via
+`NODE_PATH`). These verify isolated UI behavior, not production mutations or
+Safari. `npm run test:ui` is a small helper-level check, not browser coverage.
+
+For Windows, use `gradlew.bat` with Java 17. The runbook lists focused checks,
+asset hash verification and deployment health checks.
+
+## Optional services
+
+[Observability](OBSERVABILITY.md) covers Grafana, Prometheus, Loki and exporters.
+They are optional and share host resources with other services. Inspect port
+ownership before starting them; the six-service command above starts only the app.
+
+`compose.mail.yaml` is an optional self-hosted SMTP configuration. Copy
+`mailserver.env.example` to ignored `mailserver.env`; configure A/MX, SPF, DKIM,
+DMARC and PTR records using the **current** mail host address. Create the sender
+mailbox and DKIM keys with Docker Mailserver's setup command, then verify actual
+delivery. Mail credentials stay in private environment files. This is separate
+from Telegram's webhook-response delivery and is not required for public login.

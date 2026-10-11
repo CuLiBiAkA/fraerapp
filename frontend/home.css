@@ -452,15 +452,6 @@ body:has(#login-screen:not(.hidden)) .site-footer a { color: #fee3e2; }
   .home-story-card { transition: none; }
 }
 
-/* Guests have no search: use the released space for the introduction and cards. */
-body.is-public-home:not(.is-authenticated) .home-screen { padding-top: 4px; }
-body.is-public-home:not(.is-authenticated) .home-copy { margin-top: 0; }
-body.is-public-home:not(.is-authenticated) .home-carousel { margin-top: clamp(40px, 6svh, 64px); }
-@media (max-width: 700px) {
-  body.is-public-home:not(.is-authenticated) .home-carousel { margin-top: 32px; --mobile-card-width: min(300px, 66vw, max(200px, 46svh)); }
-  body.is-public-home:not(.is-authenticated) .home-carousel-window { height: calc(var(--mobile-card-width) * 1.14); }
-}
-
 /* Keep account dialogs compact while the homepage remains recognizable. */
 body.modal-open { overflow: hidden; }
 

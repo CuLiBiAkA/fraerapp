@@ -1,9 +1,9 @@
-import {el,link,button,field,select,checkbox,words,typeName,request,errorMessage,download,targetKey,moveItem} from "./collection-ui.js?v=5";
-import {reviewLimitMessage} from "./review-limit.js?v=1";
-import {workflowLabel, renderDocumentDiff} from "./story-workflow.js?v=1";
-import {renderFolderReview} from "./folder-review.js?v=3";
-import {authorCard,coverImage,editorTabs,showAuthoringPrompts} from "./author-ui.js?v=1";
-import {chooseCover,uploadImage} from "./author-cover.js?v=1";
+import {el,link,button,field,select,checkbox,words,typeName,request,errorMessage,download,targetKey,moveItem} from "./collection-ui.js?v=6";
+import {reviewLimitMessage} from "./review-limit.js?v=2";
+import {workflowLabel, renderDocumentDiff} from "./story-workflow.js?v=2";
+import {renderFolderReview} from "./folder-review.js?v=4";
+import {authorCard,coverImage,editorTabs,showAuthoringPrompts} from "./author-ui.js?v=2";
+import {chooseCover,uploadImage} from "./author-cover.js?v=3";
 
 const params = new URLSearchParams(location.search);
 try { document.documentElement.lang = localStorage.getItem("fraerapp.language") === "en" ? "en" : "ru"; } catch { document.documentElement.lang = "ru"; }
@@ -98,8 +98,9 @@ async function start(root) {
     const detail=await request(`${api}/${encodeURIComponent(id)}`);
     if(seq!==openRequest||current?.collectionId!==id)return;
     current.reviewLimitReached=detail.reviewLimitReached;
+    current.reviewDailyLimitReached=detail.reviewDailyLimitReached;current.reviewAvailableAt=detail.reviewAvailableAt;
     editor.querySelectorAll("[data-review-submit]").forEach(control=>{control.disabled=!canEdit||Boolean(detail.reviewLimitReached);});
-    const notice=editor.querySelector(".review-limit-notice");if(notice)notice.hidden=!detail.reviewLimitReached;
+    const notice=editor.querySelector(".review-limit-notice");if(notice){notice.hidden=!detail.reviewLimitReached;notice.textContent=reviewLimitMessage(document.documentElement.lang,detail);}
   }
   async function work(action) {
     if (busy) return; busy=true; root.inert=true; root.setAttribute("aria-busy","true"); status.textContent=words("Выполняем…", "Working…"); status.classList.remove("error");
@@ -160,10 +161,15 @@ async function start(root) {
       else renderReview();return;
     }
     const editable=canEdit&&current?.visibility!=="deleted";
-    if(!editable){editor.append(el("p",words("Только чтение. Данные сохранены; восстановить доступ может модератор.", "Read only. Data is retained; a moderator can restore access.")));renderSnapshot(editor,doc);return;}
+    if(!editable){
+      const expiry=current?.trashExpiresAt?new Date(current.trashExpiresAt).toLocaleString(document.documentElement.lang):"";
+      editor.append(el("p",current?.visibility==="deleted"?words(`Корзина очистится автоматически через 30 дней после удаления${expiry?`: ${expiry}`:""}.`,`Trash clears automatically 30 days after removal${expiry?`: ${expiry}`:""}.`):words("Только чтение.","Read only.")));
+      if(canEdit&&current?.canRestoreTrash)editor.append(button(words("Восстановить черновик","Restore draft"),()=>work(async()=>{await request(`${api}/${current.collectionId}/restore`,{method:"POST",body:{generation:current.generation}});trash=false;await open(current.collectionId);await loadList();})));
+      renderSnapshot(editor,doc);return;
+    }
     const metadata=el("section",null,"author-metadata"),chapters=el("section",null,"author-chapters");
     editor.append(editorTabs([["chapters",words("Главы","Chapters"),chapters],["metadata",words("Об истории","About story"),metadata]],tabKey,key=>{tabKey=key;}));
-    const reviewNotice=el("p",reviewLimitMessage(document.documentElement.lang),"collection-status review-limit-notice");reviewNotice.hidden=!current?.reviewLimitReached;editor.append(reviewNotice);
+    const reviewNotice=el("p",reviewLimitMessage(document.documentElement.lang,current||{}),"collection-status review-limit-notice");reviewNotice.hidden=!current?.reviewLimitReached;editor.append(reviewNotice);
     const fields=el("div",null,"collection-fields"),advanced=el("details");advanced.append(el("summary",words("Дополнительные настройки", "Additional settings")));
     for(const [key,ru,en,inputType] of [["key","Ключ","Key","text"],["title","Название","Title","text"],["description","Описание","Description","textarea"],["genre","Жанры","Genres","text"]]){
       const f=field(words(ru,en),doc[key]||"",inputType);f.input.disabled=key==="key"&&Boolean(current);f.input.maxLength=key==="description"?5000:key==="coverUrl"?500:200;
@@ -193,7 +199,11 @@ async function start(root) {
         await open(current.collectionId);await loadList();status.textContent=words("Глава отправлена на проверку. Остальные черновики сохранены.", "Chapter submitted. Other drafts remain unchanged.");
        }));submitChapter.dataset.reviewSubmit="true";submitChapter.disabled=Boolean(current?.reviewLimitReached);actions.append(submitChapter);
       }
-      if(item.target.kind==="scenario"&&(found?.id||item.target.id))actions.append(link(words("Редактировать главу", "Edit chapter"),`/builder/?story=${encodeURIComponent(found?.id||item.target.id)}&work=${encodeURIComponent(current?.collectionId||"")}`));
+      if(item.target.kind==="scenario"&&(found?.id||item.target.id)){
+       const storyId=found?.id||item.target.id;
+       actions.append(link(words("Редактировать главу", "Edit chapter"),`/builder/?story=${encodeURIComponent(storyId)}&work=${encodeURIComponent(current?.collectionId||"")}`));
+       actions.append(button(words("Пройти черновик", "Play draft"),()=>{if(!discard())return;const collectionId=current?.collectionId,seq=openRequest;work(async()=>{const chapter=await request(`/api/author/stories/${encodeURIComponent(storyId)}`);if(seq!==openRequest||current?.collectionId!==collectionId)return;dirty=false;location.href=`/?previewStory=${encodeURIComponent(storyId)}&revision=${encodeURIComponent(chapter.draftRevision)}`;});}));
+      }
       else if(item.target.kind==="collection")actions.append(button(words("Открыть состав", "Open contents"),()=>{if(discard())work(()=>open(found?.id||item.target.id));}));
       const season=field(words("Сезон (необязательно)", "Season (optional)"),item.season||"");
       season.input.maxLength=100;season.input.oninput=()=>{item.season=season.input.value;changed();};
@@ -206,6 +216,7 @@ async function start(root) {
 
     const actions=el("div",null,"collection-actions");
     actions.append(button(words("Сохранить", "Save"),()=>work(save),"add-button"));
+    if(current&&doc.schemaVersion===2&&doc.items?.length)actions.append(link(words("Пройти историю", "Play story"),`/?previewCollection=${encodeURIComponent(current.collectionId)}&revision=${encodeURIComponent(current.draftRevision)}`));
     actions.append(button(words("Обновить сведения","Refresh details"),()=>work(async()=>{await refreshReviewEligibility();status.textContent=permissionNotice||(dirty?words("Есть несохранённые изменения в форме.","There are unsaved changes in this form."):words("Сведения обновлены.","Details refreshed."));})));
     actions.append(button(words("Промпты для ИИ","AI prompts"),()=>prompts({kind:"package",...(current?{getContext:kind=>{if(kind!=="package")throw new Error(words("Для этой истории выберите формат пакета.","Choose the package format for this story."));return request(`${api}/${current.collectionId}/export`);}}:{})})));
     if(current){
@@ -235,7 +246,7 @@ async function start(root) {
     if(current?.events?.length)renderEvents(advanced);
   }
   async function takeDown(remove){
-    const message=remove?words("Переместить историю в корзину? Она исчезнет из вашего активного списка. Черновики глав сохранятся; восстановить историю сможет модератор.","Move this story to trash? It leaves your active list. Chapter drafts remain; a moderator can restore the story."):words("Переместить историю в архив? Её оглавление станет недоступно читателям. Отдельно опубликованные главы останутся доступны. Восстановление — через модератора.","Archive this story? Readers will lose access to its contents. Individually published chapters remain available. A moderator can restore the story.");
+    const message=remove?words("Переместить историю в корзину? Её можно восстановить в течение 30 дней. Затем корзина очистится автоматически. Черновики глав сохранятся.","Move this story to trash? You can restore it for 30 days, after which trash clears automatically. Chapter drafts remain."):words("Переместить историю в архив? Её оглавление станет недоступно читателям. Отдельно опубликованные главы останутся доступны. Восстановление — через модератора.","Archive this story? Readers will lose access to its contents. Individually published chapters remain available. A moderator can restore the story.");
     if(!discard()||!confirm(message))return;
     await request(`${api}/${current.collectionId}${remove?"":"/archive"}`,{method:remove?"DELETE":"POST",body:{generation:current.generation}});dirty=false;await open(current.collectionId);await loadList();
   }
@@ -316,7 +327,7 @@ async function start(root) {
     if(current.reviewState==="approved")options.push(["publish-approved",words("Опубликовать одобренную редакцию", "Publish approved revision")]);
     if(["hidden","archived","deleted"].includes(current.visibility))options.push(["restore",words("Восстановить в приватное", "Restore to private")]);
     else options.push(["hide",words("Скрыть историю", "Hide story")],["archive",words("Архивировать", "Archive")],["delete",words("В корзину", "Delete")]);
-    for(const [action,label] of options)actions.append(button(label,()=>work(async()=>{
+    for(const [action,label] of current.visibility==="purged"?[]:options)actions.append(button(label,()=>work(async()=>{
       if(["approve","approve-publish","reject","publish-approved"].includes(action)&&inspected!==current.submittedRevision)throw new Error(words("Сначала откройте точную редакцию заявки.", "Inspect the submitted revision first."));
       if(!["approve","approve-publish"].includes(action)&&!reason.input.value.trim())throw new Error(words("Укажите причину решения.", "Enter a reason."));
       if(!confirm(`${label}: «${current.title}»?`))return;

@@ -1,3 +1,4 @@
+import { fetchWithSession } from './auth-session.js?v=1';
 import { mountAccountDialogs } from './account-dialogs.js?v=3';
 import { createAccountUI } from './account-ui.js?v=7';
 import { credentialToJson, parseCreationOptions, passkeysSupported } from './passkeys.js';
@@ -17,7 +18,7 @@ export function mountStandaloneDialogs({setActions}) {
   document.querySelectorAll('#settings-modal [data-i18n], #profile-modal [data-i18n]').forEach(n=>n.removeAttribute('data-i18n'));
   if (en) { $('#profile-notification-title').textContent = 'Notifications'; document.querySelectorAll('.modal-close').forEach(n => n.setAttribute('aria-label','Close')); }
   async function request(url, options = {}) {
-    const response = await fetch(url, {credentials:'same-origin', ...options});
+    const response = await fetchWithSession(url, {credentials:'same-origin', ...options});
     if (!response.ok) throw new Error(String(response.status));
     return response.status === 204 ? null : response.json();
   }

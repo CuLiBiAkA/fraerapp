@@ -25,7 +25,7 @@ export function observeHomeFit() {
         - outerHeight(status) - px(getComputedStyle(home).paddingBottom) - 2;
       const base = px(getComputedStyle(home.querySelector("h1")).fontSize) / 40;
       // A readable floor remains for unusually short windows / enlarged text.
-      const cardScale = !document.body.classList.contains('is-authenticated') ? 1 : (innerWidth >= 1400 ? 324.659 / 424 : .85);
+      const cardScale = innerWidth >= 1400 ? 324.659 / 424 : .85;
       const unit = Math.max(.27, Math.min(base * cardScale, remaining / 424));
       carousel.style.setProperty("--home-content-unit", `${unit}px`);
     });

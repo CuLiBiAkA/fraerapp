@@ -5,6 +5,7 @@ import java.io.IOException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -33,7 +34,16 @@ class JwtAuthFilter extends OncePerRequestFilter {
 		try {
 			String token = token(request);
 			if (enabled && token != null && !token.isBlank()) {
-				AuthContext.set(verifier.verify(token));
+				try {
+					AuthContext.set(verifier.verify(token));
+				}
+				catch (ResponseStatusException ex) {
+					// Filter failures never reach MVC's exception handling. Preserve the
+					// 401 contract so clients can refresh an expired access cookie.
+					response.setHeader("Cache-Control", "private, no-store, max-age=0");
+					response.sendError(ex.getStatusCode().value(), "Authentication required");
+					return;
+				}
 			}
 			filterChain.doFilter(request, response);
 		}

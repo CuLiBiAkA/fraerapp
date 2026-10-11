@@ -1,5 +1,89 @@
 # FraerApp deploy and ops runbook
 
+## Combined release candidate (2026-10-12)
+
+The user authorized the combined authoring/session release. Before deployment,
+the live six core services are healthy, recent API/auth/edge errors are zero,
+origin home/readiness/catalogue return 200, and current migrations are API V21
+and auth V9. Preserve the existing environment, mounted uploads and databases.
+Fresh local checks pass: 151 Node, 128 API and 69 auth tests, current 25 browser
+suites, syntax/configuration validation and diff checks.
+
+Use the verified local Java 17 artifacts with the current runtime image layers,
+preserving entrypoints/users/options; rebuild Builder from the committed source.
+Back up both databases and runtime files and tag all three old images before
+replacing files. Deploy API/auth without old/new application overlap. Verify V22
+and V10 on live PostgreSQL, exact JAR/static hashes, retention timestamps, public
+and origin readiness, anonymous private-route denial, and recent errors. Record
+the release commit, backup and image tags after verification. Keep all additive
+migration data on rollback; do not restore a database over later user activity.
+
+## Author checklist (local, 2026-10-11; not deployed)
+
+See `docs/author-checklist-2026-10-11.md` for scope and unresolved requirements.
+The same checkout also contains the concurrent architecture/auth cleanup below;
+review the combined source, migrations and test outcomes before any release.
+
+This change requires API + Builder rebuild and coordinated frontend imports.
+Include V22, RasterImageNormalizer, private playtest API, image-preparation and
+draft-playtest JS/CSS, cover/workspace/Builder imports and current entry versions.
+Do not rotate JWTs, republish stories or modify auth configuration for this change.
+If releasing the concurrent auth changes too, follow their separate steps below.
+
+Run Node, browser and API/auth checks, production validation and diff checks.
+Include guest Continue→three demos, role geometry, mobile titles/toolbar,
+image cancel/alpha/size, Builder cover save, draft choice/retry/restart and
+multi-chapter state transfer, daily quota and trash restore/expiry (including
+references from a surviving parent). Browser API fixtures are not live mutation proof.
+On a shared checkout, isolate Gradle build outputs when another task is testing.
+
+Inspect live runtime/logs and back up databases, runtime files and rollback images
+before deployment. V22 initializes old trash retention at migration time; no
+immediate physical deletion occurs. The daily expiry scheduler defaults to
+03:00 server time (`app.trash.cleanup-cron`). Reads enforce 30-day expiry even
+before the job runs. Preserve purged rows, revisions, audit, uploads and saves.
+
+After deployment verify migrations, six-service health, public domain/catalogue,
+anonymous private-route denial, changed asset hashes and recent logs. Exercise
+new author mutations only with isolated fixtures. If rolling back, retain the
+additive columns/tables and note that old code will not enforce daily admission
+or the retention window. Never restore a database over newer user work.
+
+## Architecture cleanup (local, 2026-10-11; not deployed)
+
+See `docs/architecture-cleanup-2026-10-11.md` for scope and executed checks. This
+working copy also contains another task's changes; inspect the final combined
+diff and its migrations before constructing a release. Do not treat this audit's
+verification as approval of unrelated changes.
+
+The cleanup requires rebuilding API, auth-service and Builder, plus deploying the
+full frontend import graph. Auth Flyway V10 creates `login_link_issuance_locks`
+with hashed normalized email keys; it does not rewrite accounts, tokens, consent
+or sessions. Keep coordination rows while the service is active. A rollback of
+auth may leave this additive table, but must not undo unrelated migrations or data.
+No JWT rotation, policy-version update or story republishing is required here.
+Email ownership covers issuance, verification, invitations, first-account/bootstrap,
+Telegram authorization and user deletion before role/user/token locks. Preserve
+that ordering when adding a new auth mutation.
+
+Before release, back up both databases and changed runtime files as described
+below. Verify V10 on PostgreSQL and current auth readiness after recreation.
+Check that an expired/malformed access cookie returns 401 from API, simultaneous
+page requests refresh once, revoked sessions stop retrying, and multipart uploads
+retain their target runtime. These checks use isolated accounts/data. Existing
+collection saves must reject generic reset (409), while replay through contents
+creates a new attempt. Import responses must carry the final draft generation.
+
+All browser clients load the same versioned `auth-session.js`; deploy it with its
+callers and every transitive version bump, including shared Builder modules and
+auth admin HTML. Remove the retired frontend/app.js from the runtime after backup;
+an overlay copy alone does not remove it. Active entrypoints are unchanged.
+Compare actual versioned served bytes with release sources.
+
+For focused API tests use `sh gradlew :test --tests '*ClassName' --no-daemon`;
+unqualified `test --tests` also applies the filter to auth-service. Never run two
+Gradle test jobs against the same module/output directory concurrently.
+
 ## Unified story experience (deployed, 2026-10-09)
 
 This release changes API, frontend and Builder. It includes additive migration

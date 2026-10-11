@@ -1,11 +1,12 @@
+import { fetchWithSession } from "./auth-session.js?v=1";
 import {
   authorActions, authorFilters, canEditStories, canModerateStories, filterAfterSubmit, isOwnStory,
   matchesAuthorFilter, moderationActions, needsOwnOverride, node, publicStoryUrl,
   renderDocumentDiff, renderStoryDocument, revisionLabels, storyLabels, workflowLabel,
-} from "./story-workflow.js?v=1";
-import { reviewLimitMessage } from "./review-limit.js?v=1";
-import {authorCard,coverImage,editorTabs,showAuthoringPrompts} from "./author-ui.js?v=1";
-import {chooseCover,uploadImage} from "./author-cover.js?v=1";
+} from "./story-workflow.js?v=2";
+import { reviewLimitMessage } from "./review-limit.js?v=2";
+import {authorCard,coverImage,editorTabs,showAuthoringPrompts} from "./author-ui.js?v=2";
+import {chooseCover,uploadImage} from "./author-cover.js?v=3";
 
 const moderation = document.body.dataset.workspace === "moderation";
 const root = document.querySelector("#workspace");
@@ -33,7 +34,7 @@ function selectField(label, options, selected) {
 }
 function date(value) { return value ? new Date(value).toLocaleString(language === "en" ? "en-GB" : "ru-RU") : "—"; }
 function errorText(error) {
-  if (error.code === "REVIEW_LIMIT_REACHED") return reviewLimitMessage(language);
+  if (["REVIEW_LIMIT_REACHED", "REVIEW_DAILY_LIMIT_REACHED"].includes(error.code)) return reviewLimitMessage(language, error);
   if (error.status === 401) return choose("Сессия завершена. Войдите на главной и обновите страницу.", "Your session ended. Sign in on the home page and reload.");
   if (error.status === 403) return choose("Нет доступа. Права могли измениться: обновите страницу или обратитесь к администратору.", "Access denied. Your permissions may have changed: reload or contact an administrator.");
   if (error.status === 409) return choose("История изменилась. Загрузите актуальную редакцию и проверьте её перед новым решением.", "This story changed. Reload the current revision and inspect it before deciding again.");
@@ -41,16 +42,12 @@ function errorText(error) {
   return error.message || choose("Не удалось загрузить данные. Повторите попытку.", "Could not load data. Try again.");
 }
 async function request(path, options = {}, retry = true) {
-  const response = await fetch(path, { credentials: "include", cache: "no-store", ...options,
-    headers: { Accept: "application/json", "X-Fraer-Request": "same-origin", ...(options.body ? {"Content-Type":"application/json"} : {}), ...options.headers } });
-  if (response.status === 401 && retry) {
-    const refresh = await fetch("/auth/refresh", { method: "POST", credentials: "include", cache: "no-store", headers: {"X-Fraer-Request":"same-origin"} });
-    if (refresh.ok) return request(path, options, false);
-  }
+  const response = await fetchWithSession(path, { credentials: "include", cache: "no-store", ...options,
+    headers: { Accept: "application/json", "X-Fraer-Request": "same-origin", ...(options.body ? {"Content-Type":"application/json"} : {}), ...options.headers } }, { refresh: retry });
   const text = await response.text();
   let data;
   try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
-  if (!response.ok) { const error = new Error(data.message || data.detail || data.error || `HTTP ${response.status}`); error.status = response.status; error.code = data.code; throw error; }
+  if (!response.ok) { const error = new Error(data.message || data.detail || data.error || `HTTP ${response.status}`); error.status = response.status; error.code = data.code; error.reviewAvailableAt = data.reviewAvailableAt; throw error; }
   return data;
 }
 
@@ -200,7 +197,7 @@ function renderDetail() {
   const technical=node("details");technical.append(node("summary",choose("Сведения о редакциях","Revision details")),metadata);
   if(moderation)detailPanel.append(metadata);
   if (story.reason) detailPanel.append(node("p", `${choose("Причина / замечания", "Reason / feedback")}: ${story.reason}`, "workspace-notice"));
-  if (story.visibility === "deleted") detailPanel.append(node("p", choose("История в корзине. Данные и решения сохранены; восстановление выполняется в модерации и не публикует историю.", "This story is in trash. Data and decisions are retained; moderation can restore it as private."), "workspace-notice"));
+  if (story.visibility === "deleted") detailPanel.append(node("p", choose(`История в корзине до ${date(story.trashExpiresAt)}. Свой черновик можно восстановить до этой даты. Затем корзина очистится автоматически.`, `This story stays in trash until ${date(story.trashExpiresAt)}. You can restore your draft before that date; trash then clears automatically.`), "workspace-notice"));
   if (moderation && isOwnStory(story, state.user)) detailPanel.append(node("p", state.user.roles.includes("admin")
     ? choose("Это ваша история. Одобрение и снятие ограничений требуют явного административного исключения с причиной.", "This is your story. Approval and restoring access require an explicit administrator override with a reason.")
     : choose("Это ваша история. Одобрение и снятие ограничений выполняет другой проверяющий.", "This is your story. Another reviewer must approve it or restore access."), "workspace-notice"));
@@ -246,7 +243,7 @@ function renderMetadata(container){
     try{await request(`${apiBase}/${encodeURIComponent(state.selected)}`,{method:"PUT",body:JSON.stringify({generation:state.detail.generation,document:metadataDraft})});metadataDirty=false;await openStory(state.selected,false);await loadList();setStatus(choose("Черновик сохранён. Публикация не изменилась.","Draft saved. Publication is unchanged."));}
     catch(error){setStatus(errorText(error)+choose(" Ваш текст остаётся в форме."," Your text remains in the form."),true);
       if([401,403,409].includes(error.status)){
-        status.append(document.createTextNode(" "),button(choose("Скачать мой черновик","Download my draft"),async()=>{const {download}=await import('./collection-ui.js?v=5');download(metadataDraft,`${metadataDraft.key||'story'}-draft.json`);}));
+        status.append(document.createTextNode(" "),button(choose("Скачать мой черновик","Download my draft"),async()=>{const {download}=await import('./collection-ui.js?v=6');download(metadataDraft,`${metadataDraft.key||'story'}-draft.json`);}));
         status.append(button(choose("Загрузить актуальную редакцию","Reload current revision"),()=>{if(discardMetadata())openStory(state.selected,true).catch(next=>setStatus(errorText(next),true));}));
       }
     }
@@ -261,7 +258,7 @@ function revisionRole(story, revision) {
 function renderActions() {
   const story = state.detail; if (!story || !actionsNode) return;
   actionsNode.replaceChildren();
-  if(!moderation&&story.reviewLimitReached)actionsNode.append(node("p",reviewLimitMessage(language),"workspace-notice"));
+  if(!moderation&&story.reviewLimitReached)actionsNode.append(node("p",reviewLimitMessage(language,story),"workspace-notice"));
   const publicUrl = publicStoryUrl(story); if (publicUrl) actionsNode.append(link(choose("Открыть публикацию", "Open publication"), publicUrl, "workspace-button"));
   const actions = moderation ? moderationActions(story, state.user) : authorActions(story, state.user);
   for (const action of actions) {
@@ -269,7 +266,7 @@ function renderActions() {
     const reviewing = ["approve", "approve-publish", "publish-approved", "reject"].includes(action);
     const label = moderation && needsOwnOverride(action, story, state.user) ? `${t(action)} · ${choose("своя история", "own story")}` : t(action);
     const control = button(label, () => showDecision(action), ["approve-publish", "submit", "publish-approved"].includes(action) ? "primary" : ["hide", "delete"].includes(action) ? "danger" : "");
-    if(action==='submit'&&story.reviewLimitReached){control.disabled=true;control.title=reviewLimitMessage(language);}
+    if(action==='submit'&&story.reviewLimitReached){control.disabled=true;control.title=reviewLimitMessage(language,story);}
     if (reviewing && (!state.preview || state.previewRevision !== story.submittedRevision)) { control.disabled = true; control.title = choose("Сначала откройте отправленную редакцию", "Open the submitted revision first"); }
     actionsNode.append(control);
   }
@@ -283,13 +280,15 @@ async function loadPreview(revision, detailRequest = state.detailRequest) {
     if (current !== state.previewRequest || detailRequest !== state.detailRequest) return;
     state.preview = preview; state.previewRevision = preview.revision; revisionSelect.value = String(preview.revision);
     previewNode.replaceChildren(node("p", `${choose("Предпросмотр — не опубликовано", "Preview — not a publication")} · v${preview.revision}${revisionRole(story, preview.revision)}\n${choose("Снимок только для чтения. Просмотры, прохождения, сохранения и оценки не создаются.", "Read-only snapshot. No views, playthroughs, saves or ratings are created.")}`, "workspace-notice"));
+    if(story.visibility!=="purged")previewNode.append(link(choose("Пройти черновик", "Play draft"),`/?previewStory=${encodeURIComponent(story.storyId)}&revision=${encodeURIComponent(preview.revision)}`,"workspace-button primary"));
     const validation = preview.validation || {};
     previewNode.append(node("p", validation.valid ? choose("Техническая проверка: ошибок нет.", "Validation: no errors.") : choose("Техническая проверка: есть ошибки.", "Validation: errors found.")));
     if (validation.errors?.length) { const errors = node("ul"); for (const error of validation.errors) errors.append(node("li", typeof error === "string" ? error : JSON.stringify(error))); previewNode.append(errors); }
     if (!moderation && canEditStories(state.user) && story.visibility !== "deleted") {
       previewNode.append(button(choose("Создать черновик из этой редакции", "Create draft from this revision"), () => showDecision("rollback")));
     }
-    const diff = node("details"); diff.append(node("summary", choose("Различия с опубликованной редакцией", "Differences from the published revision")), renderDocumentDiff(preview.publishedDocument, preview.document, language)); previewNode.append(diff, renderStoryDocument(preview.document, language));
+    const diff = node("details"); diff.append(node("summary", choose("Различия с опубликованной редакцией", "Differences from the published revision")), renderDocumentDiff(preview.publishedDocument, preview.document, language));
+    const structure=node("details");structure.append(node("summary",choose("Сцены, переходы и данные редакции","Revision scenes, choices and data")),renderStoryDocument(preview.document, language));previewNode.append(diff,structure);
     renderActions();
   } catch (error) { if (current === state.previewRequest) previewNode.replaceChildren(node("p", errorText(error), "workspace-status error"), button(choose("Повторить", "Retry"), () => loadPreview(revision).catch(error => setStatus(errorText(error), true)))); }
   finally { if (current === state.previewRequest) revisionSelect.disabled = false; }
@@ -342,10 +341,11 @@ function showDecision(action) {
       if (moderation) { path += `/${action}`; body = { generation: story.generation, revision: story.submittedRevision || state.previewRevision, reason: reason.value.trim(), internalNote: note.value.trim(), ownOverride: override && own.checked, visibility: visibilityField.control.value }; }
       else if (action === "delete") method = "DELETE";
       else if (action === "rollback") path += `/versions/${revision}/rollback`;
-      else { path += `/${action === "submit" ? "review" : action}`; if (["submit", "withdraw"].includes(action)) body = { generation: story.generation, replaceReview: replacing }; }
+      else { path += `/${action === "submit" ? "review" : action}`; if (["submit", "withdraw", "restore"].includes(action)) body = { generation: story.generation, replaceReview: replacing }; }
       const result = await request(path, { method, ...(body ? { body: JSON.stringify(body) } : {}) });
       decisionDrafts.delete(key); dialog.close();
       if (action === "submit") { filter.control.value = filterAfterSubmit(filter.control.value); state.page = 0; }
+      if (action === "restore") { trashView=false;refreshScopes();state.page=0; }
       await loadList(); await openStory(story.storyId, true);
       setStatus(action === "submit" ? choose(`Редакция v${result.submittedRevision} отправлена на согласование.`, `Revision v${result.submittedRevision} submitted for review.`) : choose("Изменение сохранено. Данные обновлены.", "Change saved. Data refreshed."));
     } catch (error) {

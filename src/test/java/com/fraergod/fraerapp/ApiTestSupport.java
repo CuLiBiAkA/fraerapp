@@ -65,6 +65,16 @@ abstract class ApiTestSupport {
   return api(port,"POST","/api/moderation/stories/"+id+"/approve-publish",
     body(Map.of("generation",current.get("generation"),"revision",current.get("submittedRevision"),"visibility","public")),reviewer);
  }
+ // Reader/catalogue fixtures intentionally model works published on different days.
+ // Moderation/quota tests use the ordinary helper and explicit admission assertions.
+ protected static void advanceReviewDay(org.springframework.jdbc.core.JdbcTemplate db,String kind,String id) {
+  String table="collection".equals(kind)?"work_collections":"stories";
+  db.update("update author_review_admission set admitted_at=? where owner_player_id=(select owner_player_id from "+table+" where id=?)",
+   java.sql.Timestamp.from(java.time.Instant.now().minus(java.time.Duration.ofHours(25))),id);
+ }
+ protected static HttpResponse<String> approveAndPublishOnNextDay(org.springframework.jdbc.core.JdbcTemplate db,int port,String id,String author) {
+  advanceReviewDay(db,"scenario",id);return approveAndPublish(port,id,author);
+ }
  protected static void approveSeed(int port) {
   String reviewer=TestJwtFactory.admin("independent-reviewer@example.test");
   Map<String,Object> page=object(api(port,"GET","/api/moderation/stories?size=100",null,reviewer).body());

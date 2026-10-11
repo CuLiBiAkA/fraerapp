@@ -1,3 +1,4 @@
+import { fetchWithSession, refreshSession } from "./auth-session.js?v=1";
 import {
   credentialToJson,
   parseCreationOptions,
@@ -6,13 +7,14 @@ import {
 } from "./passkeys.js";
 
 import { enhanceFilterSelect } from "./filter-select.js?v=1";
-import { observeHomeFit } from "./home-fit.js?v=6";
+import { observeHomeFit } from "./home-fit.js?v=7";
 import { createAccountUI } from "./account-ui.js?v=7";
-import { mountSiteControls, updateSiteControlsLanguage } from "./site-controls.js?v=6";
+import { mountSiteControls, updateSiteControlsLanguage } from "./site-controls.js?v=7";
 import { mountAccountDialogs } from "./account-dialogs.js?v=3";
-import { createCollectionReader } from "./collection-reader.js?v=7";
+import { createCollectionReader } from "./collection-reader.js?v=8";
 import { readingBackground, decorateReadingStat } from "./reader-presentation.js?v=2";
 import { createReaderAds } from "./reader-ads.js?v=1";
+import { createDraftPlaytest } from "./draft-playtest.js?v=2";
 
 mountAccountDialogs();
 observeHomeFit();
@@ -509,6 +511,7 @@ let telegramBotUrl = "";
 let builderButton = null;
 let adminButton = null;
 let homeCarouselIndex = 0;
+let demoWelcomeAcknowledged = false;
 
 
 const api = {
@@ -639,6 +642,11 @@ function setLanguage(language) {
   applyTranslations();
   accountUI.refresh();
   updateSoundLabel();
+  if (draftPlaytest.active) {
+    if (currentState) render(currentState);
+    draftPlaytest.sync();
+    return;
+  }
   if (!document.querySelector("#collection-screen")?.classList.contains("hidden")) {
     collectionReader.refresh();
   } else if (activeStoryDetail && !storyDetailScreen.classList.contains("hidden")) {
@@ -652,11 +660,9 @@ function setLanguage(language) {
   }
 }
 
-let authRefreshPromise = null;
-
 async function request(path, options = {}) {
   if (path === "/auth/refresh" && options.method === "POST") {
-    if (!await refreshAuthSession()) throw Object.assign(new Error("HTTP 401"), { status: 401 });
+    if (!(await refreshSession()).ok) throw Object.assign(new Error("HTTP 401"), { status: 401 });
     return { user: await requestAttempt("/auth/me", {}, false) };
   }
   return requestAttempt(path, options, true);
@@ -668,17 +674,12 @@ async function requestAttempt(path, options, allowRefresh) {
     headers["Content-Type"] = "application/json";
   }
 
-  const response = await fetch(path, {
+  const response = await fetchWithSession(path, {
     method: options.method || "GET",
     headers,
     credentials: "include",
     body: options.rawBody || (options.body ? JSON.stringify(options.body) : undefined),
-  });
-  if (response.status === 401 && allowRefresh && shouldRefreshAuth(path)) {
-    if (await refreshAuthSession()) {
-      return requestAttempt(path, options, false);
-    }
-  }
+  }, { refresh: allowRefresh });
   const responseText = await response.text();
   let payload = {};
   if (responseText) {
@@ -695,38 +696,6 @@ async function requestAttempt(path, options, allowRefresh) {
     throw error;
   }
   return payload;
-}
-
-async function refreshAuthSession() {
-  if (!authRefreshPromise) {
-    authRefreshPromise = refreshAuthSessionAttempt().finally(() => { authRefreshPromise = null; });
-  }
-  return authRefreshPromise;
-}
-
-async function refreshAuthSessionAttempt() {
-  const response = await fetch("/auth/refresh", {
-    method: "POST", headers: { Accept: "application/json" }, credentials: "include",
-  });
-  if (response.ok) return true;
-  if (response.status === 401) {
-    // A different tab may have consumed the old refresh cookie. Give its response
-    // time to install the replacement, then check the live session without rotating again.
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt) await new Promise(resolve => setTimeout(resolve, attempt * 150));
-      const session = await fetch("/auth/me", { headers: { Accept: "application/json" }, credentials: "include", cache: "no-store" });
-      if (session.ok) return true;
-      if (session.status !== 401) break;
-    }
-  }
-  return false;
-}
-
-function shouldRefreshAuth(path) {
-  return !String(path).startsWith("/auth/login-link")
-    && !String(path).startsWith("/auth/verify")
-    && !String(path).startsWith("/auth/refresh")
-    && !String(path).startsWith("/auth/passkeys/authentication");
 }
 
 function showOnly(screen) {
@@ -762,7 +731,7 @@ function updateTopActions(screen) {
   soundControl.classList.toggle("hidden", !inScene);
   logoutButton.classList.toggle("hidden", !loggedIn);
   storyScreen.classList.toggle("is-guest-catalog", !loggedIn);
-  document.querySelector("#home-all-stories").classList.toggle("hidden", !loggedIn);
+  document.querySelector("#home-all-stories").classList.remove("hidden");
   accountUI.refresh();
 }
 
@@ -1120,9 +1089,17 @@ async function handleRoute() {
   const current = navigationGuard();
   closeModals();
   collectionReader.close();
+  draftPlaytest.close();
   appNotice.classList.add("hidden");
   try {
     const path = normalizePath(window.location.pathname);
+    const previewParams = new URLSearchParams(window.location.search);
+    if (path === "/" && (previewParams.has("previewStory") || previewParams.has("previewCollection"))) {
+      if (!storage.email) { await showPublicHome(); if (current()) openAuthModal(); return; }
+      if (previewParams.has("previewCollection")) await draftPlaytest.openCollection(previewParams.get("previewCollection"), previewParams.get("revision"));
+      else await draftPlaytest.open(previewParams.get("previewStory"), previewParams.get("revision"));
+      return;
+    }
     if (path.startsWith("/collections/")) {
       currentState = null;
       stopSound({ resetPreference: true });
@@ -1138,12 +1115,6 @@ async function handleRoute() {
       return;
     }
     if (path === "/history") {
-      if (!storage.email) {
-        window.history.replaceState({}, document.title, "/");
-        await showPublicHome();
-        openAuthModal();
-        return;
-      }
       await renderHistoryRoute();
       return;
     }
@@ -1389,7 +1360,7 @@ function renderStoryDetail(story) {
   };
   collectionReader.storyEntry(story);
   if (pendingReadingActions.has(story)) storyDetailAction.disabled = restartButton.disabled = true;
-  if (opening && !storage.email) {
+  if (opening && !storage.email && !demoWelcomeAcknowledged) {
     openModal(document.querySelector("#demo-welcome-modal"));
     storyDetailScreen.inert = true;
   }
@@ -1960,9 +1931,10 @@ function storyMatchesQuery(story, query) {
 }
 
 function render(state) {
-  catalogStories = []; // Reload personal progress and endings when returning from gameplay.
+  if (!draftPlaytest.active) catalogStories = []; // Reload personal progress and endings when returning from gameplay.
   currentState = state;
-  collectionReader.session(state);
+  if (!draftPlaytest.active) collectionReader.session(state);
+  draftPlaytest.sync();
   releaseChoices();
   const scene = state.scene;
   showOnly(sceneScreen);
@@ -2000,20 +1972,21 @@ function render(state) {
     button.disabled = false;
     button.textContent = choice.label;
     button.addEventListener("click", () => withChoiceBusy(button, async () => {
-      render(await api.choice(state.sessionId, choice.id));
+      if (draftPlaytest.active) await draftPlaytest.choose(choice.id);
+      else render(await api.choice(state.sessionId, choice.id));
     }));
     choices.append(button);
   }
   releaseChoices();
 
   sceneTitle.hidden = true;
-  setStatus(state.status === "finished" ? t("sessionFinished") : t("progressSaved"));
+  setStatus(state.status === "finished" ? (draftPlaytest.active ? draftPlaytest.completionMessage() : t("sessionFinished")) : draftPlaytest.active ? "" : t("progressSaved"));
   if (state.status === "finished") {
     stopSound({ resetPreference: true });
   } else {
     syncSoundToScene();
   }
-  readerAds.present(state);
+  if (!draftPlaytest.active) readerAds.present(state);
 }
 
 function setChoicesBusy(busy) {
@@ -2296,7 +2269,7 @@ passkeyNudgeDismiss.addEventListener("click", () => {
 });
 
 homeReadButton.addEventListener("click", () => {
-  if (!storage.email) openAuthModal();
+  if (!storage.email && !demoWelcomeAcknowledged) openModal(document.querySelector("#demo-welcome-modal"));
   else navigateTo("/history");
 });
 
@@ -2343,7 +2316,7 @@ homeNextButton.addEventListener("click", () => moveHomeCarousel(1));
 let storyDetailReturnFocus = null;
 function closeStoryDetail() {
   navigationGeneration++;
-  const destination = !storage.email || window.history.state?.detailFrom === "/" ? "/" : "/history";
+  const destination = window.history.state?.detailFrom === "/history" || (storage.email && window.history.state?.detailFrom !== "/") ? "/history" : "/";
   const returnRoute = activeStoryDetail ? storyRoute(activeStoryDetail) : null;
   storyDetailScreen.classList.add("hidden");
   collectionReader.close();
@@ -2368,6 +2341,15 @@ document.querySelectorAll("[data-modal-close]").forEach((node) => {
   node.addEventListener("click", closeModals);
 });
 document.querySelector("#demo-welcome-register").addEventListener("click", openAuthModal);
+document.querySelector("#demo-welcome-continue").addEventListener("click", () => {
+  demoWelcomeAcknowledged = true;
+  activeStoryDetail = null;
+  storyDetailReturnFocus = null;
+  storySearch.value = "";
+  storySort.value = "default";
+  catalogSelect.refresh();
+  navigateTo("/history").then(() => storySearch.focus());
+});
 modalLangRuButton.addEventListener("click", () => setLanguage("ru"));
 modalLangEnButton.addEventListener("click", () => setLanguage("en"));
 modalSoundToggle.addEventListener("click", () => {
@@ -2470,6 +2452,21 @@ mountSiteControls({openSettings: openSettingsModal, openAccount: openProfileModa
 document.querySelector("#site-controls").prepend(document.querySelector("#home-search-form"));
 const accountUI = createAccountUI({ request, email: () => storage.email, language: () => storage.language });
 const readerAds = createReaderAds({request, language: () => storage.language});
+const draftPlaytest = createDraftPlaytest({
+  request, panel: document.querySelector("#scene-screen .story-panel"), language: () => currentLanguage,
+  onLoading: () => {
+    currentState = null;
+    stopSound({ resetPreference: true });
+    readerAds.hide();
+    sceneText.textContent = "";
+    sceneImage.removeAttribute("src");
+    sceneStatsList.replaceChildren();
+    choices.replaceChildren();
+    showOnly(sceneScreen);
+    setStatus(t("loading"));
+  },
+  onState: render, onError: setStatus, onBusy: setChoicesBusy,
+});
 const collectionReader = createCollectionReader({
   screen:document.querySelector("#collection-screen"), sceneScreen,
   present:renderStoryDetail, updateCatalog:updateCatalogStory, navigate:navigateTo,

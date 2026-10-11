@@ -49,7 +49,13 @@ public class StoryAssetStorageService {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported asset type: " + contentType);
 		}
 
-		String extension = extension(file.getOriginalFilename(), contentType);
+		RasterImageNormalizer.Image image = null;
+		if (contentType.startsWith("image/") && !contentType.equals("image/svg+xml")) {
+			try (InputStream input = file.getInputStream()) { image = RasterImageNormalizer.normalize(input); }
+			catch (IOException error) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Could not read image", error); }
+			contentType = image.type();
+		}
+		String extension = image == null ? extension(file.getOriginalFilename(), contentType) : image.extension();
 		String filename = UUID.randomUUID() + extension;
 		Path directory = storyDirectory(storyId);
 		Path target = directory.resolve(filename).normalize();
@@ -58,13 +64,12 @@ public class StoryAssetStorageService {
 		}
 		try {
 			Files.createDirectories(directory);
-			try (InputStream input = file.getInputStream()) {
-				Files.copy(input, target);
-			}
+			if (image != null) Files.write(target, image.bytes());
+			else try (InputStream input = file.getInputStream()) { Files.copy(input, target); }
 		} catch (IOException ex) {
 			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not store asset", ex);
 		}
-		return new StoredAsset(publicUrl(storyId, filename), contentType, file.getSize(), filename);
+		return new StoredAsset(publicUrl(storyId, filename), contentType, image == null ? file.getSize() : image.bytes().length, filename);
 	}
 
 	void deleteUnreferencedStoryFiles(String storyId, Set<String> referencedUrls) {

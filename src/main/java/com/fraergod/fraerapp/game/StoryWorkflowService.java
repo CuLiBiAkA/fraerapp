@@ -51,11 +51,13 @@ class StoryWorkflowService {
  }
  private void owner(Story story,String playerId) {
   if(playerId==null || !playerId.equals(story.getOwnerPlayerId()))throw new ForbiddenRoleException();
+  TrashRetentionService.requireRetained(story.getVisibility(),story.getDeletedAt());
  }
  private boolean owns(Story story,AuthIdentity actor) {
   return story.getOwnerPlayerId()!=null && players.findById(story.getOwnerPlayerId()).map(p->actor.userId().equals(p.getUserId())).orElse(false);
  }
  private void editable(Story s) {
+  TrashRetentionService.requireRetained(s.getVisibility(),s.getDeletedAt());
   if("deleted".equals(s.getVisibility()))throw conflict("Restore the story before editing");
  }
  private ResponseStatusException conflict(String message) { return new ResponseStatusException(HttpStatus.CONFLICT,message); }
@@ -181,6 +183,7 @@ class StoryWorkflowService {
   collections.structureLock();
   if(!actor.hasRole("moderator")&&!actor.hasRole("admin"))throw new ForbiddenRoleException();
   Story s=lock(id);Workspace w=workspace(id);expected(w,command.generation());
+  TrashRetentionService.requireRetained(s.getVisibility(),s.getDeletedAt());
   boolean self=owns(s,actor);
   boolean approving=List.of("approve","approve-publish").contains(action);
   boolean restoring=List.of("restore","visibility","publish-approved").contains(action);
@@ -216,6 +219,7 @@ class StoryWorkflowService {
    if("deleted".equals(s.getVisibility())&&!"restore".equals(action))throw conflict("Restore the story first");
    if("restore".equals(action)&&!List.of("deleted","hidden","archived").contains(s.getVisibility()))throw conflict("Story is not restricted");
    if(List.of("public","unlisted").contains(next)&&s.getPublishedRevision()==null)throw conflict("Publish an approved revision explicitly first");
+   s.setDeletedAt("deleted".equals(next)?Instant.now():null);
    s.setVisibility(next);s.setStatus(List.of("public","unlisted").contains(next)?StoryStatus.PUBLISHED:StoryStatus.ARCHIVED);
    stories.saveAndFlush(s);
    jdbc.update("update story_workspaces set restricted=?,decision_reason=?,generation=generation+1 where story_id=?",List.of("hidden","archived","deleted").contains(next),why,id);
@@ -234,12 +238,22 @@ class StoryWorkflowService {
  }
  @Transactional
  Map<String,Object> takeDown(String id,String playerId,boolean delete,AuthIdentity actor) {
+  collections.structureLock();
   Story s=lock(id);owner(s,playerId);Workspace w=workspace(id);
+  if("deleted".equals(s.getVisibility()))throw conflict("Restore the story before changing its availability");
   if(w.restricted())throw new ForbiddenRoleException();
   if(delete&&s.getPublishedRevision()!=null)throw conflict("Published stories can be archived, not deleted by the author");
-  String before=s.getVisibility();s.setVisibility(delete?"deleted":"archived");s.setStatus(StoryStatus.ARCHIVED);stories.saveAndFlush(s);
+  String before=s.getVisibility();s.setDeletedAt(delete?Instant.now():null);s.setVisibility(delete?"deleted":"archived");s.setStatus(StoryStatus.ARCHIVED);stories.saveAndFlush(s);
   jdbc.update("update story_workspaces set submitted_revision=null,review_state=case when review_state='in_review' then 'draft' else review_state end,generation=generation+1 where story_id=?",id);
   event(s,w.draftRevision(),actor,delete?"author_delete":"author_archive","","",before,s.getVisibility());return summary(s,workspace(id));
+ }
+ @Transactional
+ Map<String,Object> restoreTrash(String id,String playerId,int generation,AuthIdentity actor) {
+  collections.structureLock();Story s=lock(id);owner(s,playerId);Workspace w=workspace(id);expected(w,generation);
+  if(!"deleted".equals(s.getVisibility())||w.restricted()||s.getPublishedRevision()!=null)throw conflict("Only your own unpublished trash can be restored");
+  s.setVisibility("private");s.setDeletedAt(null);s.setStatus(StoryStatus.DRAFT);stories.saveAndFlush(s);
+  jdbc.update("update story_workspaces set submitted_revision=null,review_state='draft',generation=generation+1 where story_id=?",id);
+  event(s,w.draftRevision(),actor,"author_restore","","","deleted","private");return summary(s,workspace(id));
  }
  private Story publishRevision(Story s,int revision,String visibility) {
   if(visibility!=null&&!List.of("public","unlisted").contains(visibility))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Publication visibility must be public or unlisted");
@@ -322,7 +336,7 @@ class StoryWorkflowService {
  }
  @Transactional(readOnly=true)
  List<Map<String,Object>> mine(String playerId) {
-  return stories.findByOwnerPlayerIdOrderByUpdatedAtDesc(playerId).stream().map(s->summary(s,workspace(s.getId()))).toList();
+  return stories.findByOwnerPlayerIdOrderByUpdatedAtDesc(playerId).stream().filter(s->!TrashRetentionService.expired(s.getVisibility(),s.getDeletedAt())).map(s->summary(s,workspace(s.getId()))).toList();
  }
  @Transactional(readOnly=true)
  Map<String,Object> details(String id,String playerId,boolean moderation) {
@@ -362,7 +376,8 @@ class StoryWorkflowService {
   m.put("publishedAt",s.getPublishedAt());m.put("updatedAt",s.getUpdatedAt());m.put("draftRevision",w.draftRevision());m.put("versionNumber",w.draftRevision());
   m.put("publishedRevision",s.getPublishedRevision());m.put("submittedRevision",w.submittedRevision());m.put("reviewState",w.reviewState());
   m.put("hasDraft",!Objects.equals(s.getPublishedRevision(),w.draftRevision())&&(!Objects.equals(w.submittedRevision(),w.draftRevision())||!List.of("in_review","approved").contains(w.reviewState())));
-  m.put("reviewLimitReached",reviewCapacity.blocked(s.getOwnerPlayerId(),"scenario",s.getId()));
+  reviewCapacity.addStatus(m,s.getOwnerPlayerId(),"scenario",s.getId());
+  TrashRetentionService.describe(m,s.getVisibility(),s.getDeletedAt(),w.restricted(),s.getPublishedRevision());
   m.put("reason",w.reason());m.put("submittedAt",w.submittedAt());m.put("decidedAt",w.decidedAt());m.put("reviewerId",w.reviewerId());m.put("restricted",w.restricted());m.put("generation",w.generation());
   m.put("ownerUserId",s.getOwnerPlayerId()==null?null:players.findById(s.getOwnerPlayerId()).map(Player::getUserId).orElse(null));
   m.put("ownerName",s.getOwnerPlayerId()==null?"System":"Автор #"+s.getOwnerPlayerId().substring(0,8));

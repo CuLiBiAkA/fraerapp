@@ -49,6 +49,7 @@ class ChapterReadingService {
  Map<String,Object> entryContext(String slug,String player,boolean guest){var live=stories.findByPublishedSlug(slug).filter(StoryAccessService::available).orElseThrow(StoryNotFoundException::new);if(guest&&!GuestDemoStories.includes(live.getKey()))throw new AuthRequiredException();var target=access.atRevision(live,live.getPublishedRevision()).getRuntimeDocument();var contract=target.metadata()==null?null:target.metadata().inputContract();var result=new LinkedHashMap<String,Object>();result.put("allowIndependentStart",contract==null||Boolean.TRUE.equals(contract.allowIndependentStart()));result.put("parents",StoryAccessService.listed(live)?collections.breadcrumbs("scenario",live.getId(),guest):List.of());var prerequisites=new ArrayList<Map<String,Object>>();var sources=new ArrayList<Map<String,Object>>();
   if(!guest&&StoryAccessService.listed(live)){
    for(var r:jdbc.queryForList("select s.id,s.story_key,s.title,s.published_slug,v.snapshot_json from stories s join story_versions v on v.story_id=s.id and v.version_number=s.published_revision where s.status='PUBLISHED' and s.visibility='public' and s.metadata_json is not null and s.owner_player_id=?",live.getOwnerPlayerId())){
+    var sourceLive=stories.findById((String)r.get("id")).orElseThrow();if(!access.readable(sourceLive))continue;
     var d=json.readStory((String)r.get("snapshot_json"));if(d.metadata()==null)continue;
     if(list(d.metadata().relations()).stream().anyMatch(link->relationTargets(link,live)&&link.stateTransfer()!=null))prerequisites.add(Map.of("id",r.get("id"),"key",r.get("story_key"),"title",r.get("title"),"slug",r.get("published_slug")));
    }
@@ -78,21 +79,28 @@ class ChapterReadingService {
   if(!repeat.isEmpty()){var t=repeat.get(0);if(!id.equals(t.get("run_id"))||!target.getId().equals(t.get("target_story_id"))||!Objects.equals(command.sourceSessionId(),t.get("source_session_id")))throw conflict("Request was already used for another transition");return result(id,player,(String)t.get("target_session_id"));}
   var old=jdbc.queryForList("select session_id as target_session_id from collection_run_saves where run_id=? and story_id=?",id,target.getId());
   if(!old.isEmpty())return result(id,player,(String)old.get(0).get("target_session_id"));
-  if(d.serialStory()){
-   int chapter=-1;for(int i=0;i<d.items().size();i++)if(Objects.equals(d.items().get(i).target().id(),target.getId()))chapter=i;
-   if(chapter>0&&command.sourceSessionId()==null)throw conflict("Finish the previous chapter before continuing");
-  }
-  GameSession source=null;Story sourceStory=null;WorkMetadata.Transfer policy=null;String policyId="direct:"+target.getId();
+  GameSession source=null;Story sourceStory=null;
   if(command.sourceSessionId()!=null){source=ownedSession(command.sourceSessionId(),player);sourceStory=runtime(source);if(source.getStatus()!=SessionStatus.FINISHED)throw conflict("Complete the source chapter before continuing");
    if(jdbc.queryForObject("select count(*) from collection_run_saves where run_id=? and session_id=?",Integer.class,id,source.getId())==0)throw conflict("Source save belongs to another reading chain");
    if(!StoryAccessService.listed(stories.findById(source.getStoryId()).orElseThrow()))throw new StoryNotFoundException();
-   int position=-1;for(int i=0;i<list(d.items()).size();i++)if(Objects.equals(d.items().get(i).target().id(),source.getStoryId()))position=i;
-   if(position<0||position+1>=d.items().size()||!Objects.equals(d.items().get(position+1).target().id(),target.getId()))throw conflict("These chapters are not adjacent in this reading chain");
-   policyId="toc:"+source.getStoryId()+":"+target.getId();
-   for(var p:list(d.transitions()))if(Objects.equals(p.from().id(),source.getStoryId())&&Objects.equals(p.to().id(),target.getId())){policy=p.stateTransfer();policyId=p.id();break;}
   }
-  var values=d.serialStory()?serialValues(target.getRuntimeDocument(),source==null?Map.of():json.readMap(source.getVariablesJson())):links.transfer(sourceStory==null?null:sourceStory.getRuntimeDocument(),target.getRuntimeDocument(),policy,source==null?Map.of():json.readMap(source.getVariablesJson()));
-  var state=game.startTransferredSession(player,target,values,null);record(player,id,source,policyId,r.revision(),target,state.sessionId(),values,command.requestId());return Map.of("runId",id,"session",state);
+  var inputs=transitionInputs(d,source==null?null:source.getStoryId(),target.getId(),sourceStory==null?null:sourceStory.getRuntimeDocument(),target.getRuntimeDocument(),source==null||source.getStatus()==SessionStatus.FINISHED,source==null?Map.of():json.readMap(source.getVariablesJson()));
+  var state=game.startTransferredSession(player,target,inputs.values(),null);record(player,id,source,inputs.policyId(),r.revision(),target,state.sessionId(),inputs.values(),command.requestId());return Map.of("runId",id,"session",state);
+ }
+ record TransitionInputs(String policyId,Map<String,Object> values) {}
+ /** Pure reading-order and input policy shared by published runs and private replay. */
+ TransitionInputs transitionInputs(CollectionDocument toc,String sourceId,String targetId,StoryDocument source,StoryDocument target,boolean sourceFinished,Map<String,Object> previous){
+  int chapter=-1;for(int i=0;i<list(toc.items()).size();i++)if(Objects.equals(toc.items().get(i).target().id(),targetId))chapter=i;
+  if(chapter<0)throw new StoryNotFoundException();
+  WorkMetadata.Transfer policy=null;String policyId="direct:"+targetId;
+  if(sourceId==null){if(toc.serialStory()&&chapter>0)throw conflict("Finish the previous chapter before continuing");}
+  else {
+   if(!sourceFinished)throw conflict("Complete the source chapter before continuing");
+   if(chapter==0||!Objects.equals(toc.items().get(chapter-1).target().id(),sourceId))throw conflict("These chapters are not adjacent in this reading chain");
+   policyId="toc:"+sourceId+":"+targetId;
+   for(var transition:list(toc.transitions()))if(Objects.equals(transition.from().id(),sourceId)&&Objects.equals(transition.to().id(),targetId)){policy=transition.stateTransfer();policyId=transition.id();break;}
+  }
+  return new TransitionInputs(policyId,toc.serialStory()?serialValues(target,previous):links.transfer(source,target,policy,previous));
  }
  private Map<String,Object> serialValues(StoryDocument target,Map<String,Object> previous){
   var values=new LinkedHashMap<>(previous);values.remove("__sceneVariables");
@@ -114,7 +122,7 @@ class ChapterReadingService {
  Map<String,Object> relations(String id,String player,String runId){var s=ownedSession(id,player);var source=runtime(s);var d=source.getRuntimeDocument();var result=new LinkedHashMap<String,Object>();var outgoing=new ArrayList<Map<String,Object>>();
   for(var link:d.metadata()==null?List.<WorkMetadata.Relation>of():list(d.metadata().relations())){
    // Re-evaluate live target availability without exposing inaccessible names, IDs or policies.
-   try{var t=links.resolve(link.target(),source.getOwnerPlayerId(),true);Map<String,Object> target=new LinkedHashMap<>();if("scenario".equals(t.kind())){var st=stories.findById(t.id()).filter(StoryAccessService::listed).orElseThrow(StoryNotFoundException::new);target.put("id",st.getId());target.put("key",st.getKey());target.put("slug",st.getPublishedSlug());target.put("title",st.getTitle());}else{var c=collections.accessible(t.id(),false);if(!collections.listed(c))continue;var cd=collections.document(c,c.published());target.put("id",c.id());target.put("key",c.key());target.put("title",cd.title());target.put("slug",c.key());}target.put("kind",t.kind());var item=new LinkedHashMap<String,Object>();item.put("id",link.id());item.put("type",link.type());item.put("label",link.label());item.put("target",target);item.put("stateTransfer",link.stateTransfer());outgoing.add(item);}catch(org.springframework.web.server.ResponseStatusException|StoryNotFoundException unavailable){/* neutral absence */}
+   try{var t=links.resolve(link.target(),source.getOwnerPlayerId(),true);Map<String,Object> target=new LinkedHashMap<>();if("scenario".equals(t.kind())){var st=stories.findById(t.id()).filter(StoryAccessService::listed).filter(access::readable).orElseThrow(StoryNotFoundException::new);target.put("id",st.getId());target.put("key",st.getKey());target.put("slug",st.getPublishedSlug());target.put("title",st.getTitle());}else{var c=collections.accessible(t.id(),false);if(!collections.listed(c))continue;var cd=collections.document(c,c.published());target.put("id",c.id());target.put("key",c.key());target.put("title",cd.title());target.put("slug",c.key());}target.put("kind",t.kind());var item=new LinkedHashMap<String,Object>();item.put("id",link.id());item.put("type",link.type());item.put("label",link.label());item.put("target",target);item.put("stateTransfer",link.stateTransfer());outgoing.add(item);}catch(org.springframework.web.server.ResponseStatusException|StoryNotFoundException unavailable){/* neutral absence */}
   }
   result.put("relations",outgoing);result.put("breadcrumbs",collections.breadcrumbs("scenario",s.getStoryId(),false));
   var chains=jdbc.queryForList("select r.id,r.collection_id from collection_run_saves t join collection_runs r on r.id=t.run_id join work_collections c on c.id=r.collection_id where t.session_id=? and r.player_id=? and c.visibility in ('public','unlisted') and c.published_revision is not null order by r.created_at desc",id,player);

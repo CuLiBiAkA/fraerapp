@@ -35,8 +35,8 @@ class CollectionWorkflowTests extends ApiTestSupport {
  Map<String,Object> save(String id,Map<String,Object> d){return ok(call("PUT","/api/author/collections/"+id,Map.of("generation",details(id).get("generation"),"document",d),author));}
  Map<String,Object> submit(String id){return ok(call("POST","/api/author/collections/"+id+"/review",Map.of("generation",details(id).get("generation"),"replaceReview",true),author));}
  Map<String,Object> decide(String id,String action){var d=details(id);var c=new LinkedHashMap<String,Object>();c.put("generation",d.get("generation"));c.put("revision",d.get("submittedRevision"));c.put("reason","Reviewed");return ok(call("POST","/api/moderation/collections/"+id+"/"+action,c,reviewer));}
- void publish(String id){submit(id);decide(id,"approve-publish");}
- void publishStory(Map<String,Object> s){ok(approveAndPublish(port,sid(s),author));}
+ void publish(String id){advanceReviewDay(jdbc,"collection",id);submit(id);decide(id,"approve-publish");}
+ void publishStory(Map<String,Object> s){ok(approveAndPublishOnNextDay(jdbc,port,sid(s),author));}
  Map<String,Object> run(String collection){return ok(call("POST","/api/collections/"+collection+"/runs",Map.of("requestId",key()),reader));}
  Map<String,Object> start(String run,String target,String source,String request){var c=new LinkedHashMap<String,Object>();c.put("targetId",target);c.put("sourceSessionId",source);c.put("requestId",request);return ok(call("POST","/api/collection-runs/"+run+"/start",c,reader));}
  @SuppressWarnings("unchecked") Map<String,Object> session(Map<String,Object> result){return (Map<String,Object>)result.get("session");}
@@ -60,9 +60,12 @@ class CollectionWorkflowTests extends ApiTestSupport {
   var theirs=ok(call("POST","/api/author/stories/import",scenario(key(),4),other));
   ok(call("POST","/api/author/stories/"+sid(theirs)+"/review",Map.of("generation",theirs.get("generation")),other));
   ok(call("POST","/api/moderation/stories/"+sid(first)+"/approve",Map.of("generation",pending.get("generation"),"revision",pending.get("submittedRevision")),reviewer));
+  assertThat(object(call("POST","/api/author/stories/"+sid(second)+"/review",Map.of("generation",second.get("generation")),author).body())).containsEntry("code","REVIEW_DAILY_LIMIT_REACHED");
+  advanceReviewDay(jdbc,"scenario",sid(first));
   pending=ok(call("POST","/api/author/stories/"+sid(second)+"/review",Map.of("generation",second.get("generation")),author));
   ok(call("POST","/api/moderation/stories/"+sid(second)+"/reject",Map.of("generation",pending.get("generation"),"revision",pending.get("submittedRevision"),"reason","Please revise"),reviewer));
   var fresh=ok(call("GET","/api/author/stories/"+sid(first),null,author));
+  advanceReviewDay(jdbc,"scenario",sid(first));
   ok(call("POST","/api/author/stories/"+sid(first)+"/review",Map.of("generation",fresh.get("generation")),author));
  }
  @Test void concurrentDifferentStoriesHaveOneSubmissionWinner() throws Exception {
@@ -79,7 +82,7 @@ class CollectionWorkflowTests extends ApiTestSupport {
   var denied=call("POST","/api/author/collections/"+second+"/review-batch",Map.of("generation",details(second).get("generation")),author);
   assertThat(denied.statusCode()).isEqualTo(409);assertThat(details(second)).containsEntry("reviewState","draft").containsEntry("reviewLimitReached",true);
   assertThat(ok(call("GET","/api/author/stories/"+sid(c),null,author))).containsEntry("reviewState","draft");
-  var application=folderReview(first);ok(call("POST","/api/moderation/folders/"+first+"/decision",folderDecision(application,"reject"),reviewer));batch(second);
+  var application=folderReview(first);ok(call("POST","/api/moderation/folders/"+first+"/decision",folderDecision(application,"reject"),reviewer));advanceReviewDay(jdbc,"collection",first);batch(second);
  }
  @Test void unrelatedBatchIsAtomicAndWithdrawalFreesTheSlot() {
   var a=draft(scenario(key(),1));var b=draft(scenario(key(),2));
@@ -91,6 +94,8 @@ class CollectionWorkflowTests extends ApiTestSupport {
   var denied=call("POST","/api/admin/stories/"+sid(b)+"/review",Map.of("generation",b.get("generation")),admin);
   assertThat(denied.statusCode()).isEqualTo(409);assertThat(object(denied.body())).containsEntry("code","REVIEW_LIMIT_REACHED");
   ok(call("POST","/api/author/stories/"+sid(a)+"/withdraw",Map.of("generation",pending.get("generation")),author));
+  assertThat(object(call("POST","/api/author/stories/"+sid(b)+"/review",Map.of("generation",b.get("generation")),author).body())).containsEntry("code","REVIEW_DAILY_LIMIT_REACHED");
+  advanceReviewDay(jdbc,"scenario",sid(a));
   ok(call("POST","/api/author/stories/"+sid(b)+"/review",Map.of("generation",b.get("generation")),author));
  }
  @Test void movingAPendingChapterCannotChangeItsOccupiedStorySlot() {
@@ -112,6 +117,7 @@ class CollectionWorkflowTests extends ApiTestSupport {
    var pending=ok(call("POST","/api/author/"+route+"/"+id+"/review",Map.of("generation",work.get("generation")),author));
    var decided=ok(call("POST","/api/moderation/"+route+"/"+id+"/"+action,Map.of("generation",pending.get("generation"),"revision",pending.get("submittedRevision"),"reason","Moderator response"),reviewer));
    assertThat(decided).containsEntry("reviewState","rejected");
+   advanceReviewDay(jdbc,collection?"collection":"scenario",id);
   }
   var next=draft(scenario(key(),2));ok(call("POST","/api/author/stories/"+sid(next)+"/review",Map.of("generation",next.get("generation")),author));
  }
@@ -120,7 +126,7 @@ class CollectionWorkflowTests extends ApiTestSupport {
   for(boolean published:List.of(false,true)){
    var target=ok(call("POST","/api/author/stories/import",scenario(key(),1),foreign));if(published)ok(approveAndPublish(port,sid(target),foreign));
    var foreignFolder=ok(call("POST","/api/author/collections",Map.of("document",document("story",List.of())),foreign));
-   if(published){var sent=ok(call("POST","/api/author/collections/"+cid(foreignFolder)+"/review",Map.of("generation",1),foreign));ok(call("POST","/api/moderation/collections/"+cid(foreignFolder)+"/approve-publish",Map.of("generation",sent.get("generation"),"revision",sent.get("submittedRevision")),reviewer));}
+   if(published){advanceReviewDay(jdbc,"collection",cid(foreignFolder));var sent=ok(call("POST","/api/author/collections/"+cid(foreignFolder)+"/review",Map.of("generation",1),foreign));ok(call("POST","/api/moderation/collections/"+cid(foreignFolder)+"/approve-publish",Map.of("generation",sent.get("generation"),"revision",sent.get("submittedRevision")),reviewer));}
    for(String kind:List.of("scenario","collection"))for(String field:List.of("id","key")){
     var work=kind.equals("scenario")?target:foreignFolder;var ref=Map.of("kind",kind,field,field.equals("key")?work.get("key"):work.get(kind.equals("scenario")?"storyId":"collectionId"));
     var source=scenario(key(),1);source.put("metadata",Map.of("schemaVersion",1,"relations",List.of(Map.of("id","related","type","related","target",ref))));
@@ -286,6 +292,25 @@ class CollectionWorkflowTests extends ApiTestSupport {
   assertThat(ok(call("GET","/api/sessions/"+source+"/relations?runId="+run,null,reader)).get("runId")).isEqualTo(run);
   assertThat(ok(call("GET","/api/sessions/"+source+"/relations?runId="+branch.get("runId"),null,reader)).get("runId")).isEqualTo(branch.get("runId"));
  }
+ @Test void genericResetCannotRewriteSharedChapterAttemptsOrTransferredInputs() {
+  var a=draft(scenario(key(),7));var b=draft(scenario(key(),1));publishStory(a);publishStory(b);
+  var doc=document("story",List.of(item("scenario",a),item("scenario",b)));doc.put("schemaVersion",2);
+  String collection=cid(create(doc));publish(collection);String run=run(collection).get("id").toString();
+  String source=sessionId(start(run,sid(a),null,key()));finish(source);var original=start(run,sid(b),source,key());String target=sessionId(original);
+  var branch=ok(call("POST","/api/collection-runs/"+run+"/start",Map.of("targetId",sid(b),"sourceSessionId",source,"requestId",key(),"newAttempt",true),reader));
+  assertThat(branch.get("runId")).isNotEqualTo(run);assertThat(sessionId(branch)).isNotEqualTo(target);
+  for(String save:List.of(source,target,sessionId(branch))){
+   var before=ok(call("GET","/api/sessions/"+save+"/state",null,reader));
+   assertThat(call("POST","/api/sessions/"+save+"/reset",null,reader).statusCode()).isEqualTo(409);
+   var after=ok(call("GET","/api/sessions/"+save+"/state",null,reader));
+   for(String field:List.of("scene","variables","status"))assertThat(after.get(field)).isEqualTo(before.get(field));
+  }
+  assertThat(((Number)((Map<?,?>)session(original).get("variables")).get("score")).doubleValue()).isEqualTo(11);
+  for(String chain:List.of(run,branch.get("runId").toString()))assertThat(ok(call("GET","/api/collection-runs/"+chain,null,reader))).containsEntry("completedCount",1);
+  var standaloneStory=draft(scenario(key(),3));publishStory(standaloneStory);
+  String standalone=ok(call("POST","/api/sessions",Map.of("storyKey",standaloneStory.get("key")),reader)).get("sessionId").toString();
+  finish(standalone);assertThat(ok(call("POST","/api/sessions/"+standalone+"/reset",null,reader))).containsEntry("status","active");
+ }
  @Test void independentStartsUseTargetDefaultsAndTocUpdateIsExplicit() {
   var a=draft(scenario(key(),10));var b=draft(scenario(key(),20));publishStory(a);publishStory(b);var doc=document("story",List.of(item("scenario",a)));String id=cid(create(doc));publish(id);String run=run(id).get("id").toString();var first=start(run,sid(a),null,key());String source=sessionId(first);finish(source);
   doc.put("items",List.of(item("scenario",a),item("scenario",b)));save(id,doc);publish(id);var old=ok(call("GET","/api/collection-runs/"+run,null,reader));assertThat((List<?>)old.get("items")).hasSize(1);assertThat(old.get("availableRevision")).isNotEqualTo(old.get("revision"));
@@ -315,6 +340,20 @@ class CollectionWorkflowTests extends ApiTestSupport {
   var a=draft(scenario(key(),1));var c=create(document("story",List.of(item("scenario",a))));String id=cid(c);var exported=ok(call("GET","/api/author/collections/"+id+"/export",null,author));
   assertThat(body(exported)).doesNotContain(sid(a));ok(call("POST","/api/author/collections/import",Map.of("package",exported),author));ok(call("POST","/api/author/collections/import",Map.of("package",exported),author));assertThat(details(id).get("generation")).isEqualTo(1);
   String stranger=TestJwtFactory.author("other-"+UUID.randomUUID()+"@example.test");assertThat(call("POST","/api/author/collections/import",Map.of("package",exported),stranger).statusCode()).isEqualTo(403);
+ }
+ @Test void packageImportReturnsFinalGenerationsAfterResolvingForwardScenarioLinks() {
+  var first=scenario(key(),1);var second=scenario(key(),2);
+  first.put("metadata",Map.of("schemaVersion",1,"relations",List.of(Map.of("id","next","type","sequel","target",Map.of("kind","scenario","key",second.get("key"))))));
+  var doc=document("story",List.of(Map.of("target",Map.of("kind","scenario","key",first.get("key"))),Map.of("target",Map.of("kind","scenario","key",second.get("key")))));
+  var payload=Map.of("package",Map.of("schemaVersion",1,"kind","fraerapp-work-package","root",Map.of("kind","collection","key",doc.get("key")),"scenarios",List.of(first,second),"collections",List.of(doc)));
+  var imported=ok(call("POST","/api/author/collections/import",payload,author));
+  for(var item:maps(imported.get("items")))if(item.get("storyId")!=null){
+   String id=item.get("storyId").toString();var current=ok(call("GET","/api/author/stories/"+id,null,author));
+   assertThat(item.get("generation")).isEqualTo(current.get("generation"));assertThat(item.get("draftRevision")).isEqualTo(current.get("draftRevision"));
+   ok(call("PUT","/api/author/stories/"+id,Map.of("generation",item.get("generation"),"document",current.get("draftDocument")),author));
+  }
+  var repeated=ok(call("POST","/api/author/collections/import",payload,author));
+  for(var item:maps(repeated.get("items")))if(item.get("storyId")!=null){var original=maps(imported.get("items")).stream().filter(i->Objects.equals(i.get("storyId"),item.get("storyId"))).findFirst().orElseThrow();assertThat(item.get("generation")).isEqualTo(original.get("generation"));}
  }
  @Test void batchReviewIsAtomicAndNeverPublishesChildren() {
   var a=draft(scenario(key(),1));var c=create(document("story",List.of(item("scenario",a))));String id=cid(c);
@@ -346,7 +385,7 @@ class CollectionWorkflowTests extends ApiTestSupport {
   synthetic.put("stateTransfer",Map.of("mode","mapped","contractVersion",1,"mapping",List.of(Map.of("from","__sceneVariables","to","score","type","number"))));assertThat(call("POST","/api/author/relations/test",synthetic,author).statusCode()).isEqualTo(400);
  }
  @Test void exactPreviewDependenciesSearchPrivacyAndSelectedDescendantRestrictions() {
-  var a=draft(scenario(key(),1));var b=draft(scenario(key(),2));publishStory(a);publishStory(b);var doc=document("story",List.of(item("scenario",a)));doc.put("title","Searchable unique "+key());String id=cid(create(doc));submit(id);doc.put("items",List.of(item("scenario",b)));save(id,doc);
+  var a=draft(scenario(key(),1));var b=draft(scenario(key(),2));publishStory(a);publishStory(b);var doc=document("story",List.of(item("scenario",a)));doc.put("title","Searchable unique "+key());String id=cid(create(doc));advanceReviewDay(jdbc,"collection",id);submit(id);doc.put("items",List.of(item("scenario",b)));save(id,doc);
   var preview=ok(call("GET","/api/moderation/collections/"+id+"/preview?revision=submitted",null,reviewer));assertThat(body(preview.get("dependencies"))).contains(sid(a)).doesNotContain(sid(b));decide(id,"approve-publish");
   assertThat(call("GET","/api/author/collections/targets?q=Searchable",null,author).body()).contains(id);assertThat(call("GET","/api/catalog/collections?q="+b.get("key"),null,reader).body()).doesNotContain(id);
   assertThat(call("GET","/api/author/collections/parents?scenarioId="+sid(a),null,author).body()).contains(id);

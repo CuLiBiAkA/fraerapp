@@ -26,6 +26,7 @@ class StoryMediaController {
   String ownerId=story==null?collection.owner():story.getOwnerPlayerId();
   boolean owner=identity.isPresent()&&ownerId!=null&&players.findById(ownerId).map(p->identity.get().userId().equals(p.getUserId())).orElse(false);
   boolean moderator=identity.map(a->a.hasRole("admin")||a.hasRole("moderator")).orElse(false);
+  if(!moderator)TrashRetentionService.requireRetained(story==null?collection.visibility():story.getVisibility(),story==null?collection.deletedAt():story.getDeletedAt());
   String url="/uploads/"+id+"/"+filename;
   if(!owner&&!moderator) {
    if(story==null){

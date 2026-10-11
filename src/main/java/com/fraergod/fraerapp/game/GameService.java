@@ -33,10 +33,12 @@ class GameService {
 	private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 	private final WorkLinksService links;
 	private final ReaderAdService readerAds;
+	private final CollectionService collections;
 
 	GameService(PlayerRepository players, StoryRepository stories, SceneRepository scenes, ChoiceRepository choices,
-			StoryAssetRepository assets, GameSessionRepository sessions, JsonSupport json, StoryAccessService access, org.springframework.jdbc.core.JdbcTemplate jdbc, WorkLinksService links, ReaderAdService readerAds) {
+			StoryAssetRepository assets, GameSessionRepository sessions, JsonSupport json, StoryAccessService access, org.springframework.jdbc.core.JdbcTemplate jdbc, WorkLinksService links, ReaderAdService readerAds, CollectionService collections) {
 		this.readerAds = readerAds;
+		this.collections = collections;
 		this.players = players;
 		this.stories = stories;
 		this.scenes = scenes;
@@ -58,7 +60,9 @@ class GameService {
 
 	@Transactional(readOnly = true)
 	List<StorySummary> publishedStories() {
+		var chapters = collections.listedChapterIds();
 		return stories.findByStatusOrderByTitleAsc(StoryStatus.PUBLISHED).stream().filter(StoryAccessService::listed)
+				.filter(story -> !chapters.contains(story.getId()))
 				.map(story -> new StorySummary(story.getKey(), story.getTitle(), story.getDescription()))
 				.toList();
 	}
@@ -145,10 +149,18 @@ class GameService {
 	SessionState choose(String playerId, String sessionId, String choiceId) {
 		lockReader(playerId);
 		GameSession session = session(playerId, sessionId);
+		Story story = runtimeStory(session);
+		Scene next = advance(session, story, choiceId);
+		if (session.getStatus() == SessionStatus.FINISHED) recordEnding(session);
+		readerAds.transition(playerId,session.getStatus()==SessionStatus.FINISHED);
+		return state(session, story, next);
+	}
+
+	/** Pure transition shared by real reading and private, non-persistent playtests. */
+	private Scene advance(GameSession session, Story story, String choiceId) {
 		if (session.getStatus() == SessionStatus.FINISHED) {
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Session is finished");
 		}
-		Story story = runtimeStory(session);
 		Scene current = scene(story, session.getCurrentSceneKey());
 		Map<String, Object> variables = json.readMap(session.getVariablesJson());
 		Map<String, Object> sceneVariables = sceneVariables(current, variables);
@@ -169,10 +181,28 @@ class GameService {
 		session.setCurrentSceneKey(next.getSceneKey());
 		if (json.readObject(next.getEndingJson()) != null) {
 			session.finish(next.getSceneKey());
-			recordEnding(session);
 		}
-		readerAds.transition(playerId,session.getStatus()==SessionStatus.FINISHED);
-		return state(session, story, next);
+		return next;
+	}
+
+	@Transactional(readOnly = true)
+	SessionState playtest(String storyId, StoryDocument document, List<String> history) {
+		return playtest(storyId, document, history, links.transfer(null, document, null, Map.of()));
+	}
+
+	/** Inputs come only from the shared chapter transition policy, never from a client state. */
+	@Transactional(readOnly = true)
+	SessionState playtest(String storyId, StoryDocument document, List<String> history, Map<String, Object> inputs) {
+		Story story = stories.findById(storyId).orElseThrow(StoryNotFoundException::new).atRevision(document, json);
+		GameSession session = new GameSession(story.getOwnerPlayerId(), story, "Preview");
+		Scene current = scene(story, story.getStartSceneId());
+		Map<String, Object> variables = json.readMap(session.getVariablesJson());
+		variables.putAll(inputs);
+		applySceneEffects(variables, current);
+		session.setVariablesJson(json.write(variables));
+		if (json.readObject(current.getEndingJson()) != null) session.finish(current.getSceneKey());
+		for (String choiceId : history) current = advance(session, story, choiceId);
+		return state(session, story, current, false);
 	}
 
 	@Transactional
@@ -180,6 +210,9 @@ class GameService {
 		lockReader(playerId);
 		GameSession session = session(playerId, sessionId);
 		Story story = runtimeStory(session);
+		if (jdbc.queryForObject("select count(*) from collection_run_saves where session_id=?", Long.class, sessionId) > 0) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "Start a new chapter attempt from the story contents");
+		}
 		Map<String,Object> inputs=links.transfer(null,story.getRuntimeDocument(),null,Map.of());
 		session.reset(story);
 		Scene start = scene(story, story.getStartSceneId());
@@ -229,6 +262,10 @@ class GameService {
 	}
 
 	private SessionState state(GameSession session, Story story, Scene scene) {
+		return state(session, story, scene, true);
+	}
+
+	private SessionState state(GameSession session, Story story, Scene scene, boolean withAds) {
 		Map<String, Object> variables = json.readMap(session.getVariablesJson());
 		Map<String, StoryAsset> assetByKey = (story.getRuntimeDocument().assets()==null ? List.<StoryDocument.AssetDocument>of() : story.getRuntimeDocument().assets()).stream()
 				.map(a -> new StoryAsset(story.getId(),a.id(),a.type(),a.url(),json.write(a.metadata())))
@@ -258,7 +295,7 @@ class GameService {
 				runtimeScene,
 				publicVariables(variables),
 				statsVariables(story, variables),
-				session.getStatus().name().toLowerCase(),readerAds.offer(session.getPlayerId(),session.getStatus()==SessionStatus.FINISHED));
+				session.getStatus().name().toLowerCase(),withAds ? readerAds.offer(session.getPlayerId(),session.getStatus()==SessionStatus.FINISHED) : null);
 	}
 
 	private SaveSummary saveSummary(GameSession session) {

@@ -1,7 +1,11 @@
-import { canEditStories, filterAfterSubmit, storyLabels, workflowLabel } from "../story-workflow.js?v=1";
-import { reviewLimitMessage } from "../review-limit.js?v=1";
+import { fetchWithSession } from "../auth-session.js?v=1";
+import { validateStory as validateStoryDocument } from "./core.js?v=2";
+import { canEditStories, filterAfterSubmit, storyLabels, workflowLabel } from "../story-workflow.js?v=2";
+import { reviewLimitMessage } from "../review-limit.js?v=2";
 import { decorateHelp, helpButton, helpTopics } from "./help.js?v=5";
 import { openAuthoringPrompts, copyPromptText } from "./authoring-prompts.js?v=1";
+import { chooseCover } from "../author-cover.js?v=3";
+import { prepareImage } from "../image-preparation.js?v=1";
 
 import { initChapterTabs } from "./chapter-panel.js?v=1";
 import { genres, topics, fillClassification } from "./genre-topic.js?v=1";
@@ -19,6 +23,7 @@ const els = {
   variableOutline: document.querySelector("#variable-outline"),
   assetOutline: document.querySelector("#asset-outline"),
   sceneOutline: document.querySelector("#scene-outline"),
+  metadataOutline: document.querySelector("#metadata-outline"),
   activeContext: document.querySelector("#active-context"),
   validation: document.querySelector("#validation"),
   apiResult: document.querySelector("#api-result"),
@@ -61,6 +66,11 @@ const translations = {
     draftChanged: "История или сервер изменились во время операции. Действие остановлено; повторите его для нужной истории.",
     storyMetadata: "Настройки главы",
     keyLabel: "Ключ",
+    sceneKeyLabel: "Ключ сцены",
+    toolbarLabel: "Действия с главой",
+    chooseCover: "Выбрать обложку",
+    coverHint: "Обложка показывается на карточке истории. Сохраните главу после выбора.",
+    chapterCoverHint: "Обложку всей истории можно изменить в «Моих историях». Здесь выбирается обложка этой главы.",
     titleLabel: "Название",
     versionLabel: "Версия",
     startSceneLabel: "Стартовая сцена",
@@ -248,6 +258,11 @@ const translations = {
     draftChanged: "The story or server changed during the operation. It was stopped; retry for the intended story.",
     storyMetadata: "Chapter settings",
     keyLabel: "Key",
+    sceneKeyLabel: "Scene key",
+    toolbarLabel: "Chapter actions",
+    chooseCover: "Choose cover",
+    coverHint: "The cover appears on the story card. Save the chapter after choosing it.",
+    chapterCoverHint: "Change the whole story cover in My stories. This cover belongs to the current chapter.",
     titleLabel: "Title",
     versionLabel: "Version",
     startSceneLabel: "Start scene",
@@ -470,6 +485,7 @@ function isLocalRuntimeUrl(value) {
 function emptyDraft() {
   return {
     key: t("newStoryKey"),
+    pendingKey: true,
     title: t("newStoryTitle"),
     description: "",
     version: 1,
@@ -500,6 +516,7 @@ function emptyDraft() {
 function exampleDraft() {
   return {
     key: t("builderExampleKey"),
+    pendingKey: true,
     title: t("builderExampleTitle"),
     description: t("builderExampleDescription"),
     version: 1,
@@ -787,6 +804,14 @@ function revealActiveOutline(link) {
 }
 
 function renderMeta() {
+  const section = document.querySelector("#story-metadata");
+  annotateContext(section, { id: "metadata", kind: t("builderTitle"), title: t("storyMetadata"), subtitle: draft.title });
+  document.querySelector("[data-toolbar]").setAttribute("aria-label", t("toolbarLabel"));
+  const cover = document.querySelector("#builder-cover-preview");
+  cover.hidden = !draft.metadata?.coverUrl;
+  if (draft.metadata?.coverUrl) cover.src = draft.metadata.coverUrl;
+  else cover.removeAttribute("src");
+  document.querySelector('[data-i18n="coverHint"]').textContent = t(chapterParent ? "chapterCoverHint" : "coverHint");
   for (const input of els.meta) {
     const key = input.dataset.meta;
     if (key === "genre" || key === "topic") {
@@ -805,6 +830,40 @@ function renderMeta() {
       }
     };
   }
+}
+
+function ensureDraftKey() {
+  if (!draft.pendingKey || getDraftStoryId()) return;
+  draft.key = `story_${crypto.randomUUID().replaceAll("-", "")}`;
+  draft.pendingKey = false;
+  saveDraft();
+}
+
+function exportStoryJson() {
+  ensureDraftKey();
+  return toStoryJson();
+}
+
+async function openCoverPicker() {
+  const coverDraft = draft;
+  const base = els.runtimeUrl.value.replace(/\/$/, "");
+  const current = () => draft === coverDraft && els.runtimeUrl.value.replace(/\/$/, "") === base;
+  await chooseCover({
+    url: draft.metadata?.coverUrl || "",
+    onSelect(url) {
+      if (!current()) { els.apiResult.textContent = t("draftChanged"); return; }
+      draft.metadata = { ...(draft.metadata || {}), schemaVersion: draft.metadata?.schemaVersion ?? 1, coverUrl: url };
+      render({ preserveScroll: true });
+    },
+    async upload(file) {
+      if (!current()) throw new Error(t("draftChanged"));
+      const asset = { id: uniqueDraftAssetId("cover"), type: "image", url: "", metadata: "" };
+      const result = await uploadAssetFile(asset, file, "local", { saveDocument: false, purpose: "cover", prepared: true });
+      if (!current()) throw new Error(t("draftChanged"));
+      return result?.url || null;
+    },
+    getImages: async () => coverDraft.assets.filter(asset => asset.type === "image" && asset.url),
+  });
 }
 
 function renderVariables() {
@@ -914,7 +973,7 @@ function renderScenes() {
     item.append(sceneOrderControls(sceneIndex));
     const identityFields = div("form-panel scene-identity");
     identityFields.append(
-      field(t("idLabel"), input(scene.id, (value) => renameScene(scene, value))),
+      field(t("sceneKeyLabel"), input(scene.id, (value) => renameScene(scene, value))),
       field(t("titleLabel"), input(scene.title, (value) => (scene.title = value))),
       sceneTextField(scene),
     );
@@ -1319,46 +1378,7 @@ function serializeEffects(effects, scene = null) {
 }
 
 function validateStory(story) {
-  const errors = [];
-  const sceneIds = story.scenes.map((scene) => scene.id);
-  const assetIds = story.assets.map((asset) => asset.id);
-  const globalVariableNames = Object.keys(story.variables);
-  if (!story.key) errors.push(t("keyRequired"));
-  if (!story.title) errors.push(t("titleRequired"));
-  if (!story.startSceneId || !sceneIds.includes(story.startSceneId)) errors.push(t("startSceneMissing"));
-  duplicates(sceneIds).forEach((id) => errors.push(t("duplicateSceneId", { id })));
-  story.scenes.forEach((scene) => {
-    const sceneAssetIds = [...assetIds, ...(scene.assets || []).map((asset) => asset.id)];
-    const variableNames = [...globalVariableNames, ...Object.keys(scene.variables || {})];
-    if (scene.background && !sceneAssetIds.includes(scene.background)) errors.push(t("missingBackground", { scene: scene.id, asset: scene.background }));
-    if (scene.music && !sceneAssetIds.includes(scene.music)) errors.push(t("missingMusic", { scene: scene.id, asset: scene.music }));
-    duplicates(scene.choices.map((choice) => choice.id)).forEach((id) => errors.push(t("duplicateChoiceId", { scene: scene.id, id })));
-    extractTextVariables(scene.text).forEach((variable) => {
-      if (!variableNames.includes(variable)) errors.push(t("missingTextVariable", { scene: scene.id, variable }));
-    });
-    scene.choices.forEach((choice) => {
-      if (!sceneIds.includes(choice.target)) errors.push(t("missingTarget", { choice: choice.id, scene: scene.id, target: choice.target }));
-      if (choice.fallbackTarget && !sceneIds.includes(choice.fallbackTarget)) errors.push(t("missingTarget", { choice: choice.id, scene: scene.id, target: choice.fallbackTarget }));
-      choice.conditions.forEach((condition) => {
-        if (!variableNames.includes(condition.var)) errors.push(t("missingConditionVariable", { choice: choice.id, variable: condition.var }));
-      });
-      choice.effects.forEach((effect) => {
-        const name = effect.inc || effect.set;
-        if (!variableNames.includes(name)) errors.push(t("missingEffectVariableChoice", { choice: choice.id, variable: name }));
-        if (effect.inc && variableType(effect.inc, draft.scenes.find((candidate) => candidate.id === scene.id)) !== "number") errors.push(t("invalidIncChoice", { choice: choice.id, variable: effect.inc }));
-      });
-    });
-    scene.effects.forEach((effect) => {
-      const name = effect.inc || effect.set;
-      if (!variableNames.includes(name)) errors.push(t("missingEffectVariableScene", { scene: scene.id, variable: name }));
-      if (effect.inc && variableType(effect.inc, draft.scenes.find((candidate) => candidate.id === scene.id)) !== "number") errors.push(t("invalidIncScene", { scene: scene.id, variable: effect.inc }));
-    });
-  });
-  return errors;
-}
-
-function extractTextVariables(text) {
-  return [...new Set([...String(text || "").matchAll(/\{\{\s*([^{}\s]+)\s*}}/g)].map((match) => match[1]))];
+  return validateStoryDocument(story, currentLanguage);
 }
 
 function fromStoryJson(story) {
@@ -1378,6 +1398,7 @@ function fromStoryJson(story) {
   const previousBinding = story.key === draft.key ? draft.runtimeStory : null;
   draft = {
     key: story.key || t("newStoryKey"),
+    pendingKey: !story.key,
     title: story.title || t("newStoryTitle"),
     description: story.description || "",
     genre: story.genre || "",
@@ -1682,8 +1703,7 @@ function assetUploadField(asset, scene = null) {
     if (!file) return;
     const scrollState = captureScrollState();
     try {
-      applyAssetTypeFromFile(asset, file);
-      await uploadAssetFile(asset, file, scene ? "local" : "global");
+      if (!await uploadAssetFile(asset, file, scene ? "local" : "global")) return;
       render({ preserveScroll: true });
     } catch (error) {
       els.apiResult.textContent = error.message;
@@ -1718,14 +1738,14 @@ function sceneAssetUploadField(scene, targetField) {
       url: "",
       metadata: "",
     };
-    scene.assets ||= [];
-    scene.assets.push(asset);
     try {
-      await uploadAssetFile(asset, file, "local");
+      if (!await uploadAssetFile(asset, file, "local", { saveDocument: false })) return;
+      scene.assets ||= [];
+      scene.assets.push(asset);
       scene[targetField] = asset.id;
       render({ preserveScroll: true });
+      await importDraftToRuntime();
     } catch (error) {
-      scene.assets = scene.assets.filter((candidate) => candidate !== asset);
       els.apiResult.textContent = error.message;
       render({ preserveScroll: true });
     } finally {
@@ -2146,16 +2166,6 @@ function parseMetadata(value) {
   }
 }
 
-function duplicates(values) {
-  const seen = new Set();
-  const duplicate = new Set();
-  values.filter(Boolean).forEach((value) => {
-    if (seen.has(value)) duplicate.add(value);
-    seen.add(value);
-  });
-  return [...duplicate];
-}
-
 function getDraftStoryId() {
   const binding = draft.runtimeStory;
   return binding?.key === draft.key && binding.base === els.runtimeUrl.value.replace(/\/$/, "")
@@ -2273,7 +2283,7 @@ async function authorFetch(path, options = {}) {
 
 async function authorFetchAttempt(path, options = {}, allowRefresh = true) {
   const base = els.runtimeUrl.value.replace(/\/$/, "");
-  const response = await fetch(`${base}${path}`, {
+  const response = await fetchWithSession(`${base}${path}`, {
     method: options.method || "GET",
     headers: {
       Accept: "application/json",
@@ -2283,65 +2293,30 @@ async function authorFetchAttempt(path, options = {}, allowRefresh = true) {
     credentials: "include",
     cache: "no-store",
     body: options.body,
-  });
-  if (response.status === 401 && allowRefresh && shouldRefreshAuth(path)) {
-    await refreshAuth(base);
-    return authorFetchAttempt(path, options, false);
-  }
+  }, { base, refresh: allowRefresh });
   const text = await response.text();
   const payload = text ? JSON.parse(text) : {};
   if (!response.ok) {
-    const error = new Error(payload.code === "REVIEW_LIMIT_REACHED" ? reviewLimitMessage(currentLanguage) : payload.message || payload.detail || payload.error || `HTTP ${response.status}`);
+    const error = new Error(["REVIEW_LIMIT_REACHED", "REVIEW_DAILY_LIMIT_REACHED"].includes(payload.code) ? reviewLimitMessage(currentLanguage, payload) : payload.message || payload.detail || payload.error || `HTTP ${response.status}`);
     error.status = response.status; error.code = payload.code;
     throw error;
   }
   return payload;
 }
 
-const authorRefreshPromises = new Map();
-
-async function refreshAuth(base = els.runtimeUrl.value.replace(/\/$/, "")) {
-  if (!authorRefreshPromises.has(base)) {
-    authorRefreshPromises.set(base, performAuthRefresh(base).finally(() => { authorRefreshPromises.delete(base); }));
-  }
-  return authorRefreshPromises.get(base);
-}
-
-async function performAuthRefresh(base) {
-  const response = await fetch(`${base}/auth/refresh`, {
-    method: "POST",
-    headers: { Accept: "application/json", "X-Fraer-Request": "same-origin" },
-    credentials: "include",
-  });
-  if (response.status === 401) {
-    // Another tab can win one-time refresh rotation before its new cookies arrive.
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt) await new Promise(resolve => setTimeout(resolve, attempt * 150));
-      const session = await fetch(`${base}/auth/me`, {
-        headers: { Accept: "application/json" }, credentials: "include", cache: "no-store",
-      });
-      if (session.ok) return;
-      if (session.status !== 401) break;
-    }
-  }
-  if (!response.ok) {
-    throw Object.assign(new Error(`HTTP ${response.status}`), { status: response.status });
-  }
-}
-
-function shouldRefreshAuth(path) {
-  return !String(path).startsWith("/auth/verify")
-    && !String(path).startsWith("/auth/logout")
-    && !String(path).startsWith("/auth/refresh");
-}
-
-async function uploadAssetFile(asset, file, scope = "global") {
+async function uploadAssetFile(asset, file, scope = "global", { saveDocument = true, purpose = "scene", prepared: alreadyPrepared = false } = {}) {
   if (!canAuthor()) {
     throw new Error(t("uploadAssetFirst"));
   }
   const uploadDraft = draft;
-  const uploadKey = draft.key;
   const base = els.runtimeUrl.value.replace(/\/$/, "");
+  const prepared = alreadyPrepared ? file : await prepareImage(file, { purpose });
+  if (!prepared) return null;
+  if (draft !== uploadDraft || base !== els.runtimeUrl.value.replace(/\/$/, "")) throw new Error(t("draftChanged"));
+  ensureDraftKey();
+  const uploadKey = draft.key;
+  const uploadType = { type: asset.type };
+  applyAssetTypeFromFile(uploadType, prepared);
   if (!getDraftStoryId()) {
     await importDraftToRuntime();
   }
@@ -2351,12 +2326,12 @@ async function uploadAssetFile(asset, file, scope = "global") {
     throw new Error(t("uploadAssetFirst"));
   }
   const form = new FormData();
-  form.append("file", file);
+  form.append("file", prepared);
   if (asset.id) {
     form.append("assetKey", asset.id);
   }
-  if (asset.type) {
-    form.append("type", asset.type);
+  if (uploadType.type) {
+    form.append("type", uploadType.type);
   }
   // Store bytes without modifying the server document. Both global and local
   // references are then saved atomically with the bound document generation.
@@ -2369,6 +2344,7 @@ async function uploadAssetFile(asset, file, scope = "global") {
     },
     body: form,
   });
+  if (draft !== uploadDraft || draft.key !== uploadKey || base !== els.runtimeUrl.value.replace(/\/$/, "")) throw new Error(t("draftChanged"));
   asset.id = payload.id;
   asset.type = payload.type;
   asset.url = payload.url;
@@ -2376,9 +2352,11 @@ async function uploadAssetFile(asset, file, scope = "global") {
   if (metadata && scope !== "local") delete metadata.scope;
   asset.metadata = metadata ? JSON.stringify(metadata, null, 2) : "";
   if (draft !== uploadDraft || draft.key !== uploadKey || base !== els.runtimeUrl.value.replace(/\/$/, "")) throw new Error(t("draftChanged"));
-  renderPreview();
-  saveDraft();
-  await importDraftToRuntime();
+  if (saveDocument) {
+    renderPreview();
+    saveDraft();
+    await importDraftToRuntime();
+  }
   els.apiResult.textContent = t("uploadAssetDone", { id: payload.id });
   return payload;
 }
@@ -2410,7 +2388,7 @@ const panelWords = {
   checkHint: ['Проверяем текущий JSON: сцены, переменные и переходы. Изменения сохранять не обязательно.', 'Check the current JSON: scenes, variables and transitions. Saving is not required.'],
   checkNote: ['Это проверка структуры, а не литературного текста. Полная серверная проверка выполняется перед отправкой модератору.', 'This checks structure, not literary quality. Full server validation runs before submission.'],
   publicationHint: ['Глава станет доступна читателям после одобрения и публикации модератором.', 'Readers can access the chapter after a moderator approves and publishes it.'],
-  submitHint: ['Перед отправкой проверим главу и сохраним изменения. На модерации может быть одна ваша история с её главами.', 'We will check and save the chapter. Only one of your stories and its chapters can be under review at a time.'],
+  submitHint: ['Перед отправкой проверим главу и сохраним изменения. На модерацию можно отправлять одну историю в сутки.', 'We will check and save the chapter. You can submit one story per day.'],
   previewHint: ['Текущий текст и варианты выборов. Это просмотр сцен, без прохождения и сохранения прогресса.', 'Current text and choices. This is a scene preview without playthrough or saved progress.'],
 };
 
@@ -2425,7 +2403,7 @@ function renderAuthorWorkspace(home = authorHomeCache) {
     node.title = label; node.setAttribute('aria-label', label);
   });
   const current = home?.stories?.find(story => story.storyId === getDraftStoryId());
-  if(current?.reviewLimitReached)document.querySelector('[data-panel-text="submitHint"]').textContent=reviewLimitMessage(currentLanguage);
+  if(current?.reviewLimitReached || current?.reviewDailyLimitReached)document.querySelector('[data-panel-text="submitHint"]').textContent=reviewLimitMessage(currentLanguage, current);
   const items = chapterParent?.draftDocument?.items || [];
   const index = items.findIndex(item => item.target.id === getDraftStoryId());
   const parentId = chapterParent?.collectionId || chapterParent?.id;
@@ -2476,7 +2454,7 @@ function updateAuthorGate() {
       return;
     }
     control.disabled = !loggedIn || (builderWorkflowBusy && (control.dataset.authorMutation === "true" || ["import-runtime", "validate-runtime", "publish-runtime", "author-story-select", "refresh-author", "runtime-url"].includes(control.id)));
-    if(control.id==='publish-runtime'&&current?.reviewLimitReached)control.disabled=true;
+    if(control.id==='publish-runtime'&&(current?.reviewLimitReached || current?.reviewDailyLimitReached))control.disabled=true;
   });
   document.querySelectorAll("a.nav-link").forEach((link) => {
     link.classList.toggle("is-disabled", !loggedIn);
@@ -2641,6 +2619,8 @@ function outlineButton(label, targetContextId, depth = 0, fallback = null) {
 }
 
 function renderProjectOutlineExplorer() {
+  els.metadataOutline.replaceChildren(outlineLeaf(t("storyMetadata"), "metadata"));
+  els.variableOutline.closest(".project-group").hidden = draft.variables.length === 0;
   renderGlobalOutlineFolder(
     els.variableOutline,
     "global:variables",
@@ -2882,7 +2862,7 @@ async function authorWorkflow(storyId, action, knownStory = null, alreadyBusy = 
     els.apiResult.textContent = action === "review" ? t("reviewSent", { revision: payload.submittedRevision }) : t("changeSaved");
     return payload;
   } catch (error) {
-    if (error.status === 409) { await loadAuthorHome(); if(error.code!=="REVIEW_LIMIT_REACHED")throw new Error(t("staleStory")); }
+    if (error.status === 409) { await loadAuthorHome(); if(!["REVIEW_LIMIT_REACHED", "REVIEW_DAILY_LIMIT_REACHED"].includes(error.code))throw new Error(t("staleStory")); }
     throw error;
   } finally { if (!alreadyBusy) { builderWorkflowBusy = false; updateAuthorGate(); } }
 }
@@ -2918,26 +2898,26 @@ document.querySelector("#load-example").onclick = () => {
 };
 
 document.querySelector("#copy-json").onclick = async () => {
-  const text = JSON.stringify(toStoryJson(), null, 2);
+  const text = JSON.stringify(exportStoryJson(), null, 2);
   try { await navigator.clipboard.writeText(text); }
   catch { els.pasteArea.value = text; els.pasteDialog.showModal(); await copyPromptText(text, els.pasteArea, null); }
 };
 
 document.querySelector('#authoring-prompts-button').onclick = () => openAuthoringPrompts({
   language: currentLanguage, kind: 'chapter', getContext: async kind => {
-    if (kind === 'chapter') return toStoryJson();
+    if (kind === 'chapter') return exportStoryJson();
     const parentId = chapterParent?.collectionId || chapterParent?.id;
     if (!parentId) throw new Error('Open a story to export its package');
     const packageValue = await authorFetch(`/api/author/collections/${encodeURIComponent(parentId)}/export`);
     // Include the deliberate current edit, not a silently stale saved chapter.
     const index = packageValue.scenarios.findIndex(chapter => chapter.key === draft.key);
-    if (index >= 0) packageValue.scenarios[index] = toStoryJson();
+    if (index >= 0) packageValue.scenarios[index] = exportStoryJson();
     return packageValue;
   },
 });
 
 document.querySelector("#download-json").onclick = () => {
-  const blob = new Blob([JSON.stringify(toStoryJson(), null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(exportStoryJson(), null, 2)], { type: "application/json" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = `${draft.key || t("storyFileName")}.json`;
@@ -2962,7 +2942,7 @@ document.querySelector("#import-file").onchange = async (event) => {
 };
 
 document.querySelector("#paste-json").onclick = () => {
-  els.pasteArea.value = JSON.stringify(toStoryJson(), null, 2);
+  els.pasteArea.value = JSON.stringify(exportStoryJson(), null, 2);
   els.pasteDialog.showModal();
 };
 
@@ -3003,8 +2983,10 @@ document.querySelector('#preview-chapter').onclick = () => {
   document.querySelector('#chapter-preview-dialog').showModal();
 };
 document.querySelector("#publish-runtime").onclick = () => runtimeCall("review");
+document.querySelector("#choose-story-cover").onclick = () => openCoverPicker().catch(error => { els.apiResult.textContent = error.message; });
 
 async function importDraftToRuntime(base = els.runtimeUrl.value.replace(/\/$/, "")) {
+  ensureDraftKey();
   const importedDraft = draft;
   const importedKey = draft.key;
   const savedDocument = JSON.stringify(toStoryJson());
@@ -3065,6 +3047,7 @@ async function runtimeCall(action) {
       if (action === "validate" || action === "review") {
         let storyId = getDraftStoryId();
         if (action === "review") {
+          ensureDraftKey();
           const submittingDraft = draft;
           const submittingKey = draft.key;
           const submittingDocument = JSON.stringify(toStoryJson());
@@ -3111,16 +3094,14 @@ async function fetchJson(url, options) {
 }
 
 async function fetchJsonAttempt(url, options, allowRefresh) {
-  const response = await fetch(url, { credentials: "include", cache: "no-store", ...options });
-  if (response.status === 401 && allowRefresh) {
-    const base = els.runtimeUrl.value.replace(/\/$/, "");
-    await refreshAuth(base);
-    return fetchJsonAttempt(url, options, false);
-  }
+  // Use the initiating request's runtime even if the runtime field changes
+  // while an upload/save is pending.
+  const base = new URL(url, window.location.href).origin;
+  const response = await fetchWithSession(url, { credentials: "include", cache: "no-store", ...options }, { base, refresh: allowRefresh });
   const text = await response.text();
   const payload = text ? JSON.parse(text) : {};
   if (!response.ok) {
-    const error = new Error(payload.code === "REVIEW_LIMIT_REACHED" ? reviewLimitMessage(currentLanguage) : payload.message || payload.detail || payload.error || `HTTP ${response.status}`);
+    const error = new Error(["REVIEW_LIMIT_REACHED", "REVIEW_DAILY_LIMIT_REACHED"].includes(payload.code) ? reviewLimitMessage(currentLanguage, payload) : payload.message || payload.detail || payload.error || `HTTP ${response.status}`);
     error.status = response.status; error.code = payload.code;
     throw error;
   }

@@ -24,6 +24,10 @@ final class TestJwtFactory {
 		return token(email, List.of("player"));
 	}
 
+	static String expiredPlayer(String email) {
+		return token(email, List.of("player"), Instant.now().minusSeconds(60));
+	}
+
 	static String author(String email) {
 		return token(email, List.of("author", "player"));
 	}
@@ -36,6 +40,10 @@ final class TestJwtFactory {
 	static String authorModerator(String email) { return token(email,List.of("moderator","author","player")); }
 
 	private static String token(String email, List<String> roles) {
+		return token(email, roles, Instant.now().plusSeconds(3600));
+	}
+
+	private static String token(String email, List<String> roles, Instant expiresAt) {
 		try {
 			String normalized = email.toLowerCase();
 			String userId = UUID.nameUUIDFromBytes(normalized.getBytes(StandardCharsets.UTF_8)).toString();
@@ -47,7 +55,7 @@ final class TestJwtFactory {
 					"roles", roles,
 					"sid", UUID.randomUUID().toString(),
 					"iat", now.getEpochSecond(),
-					"exp", now.plusSeconds(3600).getEpochSecond());
+					"exp", expiresAt.getEpochSecond());
 			String unsigned = part(header) + "." + part(claims);
 			return unsigned + "." + sign(unsigned);
 		}

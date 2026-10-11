@@ -62,6 +62,11 @@ button, .file-button, .button-link { font-family: var(--font-control); font-weig
 .builder > .actions > :is(button, .file-button) { flex-shrink: 0; min-height: 36px; padding: 7px 8px; font-size: 23px; line-height: 25px; white-space: nowrap; border-radius: 11px; }
 .builder > .actions > :is(button, .file-button):not(.danger) { background: #daafe41c; color: #fee3e2; border-color: #ffffff94; }
 .builder > .actions > :is(button, .file-button):not(.danger):hover { background: #daafe438; }
+.builder-cover-setting { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 18px; }
+.builder-cover-setting > div { flex: 1 1 220px; min-width: 0; }
+.builder-cover-setting img { width: 120px; height: 90px; object-fit: cover; border: 1px solid var(--line); border-radius: 10px; }
+.builder-cover-setting img[hidden], .project-group[hidden] { display: none; }
+.builder-cover-setting .muted-hint { margin-bottom: 0; font-size: 13px; line-height: 1.5; }
 .band, .active-context, .form-panel, .nested-panel, .compact-panel, .subitem,
 .collapsible-summary, .story-picker-item, .switch-field, .board-summary,
 .board-card[data-kind], .choice-row, .quick-actions, .empty-state {
@@ -224,6 +229,8 @@ dialog { max-height: calc(100dvh - 32px); overflow: auto; }
   .topbar .runtime-settings { grid-template-columns: minmax(0, 1fr); }
   .builder > .actions { gap: 8px; }
   .builder > .actions > :is(button, .file-button) { font-size: 13px; min-height: 44px; }
+  .builder .builder-toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .builder .builder-toolbar > :is(button, .file-button) { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 44px; padding: 10px 8px; font-size: 13px; line-height: 1.35; white-space: normal; text-align: center; }
   dialog { padding: 18px; }
   .topbar h1, .board-title h1 { font-size: 28px; line-height: 1.375; }
 }

@@ -1,4 +1,4 @@
-import { emptyDraft, normalizeLanguage, translate } from "./core.js";
+import { emptyDraft, normalizeLanguage, translate } from "./core.js?v=2";
 
 const draftStorageKey = "fraerapp.storyBuilderDraft";
 const languageKey = "fraerapp.storyBuilderLanguage";

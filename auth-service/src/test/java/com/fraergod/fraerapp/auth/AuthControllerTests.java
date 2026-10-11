@@ -152,7 +152,8 @@ class AuthControllerTests {
 				new ClassPathResource("db/migration/V6__add_telegram_identities.sql"),
 				new ClassPathResource("db/migration/V7__author_access_requests.sql"),
 				new ClassPathResource("db/migration/V8__moderator_and_bootstrap_initialization.sql"),
-				new ClassPathResource("db/migration/V9__author_subscriptions.sql"));
+				new ClassPathResource("db/migration/V9__author_subscriptions.sql"),
+				new ClassPathResource("db/migration/V10__login_link_issuance_locks.sql"));
 		schema.execute(dataSource);
 		jdbc = new JdbcTemplate(dataSource);
 		var subscriptions = new SubscriptionService(jdbc,true);
@@ -295,6 +296,269 @@ class AuthControllerTests {
 		assertThat(jdbc.queryForObject("select count(*) from users", Long.class)).isEqualTo(1);
 		assertThat(jdbc.queryForObject("select count(*) from sessions", Long.class)).isEqualTo(1);
 		assertThat(jdbc.queryForObject("select count(*) from refresh_tokens", Long.class)).isEqualTo(1);
+	}
+
+	@Test
+	void concurrentLoginLinkIssuanceLeavesOneUsableLinkAcrossStores() throws Exception {
+		var subscriptions = new SubscriptionService(jdbc, true);
+		var other = new AuthController(new AuthStore(jdbc, subscriptions), jwt, Optional.empty(), passkeys, telegram, subscriptions);
+		ReflectionTestUtils.setField(other, "magicLinkTtl", 900L);
+		ReflectionTestUtils.setField(other, "publicBaseUrl", "http://localhost:8088");
+		var executor = Executors.newFixedThreadPool(2);
+		try {
+			for (int attempt = 0; attempt < 16; attempt++) {
+				String email = "parallel-link-" + attempt + "@example.test";
+				CountDownLatch start = new CountDownLatch(1);
+				var first = executor.submit(() -> {
+					start.await();
+					return issueLink(controller, email, "self_service");
+				});
+				var second = executor.submit(() -> {
+					start.await();
+					return issueLink(other, email, "admin_resend");
+				});
+				start.countDown();
+				var issued = List.of(first.get(5, TimeUnit.SECONDS), second.get(5, TimeUnit.SECONDS));
+				assertThat(issued.stream().map(link -> store.magicLink(sha256(tokenFromUrl(link.loginUrl()))).orElseThrow())
+						.filter(link -> link.usedAt() == null).count()).isEqualTo(1);
+				assertThat(store.userByEmail(email)).isEmpty();
+			}
+		}
+		finally { executor.shutdownNow(); }
+		assertThat(jdbc.queryForObject("select count(*) from login_link_issuance_locks", Long.class)).isEqualTo(16);
+		assertThat(jdbc.queryForList("select email_hash from login_link_issuance_locks", String.class))
+				.allSatisfy(key -> assertThat(key).matches("[0-9a-f]{64}"));
+	}
+
+	@Test
+	void loginLinkLockUsesNormalizedEmailAndDoesNotBlockOtherRecipients() throws Exception {
+		var other = new AuthStore(jdbc, new SubscriptionService(jdbc, true));
+		var executor = Executors.newFixedThreadPool(3);
+		CountDownLatch held = new CountDownLatch(1), release = new CountDownLatch(1);
+		try {
+			var first = executor.submit(() -> store.withLoginLinkLock(" Case@Example.Test ", () -> {
+				held.countDown();
+				try {
+					if (!release.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Lock test did not release");
+				}
+				catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw new IllegalStateException(interrupted); }
+				return true;
+			}));
+			assertThat(held.await(5, TimeUnit.SECONDS)).isTrue();
+			var same = executor.submit(() -> other.withLoginLinkLock("case@example.test", () -> true));
+			var different = executor.submit(() -> other.withLoginLinkLock("different@example.test", () -> true));
+			assertThat(different.get(2, TimeUnit.SECONDS)).isTrue();
+			assertThatThrownBy(() -> same.get(100, TimeUnit.MILLISECONDS)).isInstanceOf(java.util.concurrent.TimeoutException.class);
+			release.countDown();
+			assertThat(first.get(5, TimeUnit.SECONDS)).isTrue();
+			assertThat(same.get(5, TimeUnit.SECONDS)).isTrue();
+			assertThat(jdbc.queryForObject("select count(*) from login_link_issuance_locks", Long.class)).isEqualTo(2);
+		}
+		finally { release.countDown(); executor.shutdownNow(); }
+	}
+
+	@Test
+	void invitationOwnsRecipientBeforeVerificationCanConsumeOldLink() throws Exception {
+		User admin = admin("ordered-invitation-admin@example.test");
+		String authorization = "Bearer " + authenticatedToken(admin);
+		User reader = store.user("ordered-invitation-reader@example.test", true).orElseThrow();
+		String raw = "ordered-invitation-old-link";
+		store.createMagicLink(reader.email(), sha256(raw), "/", Instant.now().plusSeconds(900));
+		CountDownLatch rolesLocked = new CountDownLatch(1), release = new CountDownLatch(1);
+		CountDownLatch verificationRead = new CountDownLatch(1), consumptionAttempted = new CountDownLatch(1);
+		AuthStore gated = new AuthStore(jdbc, new SubscriptionService(jdbc, true)) {
+			@Override void grantRole(String userId, String role) {
+				super.grantRole(userId, role);
+				if (reader.id().equals(userId) && "author".equals(role)) {
+					rolesLocked.countDown(); awaitSignal(release);
+				}
+			}
+			@Override Optional<MagicLink> magicLink(String hash) {
+				var link = super.magicLink(hash); verificationRead.countDown(); return link;
+			}
+			@Override boolean consumeMagicLink(String id) {
+				consumptionAttempted.countDown(); return super.consumeMagicLink(id);
+			}
+		};
+		ReflectionTestUtils.setField(controller, "store", gated);
+		var executor = Executors.newFixedThreadPool(2);
+		try {
+			var invitation = executor.submit(() -> controller.adminLoginLink(authorization, null,
+					new AuthController.AdminLoginLinkRequest(reader.email(), "/", false, List.of("author")), request()));
+			awaitSignal(rolesLocked);
+			var verification = executor.submit(() -> verifyStatus(raw));
+			awaitSignal(verificationRead);
+			assertThat(consumptionAttempted.await(100, TimeUnit.MILLISECONDS)).isFalse();
+			release.countDown();
+			assertThat(invitation.get(5, TimeUnit.SECONDS)).containsEntry("sent", true);
+			assertThat(verification.get(5, TimeUnit.SECONDS)).isEqualTo(401);
+			assertThat(jdbc.queryForObject("select count(*) from sessions where user_id=?", Long.class, reader.id())).isZero();
+		}
+		finally { release.countDown(); executor.shutdownNow(); }
+	}
+
+	@Test
+	void verificationOwnsRecipientBeforeInvitationCanLockUserRoles() throws Exception {
+		User admin = admin("ordered-verify-admin@example.test");
+		String authorization = "Bearer " + authenticatedToken(admin);
+		User reader = store.user("ordered-verify-reader@example.test", true).orElseThrow();
+		String raw = "ordered-verify-old-link";
+		store.createMagicLink(reader.email(), sha256(raw), "/", Instant.now().plusSeconds(900));
+		CountDownLatch tokenLocked = new CountDownLatch(1), release = new CountDownLatch(1);
+		CountDownLatch roleAttempted = new CountDownLatch(1), invitationStarted = new CountDownLatch(1);
+		AuthStore gated = new AuthStore(jdbc, new SubscriptionService(jdbc, true)) {
+			@Override boolean consumeMagicLink(String id) {
+				boolean consumed = super.consumeMagicLink(id); tokenLocked.countDown(); awaitSignal(release); return consumed;
+			}
+			@Override void grantRole(String userId, String role) {
+				if (reader.id().equals(userId) && "author".equals(role)) roleAttempted.countDown();
+				super.grantRole(userId, role);
+			}
+		};
+		ReflectionTestUtils.setField(controller, "store", gated);
+		var executor = Executors.newFixedThreadPool(2);
+		try {
+			var verification = executor.submit(() -> verifyStatus(raw));
+			awaitSignal(tokenLocked);
+			var invitation = executor.submit(() -> {
+				invitationStarted.countDown();
+				return controller.adminLoginLink(authorization, null,
+						new AuthController.AdminLoginLinkRequest(reader.email(), "/", false, List.of("author")), request());
+			});
+			awaitSignal(invitationStarted);
+			assertThat(roleAttempted.await(100, TimeUnit.MILLISECONDS)).isFalse();
+			release.countDown();
+			assertThat(verification.get(5, TimeUnit.SECONDS)).isEqualTo(200);
+			assertThat(invitation.get(5, TimeUnit.SECONDS)).containsEntry("sent", true);
+			assertThat(jdbc.queryForObject("select count(*) from sessions where user_id=?", Long.class, reader.id())).isEqualTo(1);
+		}
+		finally { release.countDown(); executor.shutdownNow(); }
+	}
+
+	@Test
+	void verificationOwnsRecipientBeforeDeletionCanLockUser() throws Exception {
+		User reader = store.user("ordered-delete-reader@example.test", true).orElseThrow();
+		String raw = "ordered-delete-old-link";
+		store.createMagicLink(reader.email(), sha256(raw), "/", Instant.now().plusSeconds(900));
+		CountDownLatch tokenLocked = new CountDownLatch(1), release = new CountDownLatch(1);
+		CountDownLatch deletionStarted = new CountDownLatch(1), deletionLockedUser = new CountDownLatch(1);
+		AuthStore gated = new AuthStore(jdbc, new SubscriptionService(jdbc, true)) {
+			@Override boolean consumeMagicLink(String id) {
+				boolean consumed = super.consumeMagicLink(id); tokenLocked.countDown(); awaitSignal(release); return consumed;
+			}
+			@Override Optional<User> userById(String id) {
+				if (reader.id().equals(id)) deletionLockedUser.countDown();
+				return super.userById(id);
+			}
+		};
+		ReflectionTestUtils.setField(controller, "store", gated);
+		var executor = Executors.newFixedThreadPool(2);
+		try {
+			var verification = executor.submit(() -> verifyStatus(raw));
+			awaitSignal(tokenLocked);
+			var deletion = executor.submit(() -> { deletionStarted.countDown(); gated.deleteUser(reader.id(), reader.email()); });
+			awaitSignal(deletionStarted);
+			assertThat(deletionLockedUser.await(100, TimeUnit.MILLISECONDS)).isFalse();
+			release.countDown();
+			assertThat(verification.get(5, TimeUnit.SECONDS)).isEqualTo(200);
+			deletion.get(5, TimeUnit.SECONDS);
+			assertThat(store.userByEmail(reader.email())).isEmpty();
+			assertThat(jdbc.queryForObject("select count(*) from sessions where user_id=?", Long.class, reader.id())).isZero();
+		}
+		finally { release.countDown(); executor.shutdownNow(); }
+	}
+
+	@Test
+	void telegramRejectsIdentityChangedBetweenEmailLookupAndLock() {
+		User original = store.userForTelegram(67890L, 67890L, "original");
+		User rebound = store.user("rebound-telegram@example.test", true).orElseThrow();
+		AuthStore changing = new AuthStore(jdbc, new SubscriptionService(jdbc, true)) {
+			@Override String telegramAccountEmail(long telegramUserId) {
+				String prior = super.telegramAccountEmail(telegramUserId);
+				jdbc.update("update telegram_identities set user_id=? where telegram_user_id=?", rebound.id(), telegramUserId);
+				return prior;
+			}
+		};
+		ReflectionTestUtils.setField(controller, "store", changing);
+		var update = telegramUpdate(2, "Согласен на обработку данных · 2026-10-09");
+		assertThatThrownBy(() -> controller.telegramWebhook("secret", update, request()))
+				.isInstanceOf(ResponseStatusException.class)
+				.satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
+		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens", Long.class)).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from personal_data_consents", Long.class)).isZero();
+		assertThat(store.userById(original.id())).isPresent();
+	}
+
+	@Test
+	void telegramOwnsNewIdentityBeforeInvitationCanInsertUser() throws Exception {
+		User admin = admin("ordered-telegram-admin@example.test");
+		String authorization = "Bearer " + authenticatedToken(admin);
+		var update = telegramUpdate(2, "Согласен на обработку данных · 2026-10-09");
+		String email = "telegram-67890@telegram.fraerapp.local";
+		CountDownLatch telegramLocked = new CountDownLatch(1), release = new CountDownLatch(1);
+		CountDownLatch userAttempted = new CountDownLatch(1), invitationStarted = new CountDownLatch(1);
+		AuthStore gated = new AuthStore(jdbc, new SubscriptionService(jdbc, true)) {
+			@Override User userForTelegram(long userId, long chatId, String username) {
+				telegramLocked.countDown(); awaitSignal(release); return super.userForTelegram(userId, chatId, username);
+			}
+			@Override Optional<User> user(String recipient, boolean create) {
+				if (email.equals(recipient)) userAttempted.countDown();
+				return super.user(recipient, create);
+			}
+		};
+		ReflectionTestUtils.setField(controller, "store", gated);
+		var executor = Executors.newFixedThreadPool(2);
+		try {
+			var telegramLogin = executor.submit(() -> controller.telegramWebhook("secret", update, request()));
+			awaitSignal(telegramLocked);
+			var invitation = executor.submit(() -> {
+				invitationStarted.countDown();
+				return controller.adminLoginLink(authorization, null,
+						new AuthController.AdminLoginLinkRequest(email, "/", true, List.of("author")), request());
+			});
+			awaitSignal(invitationStarted);
+			assertThat(userAttempted.await(100, TimeUnit.MILLISECONDS)).isFalse();
+			release.countDown();
+			assertThat(telegramLogin.get(5, TimeUnit.SECONDS)).containsEntry("method", "sendMessage");
+			assertThat(invitation.get(5, TimeUnit.SECONDS)).containsEntry("sent", true);
+			assertThat(store.userByEmail(email).orElseThrow().roles()).contains("player", "author");
+			assertThat(jdbc.queryForObject("select count(*) from telegram_identities", Long.class)).isEqualTo(1);
+		}
+		finally { release.countDown(); executor.shutdownNow(); }
+	}
+
+	private int verifyStatus(String raw) {
+		try { controller.verify(new AuthController.VerifyRequest(raw), new MockHttpServletResponse()); return 200; }
+		catch (ResponseStatusException rejected) { return rejected.getStatusCode().value(); }
+	}
+
+	private static void awaitSignal(CountDownLatch signal) {
+		try {
+			if (!signal.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Concurrent operation did not reach test boundary");
+		}
+		catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw new IllegalStateException(interrupted); }
+	}
+
+	@Test
+	void failedLoginLinkReplacementKeepsThePreviousLinkUsable() {
+		String email = "retry-link@example.test";
+		store.createMagicLink(email, sha256("previous-link"), "/", Instant.now().plusSeconds(900));
+		AuthStore failingStore = new AuthStore(jdbc, new SubscriptionService(jdbc, true)) {
+			@Override void invalidateOtherActiveMagicLinks(String recipient, String tokenHash) {
+				super.invalidateOtherActiveMagicLinks(recipient, tokenHash);
+				throw new IllegalStateException("Synthetic login-link replacement failure");
+			}
+		};
+		ReflectionTestUtils.setField(controller, "store", failingStore);
+		assertThatThrownBy(() -> controller.loginLink(new AuthController.LoginLinkRequest(email, "/", true), request()))
+				.isInstanceOf(IllegalStateException.class);
+		assertThat(store.magicLink(sha256("previous-link")).orElseThrow().usedAt()).isNull();
+		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens where email = ?", Long.class, email)).isEqualTo(1);
+		assertThat(jdbc.queryForObject("select count(*) from auth_audit_events", Long.class)).isZero();
+	}
+
+	private AuthController.CreatedLoginLink issueLink(AuthController issuer, String email, String source) {
+		return ReflectionTestUtils.invokeMethod(issuer, "createLoginLink", email, "/", request(), source, null);
 	}
 
 	@Test
@@ -614,6 +878,62 @@ class AuthControllerTests {
 		assertThat(response.get("loginUrl")).asString().startsWith("http://localhost:8088/");
 		User created = store.userByEmail(requestedEmail).orElseThrow();
 		assertThat(created.roles()).contains("player", "author");
+	}
+
+	@Test
+	void rejectedAdminInvitationHasNoAccountOrRoleSideEffects() {
+		User admin = admin("invitation-admin@example.test");
+		String authorization = "Bearer " + authenticatedToken(admin);
+		String missingEmail = "invalid-invitation@example.test";
+		for (List<String> roles : List.of(List.of("author", "invalid"), java.util.Arrays.asList("author", null))) {
+			assertThatThrownBy(() -> controller.adminLoginLink(authorization, null,
+					new AuthController.AdminLoginLinkRequest(missingEmail, "/", true, roles), request()))
+					.isInstanceOf(ResponseStatusException.class)
+					.satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+		}
+		assertThat(store.userByEmail(missingEmail)).isEmpty();
+
+		User reader = store.user("limited-invitation@example.test", true).orElseThrow();
+		ReflectionTestUtils.setField(controller, "devMode", false);
+		@SuppressWarnings("unchecked")
+		Map<String, AuthController.Window> rate = (Map<String, AuthController.Window>) ReflectionTestUtils.getField(controller, "rate");
+		rate.put("admin-login:" + admin.id(), new AuthController.Window(20, Instant.now().plusSeconds(900)));
+		for (String email : List.of(reader.email(), missingEmail)) {
+			assertThatThrownBy(() -> controller.adminLoginLink(authorization, null,
+					new AuthController.AdminLoginLinkRequest(email, "/", true, List.of("author")), request()))
+					.isInstanceOf(ResponseStatusException.class)
+					.satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS));
+		}
+		assertThat(store.userById(reader.id()).orElseThrow().roles()).containsExactly("player");
+		assertThat(store.userByEmail(missingEmail)).isEmpty();
+		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens", Long.class)).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from auth_audit_events where event_type = 'role_changed'", Long.class)).isZero();
+	}
+
+	@Test
+	void failedAdminInvitationRollsBackAccountRolesLinkAndAudit() {
+		User admin = admin("atomic-invitation-admin@example.test");
+		String authorization = "Bearer " + authenticatedToken(admin);
+		User reader = store.user("atomic-invitation-reader@example.test", true).orElseThrow();
+		store.createMagicLink(reader.email(), sha256("prior-invitation"), "/", Instant.now().plusSeconds(900));
+		AuthStore failingStore = new AuthStore(jdbc, new SubscriptionService(jdbc, true)) {
+			@Override void audit(String userId, String email, String eventType, String metadata) {
+				if ("admin_login_link_requested".equals(eventType)) throw new IllegalStateException("Synthetic invitation audit failure");
+				super.audit(userId, email, eventType, metadata);
+			}
+		};
+		ReflectionTestUtils.setField(controller, "store", failingStore);
+		String missingEmail = "atomic-invitation-new@example.test";
+		for (String email : List.of(reader.email(), missingEmail)) {
+			assertThatThrownBy(() -> controller.adminLoginLink(authorization, null,
+					new AuthController.AdminLoginLinkRequest(email, "/", true, List.of("author", "moderator")), request()))
+					.isInstanceOf(IllegalStateException.class);
+		}
+		assertThat(store.userById(reader.id()).orElseThrow().roles()).containsExactly("player");
+		assertThat(store.userByEmail(missingEmail)).isEmpty();
+		assertThat(store.magicLink(sha256("prior-invitation")).orElseThrow().usedAt()).isNull();
+		assertThat(jdbc.queryForObject("select count(*) from email_login_tokens", Long.class)).isEqualTo(1);
+		assertThat(jdbc.queryForObject("select count(*) from auth_audit_events", Long.class)).isZero();
 	}
 
 	@Test

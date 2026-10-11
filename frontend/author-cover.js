@@ -1,5 +1,7 @@
-import {el,button,field,words,errorMessage} from './collection-ui.js?v=5';
-import {coverImage} from './author-ui.js?v=1';
+import {el,button,field,words,errorMessage} from './collection-ui.js?v=6';
+import {fetchWithSession} from './auth-session.js?v=1';
+import {coverImage} from './author-ui.js?v=2';
+import {prepareImage} from './image-preparation.js?v=1';
 
 const library = [
   ['/assets/stories/cat-sofa-background-v2.png','Кошка у двери','Cat by the door'],
@@ -12,14 +14,10 @@ const library = [
 export async function uploadImage(path,file,fields={}) {
   const body=new FormData();body.append('file',file);
   for(const [key,value] of Object.entries(fields))body.append(key,value);
-  async function send(retry=true){
-    const response=await fetch(path,{method:'POST',credentials:'include',headers:{'X-Fraer-Request':'same-origin'},body});
-    if(response.status===401&&retry){const refresh=await fetch('/auth/refresh',{method:'POST',credentials:'include',headers:{'X-Fraer-Request':'same-origin'}});if(refresh.ok)return send(false);}
-    let result={};try{result=await response.json();}catch{}
-    if(!response.ok)throw Object.assign(new Error(result.message||result.detail||words('Не удалось загрузить изображение.','Could not upload image.')),{status:response.status});
-    return result.url;
-  }
-  return send();
+  const response=await fetchWithSession(path,{method:'POST',credentials:'include',headers:{'X-Fraer-Request':'same-origin'},body});
+  let result={};try{result=await response.json();}catch{}
+  if(!response.ok)throw Object.assign(new Error(result.message||result.detail||words('Не удалось загрузить изображение.','Could not upload image.')),{status:response.status});
+  return result.url;
 }
 
 export async function chooseCover({url,onSelect,upload,getImages}) {
@@ -38,7 +36,7 @@ export async function chooseCover({url,onSelect,upload,getImages}) {
   file.input.onchange=async()=>{
     const selected=file.input.files[0];if(!selected||pending)return;
     pending=true;dialog.querySelectorAll('button,input').forEach(control=>control.disabled=true);grid.inert=advanced.inert=true;feedback.textContent=words('Загружаем изображение…','Uploading image…');feedback.classList.remove('error');
-    try{const path=await upload(selected);choose(path);}
+    try{const prepared=await prepareImage(selected,{purpose:'cover'});if(!prepared){feedback.textContent='';return;}const path=await upload(prepared);if(path)choose(path);}
     catch(error){feedback.textContent=errorMessage(error);feedback.classList.add('error');}
     finally{pending=false;dialog.querySelectorAll('button,input').forEach(control=>control.disabled=false);grid.inert=advanced.inert=false;file.input.value='';}
   };

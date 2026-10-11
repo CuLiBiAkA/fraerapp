@@ -13,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 })
 class ReaderAdsTests extends ApiTestSupport {
  @LocalServerPort int port;
+ @org.springframework.beans.factory.annotation.Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
  final String author=TestJwtFactory.author("ad-author-"+UUID.randomUUID()+"@example.test");
  final String reader=TestJwtFactory.player("ad-reader-"+UUID.randomUUID()+"@example.test");
  final String admin=TestJwtFactory.admin("ad-admin@example.test");
@@ -25,7 +26,7 @@ class ReaderAdsTests extends ApiTestSupport {
   String key="ads_"+UUID.randomUUID().toString().replace("-","");var scenes=new ArrayList<Map<String,Object>>();
   for(int i=1;i<=8;i++){var scene=new LinkedHashMap<String,Object>(Map.of("id","s"+i,"title","Scene "+i,"text","Text "+i,"choices",i<8?List.of(Map.of("id","next","label","Next","target","s"+(i+1))):List.of()));if(i==8)scene.put("ending",Map.of("title","The end"));scenes.add(scene);}
   var imported=ok("POST","/api/author/stories/import",Map.of("key",key,"title","Ad fixture","version",1,"startSceneId","s1","variables",Map.of(),"assets",List.of(),"scenes",scenes),author);
-  assertThat(approveAndPublish(port,imported.get("storyId").toString(),author).statusCode()).isEqualTo(200);return key;
+  assertThat(approveAndPublishOnNextDay(jdbc,port,imported.get("storyId").toString(),author).statusCode()).isEqualTo(200);return key;
  }
  String start(String key,String token){return ok("POST","/api/sessions",Map.of("storyKey",key),token).get("sessionId").toString();}
  Map<String,Object> step(String id,String token){return ok("POST","/api/sessions/"+id+"/choice",Map.of("choiceId","next"),token);}

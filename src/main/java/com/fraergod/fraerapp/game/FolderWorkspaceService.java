@@ -29,14 +29,16 @@ class FolderWorkspaceService {
   String collectionSql="select c.*,sv.document_json as submitted_json,pv.document_json as published_json from work_collections c left join collection_versions sv on sv.collection_id=c.id and sv.revision=c.submitted_revision left join collection_versions pv on pv.collection_id=c.id and pv.revision=c.published_revision"+(owner==null?"":" where c.owner_player_id=?")+" order by c.updated_at desc,c.id";
   var collectionRows=owner==null?db.queryForList(collectionSql):db.queryForList(collectionSql,owner);
   for(var r:collectionRows){
+   if(!moderation&&TrashRetentionService.expired((String)r.get("visibility"),TrashRetentionService.instant(r.get("deleted_at"))))continue;
    String id=(String)r.get("id"),review=(String)r.get("review_state");Integer submitted=(Integer)r.get("submitted_revision"),publishedRevision=(Integer)r.get("published_revision");boolean pending=submitted!=null&&!Objects.equals(submitted,publishedRevision)&&List.of("in_review","approved").contains(review);
    var published=publishedRevision==null?null:json.readCollection((String)r.get("published_json"));
    var d=moderation?(pending?json.readCollection((String)r.get("submitted_json")):published!=null?published:json.readCollection((String)r.get("draft_json"))):json.readCollection((String)r.get("draft_json"));
    var w=new Work("collection",id,(String)r.get("collection_key"),(String)r.get("collection_type"),(String)r.get("owner_player_id"),d.title(),(Integer)r.get("generation"),(Integer)r.get("draft_revision"),submitted,publishedRevision,review,(String)r.get("visibility"),(Boolean)r.get("restricted"),d,published,WorkLinksService.list(d.items()));result.put(w.identity(),w);
   }
-  String sql="select s.id,s.story_key,s.owner_player_id,s.published_revision,s.visibility,w.*,sv.snapshot_json as submitted_json,pv.snapshot_json as published_json from stories s join story_workspaces w on w.story_id=s.id left join story_versions sv on sv.story_id=s.id and sv.version_number=w.submitted_revision left join story_versions pv on pv.story_id=s.id and pv.version_number=s.published_revision"+(owner==null?"":" where s.owner_player_id=?")+" order by s.updated_at desc,s.id";
+  String sql="select s.id,s.story_key,s.owner_player_id,s.published_revision,s.visibility,s.deleted_at,w.*,sv.snapshot_json as submitted_json,pv.snapshot_json as published_json from stories s join story_workspaces w on w.story_id=s.id left join story_versions sv on sv.story_id=s.id and sv.version_number=w.submitted_revision left join story_versions pv on pv.story_id=s.id and pv.version_number=s.published_revision"+(owner==null?"":" where s.owner_player_id=?")+" order by s.updated_at desc,s.id";
   var rows=owner==null?db.queryForList(sql):db.queryForList(sql,owner);
   for(var r:rows){
+   if(!moderation&&TrashRetentionService.expired((String)r.get("visibility"),TrashRetentionService.instant(r.get("deleted_at"))))continue;
    String id=(String)r.get("id"),review=(String)r.get("review_state");Integer submitted=(Integer)r.get("submitted_revision"),published=(Integer)r.get("published_revision");
    boolean pending=submitted!=null&&!Objects.equals(submitted,published)&&List.of("in_review","approved").contains(review);
    var pub=published==null?null:json.readStory((String)r.get("published_json"));
@@ -62,7 +64,7 @@ class FolderWorkspaceService {
   if(snapshots){
    m.put("document",w.document());m.put("publishedDocument",w.publishedDocument());
    boolean self=w.owner()!=null&&players.findById(w.owner()).map(p->actor.userId().equals(p.getUserId())).orElse(false);
-   boolean available=!w.restricted()&&!List.of("hidden","archived","deleted").contains(w.visibility());
+   boolean available=!w.restricted()&&!List.of("hidden","archived","deleted","purged").contains(w.visibility());
    m.put("self",self);m.put("approvalEligibility",Map.of("canApprove",available&&!self,"canOverride",available&&self&&actor.hasRole("admin"),"reason",!available?"Restore availability before publication":self?"Own work requires an administrator override and reason":""));
    if(w.pending()){
     var item=new LinkedHashMap<>(m);item.remove("children");item.put("revision",w.submitted());pending.add(item);

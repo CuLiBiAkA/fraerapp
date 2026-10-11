@@ -36,6 +36,7 @@ class GameFlowTests extends ApiTestSupport {
 
 	@LocalServerPort
 	private int port;
+	@org.springframework.beans.factory.annotation.Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
 	@org.junit.jupiter.api.BeforeEach
 	void approveRuntimeFixture() { approveSeed(port); }
@@ -175,7 +176,7 @@ class GameFlowTests extends ApiTestSupport {
 	}
 
 	private ApiResponse publishStory(String id) {
-		var r=approveAndPublish(port,id,null);return new ApiResponse(r.statusCode(),readMap(r.body()),r.body());
+		var r=approveAndPublishOnNextDay(jdbc,port,id,null);return new ApiResponse(r.statusCode(),readMap(r.body()),r.body());
 	}
 
 	private String login(String username) {

@@ -30,14 +30,14 @@ class CollectionPresentationTests extends ApiTestSupport {
  @SuppressWarnings("unchecked") List<Map<String,Object>> maps(Object value){return (List<Map<String,Object>>)value;}
  List<Map<String,Object>> list(String path,String token){var response=call("GET",path,null,token);assertThat(response.statusCode()).as(response.body()).isEqualTo(200);return maps(object("{\"items\":"+response.body()+"}").get("items"));}
  Map<String,Object> scenario(){return new LinkedHashMap<>(Map.of("key",key(),"title","Standalone","version",1,"startSceneId","start","variables",Map.of(),"assets",List.of(),"scenes",List.of(Map.of("id","start","title","Start","text","Start","choices",List.of(Map.of("id","go","label","Go","target","end"))),Map.of("id","end","title","End","text","End","ending",Map.of("title","Done"),"choices",List.of()))));}
- Map<String,Object> chapter(){var value=ok(call("POST","/api/author/stories/import",scenario(),author));ok(approveAndPublish(port,value.get("storyId").toString(),author));return value;}
+ Map<String,Object> chapter(){var value=ok(call("POST","/api/author/stories/import",scenario(),author));ok(approveAndPublishOnNextDay(jdbc,port,value.get("storyId").toString(),author));return value;}
  Map<String,Object> item(Map<String,Object> story){return Map.of("target",Map.of("kind","scenario","id",story.get("storyId"),"key",story.get("key")));}
  Map<String,Object> document(int schema,List<?> items){return new LinkedHashMap<>(Map.of("schemaVersion",schema,"key",key(),"title","Collection","type","story","completionStatus","completed","items",items,"transitions",List.of()));}
  Map<String,Object> create(Map<String,Object> document){return ok(call("POST","/api/author/collections",Map.of("document",document),author));}
  Map<String,Object> detail(String id){return ok(call("GET","/api/author/collections/"+id,null,author));}
  Map<String,Object> publicDetail(String id){return ok(call("GET","/api/catalog/collections/"+id,null,reader));}
  Map<String,Object> decide(String id,String action){var d=detail(id);var command=new LinkedHashMap<String,Object>();command.put("generation",d.get("generation"));command.put("revision",d.get("submittedRevision")==null?d.get("publishedRevision"):d.get("submittedRevision"));command.put("reason","Reviewed");return ok(call("POST","/api/moderation/collections/"+id+"/"+action,command,reviewer));}
- void publish(String id){ok(call("POST","/api/author/collections/"+id+"/review",Map.of("generation",detail(id).get("generation")),author));decide(id,"approve-publish");}
+ void publish(String id){advanceReviewDay(jdbc,"collection",id);ok(call("POST","/api/author/collections/"+id+"/review",Map.of("generation",detail(id).get("generation")),author));decide(id,"approve-publish");}
  Map<String,Object> run(String id){return run(id,reader);}
  Map<String,Object> run(String id,String token){return ok(call("POST","/api/collections/"+id+"/runs",Map.of("requestId",key()),token));}
  String start(String run,Map<String,Object> chapter,String source){return start(run,chapter,source,reader);}
@@ -93,8 +93,10 @@ class CollectionPresentationTests extends ApiTestSupport {
  @Test void restrictedSerialParentKeepsChaptersPrivateAndPreservesSaves(){
   var a=chapter();String id=create(document(2,List.of(item(a)))).get("id").toString();publish(id);String save=start(run(id).get("id").toString(),a,null);
   String slug=ok(call("GET","/api/author/stories/"+a.get("storyId"),null,author)).get("publishedSlug").toString();
+  assertThat(call("GET","/api/stories",null,reader).body()).doesNotContain(a.get("key").toString());
   ok(call("POST","/api/author/collections/"+id+"/archive",Map.of("generation",detail(id).get("generation")),author));
   assertThat(call("GET","/api/catalog/stories",null,reader).body()).doesNotContain(a.get("key").toString());
+  assertThat(call("GET","/api/stories",null,reader).body()).doesNotContain(a.get("key").toString());
   for(String path:List.of("/api/catalog/stories/"+slug,"/api/catalog/engagement/"+slug,"/api/sessions/"+save+"/state"))assertThat(call("GET",path,null,reader).statusCode()).as(path).isEqualTo(404);
   assertThat(call("POST","/api/catalog/engagement/"+slug+"/view",null,reader).statusCode()).isEqualTo(404);
   assertThat(call("POST","/api/sessions/"+save+"/choice",Map.of("choiceId","go"),reader).statusCode()).isEqualTo(404);
@@ -110,6 +112,23 @@ class CollectionPresentationTests extends ApiTestSupport {
   var a=chapter();String id=create(document(1,List.of(item(a)))).get("id").toString();publish(id);String save=ok(call("POST","/api/sessions",Map.of("storyKey",a.get("key")),reader)).get("sessionId").toString();
   ok(call("POST","/api/author/collections/"+id+"/archive",Map.of("generation",detail(id).get("generation")),author));
   assertThat(call("GET","/api/sessions/"+save+"/state",null,reader).statusCode()).isEqualTo(200);assertThat(call("GET","/api/catalog/stories",null,reader).body()).contains(a.get("key").toString());
+  assertThat(call("GET","/api/stories",null,reader).body()).contains(a.get("key").toString());
+ }
+
+ @Test void hiddenSerialChaptersDisappearFromRelationsAndPrerequisites(){
+  var standaloneDoc=scenario();var standalone=ok(call("POST","/api/author/stories/import",standaloneDoc,author));
+  var chapterDoc=scenario();chapterDoc.put("metadata",Map.of("schemaVersion",1,"relations",List.of(Map.of("id","continue","type","sequel","target",Map.of("kind","scenario","key",standalone.get("key")),"stateTransfer",Map.of("mode","independent")))));
+  var chapter=ok(call("POST","/api/author/stories/import",chapterDoc,author));ok(approveAndPublish(port,chapter.get("storyId").toString(),author));
+  standaloneDoc.put("metadata",Map.of("schemaVersion",1,"relations",List.of(Map.of("id","related","type","related","target",Map.of("kind","scenario","key",chapter.get("key"))))));
+  ok(call("POST","/api/author/stories/import",standaloneDoc,author));ok(approveAndPublishOnNextDay(jdbc,port,standalone.get("storyId").toString(),author));
+  String slug=ok(call("GET","/api/author/stories/"+standalone.get("storyId"),null,author)).get("publishedSlug").toString();
+  String save=ok(call("POST","/api/sessions",Map.of("storyKey",standalone.get("key")),reader)).get("sessionId").toString();
+  String id=create(document(2,List.of(item(chapter)))).get("id").toString();publish(id);
+  for(String path:List.of("/api/sessions/"+save+"/relations","/api/catalog/stories/"+slug+"/entry-context"))assertThat(call("GET",path,null,reader).body()).contains(chapter.get("key").toString());
+  decide(id,"hide");
+  for(String path:List.of("/api/sessions/"+save+"/relations","/api/catalog/stories/"+slug+"/entry-context")){
+   var response=call("GET",path,null,reader);assertThat(response.statusCode()).isEqualTo(200);assertThat(response.body()).doesNotContain(chapter.get("key").toString(),chapter.get("storyId").toString());
+  }
  }
 
  @Test void authorTrashIsFilteredBeforePaginationAndCardsHaveDocumentMetadata(){

@@ -95,8 +95,8 @@ class WorkPackageService {
  @Transactional(readOnly=true)
  Map<String,Object> export(String id,String player){var root=collections.row(id);collections.owner(root,player);var collectionDocs=new ArrayList<Object>();var scenarioDocs=new ArrayList<Object>();Set<String> seen=new HashSet<>();ArrayDeque<WorkMetadata.Target> todo=new ArrayDeque<>();todo.add(new WorkMetadata.Target("collection",root.id(),root.key()));
   while(!todo.isEmpty()){var t=todo.remove();if(!seen.add(t.kind()+":"+t.id()))continue;if(seen.size()>1000)throw bad("Package is too large");
-   if("collection".equals(t.kind())){var c=collections.row(t.id());if(!player.equals(c.owner()))continue;var d=json.readCollection(c.draft());collectionDocs.add(portable(json.readMap(json.write(d))));for(var item:list(d.items()))if(item.target().id()!=null)todo.add(item.target());}
-   else {var s=stories.findById(t.id()).orElseThrow(StoryNotFoundException::new);if(!player.equals(s.getOwnerPlayerId()))continue;var d=json.readStory(workflow.workspace(s.getId()).draftJson());scenarioDocs.add(portable(json.readMap(json.write(d))));}
+   if("collection".equals(t.kind())){var c=collections.row(t.id());if(!player.equals(c.owner())||TrashRetentionService.expired(c.visibility(),c.deletedAt()))continue;var d=json.readCollection(c.draft());collectionDocs.add(portable(json.readMap(json.write(d))));for(var item:list(d.items()))if(item.target().id()!=null)todo.add(item.target());}
+   else {var s=stories.findById(t.id()).orElseThrow(StoryNotFoundException::new);if(!player.equals(s.getOwnerPlayerId())||TrashRetentionService.expired(s.getVisibility(),s.getDeletedAt()))continue;var d=json.readStory(workflow.workspace(s.getId()).draftJson());scenarioDocs.add(portable(json.readMap(json.write(d))));}
   }
   return Map.of("schemaVersion",1,"kind","fraerapp-work-package","root",Map.of("kind","collection","key",root.key()),"scenarios",scenarioDocs,"collections",collectionDocs);
  }
@@ -114,7 +114,7 @@ class WorkPackageService {
   // duplicate parent reservations hidden behind forward keys, atomically.
   for(var d:docs){var c=collections.row(d.key());var saved=collections.save(c.id(),c.generation(),json.readCollection(c.draft()),player);for(int i=0;i<results.size();i++)if(c.id().equals(results.get(i).get("collectionId")))results.set(i,saved);}
   // Resolve forward scenario links only after all package objects exist.
-  for(Object value:scenarioDocs){var d=json.readStory(json.write(value));if(d.metadata()!=null)workflow.importDraft(json.write(links.normalize(d,player,false)),player);}
+  for(Object value:scenarioDocs){var d=json.readStory(json.write(value));if(d.metadata()!=null){var saved=workflow.importDraft(json.write(links.normalize(d,player,false)),player);for(int i=0;i<results.size();i++)if(saved.get("storyId").equals(results.get(i).get("storyId")))results.set(i,saved);}}
   return Map.of("items",results,"root",data.getOrDefault("root",Map.of()),"atomic",true);
  }
  @Transactional(readOnly=true)

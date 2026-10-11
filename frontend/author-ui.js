@@ -1,4 +1,4 @@
-import {el, button, words} from './collection-ui.js?v=5';
+import {el, button, words} from './collection-ui.js?v=6';
 
 export function coverImage(url, title = '') {
   const frame = el('div', null, 'author-cover');

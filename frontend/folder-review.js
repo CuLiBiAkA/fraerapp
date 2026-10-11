@@ -1,5 +1,5 @@
-import {el,button,field,checkbox,words,request,errorMessage,typeName} from "./collection-ui.js?v=4";
-import {renderStoryDocument,renderDocumentDiff} from "./story-workflow.js?v=1";
+import {el,button,field,checkbox,words,request,errorMessage,typeName} from "./collection-ui.js?v=6";
+import {renderStoryDocument,renderDocumentDiff} from "./story-workflow.js?v=2";
 
 // One visible application; individual immutable decisions remain server-owned.
 export function renderFolderReview(host,{group,roles,onDecision,onDetails}){

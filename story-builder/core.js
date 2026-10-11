@@ -30,6 +30,7 @@ export const translations = {
     duplicateChoiceId: "Сцена {scene} содержит дублирующийся id выбора: {id}.",
     missingTarget: "Выбор {choice} в сцене {scene} указывает на отсутствующую цель {target}.",
     missingConditionVariable: "Условие в выборе {choice} ссылается на отсутствующую переменную {variable}.",
+    missingTextVariable: "Текст сцены {scene} ссылается на отсутствующую переменную {variable}.",
     missingEffectVariableChoice: "Эффект в выборе {choice} ссылается на отсутствующую переменную {variable}.",
     invalidIncChoice: "Эффект inc в выборе {choice} должен ссылаться на числовую переменную {variable}.",
     missingEffectVariableScene: "Эффект сцены {scene} ссылается на отсутствующую переменную {variable}.",
@@ -87,6 +88,7 @@ export function translate(language, key, params = {}) {
 export function emptyDraft(language) {
   return {
     key: translate(language, "newStoryKey"),
+    pendingKey: true,
     title: translate(language, "newStoryTitle"),
     description: "",
     version: 1,
@@ -115,6 +117,7 @@ export function emptyDraft(language) {
 export function exampleDraft(language) {
   return {
     key: translate(language, "builderExampleKey"),
+    pendingKey: true,
     title: translate(language, "builderExampleTitle"),
     description: translate(language, "builderExampleDescription"),
     version: 1,
@@ -321,31 +324,35 @@ export function serializeEffects(effects, variableTypeResolver) {
 
 export function validateStory(story, language) {
   const errors = [];
-  const sceneIds = story.scenes.map((scene) => scene.id);
-  const assetIds = story.assets.map((asset) => asset.id);
-  const variableNames = Object.keys(story.variables);
-  const variableTypes = Object.fromEntries(Object.entries(story.variables).map(([name, value]) => [name, detectType(value)]));
+  const scenes = story.scenes || [];
+  const sceneIds = scenes.map((scene) => scene.id);
+  const globalAssets = story.assets || [];
   if (!story.key) errors.push(translate(language, "keyRequired"));
   if (!story.title) errors.push(translate(language, "titleRequired"));
   if (!story.startSceneId || !sceneIds.includes(story.startSceneId)) errors.push(translate(language, "startSceneMissing"));
   duplicates(sceneIds).forEach((id) => errors.push(translate(language, "duplicateSceneId", { id })));
-  story.scenes.forEach((scene) => {
-    const sceneVariableNames = [...variableNames, ...Object.keys(scene.variables || {})];
+  scenes.forEach((scene) => {
+    const variables = { ...story.variables, ...scene.variables };
+    const variableNames = Object.keys(variables);
+    // Runtime unwraps declarations before applying effects, including timers.
+    const variableTypes = Object.fromEntries(Object.entries(variables).map(([name, value]) => [name, typeof variableValue(value)]));
+    const assetIds = [...globalAssets, ...(scene.assets || [])].map((asset) => asset.id);
+    const choices = scene.choices || [];
     if (scene.background && !assetIds.includes(scene.background)) {
       errors.push(translate(language, "missingBackground", { scene: scene.id, asset: scene.background }));
     }
     if (scene.music && !assetIds.includes(scene.music)) {
       errors.push(translate(language, "missingMusic", { scene: scene.id, asset: scene.music }));
     }
-    duplicates(scene.choices.map((choice) => choice.id)).forEach((id) => {
+    duplicates(choices.map((choice) => choice.id)).forEach((id) => {
       errors.push(translate(language, "duplicateChoiceId", { scene: scene.id, id }));
     });
     extractTextVariables(scene.text).forEach((variable) => {
-      if (!sceneVariableNames.includes(variable)) {
+      if (!variableNames.includes(variable)) {
         errors.push(translate(language, "missingTextVariable", { scene: scene.id, variable }));
       }
     });
-    scene.choices.forEach((choice) => {
+    choices.forEach((choice) => {
       if (!sceneIds.includes(choice.target)) {
         errors.push(translate(language, "missingTarget", {
           choice: choice.id,
@@ -353,7 +360,10 @@ export function validateStory(story, language) {
           target: choice.target,
         }));
       }
-      choice.conditions.forEach((condition) => {
+      if (choice.fallbackTarget && !sceneIds.includes(choice.fallbackTarget)) {
+        errors.push(translate(language, "missingTarget", { choice: choice.id, scene: scene.id, target: choice.fallbackTarget }));
+      }
+      (choice.conditions || []).forEach((condition) => {
         if (!variableNames.includes(condition.var)) {
           errors.push(translate(language, "missingConditionVariable", {
             choice: choice.id,
@@ -361,7 +371,7 @@ export function validateStory(story, language) {
           }));
         }
       });
-      choice.effects.forEach((effect) => {
+      (choice.effects || []).forEach((effect) => {
         const name = effect.inc || effect.set;
         if (!variableNames.includes(name)) {
           errors.push(translate(language, "missingEffectVariableChoice", {
@@ -377,7 +387,7 @@ export function validateStory(story, language) {
         }
       });
     });
-    scene.effects.forEach((effect) => {
+    (scene.effects || []).forEach((effect) => {
       const name = effect.inc || effect.set;
       if (!variableNames.includes(name)) {
         errors.push(translate(language, "missingEffectVariableScene", {

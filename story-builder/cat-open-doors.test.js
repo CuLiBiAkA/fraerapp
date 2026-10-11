@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { validateStory as validateStoryDocument } from './core.js';
 
 const packageUrl = new URL('./scenarios/koshka-i-otkrytye-dveri.package.json', import.meta.url);
 const bundle = JSON.parse(fs.readFileSync(packageUrl, 'utf8'));
@@ -9,11 +10,10 @@ const app = fs.readFileSync(new URL('./app.js', import.meta.url), 'utf8');
 
 // Exercise the functions used by the live editor, including its scope resolver.
 function editor() {
-  const context = vm.createContext({draft: {}, structuredClone, render() {}, t: key => key});
+  const context = vm.createContext({draft: {}, currentLanguage: 'ru', validateStoryDocument, structuredClone, render() {}, t: key => key});
   for (const name of ['fromStoryJson', 'toStoryJson', 'serializeVariable', 'serializeConditions',
     'serializeEffects', 'variableType', 'variableValue', 'detectType', 'coerceValue',
-    'parseMetadata', 'parseCondition', 'parseEffects', 'defaultValue', 'validateStory',
-    'extractTextVariables', 'duplicates']) {
+    'parseMetadata', 'parseCondition', 'parseEffects', 'defaultValue', 'validateStory']) {
     const declaration = app.match(new RegExp(`function ${name}\\([^]*?\\n\\}`));
     assert.ok(declaration, name);
     vm.runInContext(declaration[0], context);

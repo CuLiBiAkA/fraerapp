@@ -1,5 +1,6 @@
+import { fetchWithSession } from "./auth-session.js?v=1";
 // Shared collection controls. All labels/content use textContent, never HTML.
-import { reviewLimitMessage } from "./review-limit.js?v=1";
+import { reviewLimitMessage } from "./review-limit.js?v=2";
 export const collectionTypes = {
   story: ["История", "Story"], volume: ["История", "Story"],
   cycle: ["История", "Story"], catalog: ["История", "Story"], scenario: ["Глава", "Chapter"],
@@ -34,7 +35,7 @@ export function checkbox(text, checked) {
   label.append(input, document.createTextNode(text)); return { label, input };
 }
 export function errorMessage(error) {
-  if (error.code === "REVIEW_LIMIT_REACHED") return reviewLimitMessage(language());
+  if (["REVIEW_LIMIT_REACHED", "REVIEW_DAILY_LIMIT_REACHED"].includes(error.code)) return reviewLimitMessage(language(), error);
   const folderErrors = {
     "Submit the preceding chapters first": words("Сначала отправьте предыдущие главы на проверку.", "Submit the preceding chapters first."),
     "Finish the previous chapter before continuing": words("Сначала дочитайте предыдущую главу.", "Finish the previous chapter first."),
@@ -51,16 +52,12 @@ export function errorMessage(error) {
   return error.message || words("Не удалось выполнить действие. Повторите попытку.", "The action failed. Try again.");
 }
 export async function request(path, options = {}, retry = true) {
-  const response = await fetch(path, { credentials: "include", cache: "no-store", ...options,
+  const response = await fetchWithSession(path, { credentials: "include", cache: "no-store", ...options,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    headers: { Accept: "application/json", "X-Fraer-Request": "same-origin", ...(options.body === undefined ? {} : {"Content-Type":"application/json"}) } });
-  if (response.status === 401 && retry) {
-    const refresh = await fetch("/auth/refresh", {method:"POST", credentials:"include", headers:{"X-Fraer-Request":"same-origin"}});
-    if (refresh.ok) return request(path, options, false);
-  }
+    headers: { Accept: "application/json", "X-Fraer-Request": "same-origin", ...(options.body === undefined ? {} : {"Content-Type":"application/json"}) } }, { refresh: retry });
   const body = await response.text(); let data;
   try { data = body ? JSON.parse(body) : {}; } catch { data = {}; }
-  if (!response.ok) { const error = new Error(data.message || data.detail || words("Ошибка запроса", "Request failed")); error.status = response.status; error.code = data.code; throw error; }
+  if (!response.ok) { const error = new Error(data.message || data.detail || words("Ошибка запроса", "Request failed")); error.status = response.status; error.code = data.code; error.reviewAvailableAt = data.reviewAvailableAt; throw error; }
   return data;
 }
 export function download(value, filename) {

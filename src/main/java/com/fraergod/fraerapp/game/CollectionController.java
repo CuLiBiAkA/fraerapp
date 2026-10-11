@@ -31,6 +31,7 @@ class CollectionController {
  @GetMapping("/api/author/collections/{id}/preview") Object preview(@PathVariable String id,@RequestParam(defaultValue="draft") String revision){return collections.preview(id,user.requireOwnerReaderPlayerId(),false,revision);}
  @PostMapping("/api/author/collections/{id}/review") Object review(@PathVariable String id,@RequestBody Submission c){return collections.submit(id,user.requireAuthorPlayerId(),c.generation(),Boolean.TRUE.equals(c.replaceReview()),user.requireIdentity());}
  @PostMapping("/api/author/collections/{id}/withdraw") Object withdraw(@PathVariable String id,@RequestBody Submission c){return collections.withdraw(id,user.requireAuthorPlayerId(),c.generation(),user.requireIdentity());}
+ @PostMapping("/api/author/collections/{id}/restore") Object restore(@PathVariable String id,@RequestBody Submission c){return collections.restoreTrash(id,user.requireAuthorPlayerId(),c.generation(),user.requireIdentity());}
  @PostMapping("/api/author/collections/{id}/archive") Object archive(@PathVariable String id,@RequestBody Submission c){return collections.takeDown(id,user.requireAuthorPlayerId(),c.generation(),false,user.requireIdentity());}
  @DeleteMapping("/api/author/collections/{id}") Object delete(@PathVariable String id,@RequestBody Submission c){return collections.takeDown(id,user.requireAuthorPlayerId(),c.generation(),true,user.requireIdentity());}
  @GetMapping("/api/author/collections/{id}/export") Object export(@PathVariable String id){return packages.export(id,user.requireOwnerReaderPlayerId());}

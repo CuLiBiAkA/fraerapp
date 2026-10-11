@@ -80,6 +80,51 @@ test("validateStory catches missing targets and invalid inc targets", () => {
   assert.match(errors.join("\n"), /must target number variable hasKey/i);
 });
 
+test("validateStory resolves scene-local variables and media without leaking their scope", () => {
+  const story = toStoryJson(exampleDraft("en"));
+  const scene = story.scenes[0];
+  story.variables.score = false;
+  scene.variables = { score: 3, localOnly: true };
+  scene.assets = [{ id: "local_bg", type: "image", url: "/local.png" }, { id: "local_music", type: "music", url: "/local.wav" }];
+  scene.background = "local_bg";
+  scene.music = "local_music";
+  scene.text = "{{score}} {{localOnly}}";
+  scene.effects = [{ inc: "score", value: 1 }];
+  scene.choices[0].conditions = [{ var: "localOnly", op: "==", value: true }];
+  scene.choices[0].effects = [{ inc: "score", value: 1 }];
+  story.scenes[1].choices.forEach(choice => { choice.effects = []; });
+  assert.deepEqual(validateStory(story, "en"), []);
+  story.scenes[1].effects = [{ inc: "score", value: 1 }];
+  story.scenes[1].background = "local_bg";
+  story.scenes[1].choices[0].conditions = [{ var: "localOnly", op: "==", value: true }];
+  const errors = validateStory(story, "en").join("\n");
+  assert.match(errors, /Scene door has missing background asset local_bg/);
+  assert.match(errors, /inc effect in scene door must target number variable score/);
+  assert.match(errors, /references missing variable localOnly/);
+});
+
+test("validateStory treats wrapped values and timers as numeric and honors local type shadowing", () => {
+  const story = toStoryJson(exampleDraft("en"));
+  story.variables.score = { value: 4, showInStats: true };
+  story.variables.countdown = { type: "timer", value: 30, showInStats: true };
+  story.scenes[0].effects = [{ inc: "score", value: 1 }, { inc: "countdown", value: -1 }];
+  story.scenes[0].choices[0].effects = [{ inc: "countdown", value: -1 }];
+  assert.deepEqual(validateStory(story, "en"), []);
+  story.scenes[0].variables = { score: "local text", countdown: false };
+  const errors = validateStory(story, "en").join("\n");
+  assert.match(errors, /inc effect in choice take_key must target number variable countdown/);
+  assert.match(errors, /inc effect in scene start must target number variable score/);
+  assert.match(errors, /inc effect in scene start must target number variable countdown/);
+});
+
+test("validateStory checks fallback targets and localizes missing text variables", () => {
+  const story = toStoryJson(exampleDraft("en"));
+  story.scenes[0].choices[0].fallbackTarget = "missing_fallback";
+  story.scenes[0].text = "{{missing_value}}";
+  assert.match(validateStory(story, "en").join("\n"), /missing target missing_fallback/);
+  assert.match(validateStory(story, "ru").join("\n"), /Текст сцены start ссылается на отсутствующую переменную missing_value/);
+});
+
 test("serialize helpers preserve expected story-engine contract", () => {
   const variableTypes = {
     score: "number",
