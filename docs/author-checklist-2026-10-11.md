@@ -1,8 +1,8 @@
 # Author and reader checklist — 2026-10-11
 
-Status: local work on `main`; not committed, pushed or deployed by this task.
-The checkout also contains a concurrent architecture/auth cleanup. Preserve that
-work and verify the combined release before deployment.
+Status: source `0ca3aa0` committed, pushed to `main` and deployed on 2026-10-12,
+together with the architecture/auth cleanup. See PROJECT_CONTEXT.md and
+DEPLOY_RUNBOOK.md for the verified release, backup and rollback image receipt.
 
 ## Implemented scope
 
@@ -92,6 +92,10 @@ Final combined checkout verification on 2026-10-11:
 - JavaScript syntax, production configuration validation and `git diff --check`
   passed. Production configuration validation is a local check, not a deployment.
 
-These results cover the combined working copy, including the concurrent cleanup.
-No production database, accounts or runtime were changed. Work remains local and
-uncommitted; censor and real-time timer behavior remain open as described above.
+These implementation checks covered the combined working copy before release.
+The authorized 2026-10-12 release repeated 151 Node, 128 API and 69 auth tests and
+built both JARs. The current 25 browser suites and a fresh 8-case prompt-page check
+cover the final source. Production now has V22/V10 and the verified release;
+all six services, running artifacts, public assets and private-route denial were
+checked. No production accounts, reading saves or moderation actions were created
+for those checks. Censor and real-time timer behavior remain open as described above.

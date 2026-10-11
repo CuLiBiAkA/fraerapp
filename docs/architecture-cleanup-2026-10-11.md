@@ -5,9 +5,11 @@
 User requested a project-wide workaround audit and confirmed the target: improve
 the existing architecture while preserving functionality and data. Baseline:
 `main` at `2581cba`, no tracked edits, existing untracked `output/` preserved.
-Changes are local until an explicit release is recorded. No production operations
-have been performed. Auth V10 is an additive schema migration for the next release;
-it does not rewrite existing user, token or session data.
+Release update, 2026-10-12: source `0ca3aa0` was committed, pushed and deployed with
+the author checklist changes after fresh combined verification (128 API, 69 auth,
+151 Node tests). Live PostgreSQL V10/V22 succeeded; all six services are healthy.
+PROJECT_CONTEXT.md and DEPLOY_RUNBOOK.md contain the backup and verified artifact
+receipt. Auth V10 adds coordination rows without rewriting user/token/session data.
 
 Preserve story → chapters → scenes, immutable published revisions, generation
 checks, moderation, existing IDs/routes/saves and schema-v1 imports. Legacy data
@@ -121,6 +123,7 @@ auth tests**, zero failures/errors/skips; **151 Node tests passed** on the last
 run. Syntax/lint, production static validation, documentation links and
 `git diff --check` pass. Independent API-only snapshot: 112/112 passed.
 
-Changes remain local on `main`, uncommitted, unpushed and undeployed. Existing
-`output/` and the other task's edits were preserved. README, code map, project
-context and deploy runbook were updated; private operator notes were unchanged.
+The implementation handoff was initially local; the authorized combined release
+on 2026-10-12 is committed, pushed and deployed as recorded above. Existing
+`output/` remains local. README, code map, project context and deploy runbook were
+updated; private operator notes were unchanged.

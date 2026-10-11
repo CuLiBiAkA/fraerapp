@@ -1,28 +1,42 @@
 # FraerApp deploy and ops runbook
 
-## Combined release candidate (2026-10-12)
+## Combined release receipt (deployed, 2026-10-12)
 
-The user authorized the combined authoring/session release. Before deployment,
-the live six core services are healthy, recent API/auth/edge errors are zero,
-origin home/readiness/catalogue return 200, and current migrations are API V21
-and auth V9. Preserve the existing environment, mounted uploads and databases.
-Fresh local checks pass: 151 Node, 128 API and 69 auth tests, current 25 browser
-suites, syntax/configuration validation and diff checks.
+Source `0ca3aa0` is committed, pushed and deployed. Backup:
+`backups/authoring-20261012-012425` (both custom-format dumps validated with
+pg_restore --list, prior runtime archive, private receipt and build logs).
+Rollback tags: `fraerapp-<service>:before-authoring-20261012-012425`; deployed
+API/auth-service/story-builder tags: `fraerapp-<service>:authoring-0ca3aa0`.
+Runtime is a file-based deployment, not a Git checkout. The release archive
+contains the committed source and verified JARs; 85 changed runtime/source files
+were installed and retired frontend/app.js removed after backup.
 
-Use the verified local Java 17 artifacts with the current runtime image layers,
-preserving entrypoints/users/options; rebuild Builder from the committed source.
-Back up both databases and runtime files and tag all three old images before
-replacing files. Deploy API/auth without old/new application overlap. Verify V22
-and V10 on live PostgreSQL, exact JAR/static hashes, retention timestamps, public
-and origin readiness, anonymous private-route denial, and recent errors. Record
-the release commit, backup and image tags after verification. Keep all additive
-migration data on rollback; do not restore a database over later user activity.
+Fresh checks: 151 Node, 128 API and 69 auth tests; current 25 browser suites plus
+8 prompt-page checks after the theme v25 alignment; syntax/configuration validation
+and diff checks. API/auth images layer the Java 17 artifacts over the previous
+runtime images, preserving entrypoints/users/options. Builder was rebuilt from
+the committed source. API/auth/Builder were stopped before recreation, avoiding
+old/new application overlap. nginx syntax and reload passed. Environment and
+runtime configuration hashes are unchanged.
 
-## Author checklist (local, 2026-10-11; not deployed)
+Live verification: all six core services healthy; PostgreSQL V22/V10 successful;
+no deleted story/collection lacks a retention timestamp. Both running JAR hashes
+and all 85 installed source hashes match. All 40 origin resources and nine API/
+health/authorization probes pass. Public checks: 28 versioned JS/CSS hashes and
+seven ordinary HTML hashes match exactly; both workspace redirects, health,
+catalogue and three anonymous private-preview denials pass. The three legal HTML
+raw hashes differ only by removal of exact email_off comments (separately proven;
+contacts/current policy remain visible without JS). /history also matches the new
+index exactly. Recent API/auth/edge errors are zero. No production accounts,
+reading saves or moderation actions were created for verification.
+
+Keep all additive migration data on rollback; do not restore a database over
+later user activity. Existing local output/ remains outside Git and the release.
+
+## Author checklist release procedure
 
 See `docs/author-checklist-2026-10-11.md` for scope and unresolved requirements.
-The same checkout also contains the concurrent architecture/auth cleanup below;
-review the combined source, migrations and test outcomes before any release.
+This release includes the architecture/auth cleanup below; both procedures apply.
 
 This change requires API + Builder rebuild and coordinated frontend imports.
 Include V22, RasterImageNormalizer, private playtest API, image-preparation and
@@ -49,12 +63,11 @@ new author mutations only with isolated fixtures. If rolling back, retain the
 additive columns/tables and note that old code will not enforce daily admission
 or the retention window. Never restore a database over newer user work.
 
-## Architecture cleanup (local, 2026-10-11; not deployed)
+## Architecture cleanup release procedure
 
 See `docs/architecture-cleanup-2026-10-11.md` for scope and executed checks. This
-working copy also contains another task's changes; inspect the final combined
-diff and its migrations before constructing a release. Do not treat this audit's
-verification as approval of unrelated changes.
+release also includes the author checklist above; inspect the combined diff and
+its migrations before constructing any followup release.
 
 The cleanup requires rebuilding API, auth-service and Builder, plus deploying the
 full frontend import graph. Auth Flyway V10 creates `login_link_issuance_locks`

@@ -2,18 +2,26 @@
 
 Last updated: 2026-10-12.
 
-## Authoring and session release candidate (2026-10-12)
+## Authoring and session release (deployed, 2026-10-12)
 
-The user authorized committing, pushing and deploying the combined author
-checklist and architecture/session cleanup below. Both tasks are finished;
-the untracked local `output/` artifacts are outside the release. Fresh release
-checks pass: 151 Node, 128 API and 69 auth tests, current 25-suite browser evidence,
-syntax/configuration validation and diff checks. Both Java 17 JARs were rebuilt
-from the tested sources. Builder prompts now uses the same theme v25 as its
-editor/map. Deployment remains pending until a verified receipt replaces this
-paragraph's candidate status. The two open product requirements remain open.
+Source `0ca3aa0` is committed, pushed to `main` and deployed. It combines the author
+checklist and architecture/session cleanup below; local `output/` artifacts are
+excluded. Fresh release checks pass: 151 Node, 128 API and 69 auth tests, current
+25-suite browser evidence, plus 8 prompt-page cases after aligning theme v25.
+Both Java 17 JARs were rebuilt from the tested sources.
 
-## Author checklist (local, 2026-10-11; not deployed)
+Backup: `backups/authoring-20261012-012425`, with validated dumps of both databases,
+previous runtime files and rollback images. New API/auth/Builder images use
+`fraerapp-<service>:authoring-0ca3aa0`. All six core services are healthy; V22/V10
+succeeded on PostgreSQL. Running JAR hashes and 85 installed source files match;
+environment, entrypoints and users are unchanged. All 40 origin resource checks
+pass. Public versioned JS/CSS and ordinary HTML match exactly, including /history;
+the three legal pages match after removing only Cloudflare's email_off comments.
+Their contact links remain visible without JavaScript. Private routes deny
+anonymous access; recent API/auth/edge errors are zero. The two open product
+requirements remain open.
+
+## Author checklist (included in the 2026-10-12 release)
 
 `docs/author-checklist-2026-10-11.md` records the user checklist, defaults and open
 requirements. Builder has metadata-first context/outline, hidden save/export-time keys
@@ -33,14 +41,14 @@ engagement/ad activity. Whole-story previews freeze chapter revisions and reuse
 the published chapter-order/global-state transfer policy. Independent-start
 contract defaults are honored. Legacy nested collections retain per-chapter
 preview. “Цензор истории” and real-time scene timer behavior await clarification.
-No production change is claimed here.
+Released with the combined source and verification receipt above.
 
-## Architecture cleanup (local, 2026-10-11)
+## Architecture cleanup (included in the 2026-10-12 release)
 
 `docs/architecture-cleanup-2026-10-11.md` records the current audit, ownership and
-verification limits. These changes are not deployed; older release sections below
-describe their recorded releases, not this working copy. A separate active task
-is also editing Builder/media, catalogue, trash and review quotas in this checkout.
+verification limits. The combined release above includes this cleanup and the
+authoring/media, catalogue, trash and review-quota changes. Older release sections
+below describe their recorded versions.
 
 Browser clients now share `frontend/auth-session.js`: one refresh per runtime,
 bounded recovery if another tab rotated the cookie, then one original-request
