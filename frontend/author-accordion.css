@@ -10,14 +10,14 @@
 .story-unread { font:500 12px/1.5 var(--font-body); color:#99335e; }
 .story-chevron { font-size:27px; }
 .workspace .accordion-story .collection-editor { border:0; border-radius:0; border-top:1px solid #7f64a466; margin:0 22px; padding:22px 0; gap:16px; }
-.accordion-story .collection-editor > h2,.accordion-story .collection-editor > h2 + p { display:none; }
+.accordion-story .collection-editor > h2 { display:none; }
 .accordion-story .author-tabs { border:0; justify-content:flex-end; margin:0; padding:0; }
 .accordion-story .author-tabs > button { flex:0 1 auto; }
 .accordion-story .author-chapters > p { display:none; }
 .accordion-story .author-chapters > h3 { margin:0 0 12px; }
 .accordion-story .collection-items { gap:0; margin:0 0 18px; }
 .workspace .accordion-story .collection-item { position:relative; border:0; border-top:1px solid #7f64a466; border-radius:0; background:transparent; padding:16px 0; }
-.chapter-overview { display:grid; grid-template-columns:minmax(160px,1fr) auto minmax(0,2fr); gap:12px; align-items:center; }
+.chapter-overview { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:16px; align-items:center; }
 .chapter-overview h4 { margin:0; font:500 19px/1.5 var(--font-heading); overflow-wrap:anywhere; }
 .chapter-state { display:inline-block; padding:7px 12px; border-radius:24px; background:#e4d7ef; font-size:12px; line-height:1.4; }
 .state-published { background:#d2e9dc; color:#245846; }
@@ -26,7 +26,16 @@
 .chapter-buttons { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:8px; }
 .workspace .chapter-buttons :is(a,button) { display:inline-flex; justify-content:center; align-items:center; min-height:44px; padding:8px 12px; border:1px solid var(--line); border-radius:10px; color:var(--text); text-decoration:none; font:500 13px/1.4 var(--font-control); }
 .workspace .chapter-buttons .add-button { color:white; }
-.chapter-feedback { margin-top:12px; border-radius:12px; padding:8px 14px; background:#eedce5; }
+.workspace .chapter-feedback { margin-top:8px; border:0; border-radius:6px; padding:0; background:transparent; font-size:13px; }
+.workspace .chapter-feedback > summary { min-height:32px; padding:4px 0 4px 22px; width:fit-content; font-size:13px; line-height:24px; }
+.chapter-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; }
+.chapter-heading h3 { margin:0; }
+.story-about-dialog { box-sizing:border-box; width:min(720px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; padding:24px; border:1px solid var(--line); border-radius:20px; }
+.story-about-dialog .collection-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:16px; }
+.story-about-dialog button { padding:10px 16px; min-height:44px; border:1px solid var(--line); border-radius:10px; font:inherit; }
+.story-about-dialog :is(input,textarea,select) { box-sizing:border-box; max-width:100%; font:inherit; }
+.story-about-dialog .collection-fields { display:grid; gap:12px; }
+.story-about-dialog label { display:grid; gap:8px; }
 .chapter-feedback p { white-space:pre-wrap; margin:8px 0; }
 .moderator-comment { padding:8px 0; border-top:1px solid #7f64a433; font-size:14px; }
 .moderator-comment small { margin-top:6px; }
@@ -47,7 +56,6 @@
 .author-trash-notice { padding:16px; border:1px solid currentColor; border-radius:12px; line-height:1.5; }
 .author-list-tools .author-utilities { margin-bottom:0; }
 .chapter-buttons svg { width:18px;height:18px;flex:none;margin-right:7px; }
-@media(min-width:601px){.accordion-story .author-chapters > h3 { margin-top:-54px;padding-right:210px;min-height:44px; }}
 @media(max-width:1000px){.chapter-overview { grid-template-columns:minmax(0,1fr) auto; }.chapter-buttons { grid-column:1/-1; justify-content:flex-start; }}
 @media(max-width:600px){
  .workspace .story-toggle { grid-template-columns:76px minmax(0,1fr) 20px; gap:12px; padding:16px; }

@@ -32,7 +32,7 @@ for(const width of [1440,768,390,320]){
  await p.waitForURL('**/my-stories/');await p.getByRole('button',{name:'+ Создать историю',exact:true}).click();
  await p.getByLabel('Название',{exact:true}).fill('Тайны города');
  await p.getByLabel('Описание',{exact:true}).fill('История, которая выходит по главам.');
- await p.getByRole('tab',{name:'Главы',exact:true}).click();
+ await p.getByRole('dialog',{name:'Об истории',exact:true}).getByRole('button',{name:'Закрыть',exact:true}).click();
  await p.getByRole('button',{name:'+ Добавить главу',exact:true}).click();
  await p.waitForURL('**/builder/?story=chapter&work=work');
  await p.getByRole('heading',{name:'Конструктор главы',exact:true}).waitFor();

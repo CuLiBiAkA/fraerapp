@@ -3,7 +3,7 @@ import {chapterState,chapterStateLabel} from "./chapter-state.js?v=2";
 import {reviewLimitMessage} from "./review-limit.js?v=2";
 import {workflowLabel, renderDocumentDiff, canEditStoryDraft} from "./story-workflow.js?v=3";
 import {renderFolderReview} from "./folder-review.js?v=6";
-import {authorCard,coverImage,editorTabs} from "./author-ui.js?v=3";
+import {authorCard,coverImage} from "./author-ui.js?v=3";
 import {seasonGroups,seasonDialog} from "./author-seasons.js?v=1";
 import {chooseCover,uploadImage} from "./author-cover.js?v=3";
 
@@ -34,6 +34,10 @@ async function start(root) {
   history.replaceState({...history.state,authorIndex:0},"",location.href);
   const heading = el("h1",words(moderation ? "Заявки на публикацию" : "Мои истории",moderation ? "Publication applications" : "My stories"));
   const status = el("p","","collection-status"); status.setAttribute("role","status");
+  const aboutDialog=el('dialog',null,'workspace-dialog story-about-dialog');
+  aboutDialog.setAttribute('aria-labelledby','story-about-title');root.append(aboutDialog);
+  aboutDialog.addEventListener('close',()=>{tabKey='chapters';editor.querySelector('.story-primary-actions')?.removeAttribute('hidden');editor.querySelector('.story-about-button')?.focus();});
+  aboutDialog.addEventListener('cancel',event=>{if(busy)event.preventDefault();});
   const toolbar = el("form",null,"collection-toolbar");
   const query = field(words("Поиск", "Search"),"","search");
   const state = select(words("Состояние", "Status"),["all","in_review","draft","approved","rejected","public","unlisted","private","hidden","archived"].map(k=>[k,workflowLabel(k,document.documentElement.lang)]),params.get("status")||(moderation?"in_review":"all"));
@@ -101,6 +105,8 @@ async function start(root) {
     permissionNotice=allowed?"":dirty?words("Право редактирования изменилось. Ваш текст остаётся в форме; скопируйте его перед выходом.","Editing permission changed. Your text remains in the form; copy it before leaving."):words("Только чтение. Для создания и изменения историй нужна роль автора.","Read only. Creating and editing stories requires the author role.");
     if(canEdit!==allowed){canEdit=allowed;if(screen==="editor"){
       editor.querySelectorAll("input,textarea").forEach(control=>control.readOnly=!allowed);
+      aboutDialog.querySelectorAll('input,textarea').forEach(control=>control.readOnly=!allowed);
+      aboutDialog.querySelectorAll('select,button.add-button').forEach(control=>control.disabled=!allowed);
       editor.querySelectorAll("select,button:not([role=tab])").forEach(control=>control.disabled=!allowed);
       editor.querySelectorAll('a[href^="/builder/"]').forEach(control=>control.hidden=!allowed);
       if(!allowed)status.textContent=permissionNotice;
@@ -116,17 +122,17 @@ async function start(root) {
     const notice=editor.querySelector(".review-limit-notice");if(notice){notice.hidden=!detail.reviewLimitReached;notice.textContent=reviewLimitMessage(document.documentElement.lang,detail);}
   }
   async function work(action) {
-    if (busy) return; busy=true; root.inert=true; root.setAttribute("aria-busy","true"); status.textContent=words("Выполняем…", "Working…"); status.classList.remove("error");
+    if (busy) return; busy=true; root.inert=true; aboutDialog.inert=true; root.setAttribute("aria-busy","true"); status.textContent=words("Выполняем…", "Working…"); status.classList.remove("error");
     try { await action(); }
     catch(error) {
       status.replaceChildren(document.createTextNode(errorMessage(error)));status.classList.add("error");
-      const dialogStatus=document.querySelector(".author-import[open] [role=status]");if(dialogStatus)dialogStatus.textContent=errorMessage(error);
+      const dialogStatus=document.querySelector(".author-import[open] [role=status], .story-about-dialog[open] [role=status]");if(dialogStatus)dialogStatus.textContent=errorMessage(error);
       if(doc&&[401,403,409].includes(error.status)){
         const recovery=el("span",null,"author-recovery");recovery.append(button(words("Скачать мой черновик","Download my draft"),()=>download(doc,`${doc.key||"story"}-draft.json`)));
         if(current)recovery.append(button(words("Загрузить актуальную редакцию","Reload current revision"),()=>{if(discard())work(()=>current.standalone?openStandalone(current.collectionId):open(current.collectionId));}));status.append(recovery);
       }
     }
-    finally { busy=false; root.inert=false; root.removeAttribute("aria-busy");if(status.textContent===words("Выполняем…","Working…"))status.textContent=permissionNotice||(dirty?words("Есть несохранённые изменения в форме.","There are unsaved changes in this form."):""); }
+    finally { busy=false; root.inert=false; aboutDialog.inert=false; root.removeAttribute("aria-busy");if(aboutDialog.open)aboutDialog.querySelector("[role=status]").textContent=status.textContent;if(status.textContent===words("Выполняем…","Working…"))status.textContent=permissionNotice||(dirty?words("Есть несохранённые изменения в форме.","There are unsaved changes in this form."):""); }
   }
 
   async function loadList() {
@@ -205,8 +211,8 @@ async function start(root) {
     const top=el('div',null,'chapter-overview');top.append(el('h4',`${index+1}. ${title}`),el('span',chapterStateLabel(state,en),`chapter-state state-${state}`));
     const actions=el('div',null,'chapter-buttons');
     if(canEdit&&canEditStoryDraft(detail))actions.append(link(words('Редактировать','Edit'),`/builder/?story=${encodeURIComponent(id)}${current?.standalone?'':`&work=${encodeURIComponent(current?.collectionId||'')}`}`));
-    if(state!=='unavailable')actions.append(button(words('Предпросмотр','Preview'),()=>{if(discard())location.href=`/author-preview.html?previewStory=${encodeURIComponent(id)}&revision=${encodeURIComponent(detail.draftRevision)}`;}));
-    if(detail.publishedRevision&&state!=='unavailable')actions.append(button(words('Читать','Read'),()=>{if(discard())location.href=`/author-preview.html?previewStory=${encodeURIComponent(id)}&revision=${encodeURIComponent(detail.publishedRevision)}`;}));
+    if(!detail.publishedRevision&&state!=='unavailable')actions.append(button(words('Предпросмотр','Preview'),()=>{if(discard())location.href=`/author-preview.html?previewStory=${encodeURIComponent(id)}&revision=${encodeURIComponent(detail.draftRevision)}`;}));
+    if(detail.publishedRevision&&state!=='unavailable')actions.append(button(words('Читать','Read'),()=>{if(discard())location.href=`/history/${encodeURIComponent(detail.publishedSlug||detail.slug||detail.key||item.target.key||id)}`;}));
     if(canEdit&&canEditStoryDraft(detail)&&(['draft','rejected'].includes(state)||detail.correctionRequested)){
       const send=button(state==='rejected'?words('Отправить повторно','Resubmit'):words('На модерацию','Submit for review'),()=>work(async()=>{
         if(!current.standalone)await save();
@@ -250,8 +256,7 @@ async function start(root) {
   function renderEditor(){
     editor.replaceChildren();
     const h=el("h2",current?.groupReview?.tree?.title||current?.title||doc.title||words("Новая история", "New story"));h.tabIndex=-1;editor.append(h);
-    if(current){editor.append(el("p",labels(current)));if(current.reason||current.decisionReason)editor.append(el("p",current.reason||current.decisionReason));}
-    if(!moderation&&current)renderFeedback(editor,current,current.collectionId,true);
+    if(moderation&&current){editor.append(el("p",labels(current)));if(current.reason||current.decisionReason)editor.append(el("p",current.reason||current.decisionReason));}
     if(moderation){
       if(current.groupReview)renderFolderReview(editor,{group:current.groupReview,roles,onDecision:async()=>{await open(current.collectionId);await loadList();},onDetails:()=>{current.groupReview=null;editor.replaceChildren(el("h2",current.title));renderReview();}});
       else renderReview();return;
@@ -264,7 +269,11 @@ async function start(root) {
       renderSnapshot(editor,doc);return;
     }
     const metadata=el("section",null,"author-metadata"),chapters=el("section",null,"author-chapters");
-    editor.append(editorTabs([["chapters",words("Главы","Chapters"),chapters],["metadata",words("Об истории","About story"),metadata]],tabKey,key=>{tabKey=key;}));
+    const aboutButton=button(words('Об истории','About story'),()=>{tabKey='metadata';editor.querySelector('.story-primary-actions').hidden=true;aboutDialog.showModal();},'story-about-button');
+    const aboutTitle=el('h2',words('Об истории','About story'));aboutTitle.id='story-about-title';
+    const aboutStatus=el('p',null,'collection-status');aboutStatus.setAttribute('role','status');
+    const aboutActions=el('div',null,'collection-actions');aboutActions.append(button(words('Сохранить','Save'),()=>work(save),'add-button'),button(words('Закрыть','Close'),()=>aboutDialog.close()));
+    aboutDialog.replaceChildren(aboutTitle,metadata,aboutStatus,aboutActions);
     const reviewNotice=el("p",reviewLimitMessage(document.documentElement.lang,current||{}),"collection-status review-limit-notice");reviewNotice.hidden=!current?.reviewLimitReached;editor.append(reviewNotice);
     const fields=el("div",null,"collection-fields"),advanced=el("details");advanced.append(el("summary",words("Дополнительные настройки", "Additional settings")));
     for(const [key,ru,en,inputType] of [["key","Ключ","Key","text"],["title","Название","Title","text"],["description","Описание","Description","textarea"],["genre","Жанры","Genres","text"]]){
@@ -274,7 +283,7 @@ async function start(root) {
     const completion=select(words("Завершённость", "Completion"),[["in_development",words("В разработке", "In progress")],["completed",words("Завершено", "Completed")],["abandoned",words("Приостановлено", "Paused")]],doc.completionStatus||"in_development");completion.input.onchange=()=>{doc.completionStatus=completion.input.value;changed();};
     fields.append(completion.label);metadata.append(fields);
     const cover=el("div",null,"author-cover-setting");cover.append(coverImage(doc.coverUrl),button(words("Выбрать обложку","Choose cover"),()=>chooseCover({url:doc.coverUrl,getImages:()=>current?request(`${api}/${current.collectionId}/covers`):[],upload:async file=>{if(!current)await save();return uploadImage(`${api}/${current.collectionId}/cover`,file);},onSelect:url=>{doc.coverUrl=url;changed();renderEditor();}})));metadata.append(cover);
-    chapters.append(el("h3",words("Главы истории", "Story chapters")),el("p",words("Главы читаются по порядку. Их количество заранее задавать не нужно. Название сезона можно оставить пустым. Изменения увидят читатели после проверки.", "Chapters are read in order. Add more whenever ready. Season names are optional. Readers see changes after review.")));
+    const chapterHeading=el('div',null,'chapter-heading');chapterHeading.append(el('h3',words('Главы истории','Story chapters')),aboutButton);chapters.append(chapterHeading);
     const items=el("ol",null,"collection-items");
     for(const group of seasonGroups(doc.items||[])){
       let destination=items;
@@ -306,11 +315,10 @@ async function start(root) {
       onAdd:({indices,id,name,description})=>{for(const i of indices)Object.assign(doc.items[i],{seasonId:id,season:name,seasonDescription:description});changed();renderEditor();}
     }),'add-button add-season'));
     chapters.append(addActions);
-    editor.append(chapters,metadata);
+    editor.append(chapters);
 
     const actions=el("div",null,"collection-actions");
     actions.append(button(words("Сохранить", "Save"),()=>work(save),"add-button"));
-    if(current&&doc.schemaVersion===2&&doc.items?.length)actions.append(link(words("Пройти историю", "Play story"),`/author-preview.html?previewCollection=${encodeURIComponent(current.collectionId)}&revision=${encodeURIComponent(current.draftRevision)}`));
     actions.append(button(words("Обновить сведения","Refresh details"),()=>work(async()=>{await refreshReviewEligibility();status.textContent=permissionNotice||(dirty?words("Есть несохранённые изменения в форме.","There are unsaved changes in this form."):words("Сведения обновлены.","Details refreshed."));})));
     if(current){
       if(current.publishedRevision){const send=button(words("Отправить настройки истории на проверку", "Submit story settings for review"),()=>work(async()=>{await save();await submit(false);}));send.dataset.reviewSubmit="true";send.disabled=Boolean(current.reviewLimitReached);actions.append(send);}
@@ -321,7 +329,8 @@ async function start(root) {
         if(!current.publishedRevision)advanced.append(button(words("В корзину","Move to trash"),()=>work(()=>takeDown(true))));
       }
     }
-    const primaryActions=el("div",null,"collection-actions");primaryActions.append(actions.firstElementChild);const play=actions.querySelector('a[href*="previewCollection"]');if(play)primaryActions.append(play);editor.append(primaryActions);advanced.append(actions);advanced.append(el("p",words("На модерации может быть одна ваша история с её главами. Остальные истории можно создавать и редактировать; отправить их получится после решения модератора.","Only one of your stories and its chapters can be under review. Keep creating and editing other stories; submit them after the moderator’s decision.")));editor.append(advanced);
+    const primaryActions=el("div",null,"collection-actions story-primary-actions");primaryActions.append(actions.firstElementChild);primaryActions.hidden=aboutDialog.open||tabKey==='metadata';editor.append(primaryActions);advanced.append(actions);advanced.append(el("p",words("На модерации может быть одна ваша история с её главами. Остальные истории можно создавать и редактировать; отправить их получится после решения модератора.","Only one of your stories and its chapters can be under review. Keep creating and editing other stories; submit them after the moderator’s decision.")));editor.append(advanced);
+    if(tabKey==='metadata'&&!aboutDialog.open)aboutDialog.showModal();
     if(current?.publishedRevision&&current.reviewState==='approved'&&current.submittedRevision===current.draftRevision&&current.publishedRevision!==current.draftRevision){
       metadata.append(button(words('Опубликовать одобренные настройки','Publish approved settings'),()=>work(async()=>{
         if(dirty)throw new Error(words('Сначала сохраните изменения.','Save changes first.'));
@@ -343,7 +352,6 @@ async function start(root) {
       for(const child of current.dependencies||[])dependencies.append(el("p",dependencyLabel(child)));advanced.append(dependencies);
     }
     if(current?.publishedRevision)editor.append(link(words("Открыть читательскую страницу", "Open reader page"),`/collections/${encodeURIComponent(current.key)}`));
-    if(current?.events?.length)renderEvents(advanced);
   }
   async function takeDown(remove){
     const message=remove?words("Переместить историю в корзину? Её можно восстановить в течение 30 дней. Затем корзина очистится автоматически. Черновики глав сохранятся.","Move this story to trash? You can restore it for 30 days, after which trash clears automatically. Chapter drafts remain."):words("Переместить историю в архив? Её оглавление станет недоступно читателям. Отдельно опубликованные главы останутся доступны. Восстановление — через модератора.","Archive this story? Readers will lose access to its contents. Individually published chapters remain available. A moderator can restore the story.");

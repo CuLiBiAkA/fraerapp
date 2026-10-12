@@ -2,6 +2,16 @@
 
 Last updated: 2026-10-12.
 
+## Chapter list simplification (2026-10-12)
+
+The author accordion shows chapter feedback only, with a compact disclosure.
+The About story button opens a metadata dialog instead of switching tabs; draft
+edits, cover selection and save stay available there. Whole-story Play story is
+removed. Unpublished chapters have Preview; published chapters have Read linking
+to /history/<published slug or key>, not the private device preview. Season
+grouping remains; ellipsis and reordering controls remain removed. Desktop titles
+receive the flexible column, while controls take their natural width.
+
 ## AI prompt feature removed (2026-10-12)
 
 Deployed with backup backups/no-prompts-20261012-173210. All six services healthy;

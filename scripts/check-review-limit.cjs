@@ -27,7 +27,7 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
   await page.goto('https://fraerapp.ru/my-stories/?view=collections&collection=book');
   const submit=page.locator('[data-review-submit]').first();await submit.waitFor();
   assert.ok(await submit.isDisabled());assert.ok(await page.locator('.review-limit-notice').isVisible());
-  await page.getByRole('tab',{name:language==='ru'?'Об истории':'About story',exact:true}).click();
+  await page.getByRole('button',{name:language==='ru'?'Об истории':'About story',exact:true}).click();
   const title=page.getByLabel(language==='ru'?'Название':'Title',{exact:true});await title.fill('Unsaved story title');
   const save=page.getByRole('button',{name:language==='ru'?'Сохранить':'Save',exact:true});assert.ok(await save.isEnabled());
   blocked=false;

@@ -32,8 +32,7 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
   assert.ok(await page.locator('[data-review-submit]').first().isDisabled());
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   const playStory=page.getByRole('link',{name:words('Пройти историю','Play story'),exact:true});
-  await playStory.waitFor();assert.equal(await playStory.getAttribute('href'),'/author-preview.html?previewCollection=book&revision=2');
-  await playStory.click();await page.waitForURL('**/author-preview.html?previewCollection=book&revision=2');
+  assert.equal(await playStory.count(),0);
   await page.goto('https://fraerapp.ru/my-stories/?collection=book');
   await page.getByRole('button',{name:words('Предпросмотр','Preview'),exact:true}).click();
   await page.waitForURL('**/author-preview.html?previewStory=chapter&revision=9');

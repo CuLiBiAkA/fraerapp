@@ -1,5 +1,12 @@
 # FraerApp deploy and ops runbook
 
+## Chapter list simplification (2026-10-12)
+
+Frontend only: collection-workspace v15, workspace-entry v14, author-accordion
+CSS v4 and both workspace entry HTML files. Back up these files, verify source
+and public hashes, author metadata dialog/save/conflicts, trash, season creation
+and published Read versus unpublished Preview. No rebuild or database mutation.
+
 ## Remove AI prompts (2026-10-12)
 
 Deployed; backup backups/no-prompts-20261012-173210 includes previous runtime

@@ -3,7 +3,7 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
 (async()=>{const browser=await chromium.launch();try{
 for(const width of [320,390,768,1440]){
  const context=await browser.newContext({viewport:{width,height:1000}}),errors=[],writes=[];
- const chapters=['published','in_review','rejected','approved','draft'].map((state,i)=>({id:'c'+i,storyId:'c'+i,kind:'scenario',title:['Незнакомец','Записка','Закрытая дверь','Встреча','Развязка'][i],generation:2,draftRevision:1,submittedRevision:state==='draft'?null:1,publishedRevision:state==='published'?1:null,visibility:state==='published'?'public':'private',reviewState:state==='published'?'approved':state,reason:state==='rejected'?'Добавьте предупреждение о пугающей сцене.':'',events:state==='rejected'?[{action:'reject',reason:'Добавьте предупреждение о пугающей сцене.',createdAt:'2026-10-12T12:00:00Z'}]:[],draftDocument:{title:['Незнакомец','Записка','Закрытая дверь','Встреча','Развязка'][i]}}));
+ const chapters=['published','in_review','rejected','approved','draft'].map((state,i)=>({id:'c'+i,storyId:'c'+i,kind:'scenario',title:['Каждая щёлочка — обещание','Записка','Закрытая дверь','Встреча','Развязка'][i],generation:2,draftRevision:1,submittedRevision:state==='draft'?null:1,publishedRevision:state==='published'?1:null,visibility:state==='published'?'public':'private',reviewState:state==='published'?'approved':state,reason:state==='rejected'?'Добавьте предупреждение о пугающей сцене.':'',events:state==='rejected'?[{action:'reject',reason:'Добавьте предупреждение о пугающей сцене.',createdAt:'2026-10-12T12:00:00Z'}]:[],draftDocument:{title:['Каждая щёлочка — обещание','Записка','Закрытая дверь','Встреча','Развязка'][i]}}));
  const document={schemaVersion:2,key:'city',type:'story',title:'Тайны города',description:'В городе исчезают люди, а прошлое оставляет подсказки.',coverUrl:'/assets/door.svg',items:chapters.map(c=>({target:{kind:'scenario',id:c.id,key:c.id}})),transitions:[]};
  const story={id:'city',collectionId:'city',kind:'collection',...document,generation:1,draftRevision:1,reviewState:'draft',draftDocument:document,children:chapters};
  let unread=true;
@@ -23,6 +23,14 @@ for(const width of [320,390,768,1440]){
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto('https://fraerapp.ru/my-stories/');
  await page.locator('[data-work-id=city]').click();const rows=page.locator('.collection-item');await rows.last().waitFor();assert.equal(await rows.count(),5);
  assert.equal(await page.locator('.accordion-story .collection-editor').count(),1);
+ assert.equal(await page.getByRole('tab',{name:'Главы',exact:true}).count(),0);
+ assert.equal(await rows.first().getByRole('button',{name:'Предпросмотр',exact:true}).count(),0);
+ assert.equal(await rows.first().getByRole('button',{name:'Читать',exact:true}).count(),1);
+ assert.equal(await page.locator('.chapter-settings').count(),0);
+ await page.getByRole('button',{name:'Об истории',exact:true}).click();
+ const about=page.getByRole('dialog',{name:'Об истории',exact:true});await about.waitFor();
+ assert.equal(await about.getByLabel('Описание',{exact:true}).inputValue(),document.description);
+ await about.getByRole('button',{name:'Закрыть',exact:true}).click();
  assert.equal(await page.locator('[data-work-id=cat]').isVisible(),true);
  assert.equal(await rows.nth(1).getByRole('link',{name:'Редактировать',exact:true}).count(),0);
  assert.equal(await rows.nth(1).locator('.chapter-buttons').getByRole('button').count(),1);
@@ -36,6 +44,8 @@ for(const width of [320,390,768,1440]){
  await page.screenshot({path:`/tmp/accordion-chapters-${width}.png`,fullPage:true});
  await rows.nth(2).getByRole('button',{name:'Отметить просмотренным'}).click();await page.waitForFunction(()=>!document.querySelector('main.collections-panel').inert);
  assert.equal(await page.locator('.story-unread').count(),0);assert.deepEqual(writes,['/api/account/notifications/notice/read']);
+ await rows.first().getByRole('button',{name:'Читать',exact:true}).click();await page.waitForURL('**/history/c0');await page.goBack();await rows.last().waitFor();
+ if(width===1440)assert.ok((await rows.first().locator('h4').boundingBox()).height<35,'Desktop chapter title fits one line');
  await rows.nth(4).getByRole('button',{name:'Предпросмотр',exact:true}).click();await page.waitForURL('**/author-preview.html?**');
  const frame=page.locator('iframe');await frame.waitFor();assert.match(await frame.getAttribute('src'),/previewStory=c4&revision=1/);
  await page.locator('#device').selectOption('390px');const box=await frame.boundingBox();assert.ok(box.width<=390&&box.width<=width);
