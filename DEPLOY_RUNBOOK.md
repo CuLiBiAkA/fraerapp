@@ -1,5 +1,20 @@
 # FraerApp deploy and ops runbook
 
+## Remove AI prompts (2026-10-12)
+
+Deployed; backup backups/no-prompts-20261012-173210 includes previous runtime
+files and Builder image metadata; rollback image uses before-no-prompts-20261012-173210.
+Runtime and Builder files verified, nine public hashes match, all five retired
+URLs return 404. Six services healthy; health/catalogue return 200.
+
+Frontend and Builder update only. Back up runtime files and the Builder image;
+remove authoring-prompts.js/.css, authoring-prompt-template.js, prompts.html and
+prompts-page.js from both runtime source and the Builder image. Rebuild Builder
+with app v61, board v17 and help v6; ship workspace-entry v13, collection-workspace
+v14, story-workspace v6 and author-ui v3. Verify retired page/modules return 404,
+JSON operations work, public assets match and services are healthy. No API or
+database change is needed.
+
 ## Author seasons update (2026-10-12)
 
 Deployed cd9198e with backup backups/seasons-20261012-172408 (source archive,

@@ -2,8 +2,7 @@
 
 This file records a previous product implementation request. Its folder model is
 superseded by ordered schema 2 stories. For current story/chapter generation use
-[the author prompt guide](authoring-guide.md) and the shared **AI prompts** dialog
-in My stories or Builder. Preserve legacy JSON import compatibility without using
+[the format guide](authoring-guide.md). Preserve legacy JSON import compatibility without using
 this brief as instructions to generate new stories.
 
 # Промпт для Codex: истории и вложенные папки FraerApp

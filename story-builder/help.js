@@ -65,8 +65,8 @@ export const helpTopics = {
     ['Validation', 'This block shows structural errors. Fix them before submitting. Automatic validation does not judge the plot, so also play through your story.', 'If a choice points to a missing scene, create that scene or choose another destination.'],
   ],
   storyJsonTitle: [
-    ['JSON главы', 'Это текстовая запись открытой главы: сцен, переменных, материалов и переходов. Пакет всей истории с оглавлением и остальными главами экспортируется и импортируется в «Моих историях». Кнопка «Промпты для ИИ» готовит инструкции для обоих форматов.', 'Перед большими изменениями нажмите «Скачать JSON главы». Ответ ИИ для одной главы откройте через «Импорт JSON главы»; пакет всей истории импортируйте в «Моих историях».'],
-    ['Chapter JSON', 'This describes the open chapter: scenes, variables, assets and transitions. Export and import the complete story package, including its contents and all chapters, in My stories. AI prompts provides instructions for both formats.', 'Use Download chapter JSON before major edits. Import AI output for a single chapter using Import chapter JSON; import a whole story package in My stories.'],
+    ['JSON главы', 'Это текстовая запись открытой главы: сцен, переменных, материалов и переходов. Пакет всей истории с оглавлением и остальными главами экспортируется и импортируется в «Моих историях».', 'Перед большими изменениями нажмите «Скачать JSON главы». Ответ ИИ для одной главы откройте через «Импорт JSON главы»; пакет всей истории импортируйте в «Моих историях».'],
+    ['Chapter JSON', 'This describes the open chapter: scenes, variables, assets and transitions. Export and import the complete story package, including its contents and all chapters, in My stories.', 'Use Download chapter JSON before major edits. Import AI output for a single chapter using Import chapter JSON; import a whole story package in My stories.'],
   ],
 };
 

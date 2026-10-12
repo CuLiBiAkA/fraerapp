@@ -18,7 +18,7 @@ for (const name of checks) {
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status || 1);
 }
-for (const name of ['authoring-prompts', 'builder-cas', 'builder-usability']) {
+for (const name of ['builder-cas', 'builder-usability']) {
   console.log(`Browser check: ${name}`);
   const result = spawnSync(process.execPath, [fileURLToPath(new URL(`../story-builder/check-${name}.cjs`, import.meta.url))], {
     cwd: fileURLToPath(new URL('..', import.meta.url)), stdio: 'inherit',
@@ -26,4 +26,4 @@ for (const name of ['authoring-prompts', 'builder-cas', 'builder-usability']) {
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status || 1);
 }
-console.log(`All ${checks.length + 3} browser suites passed.`);
+console.log(`All ${checks.length + 2} browser suites passed.`);

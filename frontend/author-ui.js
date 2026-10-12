@@ -41,8 +41,3 @@ export function editorTabs(entries, selected, onSelect = () => {}) {
   function selectTab(key) { entries.forEach(([entry, , panel], index) => { const active = entry === key; panel.hidden = !active; controls[index].setAttribute('aria-selected', String(active)); controls[index].tabIndex = active ? 0 : -1; }); onSelect(key); }
   selectTab(selected || entries[0][0]); return nav;
 }
-
-export async function showAuthoringPrompts(options = {}) {
-  const {openAuthoringPrompts} = await import('/builder/authoring-prompts.js?v=1');
-  return openAuthoringPrompts({language:document.documentElement.lang, ...options});
-}

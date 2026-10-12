@@ -2,6 +2,20 @@
 
 Last updated: 2026-10-12.
 
+## AI prompt feature removed (2026-10-12)
+
+Deployed with backup backups/no-prompts-20261012-173210. All six services healthy;
+nine public source hashes match and the five retired page/module URLs return 404.
+146 Node tests and author/Builder browser matrices passed in RU/EN at four widths,
+including JSON clipboard fallback. No user content or database changes.
+
+At the user's request, removed the AI prompt generator, its standalone page,
+dialog, templates and buttons in My stories, standalone story details, Builder
+and scenario board. Import/export and JSON clipboard operations remain; the
+clipboard fallback now selects JSON directly without a prompt module dependency.
+Historical release notes below describe the earlier implementation. The format
+guide and example story files remain useful for ordinary JSON authoring.
+
 ## Author seasons (2026-10-12)
 
 Deployed source cd9198e; backup backups/seasons-20261012-172408, API image

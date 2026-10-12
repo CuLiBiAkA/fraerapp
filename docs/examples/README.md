@@ -4,8 +4,7 @@
 ordered chapters and a season label. The package envelope has schemaVersion 1;
 the contained story has schemaVersion 2. Import it through **My stories → Import
 story**, review the preview, then confirm creation of private drafts. It is not
-seeded or published automatically. The prompt dialog downloads the same example
-without replacing the current Builder draft. See [the prompt guide](../prompts/authoring-guide.md).
+seeded or published automatically. See [the format guide](../prompts/authoring-guide.md).
 
 ## Legacy compatibility fixture
 

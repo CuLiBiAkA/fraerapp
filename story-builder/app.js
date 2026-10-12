@@ -2,8 +2,7 @@ import { fetchWithSession } from "../auth-session.js?v=1";
 import { validateStory as validateStoryDocument } from "./core.js?v=2";
 import { canEditStories, canEditStoryDraft, publishedCorrectionNotice, filterAfterSubmit, storyLabels, workflowLabel } from "../story-workflow.js?v=3";
 import { reviewLimitMessage } from "../review-limit.js?v=2";
-import { decorateHelp, helpButton, helpTopics } from "./help.js?v=5";
-import { openAuthoringPrompts, copyPromptText } from "./authoring-prompts.js?v=1";
+import { decorateHelp, helpButton, helpTopics } from "./help.js?v=6";
 import { chooseCover } from "../author-cover.js?v=3";
 import { prepareImage } from "../image-preparation.js?v=1";
 
@@ -53,7 +52,6 @@ const translations = {
     downloadJson: "Скачать JSON главы",
     importJsonFile: "Импорт JSON главы",
     pasteJson: "Вставить JSON главы",
-    authoringPrompts: "Промпты для ИИ",
     myStories: "Мои истории",
     replaceDraft: "Заменить открытый черновик? Сначала скачайте JSON, если хотите сохранить текущие изменения. Серверная версия не изменится до сохранения.",
     packageInChapter: "Это пакет целой истории. Импортируйте его в разделе «Мои истории» → «Импорт истории». Текущая глава не изменена.",
@@ -245,7 +243,6 @@ const translations = {
     downloadJson: "Download chapter JSON",
     importJsonFile: "Import chapter JSON",
     pasteJson: "Paste chapter JSON",
-    authoringPrompts: "AI prompts",
     myStories: "My stories",
     replaceDraft: "Replace the open draft? Download its JSON first if you want to keep your current changes. The server version will not change until you save.",
     packageInChapter: "This is a complete story package. Import it in My stories → Import story. The current chapter has not changed.",
@@ -2907,21 +2904,9 @@ document.querySelector("#load-example").onclick = () => {
 document.querySelector("#copy-json").onclick = async () => {
   const text = JSON.stringify(exportStoryJson(), null, 2);
   try { await navigator.clipboard.writeText(text); }
-  catch { els.pasteArea.value = text; els.pasteDialog.showModal(); await copyPromptText(text, els.pasteArea, null); }
+  catch { els.pasteArea.value = text; els.pasteDialog.showModal(); els.pasteArea.focus(); els.pasteArea.select(); els.pasteArea.setSelectionRange(0, text.length); }
 };
 
-document.querySelector('#authoring-prompts-button').onclick = () => openAuthoringPrompts({
-  language: currentLanguage, kind: 'chapter', getContext: async kind => {
-    if (kind === 'chapter') return exportStoryJson();
-    const parentId = chapterParent?.collectionId || chapterParent?.id;
-    if (!parentId) throw new Error('Open a story to export its package');
-    const packageValue = await authorFetch(`/api/author/collections/${encodeURIComponent(parentId)}/export`);
-    // Include the deliberate current edit, not a silently stale saved chapter.
-    const index = packageValue.scenarios.findIndex(chapter => chapter.key === draft.key);
-    if (index >= 0) packageValue.scenarios[index] = exportStoryJson();
-    return packageValue;
-  },
-});
 
 document.querySelector("#download-json").onclick = () => {
   const blob = new Blob([JSON.stringify(exportStoryJson(), null, 2)], { type: "application/json" });

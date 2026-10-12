@@ -3,7 +3,7 @@ import {chapterState,chapterStateLabel} from "./chapter-state.js?v=2";
 import {reviewLimitMessage} from "./review-limit.js?v=2";
 import {workflowLabel, renderDocumentDiff, canEditStoryDraft} from "./story-workflow.js?v=3";
 import {renderFolderReview} from "./folder-review.js?v=6";
-import {authorCard,coverImage,editorTabs,showAuthoringPrompts} from "./author-ui.js?v=2";
+import {authorCard,coverImage,editorTabs} from "./author-ui.js?v=3";
 import {seasonGroups,seasonDialog} from "./author-seasons.js?v=1";
 import {chooseCover,uploadImage} from "./author-cover.js?v=3";
 
@@ -128,7 +128,7 @@ async function start(root) {
     }
     finally { busy=false; root.inert=false; root.removeAttribute("aria-busy");if(status.textContent===words("Выполняем…","Working…"))status.textContent=permissionNotice||(dirty?words("Есть несохранённые изменения в форме.","There are unsaved changes in this form."):""); }
   }
-  async function prompts(options){try{await showAuthoringPrompts(options);}catch(error){status.textContent=errorMessage(error);status.classList.add("error");}}
+
   async function loadList() {
     trashNotice.hidden=!trash;
     const visibility=trash?"deleted":["public","unlisted","private","hidden","archived"].includes(state.input.value)?state.input.value:"all";
@@ -479,7 +479,7 @@ async function start(root) {
     const importDialog=el("dialog",null,"workspace-dialog author-import");importDialog.setAttribute("aria-labelledby","author-import-title");const importHeading=el("h2",words("Импорт истории из файла","Import story from a file"));importHeading.id="author-import-title";
     const importStatus=el("p","","workspace-status");importStatus.setAttribute("role","status");importDialog.append(importHeading,el("p",words("Выберите JSON всей истории. Перед записью вы увидите новые главы, изменения и конфликты.","Choose a complete story JSON package. Review new chapters, changes and conflicts before saving.")),upload.label,importStatus,button(words("Закрыть","Close"),()=>importDialog.close()));document.body.append(importDialog);
     const importButton=button(words("Импорт истории из файла","Import story from a file"),()=>importDialog.showModal());importButton.dataset.authorMutation="true";
-    utilities.append(importButton,button(words("Промпты для ИИ","AI prompts"),()=>prompts({kind:"package",...(current&&!current.standalone?{getContext:()=>request(`${api}/${current.collectionId}/export`)}:{})})));titleRow.append(create);
+    utilities.append(importButton);titleRow.append(create);
   }
   const filterChanged=()=>{if(!discard())return;dirty=false;current=null;doc=null;screen="list";editor.hidden=true;pageIndex=0;writeUrl(false,null);work(loadList);};toolbar.onsubmit=event=>{event.preventDefault();filterChanged();};query.input.onsearch=filterChanged;state.input.onchange=filterChanged;
   await loadList();

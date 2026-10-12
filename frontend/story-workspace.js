@@ -5,7 +5,7 @@ import {
   renderDocumentDiff, renderStoryDocument, revisionLabels, storyLabels, workflowLabel,
 } from "./story-workflow.js?v=3";
 import { reviewLimitMessage } from "./review-limit.js?v=2";
-import {authorCard,coverImage,editorTabs,showAuthoringPrompts} from "./author-ui.js?v=2";
+import {authorCard,coverImage,editorTabs} from "./author-ui.js?v=3";
 import {chooseCover,uploadImage} from "./author-cover.js?v=3";
 
 const moderation = document.body.dataset.workspace === "moderation";
@@ -251,7 +251,7 @@ function renderMetadata(container){
     }
     finally{setBusy(false);}
   },"primary"));
-  container.append(button(choose("Промпты для ИИ","AI prompts"),()=>showAuthoringPrompts({kind:"chapter",getContext:kind=>{if(kind!=="chapter")throw new Error(choose("Для самостоятельной истории выберите формат главы.","Choose the chapter format for a standalone story."));return structuredClone(metadataDraft);}}).catch(error=>setStatus(errorText(error),true))));
+
 }
 function revisionRole(story, revision) {
   const roles = revisionLabels(story, revision, language);
