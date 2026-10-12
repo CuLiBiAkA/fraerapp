@@ -174,6 +174,7 @@ class CollectionPresentationTests extends ApiTestSupport {
   ok(approveAndPublish(port,id,author));String slug=ok(call("GET",path,null,author)).get("publishedSlug").toString();var published=ok(call("GET","/api/catalog/stories/"+slug,null,reader));assertThat(published).containsEntry("coverUrl",url);assertThat(call("GET",url,null,reader).statusCode()).isEqualTo(200);
   assertThat(list("/api/catalog/stories",reader)).anySatisfy(row->assertThat(row).containsEntry("key",doc.get("key")).containsEntry("coverUrl",url));
   var parentDoc=document(2,List.of(item(created)));String parent=create(parentDoc).get("id").toString();publish(parent);
+  requestPublishedCorrection(port,id);
   doc.put("metadata",Map.of("schemaVersion",1,"coverUrl","/assets/private-draft.svg"));doc.put("title","Private new settings");ok(call("PUT",path,Map.of("generation",ok(call("GET",path,null,author)).get("generation"),"document",doc),author));
   var current=ok(call("GET","/api/catalog/stories/"+slug,null,reader));assertThat(current).containsEntry("coverUrl",url).containsEntry("updatedAt",published.get("updatedAt"));
   decide(parent,"hide");assertThat(call("GET",url,null,reader).statusCode()).isEqualTo(404);

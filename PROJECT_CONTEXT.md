@@ -2,6 +2,58 @@
 
 Last updated: 2026-10-12.
 
+## Published chapter corrections (local; release pending)
+
+Published chapters and standalone stories are read-only for their author. Only
+an independent moderator/admin can open `request-correction` for the exact
+current published revision, with a required public comment explaining the serious
+error. An author who also has moderator/admin roles cannot open their own correction,
+including through the administrative self-review override.
+
+V23 stores the permitted published revision and original correction comment.
+StoryWorkflowService enforces this permission for changed imports, saves, rollback,
+assets, submission and replacement publication, including legacy pending edits.
+Opening a correction creates a private draft from the published snapshot; older
+draft revisions remain in history. Only the selected chapter is unlocked. The
+existing publication remains readable, unless separately hidden by moderation.
+The correction locks during review and after approval; publishing the approved
+correction consumes the permission. Another correction requires another moderator
+request. Ordinary rejection/visibility changes do not grant editing permission.
+Author publication also rejects hidden, archived or moderator-restricted chapters;
+an approved correction cannot bypass the explicit moderator availability restore.
+
+Author cards, direct story pages and Builder expose the same editing permission.
+The original comment remains available during resubmission and is included in
+notifications and decision history. Moderators can inspect published chapters
+from the grouped workspace and request a correction on the individual chapter.
+Legacy schema-1 parent folders retain per-chapter publication without imposing
+schema-2 sequential chapter order. This follows the existing revision owner;
+there is no new content/publication authority or automatic reader-data rewrite.
+
+Final local verification: 137 API and 69 auth tests, 155 Node tests, JavaScript
+syntax and production validation pass. The dedicated correction browser suite
+passes in RU/EN at 390/1440px, covering read-only publication, mandatory feedback,
+unlocked correction, review lock and approval lock. Independent review found and
+verified the author-publication availability fix. The combined release owner is
+finishing the full browser matrix and building API/Builder from this final tree.
+
+## Author accordion followup (local; release pending)
+
+`docs/author-accordion-plan.md` records the approved inline story/chapter UI and
+its verification. My stories now expands one full-width card on the same page;
+chapter actions depend on review state, comments use moderation audit events and
+unread indicators use account notifications. `/author-preview.html` wraps private
+replay with device-width controls. Grouped moderator approval is separate from
+author publication; publication checks exact approved revisions and generations.
+Under-review chapter writes and rollback are locked.
+
+Pre-followup checks: 130 API, 69 auth, 150 Node tests and relevant responsive
+browser suites pass. This code has not been deployed or committed by this task.
+Backup/staging: `backups/accordion-20261012-161848`; running production remains the
+release below. A concurrent user-requested published-chapter editing lock is being
+integrated before one coordinated final build and deployment. The staged accordion
+JAR must not overwrite that newer work. See the plan for the coordination receipt.
+
 ## Authoring and session release (deployed, 2026-10-12)
 
 Source `0ca3aa0` is committed, pushed to `main` and deployed. It combines the author

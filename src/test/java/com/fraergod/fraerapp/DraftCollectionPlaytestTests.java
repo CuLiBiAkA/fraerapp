@@ -71,6 +71,7 @@ class DraftCollectionPlaytestTests extends ApiTestSupport {
   var realSecond=publishedStart(run.get("id").toString(),second,completedFirst.get("sessionId").toString());assertThat(comparable(realSecond)).isEqualTo(comparable(session(secondStart)));
   var completedSecond=ok(call("POST","/api/sessions/"+realSecond.get("sessionId")+"/choice",Map.of("choiceId","go"),author));assertThat(comparable(completedSecond)).isEqualTo(comparable(session(finished)));
 
+  requestPublishedCorrection(port,second.get("storyId").toString());
   secondDocument.put("title","New private chapter title");imported(secondDocument);
   document.put("items",List.of(item(second),item(first)));
   var current=ok(call("GET","/api/author/collections/"+collection.get("id"),null,author));

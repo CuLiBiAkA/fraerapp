@@ -1,7 +1,8 @@
 import {el,link,button,field,select,checkbox,words,typeName,request,errorMessage,download,targetKey,moveItem} from "./collection-ui.js?v=6";
+import {chapterState,chapterStateLabel} from "./chapter-state.js?v=2";
 import {reviewLimitMessage} from "./review-limit.js?v=2";
-import {workflowLabel, renderDocumentDiff} from "./story-workflow.js?v=2";
-import {renderFolderReview} from "./folder-review.js?v=4";
+import {workflowLabel, renderDocumentDiff, canEditStoryDraft} from "./story-workflow.js?v=3";
+import {renderFolderReview} from "./folder-review.js?v=6";
 import {authorCard,coverImage,editorTabs,showAuthoringPrompts} from "./author-ui.js?v=2";
 import {chooseCover,uploadImage} from "./author-cover.js?v=3";
 
@@ -26,6 +27,7 @@ async function start(root) {
   if (user.blocked || (moderation && !roles.some(role => ["admin","moderator"].includes(role)))) throw Object.assign(new Error(),{status:403});
   const api = moderation ? "/api/moderation/collections" : "/api/author/collections";
   let all = [], current = null, doc = null, targets = [], dirty = false, busy = false, openRequest = 0, pageIndex=0, totalPages=0, targetSearch="", targetPage=0;
+  let chapterDetails=new Map(),notices=[];
   let tabKey="chapters",trash=params.get("trash")==="1",screen="list",historyIndex=0,restoringHistory=false,lastOpened=null,permissionNotice="";
   history.replaceState({...history.state,authorIndex:0},"",location.href);
   const heading = el("h1",words(moderation ? "Заявки на публикацию" : "Мои истории",moderation ? "Publication applications" : "My stories"));
@@ -50,6 +52,7 @@ async function start(root) {
   const back=button(words("← К моим историям","← My stories"),()=>{if(!discard())return;dirty=false;if(historyIndex>0)history.back();else{writeUrl(false,null);showScreen("list",true);}});
   if(moderation)back.textContent=words("← К заявкам","← Applications");back.className="author-back";back.hidden=true;
   grid.append(listColumn,editor); root.append(titleRow,back,toolbar,utilities,status,grid);
+  if(!moderation){const filters=el('details',null,'author-list-tools');filters.append(el('summary',words('Поиск и инструменты','Search and tools')),toolbar,utilities);titleRow.after(filters);}
   const changed = () => { dirty = true; status.textContent = words("Есть несохранённые изменения в форме.", "There are unsaved changes in this form."); };
   const discard = () => !dirty || confirm(words("В форме есть несохранённые изменения. Перейти без сохранения?", "This form has unsaved changes. Leave without saving?"));
   window.addEventListener("beforeunload",event=>{if(dirty){event.preventDefault();event.returnValue="";}});
@@ -68,19 +71,25 @@ async function start(root) {
     dirty=false;historyIndex=nextIndex;
     const nextParams=new URLSearchParams(location.search),id=nextParams.get("collection");
     trash=nextParams.get("trash")==="1";query.input.value=nextParams.get("q")||"";state.input.value=nextParams.get("status")||(moderation?"in_review":"all");
-    if(id==="new")work(()=>createNew(false));else if(id)work(()=>open(id,false));else {current=null;doc=null;showScreen("list");work(async()=>{await loadList();showScreen("list",true);});}
+    if(id==="new")work(()=>createNew(false));else if(id)work(()=>all.some(n=>n.id===id&&n.kind==="scenario")?openStandalone(id,false):open(id,false));else {current=null;doc=null;showScreen("list");work(async()=>{await loadList();showScreen("list",true);});}
   });
   function writeUrl(push,id){
     const next=new URLSearchParams();if(query.input.value)next.set("q",query.input.value);if(state.input.value!==(moderation?"in_review":"all"))next.set("status",state.input.value);if(trash)next.set("trash","1");if(id)next.set("collection",id);
     if(push)historyIndex++;history[push?"pushState":"replaceState"]({authorIndex:historyIndex},"",`${path}${next.size?`?${next}`:""}`);
   }
   function showScreen(value,focus=false){
-    screen=value;root.dataset.screen=value;listColumn.hidden=value!=="list";editor.hidden=value!=="editor";toolbar.hidden=utilities.hidden=titleRow.hidden=value!=="list";back.hidden=value!=="editor";
+    screen=value;root.dataset.screen=value;
+    if(!moderation){
+      listColumn.hidden=false;toolbar.hidden=utilities.hidden=titleRow.hidden=false;back.hidden=true;
+      editor.hidden=value!=="editor";renderList();
+      if(focus)requestAnimationFrame(()=>{const target=value==="editor"?editor.closest("article")?.querySelector(".story-toggle"):heading;target?.focus();});
+      return;
+    }listColumn.hidden=value!=="list";editor.hidden=value!=="editor";toolbar.hidden=utilities.hidden=titleRow.hidden=value!=="list";back.hidden=value!=="editor";
     document.querySelector(".skip-link")?.setAttribute("href",value==="editor"?"#author-editor":"#folder-list");
     if(focus)requestAnimationFrame(()=>{const target=value==="editor"?editor.querySelector("h2"):list.querySelector(`[data-work-id="${CSS.escape(lastOpened||"")}"]`)||heading;target?.focus();window.scrollTo({top:0,behavior:"instant"});});
   }
   editor.id="author-editor";heading.tabIndex=-1;showScreen("list");
-  async function switchTrash(value){trash=value;pageIndex=0;writeUrl(false,null);await work(loadList);}
+  async function switchTrash(value){if(!discard())return;dirty=false;current=null;doc=null;screen="list";editor.hidden=true;trash=value;pageIndex=0;writeUrl(false,null);await work(loadList);}
   async function refreshReviewEligibility(){
     if(moderation)return;
     const session=await request("/auth/me"),allowed=!session.blocked&&(session.roles||[]).some(role=>["author","admin"].includes(role));
@@ -91,11 +100,11 @@ async function start(root) {
       editor.querySelectorAll("select,button:not([role=tab])").forEach(control=>control.disabled=!allowed);
       editor.querySelectorAll('a[href^="/builder/"]').forEach(control=>control.hidden=!allowed);
       if(!allowed)status.textContent=permissionNotice;
-      else renderEditor();
+      else if(current?.standalone)renderStandalone();else renderEditor();
     }}
     if(!current)return;
     const id=current.collectionId,seq=openRequest;
-    const detail=await request(`${api}/${encodeURIComponent(id)}`);
+    const detail=await request(current.standalone?`/api/author/stories/${encodeURIComponent(id)}`:`${api}/${encodeURIComponent(id)}`);
     if(seq!==openRequest||current?.collectionId!==id)return;
     current.reviewLimitReached=detail.reviewLimitReached;
     current.reviewDailyLimitReached=detail.reviewDailyLimitReached;current.reviewAvailableAt=detail.reviewAvailableAt;
@@ -110,7 +119,7 @@ async function start(root) {
       const dialogStatus=document.querySelector(".author-import[open] [role=status]");if(dialogStatus)dialogStatus.textContent=errorMessage(error);
       if(doc&&[401,403,409].includes(error.status)){
         const recovery=el("span",null,"author-recovery");recovery.append(button(words("Скачать мой черновик","Download my draft"),()=>download(doc,`${doc.key||"story"}-draft.json`)));
-        if(current)recovery.append(button(words("Загрузить актуальную редакцию","Reload current revision"),()=>{if(discard())work(()=>open(current.collectionId));}));status.append(recovery);
+        if(current)recovery.append(button(words("Загрузить актуальную редакцию","Reload current revision"),()=>{if(discard())work(()=>current.standalone?openStandalone(current.collectionId):open(current.collectionId));}));status.append(recovery);
       }
     }
     finally { busy=false; root.inert=false; root.removeAttribute("aria-busy");if(status.textContent===words("Выполняем…","Working…"))status.textContent=permissionNotice||(dirty?words("Есть несохранённые изменения в форме.","There are unsaved changes in this form."):""); }
@@ -122,25 +131,102 @@ async function start(root) {
     const data=await request(`/api/${moderation?"moderation":"author"}/folders?${searchParams}`);all=data.items||[];totalPages=Math.ceil((data.total||all.length)/20);
     if(pageIndex>Math.max(0,totalPages-1)){pageIndex=Math.max(0,totalPages-1);return loadList();}
     previous.disabled=pageIndex===0;next.disabled=pageIndex+1>=totalPages;pageLabel.textContent=words(`Страница ${pageIndex+1}`,`Page ${pageIndex+1}`);pagination.hidden=pageIndex===0&&all.length<20;
+    if(!moderation)notices=(await request("/api/account")).notifications||[];
     renderList();await refreshReviewEligibility();status.textContent=permissionNotice||(dirty?words("Есть несохранённые изменения в форме.","There are unsaved changes in this form."):"");
     activeButton.setAttribute("aria-pressed",String(!trash));trashButton.setAttribute("aria-pressed",String(trash));state.input.disabled=trash;
   }
+  function relatedNotices(item){
+    const ids=new Set();const visit=node=>{ids.add(node.id||node.collectionId);for(const child of node.children||[])visit(child);};visit(item);
+    return notices.filter(n=>n.kind==='moderation'&&(ids.has(n.storyId)||ids.has(n.collectionId)));
+  }
   function renderList() {
     list.replaceChildren();
-    const filtered=all;
-    if(!filtered.length)list.append(el("p",words("Здесь пока пусто. Попробуйте другой фильтр.", "Nothing here yet. Try another filter.")));
-    for(const item of filtered){
-      const id=item.collectionId||item.id,deleted=item.visibility==="deleted";
-      const caption=moderation?words("Проверить заявку","Review application"):deleted?words("Просмотреть","View"):words("Открыть историю","Open story");
-      const action=item.kind==="scenario"?link(caption,`${path}?story=${encodeURIComponent(id)}${trash?"&trash=1":""}`):button(caption,()=>{if(discard()){lastOpened=id;tabKey="chapters";work(()=>open(id,true));}});
-      action.dataset.workId=id;
-      list.append(authorCard({title:item.title||item.key,coverUrl:item.coverUrl,status:labels(item),description:item.description,action,caption:item.pendingCount?words(`На проверке: ${item.pendingCount}`,`Awaiting review: ${item.pendingCount}`):null}));
+    const entries=[...all];
+    if(!moderation&&screen==='editor'&&doc&&!entries.some(n=>(n.collectionId||n.id)===current?.collectionId))entries.unshift({...current,id:current?.collectionId||'new',kind:'collection',title:doc.title||words('Новая история','New story'),description:doc.description,coverUrl:doc.coverUrl});
+    if(!entries.length)list.append(el('p',words('Здесь пока пусто. Создайте историю или измените фильтр.','No stories yet. Create one or change the filter.')));
+    for(const item of entries){
+      const id=item.collectionId||item.id,deleted=item.visibility==='deleted';
+      if(moderation){const action=item.kind==='scenario'?link(words('Проверить историю','Review story'),`${path}?story=${encodeURIComponent(id)}`):button(words('Проверить заявку','Review application'),()=>{if(discard())work(()=>open(id,true));});list.append(authorCard({title:item.title||item.key,coverUrl:item.coverUrl,status:labels(item),description:item.description,action}));continue;}
+      const expanded=screen==='editor'&&(current?.collectionId===id||(!current&&id==='new'));
+      const card=el('article',null,'author-story-card accordion-story');
+      const trigger=button('',()=>{
+        if(!discard())return;
+        if(expanded){dirty=false;screen='list';editor.hidden=true;writeUrl(true,null);renderList();list.querySelector(`[data-work-id="${CSS.escape(id)}"]`)?.focus();return;}
+        lastOpened=id;tabKey='chapters';
+        work(()=>item.kind==='scenario'?openStandalone(id,true):open(id,true));
+      });trigger.className='story-toggle';trigger.dataset.workId=id;trigger.setAttribute('aria-expanded',String(expanded));trigger.setAttribute('aria-controls','author-editor');
+      const copy=el('span',null,'author-card-copy');copy.append(el('strong',item.title||item.key,'story-card-title'));
+      if(item.description)copy.append(el('span',item.description,'author-card-description'));
+      const children=item.children||[],count=item.kind==='scenario'?1:(expanded?doc.items?.length:children.length)||0,published=item.kind==='scenario'?(item.publishedRevision?1:0):children.filter(c=>c.publishedRevision).length;
+      copy.append(el('span',words(`${count} глав · ${published} опубликовано`,`${count} chapters · ${published} published`),'author-card-status'));
+      const mark=el('span',null,'story-card-mark');const unread=relatedNotices(item).some(n=>n.unread);
+      if(unread)mark.append(el('span',words('● Новое решение','● New feedback'),'story-unread'));
+      mark.append(el('span',expanded?'⌃':'⌄','story-chevron'));
+      trigger.append(coverImage(item.coverUrl),copy,mark);card.append(trigger);
+      if(expanded)card.append(editor);list.append(card);
     }
+    if(!editor.isConnected)grid.append(editor);
+  }
+  async function openStandalone(id,push=false){
+    const detail=await request(`/api/author/stories/${encodeURIComponent(id)}`);
+    current={...detail,collectionId:id,standalone:true};doc=detail.draftDocument;dirty=false;chapterDetails=new Map([[id,detail]]);
+    writeUrl(push,id);renderStandalone();showScreen('editor',true);
+  }
+  function renderStandalone(){
+    const id=current.collectionId,detail=chapterDetails.get(id);
+    const heading=el('h2',doc.title);heading.tabIndex=-1;editor.replaceChildren(heading);
+    const row=el('section');renderChapterOverview(row,{target:{id,kind:'scenario'}},0,detail);
+    editor.append(row,link(words('Об истории и дополнительные действия','Story details and more actions'),`/my-stories/?story=${encodeURIComponent(id)}`));showScreen('editor',true);
   }
   function labels(item){
     const t=k=>workflowLabel(k,document.documentElement.lang);
     return [t(item.visibility||"private"),t(item.reviewState||"draft")].filter(Boolean).join(" · ");
   }
+  function renderFeedback(host,detail,id,isCollection=false){
+    const events=(detail.events||[]).filter(e=>['reject','approve','approve-publish','publish-approved','request-correction'].includes(e.action));
+    const reason=detail.reason||detail.decisionReason||detail.correctionReason;
+    if(!events.length&&!reason)return;
+    const block=el('details',null,'chapter-feedback');block.open=detail.reviewState==='rejected';
+    block.append(el('summary',words('Комментарии и решения модератора','Moderator feedback')));
+    if(reason)block.append(el('p',reason));
+    for(const event of events){const entry=el('div',null,'moderator-comment');entry.append(el('strong',event.action==='request-correction'?words('Модератор открыл исправление опубликованной главы','Moderator requested a published chapter correction'):event.action==='reject'?words('Нужны исправления','Changes requested'):words('Модерация пройдена','Approved')));if(event.reason&&event.reason!==reason)entry.append(el('p',event.reason));const date=event.createdAt||event.created_at;if(date)entry.append(el('small',new Date(date).toLocaleString(document.documentElement.lang)));block.append(entry);}
+    const unread=notices.filter(n=>n.unread&&n.kind==='moderation'&&(isCollection?n.collectionId===id:n.storyId===id));
+    if(unread.length)block.append(button(words('Отметить просмотренным','Mark as read'),()=>work(async()=>{for(const n of unread){await request(`/api/account/notifications/${encodeURIComponent(n.id)}/read`,{method:'POST'});n.unread=false;}block.querySelector('button')?.remove();renderList();})));
+    host.append(block);
+  }
+  function renderChapterOverview(row,item,index,detail){
+    const id=item.target.id,state=chapterState(detail),en=document.documentElement.lang==='en';
+    const title=detail.draftDocument?.title||detail.title||item.label||item.target.key||words('Глава','Chapter');
+    const top=el('div',null,'chapter-overview');top.append(el('h4',`${index+1}. ${title}`),el('span',chapterStateLabel(state,en),`chapter-state state-${state}`));
+    const actions=el('div',null,'chapter-buttons');
+    if(canEdit&&canEditStoryDraft(detail))actions.append(link(words('Редактировать','Edit'),`/builder/?story=${encodeURIComponent(id)}${current?.standalone?'':`&work=${encodeURIComponent(current?.collectionId||'')}`}`));
+    if(state!=='unavailable')actions.append(button(words('Предпросмотр','Preview'),()=>{if(discard())location.href=`/author-preview.html?previewStory=${encodeURIComponent(id)}&revision=${encodeURIComponent(detail.draftRevision)}`;}));
+    if(detail.publishedRevision&&state!=='unavailable')actions.append(button(words('Читать','Read'),()=>{if(discard())location.href=`/author-preview.html?previewStory=${encodeURIComponent(id)}&revision=${encodeURIComponent(detail.publishedRevision)}`;}));
+    if(canEdit&&canEditStoryDraft(detail)&&(['draft','rejected'].includes(state)||detail.correctionRequested)){
+      const send=button(state==='rejected'?words('Отправить повторно','Resubmit'):words('На модерацию','Submit for review'),()=>work(async()=>{
+        if(!current.standalone)await save();
+        const chapter=await request(`/api/author/stories/${encodeURIComponent(id)}`);
+        if(current.standalone)await request(`/api/author/stories/${encodeURIComponent(id)}/review`,{method:'POST',body:{generation:chapter.generation,replaceReview:false}});
+        else await request(`${api}/${current.collectionId}/chapters/review`,{method:'POST',body:{storyId:id,storyGeneration:chapter.generation,generation:current.generation,replaceReview:true}});
+        await reloadExpanded();status.textContent=words('Глава отправлена на модерацию.','Chapter submitted for review.');
+      }));send.dataset.reviewSubmit='true';send.disabled=Boolean(current?.reviewLimitReached);actions.append(send);
+    }
+    if(canEdit&&state==='approved')actions.append(button(detail.publishedRevision?words('Опубликовать обновление','Publish update'):words('Опубликовать','Publish'),()=>work(async()=>{
+      if(dirty)throw new Error(words('Сначала сохраните изменения оглавления.','Save the contents changes first.'));
+      if(!confirm(words('Опубликовать одобренную главу для читателей?','Publish the approved chapter for readers?')))return;
+      const body={storyId:id,storyGeneration:detail.generation,revision:detail.draftRevision,generation:current.generation};
+      if(current.standalone){body.generation=detail.generation;await request(`/api/author/stories/${encodeURIComponent(id)}/publish`,{method:'POST',body});}
+      else await request(`${api}/${current.collectionId}/chapters/publish`,{method:'POST',body});
+      await reloadExpanded();status.textContent=words('Глава опубликована.','Chapter published.');
+    }),'add-button'));
+    const icons={edit:'M4 16l-1 5 5-1L20 8l-4-4L4 16z M14 6l4 4',preview:'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z M15 12a3 3 0 1 1-6 0 3 3 0 1 1 6 0',read:'M12 5v15 M12 5C8 2 3 3 2 4v15c4-2 7-1 10 1 3-2 6-3 10-1V4c-1-1-6-2-10 1',publish:'M12 16V3 M7 8l5-5 5 5 M4 15v6h16v-6',send:'M22 2L9 15 M22 2l-7 20-6-7-7-6 20-7z'};
+    for(const control of actions.children){const label=control.textContent;const kind=control.tagName==='A'?'edit':label===words('Предпросмотр','Preview')?'preview':label===words('Читать','Read')?'read':state==='approved'?'publish':'send';const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.5');svg.setAttribute('stroke-linejoin','round');const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',icons[kind]);svg.append(path);control.prepend(svg);}
+    top.append(actions);row.append(top);
+    if(detail.publishedRevision&&!detail.correctionRequested)row.append(el('small',words('Опубликованная глава доступна только для чтения. Исправление может открыть модератор с замечанием.','Published chapters are read-only. A moderator can request a correction with feedback.')));
+    if(detail.publishedRevision&&detail.publishedRevision!==detail.draftRevision)row.append(el('small',words('Читателям доступна предыдущая опубликованная версия.','Readers still see the previous published edition.')));
+    renderFeedback(row,detail,id);
+  }
+  async function reloadExpanded(){const id=current.collectionId,standalone=current.standalone;await loadList();if(standalone)await openStandalone(id);else await open(id);}
   async function open(id,push=false){
     const seq=++openRequest;
     const detail=await request(`${api}/${encodeURIComponent(id)}`);if(seq!==openRequest)return;
@@ -149,6 +235,10 @@ async function start(root) {
     if(seq!==openRequest)return;
     current=detail; current.collectionId ||= id;
     doc=structuredClone(detail.draftDocument||detail.document||{});dirty=false;
+    if(!moderation){
+      const chapters=await Promise.all((doc.items||[]).filter(i=>i.target.kind==='scenario').map(async i=>{try{return [i.target.id,await request(`/api/author/stories/${encodeURIComponent(i.target.id)}`)];}catch(error){if(error.status===403||error.status===404)return [i.target.id,{visibility:'unavailable',restricted:true}];throw error;}}));
+      if(seq!==openRequest)return;chapterDetails=new Map(chapters);
+    }
     targets=nextTargets;
     writeUrl(push,id);renderEditor();showScreen("editor",true); status.textContent="";
   }
@@ -156,6 +246,7 @@ async function start(root) {
     editor.replaceChildren();
     const h=el("h2",current?.groupReview?.tree?.title||current?.title||doc.title||words("Новая история", "New story"));h.tabIndex=-1;editor.append(h);
     if(current){editor.append(el("p",labels(current)));if(current.reason||current.decisionReason)editor.append(el("p",current.reason||current.decisionReason));}
+    if(!moderation&&current)renderFeedback(editor,current,current.collectionId,true);
     if(moderation){
       if(current.groupReview)renderFolderReview(editor,{group:current.groupReview,roles,onDecision:async()=>{await open(current.collectionId);await loadList();},onDetails:()=>{current.groupReview=null;editor.replaceChildren(el("h2",current.title));renderReview();}});
       else renderReview();return;
@@ -191,24 +282,16 @@ async function start(root) {
       const up=button(words("↑ Выше", "↑ Up"),()=>move(i-1,0));up.disabled=i===0;
       const down=button(words("↓ Ниже", "↓ Down"),()=>move(i+1,1));down.disabled=i===doc.items.length-1;
       actions.append(up,down,button(words("Исключить", "Remove"),()=>{if(!confirm(words("Убрать главу из оглавления? Сам черновик сохранится. Опубликованный порядок изменится после проверки.","Remove this chapter from the contents? Its draft remains. Published order changes after review.")))return;doc.items.splice(i,1);changed();renderEditor();}));
-      if(item.target.kind==="scenario"){
-       const submitChapter=button(words("Отправить главу на проверку", "Submit chapter for review"),()=>work(async()=>{
-        await save();
-        const chapter=await request(`/api/author/stories/${encodeURIComponent(item.target.id)}`);
-        await request(`${api}/${current.collectionId}/chapters/review`,{method:"POST",body:{storyId:item.target.id,storyGeneration:chapter.generation,generation:current.generation,replaceReview:true}});
-        await open(current.collectionId);await loadList();status.textContent=words("Глава отправлена на проверку. Остальные черновики сохранены.", "Chapter submitted. Other drafts remain unchanged.");
-       }));submitChapter.dataset.reviewSubmit="true";submitChapter.disabled=Boolean(current?.reviewLimitReached);actions.append(submitChapter);
-      }
-      if(item.target.kind==="scenario"&&(found?.id||item.target.id)){
-       const storyId=found?.id||item.target.id;
-       actions.append(link(words("Редактировать главу", "Edit chapter"),`/builder/?story=${encodeURIComponent(storyId)}&work=${encodeURIComponent(current?.collectionId||"")}`));
-       actions.append(button(words("Пройти черновик", "Play draft"),()=>{if(!discard())return;const collectionId=current?.collectionId,seq=openRequest;work(async()=>{const chapter=await request(`/api/author/stories/${encodeURIComponent(storyId)}`);if(seq!==openRequest||current?.collectionId!==collectionId)return;dirty=false;location.href=`/?previewStory=${encodeURIComponent(storyId)}&revision=${encodeURIComponent(chapter.draftRevision)}`;});}));
-      }
-      else if(item.target.kind==="collection")actions.append(button(words("Открыть состав", "Open contents"),()=>{if(discard())work(()=>open(found?.id||item.target.id));}));
+      if(item.target.kind==="collection")actions.append(button(words("Открыть состав", "Open contents"),()=>{if(discard())work(()=>open(found?.id||item.target.id));}));
       const season=field(words("Сезон (необязательно)", "Season (optional)"),item.season||"");
       season.input.maxLength=100;season.input.oninput=()=>{item.season=season.input.value;changed();};
       const chapterState=current?.dependencies?.find(child=>child.id===item.target.id);
-      row.append(el("small",chapterState?labels({...found,...chapterState}):found?labels(found):words("Черновик", "Draft")),caption.label,season.label,actions);items.append(row);
+      if(!moderation&&item.target.kind==='scenario'){
+        const settings=el('details',null,'chapter-settings');settings.append(el('summary',words('Настройки главы','Chapter settings')),caption.label,season.label);
+        const secondary=el('div',null,'collection-actions');secondary.append(up,down,actions.children[0]);settings.append(secondary);
+        row.replaceChildren();renderChapterOverview(row,item,i,chapterDetails.get(item.target.id)||chapterState||found||{});row.append(settings);
+      }else row.append(el("small",chapterState?labels({...found,...chapterState}):found?labels(found):words("Черновик", "Draft")),caption.label,season.label,actions);
+      items.append(row);
     });chapters.append(items);
     if(!doc.items?.length)chapters.append(el("p",words("Глав пока нет. Добавьте первую и откройте её сцены в конструкторе.","No chapters yet. Add the first chapter to build its scenes.")));
     chapters.append(button(words("+ Добавить главу", "+ Add chapter"),()=>work(createChapter),"add-button"));
@@ -216,9 +299,8 @@ async function start(root) {
 
     const actions=el("div",null,"collection-actions");
     actions.append(button(words("Сохранить", "Save"),()=>work(save),"add-button"));
-    if(current&&doc.schemaVersion===2&&doc.items?.length)actions.append(link(words("Пройти историю", "Play story"),`/?previewCollection=${encodeURIComponent(current.collectionId)}&revision=${encodeURIComponent(current.draftRevision)}`));
+    if(current&&doc.schemaVersion===2&&doc.items?.length)actions.append(link(words("Пройти историю", "Play story"),`/author-preview.html?previewCollection=${encodeURIComponent(current.collectionId)}&revision=${encodeURIComponent(current.draftRevision)}`));
     actions.append(button(words("Обновить сведения","Refresh details"),()=>work(async()=>{await refreshReviewEligibility();status.textContent=permissionNotice||(dirty?words("Есть несохранённые изменения в форме.","There are unsaved changes in this form."):words("Сведения обновлены.","Details refreshed."));})));
-    actions.append(button(words("Промпты для ИИ","AI prompts"),()=>prompts({kind:"package",...(current?{getContext:kind=>{if(kind!=="package")throw new Error(words("Для этой истории выберите формат пакета.","Choose the package format for this story."));return request(`${api}/${current.collectionId}/export`);}}:{})})));
     if(current){
       if(current.publishedRevision){const send=button(words("Отправить настройки истории на проверку", "Submit story settings for review"),()=>work(async()=>{await save();await submit(false);}));send.dataset.reviewSubmit="true";send.disabled=Boolean(current.reviewLimitReached);actions.append(send);}
       advanced.append(button(words("Экспорт истории", "Export story"),()=>work(async()=>{download(await request(`${api}/${current.collectionId}/export`),`${current.key}.json`);status.textContent="";})));
@@ -228,7 +310,14 @@ async function start(root) {
         if(!current.publishedRevision)advanced.append(button(words("В корзину","Move to trash"),()=>work(()=>takeDown(true))));
       }
     }
-    editor.append(actions,el("p",words("На модерации может быть одна ваша история с её главами. Остальные истории можно создавать и редактировать; отправить их получится после решения модератора.","Only one of your stories and its chapters can be under review. Keep creating and editing other stories; submit them after the moderator’s decision.")),advanced);
+    const primaryActions=el("div",null,"collection-actions");primaryActions.append(actions.firstElementChild);const play=actions.querySelector('a[href*="previewCollection"]');if(play)primaryActions.append(play);editor.append(primaryActions);advanced.append(actions);advanced.append(el("p",words("На модерации может быть одна ваша история с её главами. Остальные истории можно создавать и редактировать; отправить их получится после решения модератора.","Only one of your stories and its chapters can be under review. Keep creating and editing other stories; submit them after the moderator’s decision.")));editor.append(advanced);
+    if(current?.publishedRevision&&current.reviewState==='approved'&&current.submittedRevision===current.draftRevision&&current.publishedRevision!==current.draftRevision){
+      metadata.append(button(words('Опубликовать одобренные настройки','Publish approved settings'),()=>work(async()=>{
+        if(dirty)throw new Error(words('Сначала сохраните изменения.','Save changes first.'));
+        if(!confirm(words('Опубликовать одобренное описание и оглавление?','Publish the approved description and contents?')))return;
+        await request(`${api}/${current.collectionId}/publish`,{method:'POST',body:{generation:current.generation,revision:current.draftRevision}});await reloadExpanded();
+      }),'add-button'));
+    }
     if(current){
       const previewHost=el("section");
       advanced.append(button(words("Предпросмотр истории", "Preview story"),()=>work(async()=>{
@@ -264,7 +353,7 @@ async function start(root) {
   async function submit(batch){
     if(!confirm(words("Отправить историю и изменённые главы на проверку? Если они уже на проверке, заявка обновится. Опубликованные тексты сохранятся до решения модератора.", "Submit the story and changed parts? Any pending application will be updated. Published texts stay unchanged until a moderator decides.")))return;
     const result=await request(`${api}/${current.collectionId}/${batch?"review-batch":"review"}`,{method:"POST",body:{generation:current.generation,replaceReview:true}});
-    await open(current.collectionId);await loadList();status.textContent=words("История и изменённые главы отправлены одной заявкой. После одобрения их увидят читатели.", "The story and changed parts were sent as one application. Readers will see them after approval.");
+    await open(current.collectionId);await loadList();status.textContent=words("История и изменённые главы отправлены одной заявкой. После одобрения вы сможете опубликовать главы.", "The story and changed parts were sent as one application. After approval you can publish the chapters.");
     if(result.results)status.textContent+=`\n${JSON.stringify(result.results)}`;
   }
   async function createChapter(){
@@ -379,12 +468,12 @@ async function start(root) {
     const importDialog=el("dialog",null,"workspace-dialog author-import");importDialog.setAttribute("aria-labelledby","author-import-title");const importHeading=el("h2",words("Импорт истории из файла","Import story from a file"));importHeading.id="author-import-title";
     const importStatus=el("p","","workspace-status");importStatus.setAttribute("role","status");importDialog.append(importHeading,el("p",words("Выберите JSON всей истории. Перед записью вы увидите новые главы, изменения и конфликты.","Choose a complete story JSON package. Review new chapters, changes and conflicts before saving.")),upload.label,importStatus,button(words("Закрыть","Close"),()=>importDialog.close()));document.body.append(importDialog);
     const importButton=button(words("Импорт истории из файла","Import story from a file"),()=>importDialog.showModal());importButton.dataset.authorMutation="true";
-    utilities.append(importButton,button(words("Промпты для ИИ","AI prompts"),()=>prompts({kind:"package"})));titleRow.append(create);
+    utilities.append(importButton,button(words("Промпты для ИИ","AI prompts"),()=>prompts({kind:"package",...(current&&!current.standalone?{getContext:()=>request(`${api}/${current.collectionId}/export`)}:{})})));titleRow.append(create);
   }
-  const filterChanged=()=>{pageIndex=0;writeUrl(false,null);work(loadList);};toolbar.onsubmit=event=>{event.preventDefault();filterChanged();};query.input.onsearch=filterChanged;state.input.onchange=filterChanged;
+  const filterChanged=()=>{if(!discard())return;dirty=false;current=null;doc=null;screen="list";editor.hidden=true;pageIndex=0;writeUrl(false,null);work(loadList);};toolbar.onsubmit=event=>{event.preventDefault();filterChanged();};query.input.onsearch=filterChanged;state.input.onchange=filterChanged;
   await loadList();
   if(params.get("collection")==="new"||params.get("create")==="1")await createNew(false);
-  else if(params.get("collection"))await open(params.get("collection"));
+  else if(params.get("collection")){const id=params.get("collection");const item=all.find(n=>(n.collectionId||n.id)===id);if(item?.kind==='scenario')await openStandalone(id);else await open(id);}
   else if(params.get("scenario")&&!moderation){
     const parents=await request(`/api/author/collections/parents?scenarioId=${encodeURIComponent(params.get("scenario"))}`);
     if(parents.length)await open(parents[0].id||parents[0].collectionId);

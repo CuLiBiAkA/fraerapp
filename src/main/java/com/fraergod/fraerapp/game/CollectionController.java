@@ -17,6 +17,8 @@ class CollectionController {
  record Draft(int generation,CollectionDocument document) {}
  record Create(CollectionDocument document) {}
  record Submission(int generation,Boolean replaceReview) {}
+ record Publication(int generation,int revision) {}
+ @PostMapping("/api/author/collections/{id}/publish") Object publish(@PathVariable String id,@RequestBody Publication c){return collections.publishSettingsByAuthor(id,user.requireAuthorPlayerId(),c.generation(),c.revision(),user.requireIdentity());}
  record Favorite(boolean favorite) {}
  record Rating(@jakarta.validation.constraints.NotNull @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(5) @jakarta.validation.constraints.Digits(integer=1,fraction=0) java.math.BigDecimal score) {}
  @PutMapping("/api/catalog/collections/{id}/rating") Object rating(@PathVariable String id,@jakarta.validation.Valid @RequestBody Rating value){metrics.rate(id,user.requirePlayerId(),value.score().intValueExact());return Map.of("saved",true);}
@@ -39,6 +41,7 @@ class CollectionController {
  @PostMapping("/api/author/collections/import-preview") Object importPreview(@RequestBody Map<String,Object> data){return packages.importPreview(data,user.requireAuthorPlayerId());}
  @PostMapping("/api/author/review-batch") Object batch(@RequestBody WorkPackageService.Batch data){return packages.review(data,user.requireAuthorPlayerId(),user.requireIdentity());}
  @PostMapping("/api/author/collections/{id}/chapters/review") Object chapterReview(@PathVariable String id,@RequestBody WorkPackageService.ChapterReview data){return packages.reviewChapter(id,data,user.requireAuthorPlayerId(),user.requireIdentity());}
+ @PostMapping("/api/author/collections/{id}/chapters/publish") Object chapterPublish(@PathVariable String id,@RequestBody WorkPackageService.ChapterPublication data){return packages.publishChapter(id,data,user.requireAuthorPlayerId(),user.requireIdentity());}
  @PostMapping("/api/author/collections/{id}/review-batch") Object batchTree(@PathVariable String id,@RequestBody Submission c){return packages.reviewTree(id,c.generation(),Boolean.TRUE.equals(c.replaceReview()),user.requireAuthorPlayerId(),user.requireIdentity());}
  @GetMapping("/api/moderation/collections") Object moderation(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size,@RequestParam(defaultValue="") String q,@RequestParam(defaultValue="all") String status,@RequestParam(defaultValue="all") String visibility,@RequestParam(defaultValue="all") String type){user.requireModerator();return collections.queue(page,size,q,status,visibility,type);}
  @GetMapping("/api/moderation/collections/{id}") Object moderationDetail(@PathVariable String id){user.requireModerator();return collections.details(id,null,true);}

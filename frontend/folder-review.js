@@ -1,5 +1,5 @@
-import {el,button,field,checkbox,words,request,errorMessage,typeName} from "./collection-ui.js?v=6";
-import {renderStoryDocument,renderDocumentDiff} from "./story-workflow.js?v=2";
+import {el,link,button,field,checkbox,words,request,errorMessage,typeName} from "./collection-ui.js?v=6";
+import {renderStoryDocument,renderDocumentDiff} from "./story-workflow.js?v=3";
 
 // One visible application; individual immutable decisions remain server-owned.
 export function renderFolderReview(host,{group,roles,onDecision,onDetails}){
@@ -31,6 +31,10 @@ export function renderFolderReview(host,{group,roles,onDecision,onDetails}){
     const confirmed=checkbox(words("Эту часть проверил(а)", "I have reviewed this part"),false);confirmed.input.onchange=()=>{const key=`${item.kind}:${item.id}`;if(confirmed.input.checked)read.add(key);else read.delete(key);refresh();};panel.append(confirmed.label);parts.append(panel);
   }
   if(!items.length)host.append(el("p",words("В этой истории нет новых частей на проверке.","This story has no new parts awaiting review.")));
+  const published=el('details');published.append(el('summary',words('Опубликованные главы — проверка ошибок','Published chapters — inspect errors')));
+  const publishedList=el('ul');
+  const inspect=node=>{if(node.kind==='scenario'&&node.publishedRevision){const item=el('li');item.append(link(node.title||words('Открыть главу','Open chapter'),`/moderation/?story=${encodeURIComponent(node.id)}&revision=${encodeURIComponent(node.publishedRevision)}`));publishedList.append(item);}for(const child of node.children||[])inspect(child);};
+  inspect(group.tree);if(publishedList.children.length){published.append(publishedList);host.append(published);}
   const reason=field(words("Замечания автору", "Feedback to the author"),"","textarea");host.append(reason.label);
   const self=items.some(i=>i.self),override=checkbox(words("Администратор: разрешить проверку своих работ с указанной причиной", "Administrator: allow reviewing my own work with a reason"),false);
   if(self){host.append(el("p",words("В заявке есть ваши работы. Их должен проверить другой модератор.","This application contains your work. Another moderator should review it.")));if(roles.includes("admin"))host.append(override.label);}
@@ -39,13 +43,13 @@ export function renderFolderReview(host,{group,roles,onDecision,onDetails}){
   async function decide(action){
     if(busy)return;
     if((action==="reject"||self)&&!reason.input.value.trim()){status.textContent=words("Напишите причину решения.","Enter a reason for this decision.");return;}
-    if(!confirm(action==="reject"?words("Вернуть перечисленные части автору на доработку?","Return the listed parts to the author for changes?"):words("Опубликовать все перечисленные и проверенные части заявки?","Publish all listed and reviewed parts of this application?")))return;
+    if(!confirm(action==="reject"?words("Вернуть перечисленные части автору на доработку?","Return the listed parts to the author for changes?"):words("Одобрить перечисленные части? Автор сам выберет время публикации.","Approve these parts? The author will choose when to publish.")))return;
     busy=true;host.inert=true;refresh();status.textContent=words("Сохраняем решение…","Saving the decision…");
     try{await request(`/api/moderation/folders/${encodeURIComponent(group.tree.id)}/decision`,{method:"POST",body:{rootGeneration:group.rootGeneration,items:items.map(({kind,id,generation,revision})=>({kind,id,generation,revision})),action,reason:reason.input.value.trim()||words("Заявка истории проверена", "Story application reviewed"),ownOverride:override.input.checked}});await onDecision();}
     catch(error){status.textContent=errorMessage(error);}
     finally{busy=false;host.inert=false;refresh();}
   }
-  const approve=button(words("Одобрить и опубликовать заявку", "Approve and publish application"),()=>decide("approve-publish"),"add-button");
+  const approve=button(words("Одобрить заявку", "Approve application"),()=>decide("approve"),"add-button");
   const reject=button(words("Вернуть на доработку", "Request changes"),()=>decide("reject"));
   const actions=el("div",null,"collection-actions");actions.append(approve,reject);host.append(actions,status);
   host.append(button(words("История и отдельные решения", "History and individual decisions"),onDetails));refresh();

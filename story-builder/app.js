@@ -1,6 +1,6 @@
 import { fetchWithSession } from "../auth-session.js?v=1";
 import { validateStory as validateStoryDocument } from "./core.js?v=2";
-import { canEditStories, filterAfterSubmit, storyLabels, workflowLabel } from "../story-workflow.js?v=2";
+import { canEditStories, canEditStoryDraft, publishedCorrectionNotice, filterAfterSubmit, storyLabels, workflowLabel } from "../story-workflow.js?v=3";
 import { reviewLimitMessage } from "../review-limit.js?v=2";
 import { decorateHelp, helpButton, helpTopics } from "./help.js?v=5";
 import { openAuthoringPrompts, copyPromptText } from "./authoring-prompts.js?v=1";
@@ -2387,7 +2387,7 @@ const panelWords = {
   saveHint: ['Сохранённая на сервере глава доступна с других устройств.', 'A chapter saved on the server is available on other devices.'],
   checkHint: ['Проверяем текущий JSON: сцены, переменные и переходы. Изменения сохранять не обязательно.', 'Check the current JSON: scenes, variables and transitions. Saving is not required.'],
   checkNote: ['Это проверка структуры, а не литературного текста. Полная серверная проверка выполняется перед отправкой модератору.', 'This checks structure, not literary quality. Full server validation runs before submission.'],
-  publicationHint: ['Глава станет доступна читателям после одобрения и публикации модератором.', 'Readers can access the chapter after a moderator approves and publishes it.'],
+  publicationHint: ['После одобрения модератором вы сможете опубликовать главу.', 'After moderator approval, you can publish the chapter.'],
   submitHint: ['Перед отправкой проверим главу и сохраним изменения. На модерацию можно отправлять одну историю в сутки.', 'We will check and save the chapter. You can submit one story per day.'],
   previewHint: ['Текущий текст и варианты выборов. Это просмотр сцен, без прохождения и сохранения прогресса.', 'Current text and choices. This is a scene preview without playthrough or saved progress.'],
 };
@@ -2403,6 +2403,9 @@ function renderAuthorWorkspace(home = authorHomeCache) {
     node.title = label; node.setAttribute('aria-label', label);
   });
   const current = home?.stories?.find(story => story.storyId === getDraftStoryId());
+  if(current?.publishedRevision)document.querySelector('[data-panel-text="publicationHint"]').textContent=en
+    ? 'The published version remains unchanged. Readers will see the correction after review and publication.'
+    : 'Опубликованная версия остаётся без изменений. Читатели увидят исправление после проверки и публикации.';
   if(current?.reviewLimitReached || current?.reviewDailyLimitReached)document.querySelector('[data-panel-text="submitHint"]').textContent=reviewLimitMessage(currentLanguage, current);
   const items = chapterParent?.draftDocument?.items || [];
   const index = items.findIndex(item => item.target.id === getDraftStoryId());
@@ -2424,7 +2427,10 @@ function renderAuthorWorkspace(home = authorHomeCache) {
       ? (en ? 'Unpublished changes' : 'Есть неопубликованные изменения')
       : current ? storyLabels(current, currentLanguage).join(' · ') : (en ? 'Not published yet' : 'Ещё не опубликована');
   const comment = document.querySelector('#chapter-review-comment');
-  comment.textContent = current?.reason || ''; comment.hidden = !comment.textContent;
+  comment.textContent = [...new Set([current?.correctionReason,current?.reason].filter(Boolean))].join('\n'); comment.hidden = !comment.textContent;
+  const editNotice=document.querySelector('#chapter-edit-notice');
+  editNotice.textContent=publishedCorrectionNotice(current,currentLanguage);
+  editNotice.hidden=!editNotice.textContent;
   els.authorState.textContent = canAuthor() ? '' : (authorSession ? t('authorRoleMissing') : t('authorLoggedOut'));
   els.authorState.hidden = canAuthor();
   updateServerDraftState();
@@ -2454,6 +2460,7 @@ function updateAuthorGate() {
       return;
     }
     control.disabled = !loggedIn || (builderWorkflowBusy && (control.dataset.authorMutation === "true" || ["import-runtime", "validate-runtime", "publish-runtime", "author-story-select", "refresh-author", "runtime-url"].includes(control.id)));
+    if(current&&!canEditStoryDraft(current)&&!['preview-chapter','copy-json','download-json','validate-runtime','refresh-author','scroll-top','scroll-bottom'].includes(control.id))control.disabled=true;
     if(control.id==='publish-runtime'&&(current?.reviewLimitReached || current?.reviewDailyLimitReached))control.disabled=true;
   });
   document.querySelectorAll("a.nav-link").forEach((link) => {

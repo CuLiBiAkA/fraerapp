@@ -59,8 +59,8 @@ test("a revoked author retains readable story labels but loses every mutation", 
 });
 
 test("author actions never include publishing or lifting restrictions", () => {
-  assert.deepEqual(authorActions(story(),user(["author"])), ["edit","submit","withdraw","archive"]);
-  assert.deepEqual(authorActions(story({visibility:"hidden", restricted:true}),user(["author"])), ["edit","submit","withdraw"]);
+  assert.deepEqual(authorActions(story(),user(["author"])), ["withdraw","archive"]);
+  assert.deepEqual(authorActions(story({visibility:"hidden", restricted:true}),user(["author"])), ["withdraw"]);
   assert.deepEqual(authorActions(story({visibility:"deleted"}),user(["admin"])), []);
   assert.ok(authorActions(story({visibility:"private", publishedRevision:null}),user(["author"])).includes("delete"));
 });

@@ -16,12 +16,33 @@ class WorkPackageService {
  record ReviewItem(String kind,String id,int generation,Boolean replaceReview) {}
  record Batch(List<ReviewItem> items) {}
  record ChapterReview(String storyId,int storyGeneration,int generation,Boolean replaceReview) {}
+ record ChapterPublication(String storyId,int storyGeneration,int revision,int generation) {}
+ @Transactional
+ Map<String,Object> publishChapter(String id,ChapterPublication c,String player,AuthIdentity actor) {
+  collections.structureLock();var parent=collections.row(id);collections.owner(parent,player);collections.expected(parent,c.generation());
+  if(parent.restricted()||List.of("hidden","archived","deleted","purged").contains(parent.visibility()))throw conflict("История недоступна для публикации.");
+  Integer parentRevision="approved".equals(parent.review())?parent.submitted():parent.published();
+  if(parentRevision==null)throw conflict("Сначала дождитесь одобрения истории и оглавления.");
+  var document=collections.document(parent,parentRevision);
+  boolean found=false;
+  for(var item:list(document.items())) {
+   if("scenario".equals(item.target().kind())&&Objects.equals(item.target().id(),c.storyId())){found=true;break;}
+   if(!document.serialStory())continue;
+   if(!"scenario".equals(item.target().kind()))throw conflict("Invalid chapter order");
+   var prior=stories.findById(item.target().id()).orElseThrow(StoryNotFoundException::new);
+   if(!player.equals(prior.getOwnerPlayerId())||!StoryAccessService.listed(prior))throw conflict("Сначала опубликуйте предыдущие главы.");
+  }
+  if(!found)throw conflict("Главы нет в одобренном оглавлении. Отправьте изменения на проверку.");
+  var result=workflow.publishByAuthor(c.storyId(),player,c.storyGeneration(),c.revision(),actor);
+  collections.publishApprovedByAuthor(id,player,c.generation(),parentRevision,actor);
+  collections.notifyNewChapters();return result;
+ }
  @Transactional
  Map<String,Object> reviewChapter(String id,ChapterReview command,String player,AuthIdentity actor){
   collections.structureLock();var parent=collections.row(id);collections.owner(parent,player);collections.expected(parent,command.generation());
-  var doc=json.readCollection(parent.draft());if(!doc.serialStory())throw bad("Select a serial story");
-  if(list(doc.items()).stream().noneMatch(i->Objects.equals(i.target().id(),command.storyId())))throw bad("Chapter does not belong to this story");
-  for(var item:doc.items()){
+  var doc=json.readCollection(parent.draft());
+  if(list(doc.items()).stream().noneMatch(i->"scenario".equals(i.target().kind())&&Objects.equals(i.target().id(),command.storyId())))throw bad("Chapter does not belong to this story");
+  if(doc.serialStory())for(var item:doc.items()){
    if(Objects.equals(item.target().id(),command.storyId()))break;
    var prior=stories.findById(item.target().id()).orElseThrow(StoryNotFoundException::new);var state=workflow.workspace(prior.getId());
    if(prior.getPublishedRevision()==null&&!List.of("in_review","approved").contains(state.reviewState()))throw conflict("Submit the preceding chapters first");

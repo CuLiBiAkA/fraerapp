@@ -1,5 +1,45 @@
 # FraerApp deploy and ops runbook
 
+## Published chapter correction release
+
+Ship V23 with the rebuilt API and Builder, plus all changed author/moderation
+modules. Required entry graph: workspace-entry v10, story-workspace v5,
+collection-workspace v11, folder-review v6, story-workflow v3, chapter-state v2,
+Builder app v60 and its matching index. Include new accordion/preview files from
+the pending combined release; do not reuse its earlier staged JAR.
+
+Before release run the complete API/auth and Node tests plus browser checks,
+including `scripts/check-published-corrections.cjs`. Verify denied author save,
+import, rollback and asset writes after publication; mandatory moderator comment;
+no self-grant even for admin; exact generation/revision checks; correction review
+and relock after publication. Approved corrections must not bypass hidden/archived
+availability restrictions; explicit moderator restore is required first. Test the
+cycle and legacy folders on isolated data.
+
+Back up before replacing runtime files. Verify PostgreSQL V23, rebuilt API/Builder
+health, public responses, source/served asset hashes and recent logs. Existing
+rows receive no correction permission; old drafts/audit/revisions are preserved.
+Do not enable or submit corrections against real stories as a smoke test.
+Old API images do not enforce the published edit lock: rollback must preserve the
+new policy or keep author writes unavailable until a forward fix is installed.
+
+## Pending author accordion followup
+
+See `docs/author-accordion-plan.md`. Backup `backups/accordion-20261012-161848`
+contains both validated database dumps, runtime files and rollback API/Builder
+images. Accordion images are staged only; the running services are unchanged.
+Before release, include the concurrent published-chapter correction workflow and
+rebuild/retest from the final combined tree. Do not install the earlier staged JAR
+over that change. Deploy API and Builder together with the versioned workspace
+entry, collection UI, chapter-state and author-preview/accordion assets.
+
+Verify exact-revision author publication, rejected/in-review denial, old published
+reader snapshots, legacy parent compatibility, inline expansion, notification
+read behavior and responsive private previews. Stop API before recreation, retain
+its entrypoint/user/environment, and reload edge after API/Builder recreation.
+Compare installed and served asset hashes, six-service health and recent logs.
+No real author publication or account mutation is needed for release smoke tests.
+
 ## Combined release receipt (deployed, 2026-10-12)
 
 Source `0ca3aa0` is committed, pushed and deployed. Backup:

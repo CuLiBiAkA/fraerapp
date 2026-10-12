@@ -31,7 +31,7 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
   const title=page.getByLabel(language==='ru'?'Название':'Title',{exact:true});await title.fill('Unsaved story title');
   const save=page.getByRole('button',{name:language==='ru'?'Сохранить':'Save',exact:true});assert.ok(await save.isEnabled());
   blocked=false;
-  await page.getByRole('button',{name:language==='ru'?'Обновить сведения':'Refresh details',exact:true}).click();
+  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
   await page.waitForFunction(()=>!document.querySelector('[data-review-submit]').disabled);
   assert.equal(await title.inputValue(),'Unsaved story title');assert.ok(await page.locator('.review-limit-notice').isHidden());
   assert.equal(mutations.length,0);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));

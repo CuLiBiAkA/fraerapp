@@ -211,6 +211,21 @@ class CollectionService {
   var document=normalize(document(r,revision),r.owner(),r.id(),true);
   jdbc.update("update work_collections set published_at=coalesce(published_at,current_timestamp),published_updated_at=case when published_revision=? then published_updated_at else current_timestamp end,published_revision=?,published_title=?,visibility=? where id=?",revision,revision,document.title(),"unlisted".equals(visibility)?"unlisted":"public",r.id());reindex(row(r.id()));
  }
+ @Transactional
+ Map<String,Object> publishSettingsByAuthor(String id,String player,int generation,int revision,AuthIdentity actor) {
+  structureLock();Row r=row(id);owner(r,player);expected(r,generation);
+  if(r.draftRevision()!=revision)throw conflict("Изменения оглавления нужно отправить на проверку.");
+  publishApprovedByAuthor(id,player,generation,revision,actor);notifyNewChapters();return summary(row(id));
+ }
+ void publishApprovedByAuthor(String id,String player,int generation,int revision,AuthIdentity actor) {
+  structureLock();Row r=row(id);owner(r,player);expected(r,generation);
+  if(r.restricted()||List.of("hidden","archived","deleted","purged").contains(r.visibility()))throw conflict("История недоступна для публикации.");
+  if(Objects.equals(r.published(),revision))return;
+  if(!"approved".equals(r.review())||!Objects.equals(r.submitted(),revision))throw conflict("Оглавление ещё не одобрено модератором.");
+  publish(r,revision,"public");
+  jdbc.update("update work_collections set generation=generation+1 where id=?",id);
+  event(r,actor,"author_publish",revision,"","");
+ }
  private void event(Row r,AuthIdentity actor,String action,Integer revision,String reason,String note){jdbc.update("insert into collection_moderation_events(id,collection_id,revision,actor_id,action,reason,internal_note) values (?,?,?,?,?,?,?)",UUID.randomUUID().toString(),r.id(),revision,actor.userId(),action,reason,note);}
  boolean listed(Row r){return r.published()!=null&&"public".equals(r.visibility());}
  Row accessible(String id,boolean guest){if(guest)throw new AuthRequiredException();Row r=row(id);if(r.published()==null||r.restricted()||!List.of("public","unlisted").contains(r.visibility()))throw new StoryNotFoundException();return r;}

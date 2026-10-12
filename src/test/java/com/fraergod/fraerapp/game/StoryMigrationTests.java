@@ -74,6 +74,8 @@ class StoryMigrationTests {
   assertThat(workflow.workspace(id).reviewState()).isEqualTo("in_review");
   assertThat(stories.findById(id).orElseThrow().getPublishedRevision()).isNull();
   int original=jdbc.queryForObject("select story_revision from game_sessions where id=?",Integer.class,old.save().getId());
+  var legacyPending=workflow.workspace(id);
+  workflow.decide(id,"reject",new StoryWorkflowService.Decision(legacyPending.generation(),legacyPending.submittedRevision(),"Migrate legacy scenes","",null,false),admin);
   workflow.importDraft(json.write(doc(old.story().getKey(),"new_scene")),null);
   workflow.submit(id,null,workflow.workspace(id).generation(),true,admin);
   var current=workflow.workspace(id);

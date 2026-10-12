@@ -1,9 +1,9 @@
 import { fetchWithSession } from "./auth-session.js?v=1";
 import {
-  authorActions, authorFilters, canEditStories, canModerateStories, filterAfterSubmit, isOwnStory,
+  authorActions, authorFilters, canEditStories, canEditStoryDraft, publishedCorrectionNotice, canModerateStories, filterAfterSubmit, isOwnStory,
   matchesAuthorFilter, moderationActions, needsOwnOverride, node, publicStoryUrl,
   renderDocumentDiff, renderStoryDocument, revisionLabels, storyLabels, workflowLabel,
-} from "./story-workflow.js?v=2";
+} from "./story-workflow.js?v=3";
 import { reviewLimitMessage } from "./review-limit.js?v=2";
 import {authorCard,coverImage,editorTabs,showAuthoringPrompts} from "./author-ui.js?v=2";
 import {chooseCover,uploadImage} from "./author-cover.js?v=3";
@@ -197,6 +197,8 @@ function renderDetail() {
   const technical=node("details");technical.append(node("summary",choose("Сведения о редакциях","Revision details")),metadata);
   if(moderation)detailPanel.append(metadata);
   if (story.reason) detailPanel.append(node("p", `${choose("Причина / замечания", "Reason / feedback")}: ${story.reason}`, "workspace-notice"));
+  if(story.correctionReason&&story.correctionReason!==story.reason)detailPanel.append(node("p",`${choose("Исправление по замечанию модератора","Moderator correction request")}: ${story.correctionReason}`,"workspace-notice"));
+  if(!moderation&&story.publishedRevision)detailPanel.append(node("p",publishedCorrectionNotice(story,language),"workspace-notice"));
   if (story.visibility === "deleted") detailPanel.append(node("p", choose(`История в корзине до ${date(story.trashExpiresAt)}. Свой черновик можно восстановить до этой даты. Затем корзина очистится автоматически.`, `This story stays in trash until ${date(story.trashExpiresAt)}. You can restore your draft before that date; trash then clears automatically.`), "workspace-notice"));
   if (moderation && isOwnStory(story, state.user)) detailPanel.append(node("p", state.user.roles.includes("admin")
     ? choose("Это ваша история. Одобрение и снятие ограничений требуют явного административного исключения с причиной.", "This is your story. Approval and restoring access require an explicit administrator override with a reason.")
@@ -228,7 +230,7 @@ function renderDetail() {
   historySection.append(events); contentHost.append(historySection);if(!moderation)detailPanel.append(content,about);
 }
 function renderMetadata(container){
-  const editable=canEditStories(state.user)&&state.detail.visibility!=="deleted";
+  const editable=canEditStories(state.user)&&canEditStoryDraft(state.detail);
   if(!editable){container.append(node("p",choose("Только чтение","Read only")),node("p",metadataDraft.description||""));return;}
   const fields=node("div",null,"collection-fields");
   for(const [key,label,multiline] of [["title",choose("Название","Title")],["description",choose("Описание","Description"),true],["genre",choose("Жанры","Genres")]]){
@@ -268,6 +270,7 @@ function renderActions() {
     const control = button(label, () => showDecision(action), ["approve-publish", "submit", "publish-approved"].includes(action) ? "primary" : ["hide", "delete"].includes(action) ? "danger" : "");
     if(action==='submit'&&story.reviewLimitReached){control.disabled=true;control.title=reviewLimitMessage(language,story);}
     if (reviewing && (!state.preview || state.previewRevision !== story.submittedRevision)) { control.disabled = true; control.title = choose("Сначала откройте отправленную редакцию", "Open the submitted revision first"); }
+    if(action==='request-correction'&&(!state.preview||state.previewRevision!==story.publishedRevision)){control.disabled=true;control.title=choose("Сначала откройте опубликованную редакцию","Open the published revision first");}
     actionsNode.append(control);
   }
 }
@@ -284,7 +287,7 @@ async function loadPreview(revision, detailRequest = state.detailRequest) {
     const validation = preview.validation || {};
     previewNode.append(node("p", validation.valid ? choose("Техническая проверка: ошибок нет.", "Validation: no errors.") : choose("Техническая проверка: есть ошибки.", "Validation: errors found.")));
     if (validation.errors?.length) { const errors = node("ul"); for (const error of validation.errors) errors.append(node("li", typeof error === "string" ? error : JSON.stringify(error))); previewNode.append(errors); }
-    if (!moderation && canEditStories(state.user) && story.visibility !== "deleted") {
+    if (!moderation && canEditStories(state.user) && canEditStoryDraft(story)) {
       previewNode.append(button(choose("Создать черновик из этой редакции", "Create draft from this revision"), () => showDecision("rollback")));
     }
     const diff = node("details"); diff.append(node("summary", choose("Различия с опубликованной редакцией", "Differences from the published revision")), renderDocumentDiff(preview.publishedDocument, preview.document, language));
@@ -302,11 +305,12 @@ function showDecision(action) {
   const retained = decisionDrafts.get(key) || {};
   const override = moderation && needsOwnOverride(action, story, state.user);
   const replacing = !moderation && action === "submit" && story.reviewState === "in_review";
-  const revision = action === "rollback" ? state.previewRevision : story.submittedRevision;
+  const revision = action === "rollback" ? state.previewRevision : action === 'request-correction' ? story.publishedRevision : story.submittedRevision;
   const form = node("form");
   const title = node("h2", `${action === "rollback" ? choose("Создать черновик", "Create draft") : t(action)}: «${story.title}»`); title.id = "decision-title";
   let consequence = moderation ? choose("Решение будет записано в историю. Причина доступна автору.", "This decision will be recorded. The author can read the reason.") : "";
   if (action === "approve") consequence = choose("Одобряется только просмотренная редакция. Публикация сейчас не меняется.", "Only the inspected revision is approved. Publication remains unchanged.");
+  if(action==='request-correction')consequence=choose("Укажите серьёзную ошибку и что автор должен исправить. Откроется черновик из опубликованной версии этой главы; прежние черновики сохранятся в истории версий. Читателям пока останется прежний текст. Исправление потребуется проверить повторно.","Describe the serious error and the required correction. A draft will open from this chapter’s published edition; previous drafts remain in version history. Readers keep the existing text until the correction is reviewed and published.");
   if (["approve-publish", "publish-approved"].includes(action)) consequence = choose(`Читателям станет доступна редакция v${revision}. Рабочий черновик не публикуется.`, `Readers will receive revision v${revision}. The working draft is not published.`);
   if (["hide", "archive", "delete"].includes(action)) consequence = choose("История станет недоступна читателям, включая начатые прохождения. Данные, прогресс и решения сохранятся.", "Readers will lose access, including existing playthroughs. Data, progress and decisions are retained.");
   if (action === "restore") consequence = choose("История восстановится как приватная. Для читателей её нужно опубликовать отдельным действием.", "The story will be restored as private. Publishing for readers requires a separate action.");
@@ -338,7 +342,7 @@ function showDecision(action) {
     try {
       let path = `${apiBase}/${encodeURIComponent(story.storyId)}`;
       let method = "POST", body;
-      if (moderation) { path += `/${action}`; body = { generation: story.generation, revision: story.submittedRevision || state.previewRevision, reason: reason.value.trim(), internalNote: note.value.trim(), ownOverride: override && own.checked, visibility: visibilityField.control.value }; }
+      if (moderation) { path += `/${action}`; body = { generation: story.generation, revision: action==='request-correction'?story.publishedRevision:story.submittedRevision || state.previewRevision, reason: reason.value.trim(), internalNote: note.value.trim(), ownOverride: override && own.checked, visibility: visibilityField.control.value }; }
       else if (action === "delete") method = "DELETE";
       else if (action === "rollback") path += `/versions/${revision}/rollback`;
       else { path += `/${action === "submit" ? "review" : action}`; if (["submit", "withdraw", "restore"].includes(action)) body = { generation: story.generation, replaceReview: replacing }; }

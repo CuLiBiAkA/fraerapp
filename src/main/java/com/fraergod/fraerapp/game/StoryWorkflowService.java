@@ -32,14 +32,14 @@ class StoryWorkflowService {
   this.jdbc=jdbc;this.json=json;this.accounts=accounts;this.legacyPolicy=legacyPolicy;this.collections=collections;this.links=links;this.reviewCapacity=reviewCapacity;
  }
  record Workspace(String draftJson,int draftRevision,Integer submittedRevision,String reviewState,String reason,
-   Instant submittedAt,Instant decidedAt,String reviewerId,boolean restricted,int generation) {}
+   Instant submittedAt,Instant decidedAt,String reviewerId,boolean restricted,int generation,Integer correctionRevision,String correctionReason) {}
  record Decision(int generation,Integer revision,String reason,String internalNote,String visibility,Boolean ownOverride) {}
 
  Workspace workspace(String id) {
   return jdbc.query("select * from story_workspaces where story_id=?",(r,n)->new Workspace(r.getString("draft_json"),
    r.getInt("draft_revision"),(Integer)r.getObject("submitted_revision"),r.getString("review_state"),r.getString("decision_reason"),
    r.getTimestamp("submitted_at")==null?null:r.getTimestamp("submitted_at").toInstant(),
-   r.getTimestamp("decided_at")==null?null:r.getTimestamp("decided_at").toInstant(),r.getString("reviewer_id"),r.getBoolean("restricted"),r.getInt("generation")),id)
+   r.getTimestamp("decided_at")==null?null:r.getTimestamp("decided_at").toInstant(),r.getString("reviewer_id"),r.getBoolean("restricted"),r.getInt("generation"),(Integer)r.getObject("correction_revision"),r.getString("correction_reason")),id)
    .stream().findFirst().orElseThrow(StoryNotFoundException::new);
  }
  Story lock(String id) {
@@ -61,6 +61,40 @@ class StoryWorkflowService {
   if("deleted".equals(s.getVisibility()))throw conflict("Restore the story before editing");
  }
  private ResponseStatusException conflict(String message) { return new ResponseStatusException(HttpStatus.CONFLICT,message); }
+ private boolean correctionRequested(Story s,Workspace w) {
+  return s.getPublishedRevision()!=null&&Objects.equals(s.getPublishedRevision(),w.correctionRevision());
+ }
+ private void requireCorrection(Story s,Workspace w) {
+  if(s.getPublishedRevision()!=null&&!correctionRequested(s,w))throw conflict("Опубликованную главу нельзя редактировать. Исправление может открыть только модератор с обязательным замечанием.");
+ }
+ private void requireDraftWritable(Story s,Workspace w) {
+  requireCorrection(s,w);
+  if("in_review".equals(w.reviewState()))throw conflict("Глава на модерации. Редактирование станет доступно после решения модератора.");
+  if(s.getPublishedRevision()!=null&&"approved".equals(w.reviewState()))throw conflict("Исправление одобрено. Опубликуйте проверенную редакцию.");
+ }
+ @Transactional
+ void assertDraftWritable(String id,String playerId) {
+  Story s=lock(id);owner(s,playerId);editable(s);requireDraftWritable(s,workspace(id));
+ }
+ @Transactional
+ Map<String,Object> publishByAuthor(String id,String player,int generation,int revision,AuthIdentity actor) {
+  collections.structureLock();Story s=lock(id);owner(s,player);editable(s);
+  Workspace w=workspace(id);expected(w,generation);
+  if(w.restricted()||List.of("hidden","archived","deleted").contains(s.getVisibility()))throw conflict("Restore availability explicitly before publication");
+  if(!"approved".equals(w.reviewState())||!Objects.equals(w.submittedRevision(),revision)||w.draftRevision()!=revision)
+   throw conflict("Опубликовать можно только текущую одобренную редакцию. Изменения нужно отправить на проверку.");
+  if(s.getPublishedRevision()!=null&&s.getPublishedRevision()==revision)return summary(s,w);
+  s=publishRevision(s,revision,"public");
+  jdbc.update("update story_workspaces set generation=generation+1 where story_id=?",id);
+  event(s,revision,actor,"author_publish","","",w.reviewState(),"public");
+  return summary(s,workspace(id));
+ }
+ @Transactional
+ Map<String,Object> publishStandalone(String id,String player,int generation,int revision,AuthIdentity actor) {
+  collections.structureLock();
+  if(!collections.parents(player,id).isEmpty())throw conflict("Публикуйте главу из оглавления её истории.");
+  return publishByAuthor(id,player,generation,revision,actor);
+ }
  private void expected(Workspace w,int generation) {if(w.generation()!=generation)throw conflict("Story changed. Reload before retrying.");}
  private String reason(String value,boolean required) {
   String clean=value==null?"":value.strip();
@@ -139,6 +173,7 @@ class StoryWorkflowService {
    checkMediaOwnership(doc,s.getId());
    Workspace w=workspace(s.getId());
    if(!json.readMap(w.draftJson()).equals(json.readMap(body))) {
+    requireDraftWritable(s,w);
     s.touch();stories.saveAndFlush(s);
     int revision=snapshot(s,body,"draft");
     jdbc.update("update story_workspaces set draft_json=?,draft_revision=?,generation=generation+1 where story_id=?",body,revision,s.getId());
@@ -153,6 +188,7 @@ class StoryWorkflowService {
   if("in_review".equals(w.reviewState())&&Objects.equals(w.submittedRevision(),w.draftRevision()))return summary(s,w);
   if("in_review".equals(w.reviewState())&&!replaceReview)throw conflict("Confirm replacement of the previous submission");
   if(Objects.equals(s.getPublishedRevision(),w.draftRevision()))throw conflict("This revision is already published");
+  requireCorrection(s,w);
   reviewCapacity.claim(s.getOwnerPlayerId(),"scenario",id);
   checkMedia(json.readStory(w.draftJson()));
   var normalized=links.normalize(json.readStory(w.draftJson()),s.getOwnerPlayerId(),true);
@@ -174,6 +210,7 @@ class StoryWorkflowService {
  @Transactional
  Map<String,Object> rollback(String id,String playerId,int number) {
   Story s=lock(id);if(playerId!=null)owner(s,playerId);editable(s);
+  requireDraftWritable(s,workspace(id));
   String body=json.write(document(id,number));int revision=snapshot(s,body,"restore_draft_"+number);
   jdbc.update("update story_workspaces set draft_json=?,draft_revision=?,generation=generation+1 where story_id=?",body,revision,id);
   return summary(s,workspace(id));
@@ -191,7 +228,17 @@ class StoryWorkflowService {
   String why=reason(command.reason(),!approving||self);
   String note=reason(command.internalNote(),false);
   String before=s.getVisibility()+":"+w.reviewState();
-  if("publish-approved".equals(action)) {
+  if("request-correction".equals(action)) {
+   editable(s);
+   if(s.getPublishedRevision()==null||!Objects.equals(s.getPublishedRevision(),command.revision()))throw conflict("Откройте текущую опубликованную редакцию главы.");
+   if(correctionRequested(s,w))throw conflict("Исправление этой главы уже открыто.");
+   if(w.submittedRevision()!=null&&!Objects.equals(w.submittedRevision(),s.getPublishedRevision())&&List.of("in_review","approved").contains(w.reviewState()))
+    event(s,w.submittedRevision(),actor,"superseded",why,"",w.reviewState(),"superseded");
+   // Start from the exact published text. Earlier private edits survive in version history.
+   String body=json.write(document(id,s.getPublishedRevision()));int revision=snapshot(s,body,"moderator_correction");
+   jdbc.update("update story_workspaces set draft_json=?,draft_revision=?,submitted_revision=null,submitted_at=null,review_state='rejected',decision_reason=?,decided_at=current_timestamp,reviewer_id=?,correction_revision=?,correction_reason=?,generation=generation+1 where story_id=?",
+    body,revision,why,actor.userId(),s.getPublishedRevision(),why,id);
+  } else if("publish-approved".equals(action)) {
    if(!"approved".equals(w.reviewState()) || !Objects.equals(w.submittedRevision(),command.revision()))throw conflict("Select the approved revision");
    if(w.restricted() || List.of("hidden","archived","deleted").contains(s.getVisibility()))throw conflict("Restore availability explicitly first");
    s=publishRevision(s,command.revision(),command.visibility());
@@ -201,6 +248,7 @@ class StoryWorkflowService {
    if(!reviewable||!Objects.equals(command.revision(),w.submittedRevision()))throw conflict("The reviewed submission is no longer current");
    editable(s);
    if(approving) {
+    if(!Objects.equals(s.getPublishedRevision(),command.revision()))requireCorrection(s,w);
     StoryDocument doc=revision(id,command.revision());
     links.normalize(doc,s.getOwnerPlayerId(),true);
     var valid=content.validate(doc);if(!valid.valid())throw new ResponseStatusException(HttpStatus.BAD_REQUEST,String.join("; ",valid.errors()));
@@ -256,6 +304,7 @@ class StoryWorkflowService {
   event(s,w.draftRevision(),actor,"author_restore","","","deleted","private");return summary(s,workspace(id));
  }
  private Story publishRevision(Story s,int revision,String visibility) {
+  if(!Objects.equals(s.getPublishedRevision(),revision))requireCorrection(s,workspace(s.getId()));
   if(visibility!=null&&!List.of("public","unlisted").contains(visibility))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Publication visibility must be public or unlisted");
   StoryDocument doc=revision(s.getId(),revision);checkMedia(doc);checkMediaOwnership(doc,s.getId());
   links.normalize(doc,s.getOwnerPlayerId(),true);
@@ -264,6 +313,7 @@ class StoryWorkflowService {
   s.setPublishedRevision(revision);s.setVisibility("unlisted".equals(visibility)?"unlisted":"public");
   if(s.getPublishedSlug()==null)s.setPublishedSlug(content.uniqueSlug(s.getKey(),s.getTitle()));
   s.setPublishedAt(Instant.now());stories.saveAndFlush(s);
+  jdbc.update("update story_workspaces set correction_revision=null,correction_reason='' where story_id=?",s.getId());
   if("public".equals(s.getVisibility()))accounts.published(s.getId(),s.getTitle());
   return s;
  }
@@ -307,6 +357,7 @@ class StoryWorkflowService {
  @SuppressWarnings("unchecked")
  private List<Map<String,Object>> mapList(Object value) {return value instanceof List<?>?(List<Map<String,Object>>)value:List.of();}
  private void saveDraft(Story s,Map<String,Object> doc) {
+  requireDraftWritable(s,workspace(s.getId()));
   String body=json.write(doc);int revision=snapshot(s,body,"draft");s.touch();stories.saveAndFlush(s);
   jdbc.update("update story_workspaces set draft_json=?,draft_revision=?,generation=generation+1 where story_id=?",body,revision,s.getId());
  }
@@ -326,6 +377,7 @@ class StoryWorkflowService {
  private String notificationText(Story s,String action,String reason) {
   String message=json.readStory(workspace(s.getId()).draftJson()).title()+": "+switch(action) {
    case "approve","approve-publish"->"редакция одобрена";case "publish-approved"->"редакция опубликована";
+   case "request-correction"->"модератор открыл исправление опубликованной главы";
    case "reject"->"нужны исправления";case "delete"->"история в корзине";case "restore"->"история восстановлена";default->"изменена видимость";
   }+(reason.isBlank()?"":". "+reason);
   return message.substring(0,Math.min(2000,message.length()));
@@ -375,6 +427,10 @@ class StoryWorkflowService {
   m.put("status",s.getStatus().name().toLowerCase());m.put("visibility",s.getVisibility());m.put("publishedSlug",s.getPublishedSlug());
   m.put("publishedAt",s.getPublishedAt());m.put("updatedAt",s.getUpdatedAt());m.put("draftRevision",w.draftRevision());m.put("versionNumber",w.draftRevision());
   m.put("publishedRevision",s.getPublishedRevision());m.put("submittedRevision",w.submittedRevision());m.put("reviewState",w.reviewState());
+  boolean correction=correctionRequested(s,w);
+  m.put("correctionRequested",correction);m.put("correctionReason",correction?w.correctionReason():"");
+  m.put("canEditDraft",!List.of("deleted","purged").contains(s.getVisibility())&&!"in_review".equals(w.reviewState())
+   &&(s.getPublishedRevision()==null||(correction&&!"approved".equals(w.reviewState()))));
   m.put("hasDraft",!Objects.equals(s.getPublishedRevision(),w.draftRevision())&&(!Objects.equals(w.submittedRevision(),w.draftRevision())||!List.of("in_review","approved").contains(w.reviewState())));
   reviewCapacity.addStatus(m,s.getOwnerPlayerId(),"scenario",s.getId());
   TrashRetentionService.describe(m,s.getVisibility(),s.getDeletedAt(),w.restricted(),s.getPublishedRevision());

@@ -117,7 +117,7 @@ class FolderWorkspaceService {
  }
  @Transactional
  Map<String,Object> decide(String id,Decision command,AuthIdentity actor){
-  if(command==null||command.action()==null||!List.of("approve-publish","reject").contains(command.action()))throw bad("Choose approve-publish or reject");
+  if(command==null||command.action()==null||!List.of("approve","approve-publish","reject").contains(command.action()))throw bad("Choose approve or reject");
   if(WorkLinksService.list(command.items()).isEmpty()||command.items().size()>100)throw bad("Select the exact 1–100 submitted works shown in the application");
   collections.structureLock();var root=collections.lock(id);collections.expected(root,command.rootGeneration());
   // Lock every scenario in this owner's tree, including unchanged context. Imports and
@@ -139,6 +139,7 @@ class FolderWorkspaceService {
   // Children publish before parents, all inside this transaction. No draft enters here.
   Collections.reverse(actual);
   for(var item:actual){
+   if("approve".equals(command.action())&&"approved".equals(item.get("reviewState")))continue;
    String action="approve-publish".equals(command.action())&&"approved".equals(item.get("reviewState"))?"publish-approved":command.action();
    var c=new StoryWorkflowService.Decision((Integer)item.get("generation"),(Integer)item.get("revision"),command.reason(),null,"unlisted".equals(item.get("visibility"))?"unlisted":"public",command.ownOverride());
    results.add("scenario".equals(item.get("kind"))?workflow.decide((String)item.get("id"),action,c,actor):workflow.decideCollection((String)item.get("id"),action,c,actor));

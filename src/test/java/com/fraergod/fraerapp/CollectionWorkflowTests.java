@@ -21,7 +21,51 @@ class CollectionWorkflowTests extends ApiTestSupport {
  final String author=TestJwtFactory.author("collection-author-"+UUID.randomUUID()+"@example.test");
  final String reviewer=TestJwtFactory.moderator("collection-reviewer-"+UUID.randomUUID()+"@example.test");
  final String reader=TestJwtFactory.player("collection-reader-"+UUID.randomUUID()+"@example.test");
+ @Test void legacyFolderAllowsReviewedChapterPublicationWithoutSerialOrder() {
+  var a=draft(scenario(key(),1));var b=draft(scenario(key(),2));
+  String id=cid(create(document("story",List.of(item("scenario",a),item("scenario",b)))));
+  batch(id);ok(call("POST","/api/moderation/folders/"+id+"/decision",folderDecision(folderReview(id),"approve"),reviewer));
+  var chapter=ok(call("GET","/api/author/stories/"+sid(b),null,author));
+  ok(call("POST","/api/author/collections/"+id+"/chapters/publish",Map.of("storyId",sid(b),"storyGeneration",chapter.get("generation"),"revision",chapter.get("draftRevision"),"generation",details(id).get("generation")),author));
+  assertThat(ok(call("GET","/api/author/stories/"+sid(a),null,author)).get("publishedRevision")).isNull();
+  var published=ok(call("GET","/api/author/stories/"+sid(b),null,author));
+  ok(call("POST","/api/moderation/stories/"+sid(b)+"/request-correction",Map.of("generation",published.get("generation"),"revision",published.get("publishedRevision"),"reason","Fix serious ending error"),reviewer));
+  var doc=scenario(b.get("key").toString(),3);var fixed=draft(doc);
+  ok(call("POST","/api/author/collections/"+id+"/chapters/review",Map.of("storyId",sid(b),"storyGeneration",fixed.get("generation"),"generation",details(id).get("generation")),author));
+  approveChapter(sid(b));chapter=ok(call("GET","/api/author/stories/"+sid(b),null,author));
+  ok(call("POST","/api/author/collections/"+id+"/chapters/publish",Map.of("storyId",sid(b),"storyGeneration",chapter.get("generation"),"revision",chapter.get("draftRevision"),"generation",details(id).get("generation")),author));
+ }
  String key(){return "work_"+UUID.randomUUID().toString().replace("-","");}
+ @Test void authorPublishesOnlyApprovedCurrentChaptersInOrder() {
+  var aDoc=scenario(key(),1);var a=draft(aDoc);var b=draft(scenario(key(),2));
+  var d=document("story",List.of(item("scenario",a),item("scenario",b)));d.put("schemaVersion",2);String id=cid(create(d));
+  ok(call("POST","/api/author/collections/"+id+"/chapters/review",Map.of("storyId",sid(a),"storyGeneration",a.get("generation"),"generation",details(id).get("generation")),author));
+  aDoc.put("title","Changed during review");
+  assertThat(call("POST","/api/author/stories/import",aDoc,author).statusCode()).isEqualTo(409);
+  ok(call("POST","/api/author/collections/"+id+"/chapters/review",Map.of("storyId",sid(b),"storyGeneration",b.get("generation"),"generation",details(id).get("generation"),"replaceReview",true),author));
+  ok(call("POST","/api/moderation/folders/"+id+"/decision",folderDecision(folderReview(id),"approve"),reviewer));
+  assertThat(details(id).get("publishedRevision")).isNull();
+  var first=ok(call("GET","/api/author/stories/"+sid(a),null,author));
+  var second=ok(call("GET","/api/author/stories/"+sid(b),null,author));
+  var secondCommand=new LinkedHashMap<String,Object>(Map.of("storyId",sid(b),"storyGeneration",second.get("generation"),"revision",second.get("draftRevision"),"generation",details(id).get("generation")));
+  assertThat(call("POST","/api/author/collections/"+id+"/chapters/publish",secondCommand,author).statusCode()).isEqualTo(409);
+  var command=Map.of("storyId",sid(a),"storyGeneration",first.get("generation"),"revision",first.get("draftRevision"),"generation",details(id).get("generation"));
+  assertThat(call("POST","/api/author/collections/"+id+"/chapters/publish",command,TestJwtFactory.author("foreign-"+key()+"@example.test")).statusCode()).isIn(403,404);
+  ok(call("POST","/api/author/collections/"+id+"/chapters/publish",command,author));
+  assertThat(details(id).get("publishedRevision")).isNotNull();
+  aDoc.put("title","New draft after publication");
+  assertThat(call("POST","/api/author/stories/import",aDoc,author).statusCode()).isEqualTo(409);
+  requestPublishedCorrection(port,sid(a));var edited=draft(aDoc);
+  assertThat(edited.get("publishedRevision")).isEqualTo(first.get("draftRevision"));
+  assertThat(call("POST","/api/author/collections/"+id+"/chapters/publish",Map.of("storyId",sid(a),"storyGeneration",edited.get("generation"),"revision",edited.get("draftRevision"),"generation",details(id).get("generation")),author).statusCode()).isEqualTo(409);
+  secondCommand.put("generation",details(id).get("generation"));
+  ok(call("POST","/api/author/collections/"+id+"/chapters/publish",secondCommand,author));
+  d.put("title","Reviewed new title");var settings=save(id,d);
+  assertThat(call("POST","/api/author/collections/"+id+"/publish",Map.of("generation",settings.get("generation"),"revision",settings.get("draftRevision")),author).statusCode()).isEqualTo(409);
+  submit(id);settings=decide(id,"approve");
+  ok(call("POST","/api/author/collections/"+id+"/publish",Map.of("generation",settings.get("generation"),"revision",settings.get("draftRevision")),author));
+  assertThat(call("GET","/api/catalog/collections/"+id,null,reader).body()).contains("Reviewed new title");
+ }
  HttpResponse<String> call(String method,String path,Object value,String token){return api(port,method,path,value==null?null:body(value),token);}
  Map<String,Object> ok(HttpResponse<String> r){assertThat(r.statusCode()).as(r.body()).isEqualTo(200);return object(r.body());}
  Map<String,Object> scenario(String key,int score){var m=new LinkedHashMap<String,Object>();m.put("key",key);m.put("title",key);m.put("version",1);m.put("startSceneId","start");m.put("variables",Map.of("score",score,"met",true));m.put("assets",List.of());m.put("scenes",List.of(Map.of("id","start","title","Start","text","Start","effects",List.of(Map.of("inc","score","value",2)),"choices",List.of(Map.of("id","go","label","Go","target","end"))),Map.of("id","end","title","End","text","End","ending",Map.of("title","Done"),"choices",List.of())));return m;}
@@ -47,6 +91,7 @@ class CollectionWorkflowTests extends ApiTestSupport {
  @SuppressWarnings("unchecked") List<Map<String,Object>> maps(Object value){return (List<Map<String,Object>>)value;}
  Map<String,Object> folderReview(String id){return ok(call("GET","/api/moderation/folders/"+id+"/review",null,reviewer));}
  Map<String,Object> folderDecision(Map<String,Object> preview,String action){var cmd=new LinkedHashMap<String,Object>();cmd.put("action",action);cmd.put("rootGeneration",preview.get("rootGeneration"));cmd.put("items",maps(preview.get("items")).stream().map(i->Map.of("kind",i.get("kind"),"id",i.get("id"),"generation",i.get("generation"),"revision",i.get("revision"))).toList());cmd.put("reason","Reviewed together");return cmd;}
+ void approveChapter(String id){var s=ok(call("GET","/api/author/stories/"+id,null,author));ok(call("POST","/api/moderation/stories/"+id+"/approve",Map.of("generation",s.get("generation"),"revision",s.get("submittedRevision")),reviewer));}
  void batch(String id){ok(call("POST","/api/author/collections/"+id+"/review-batch",Map.of("generation",details(id).get("generation"),"replaceReview",true),author));}
  @Test void onePendingStoryBlocksOnlySubmissionUntilModeratorAnswers() {
   var first=draft(scenario(key(),1));var secondDoc=scenario(key(),2);var second=draft(secondDoc);
@@ -101,7 +146,7 @@ class CollectionWorkflowTests extends ApiTestSupport {
  @Test void movingAPendingChapterCannotChangeItsOccupiedStorySlot() {
   var aDoc=scenario(key(),1);var a=draft(aDoc);var firstDoc=document("story",List.of(item("scenario",a)));firstDoc.put("schemaVersion",2);String first=cid(create(firstDoc));
   ok(call("POST","/api/author/stories/"+sid(a)+"/review",Map.of("generation",a.get("generation")),author));
-  aDoc.put("title","New draft of the pending chapter");a=draft(aDoc);
+  approveChapter(sid(a));aDoc.put("title","New draft of the pending chapter");a=draft(aDoc);
   ok(call("POST","/api/author/stories/"+sid(a)+"/review",Map.of("generation",a.get("generation"),"replaceReview",true),author));
   firstDoc.put("items",List.of());save(first,firstDoc);
   var b=draft(scenario(key(),2));var secondDoc=document("story",List.of(item("scenario",a),item("scenario",b)));secondDoc.put("schemaVersion",2);create(secondDoc);
@@ -144,14 +189,15 @@ class CollectionWorkflowTests extends ApiTestSupport {
  @Test void folderQueueGroupsPendingChildrenAndPublishesOnlyExactSubmittedParts() {
   var unchanged=draft(scenario(key(),1));publishStory(unchanged);var changedDoc=scenario(key(),2);var changed=draft(changedDoc);publishStory(changed);var draftOnly=draft(scenario(key(),3));
   String id=cid(create(document("story",List.of(item("scenario",unchanged),item("scenario",changed),item("scenario",draftOnly)))));publish(id);
-  changedDoc.put("title","Changed chapter");draft(changedDoc);var state=ok(call("GET","/api/author/stories/"+sid(changed),null,author));ok(call("POST","/api/author/stories/"+sid(changed)+"/review",Map.of("generation",state.get("generation")),author));
+  requestPublishedCorrection(port,sid(changed));changedDoc.put("title","Changed chapter");draft(changedDoc);var state=ok(call("GET","/api/author/stories/"+sid(changed),null,author));ok(call("POST","/api/author/stories/"+sid(changed)+"/review",Map.of("generation",state.get("generation")),author));
   var queue=ok(call("GET","/api/moderation/folders?q="+changed.get("key")+"&status=in_review",null,reviewer));assertThat(maps(queue.get("items"))).hasSize(1);assertThat(maps(queue.get("items")).get(0).get("id")).isEqualTo(id);assertThat(maps(queue.get("items")).get(0).get("pendingCount")).isEqualTo(1);
   var authorTree=ok(call("GET","/api/author/folders?q="+changed.get("key"),null,author));assertThat(maps(authorTree.get("items"))).hasSize(1);assertThat(maps(maps(authorTree.get("items")).get(0).get("children"))).hasSize(3);
   var preview=folderReview(id);assertThat(preview.get("canDecide")).isEqualTo(true);assertThat(maps(preview.get("items"))).hasSize(1);assertThat(maps(preview.get("items")).get(0).get("id")).isEqualTo(sid(changed));assertThat(body(maps(preview.get("items")).get(0).get("document"))).contains("Changed chapter");assertThat(body(maps(preview.get("items")).get(0).get("publishedDocument"))).doesNotContain("Changed chapter");
-  var unreviewed=new LinkedHashMap<>(changedDoc);unreviewed.put("title","Later draft remains private");draft(unreviewed);
+  approveChapter(sid(changed));
+  var unreviewed=new LinkedHashMap<>(changedDoc);unreviewed.put("title","Later draft remains private");assertThat(call("POST","/api/author/stories/import",unreviewed,author).statusCode()).isEqualTo(409);
   assertThat(call("POST","/api/moderation/folders/"+id+"/decision",folderDecision(preview,"approve-publish"),reviewer).statusCode()).isEqualTo(409);
   preview=folderReview(id);ok(call("POST","/api/moderation/folders/"+id+"/decision",folderDecision(preview,"approve-publish"),reviewer));
-  assertThat(details(id).get("publishedRevision")).isEqualTo(1);assertThat(jdbc.queryForObject("select published_revision from stories where id=?",Integer.class,sid(unchanged))).isEqualTo(1);assertThat(jdbc.queryForObject("select published_revision from stories where id=?",Integer.class,sid(changed))).isEqualTo(2);assertThat(jdbc.queryForObject("select published_revision from stories where id=?",Integer.class,sid(draftOnly))).isNull();
+  assertThat(details(id).get("publishedRevision")).isEqualTo(1);assertThat(jdbc.queryForObject("select published_revision from stories where id=?",Integer.class,sid(unchanged))).isEqualTo(1);assertThat(jdbc.queryForObject("select published_revision from stories where id=?",Integer.class,sid(changed))).isEqualTo(state.get("draftRevision"));assertThat(jdbc.queryForObject("select published_revision from stories where id=?",Integer.class,sid(draftOnly))).isNull();
   assertThat(call("GET","/api/catalog/collections/"+id,null,reader).body()).contains("Changed chapter").doesNotContain("Later draft remains private");
  }
  @Test void legacyForeignLinksRemainInHistoryButCannotBePublishedOrFollowed() {
@@ -179,7 +225,7 @@ class CollectionWorkflowTests extends ApiTestSupport {
   var doc=scenario(key(),1);var a=draft(doc);var b=draft(scenario(key(),2));String id=cid(create(document("story",List.of(item("scenario",a),item("scenario",b)))));batch(id);var preview=folderReview(id);
   var missing=folderDecision(preview,"approve-publish");missing.put("items",maps(missing.get("items")).subList(0,2));assertThat(call("POST","/api/moderation/folders/"+id+"/decision",missing,reviewer).statusCode()).isEqualTo(409);
   var outside=draft(scenario(key(),3));var changed=folderDecision(preview,"approve-publish");var items=new ArrayList<>(maps(changed.get("items")));items.set(1,Map.of("kind","scenario","id",sid(outside),"generation",1,"revision",1));changed.put("items",items);assertThat(call("POST","/api/moderation/folders/"+id+"/decision",changed,reviewer).statusCode()).isEqualTo(409);
-  doc.put("title","Replacement submission");draft(doc);var current=ok(call("GET","/api/author/stories/"+sid(a),null,author));ok(call("POST","/api/author/stories/"+sid(a)+"/review",Map.of("generation",current.get("generation"),"replaceReview",true),author));
+  approveChapter(sid(a));doc.put("title","Replacement submission");draft(doc);var current=ok(call("GET","/api/author/stories/"+sid(a),null,author));ok(call("POST","/api/author/stories/"+sid(a)+"/review",Map.of("generation",current.get("generation"),"replaceReview",true),author));
   assertThat(folderReview(id).get("canDecide")).isEqualTo(false);assertThat(call("POST","/api/moderation/folders/"+id+"/decision",folderDecision(preview,"approve-publish"),reviewer).statusCode()).isEqualTo(409);
   assertThat(details(id).get("publishedRevision")).isNull();assertThat(jdbc.queryForObject("select published_revision from stories where id=?",Integer.class,sid(b))).isNull();assertThat(details(id).get("reviewState")).isEqualTo("in_review");
   batch(id);var fresh=folderReview(id);assertThat(fresh.get("canDecide")).isEqualTo(true);assertThat(details(id).get("submittedRevision")).isEqualTo(2);
@@ -189,7 +235,7 @@ class CollectionWorkflowTests extends ApiTestSupport {
  }
  @Test void groupedRejectionKeepsExistingPublicationAndCanRejectApprovedUnpublishedParts() {
   var d=scenario(key(),1);var a=draft(d);publishStory(a);String id=cid(create(document("story",List.of(item("scenario",a)))));publish(id);
-  d.put("title","Replacement chapter");draft(d);var parent=new LinkedHashMap<>((Map<String,Object>)details(id).get("draftDocument"));parent.put("title","Replacement folder");save(id,parent);batch(id);
+  requestPublishedCorrection(port,sid(a));d.put("title","Replacement chapter");draft(d);var parent=new LinkedHashMap<>((Map<String,Object>)details(id).get("draftDocument"));parent.put("title","Replacement folder");save(id,parent);batch(id);
   var child=ok(call("GET","/api/author/stories/"+sid(a),null,author));ok(call("POST","/api/moderation/stories/"+sid(a)+"/approve",Map.of("generation",child.get("generation"),"revision",child.get("submittedRevision")),reviewer));
   var preview=folderReview(id);assertThat(maps(preview.get("items"))).hasSize(2);ok(call("POST","/api/moderation/folders/"+id+"/decision",folderDecision(preview,"reject"),reviewer));assertThat(details(id).get("reviewState")).isEqualTo("rejected");assertThat(details(id).get("publishedRevision")).isEqualTo(1);assertThat(jdbc.queryForObject("select published_revision from stories where id=?",Integer.class,sid(a))).isEqualTo(1);assertThat(call("GET","/api/catalog/collections/"+id,null,reader).body()).doesNotContain("Replacement");
  }
@@ -284,7 +330,7 @@ class CollectionWorkflowTests extends ApiTestSupport {
   assertThat(sessionId(start(run,sid(b),source,request))).isEqualTo(target);assertThat(sessionId(start(run,sid(b),source,key()))).isEqualTo(target);
   assertThat(jdbc.queryForObject("select count(*) from chapter_transitions where target_session_id=?",Integer.class,target)).isEqualTo(1);
   assertThat(jdbc.queryForObject("select values_json from chapter_transitions where target_session_id=?",String.class,target)).contains("9");
-  bDoc.put("title","New target revision");draft(bDoc);publishStory(b);assertThat(((Map<?,?>)ok(call("GET","/api/sessions/"+target+"/state",null,reader)).get("story")).get("title")).isEqualTo(bDoc.get("key"));
+  requestPublishedCorrection(port,sid(b));bDoc.put("title","New target revision");draft(bDoc);publishStory(b);assertThat(((Map<?,?>)ok(call("GET","/api/sessions/"+target+"/state",null,reader)).get("story")).get("title")).isEqualTo(bDoc.get("key"));
   String otherRun=run(id).get("id").toString();assertThat(call("POST","/api/collection-runs/"+otherRun+"/start",Map.of("targetId",sid(b),"sourceSessionId",source,"requestId",key()),reader).statusCode()).isEqualTo(409);
   var branch=ok(call("POST","/api/collection-runs/"+run+"/start",Map.of("targetId",sid(b),"sourceSessionId",source,"requestId","branch-"+request,"newAttempt",true),reader));assertThat(branch.get("runId")).isNotEqualTo(run);assertThat(sessionId(branch)).isNotEqualTo(target);
   assertThat(sessionId(ok(call("POST","/api/collection-runs/"+run+"/start",Map.of("targetId",sid(b),"sourceSessionId",source,"requestId","branch-"+request,"newAttempt",true),reader)))).isEqualTo(sessionId(branch));
@@ -404,7 +450,7 @@ class CollectionWorkflowTests extends ApiTestSupport {
   var a=draft(scenario(key(),1));var hidden=draft(scenario(key(),2));var cDoc=scenario(key(),3);var c=draft(cDoc);publishStory(a);publishStory(c);String collection=cid(create(document("story",List.of(item("scenario",a),item("scenario",hidden),item("scenario",c)))));publish(collection);String run=run(collection).get("id").toString();String source=sessionId(start(run,sid(a),null,key()));finish(source);
   var context=ok(call("GET","/api/collection-runs/"+run,null,reader));Map<?,?> last=(Map<?,?>)((List<?>)context.get("items")).get(1);assertThat(last.get("previousId")).isNull();assertThat(last.get("allowIndependentStart")).isEqualTo(true);assertThat(body(context)).doesNotContain(sid(hidden),hidden.get("key").toString());
   assertThat(call("POST","/api/collection-runs/"+run+"/start",Map.of("targetId",sid(c),"sourceSessionId",source,"requestId",key()),reader).statusCode()).isEqualTo(409);assertThat(((Number)((Map<?,?>)session(start(run,sid(c),null,key())).get("variables")).get("score")).doubleValue()).isEqualTo(5);
-  cDoc.put("metadata",Map.of("schemaVersion",1,"inputContract",contract(false)));draft(cDoc);publishStory(c);String mandatoryRun=run(collection).get("id").toString();assertThat(call("POST","/api/collection-runs/"+mandatoryRun+"/start",Map.of("targetId",sid(c),"requestId",key()),reader).statusCode()).isEqualTo(409);var current=ok(call("GET","/api/collection-runs/"+mandatoryRun,null,reader));assertThat(((Map<?,?>)((List<?>)current.get("items")).get(1)).get("allowIndependentStart")).isEqualTo(false);
+  requestPublishedCorrection(port,sid(c));cDoc.put("metadata",Map.of("schemaVersion",1,"inputContract",contract(false)));draft(cDoc);publishStory(c);String mandatoryRun=run(collection).get("id").toString();assertThat(call("POST","/api/collection-runs/"+mandatoryRun+"/start",Map.of("targetId",sid(c),"requestId",key()),reader).statusCode()).isEqualTo(409);var current=ok(call("GET","/api/collection-runs/"+mandatoryRun,null,reader));assertThat(((Map<?,?>)((List<?>)current.get("items")).get(1)).get("allowIndependentStart")).isEqualTo(false);
  }
  @Test void foreignCatalogCannotVetoOwnersPrimaryChapterStructure() {
   var a=draft(scenario(key(),1));publishStory(a);String curator=TestJwtFactory.author("curator-"+UUID.randomUUID()+"@example.test");var legacy=document("catalog",List.of());var catalog=ok(call("POST","/api/author/collections",Map.of("document",legacy),curator));String catalogId=cid(catalog);
@@ -418,7 +464,7 @@ class CollectionWorkflowTests extends ApiTestSupport {
  @Test void batchDependencyKeepsExactRequestedRevisionAfterChildReplacement() {
   var childDoc=scenario(key(),1);var child=draft(childDoc);var parentDoc=document("story",List.of(item("scenario",child)));String parent=cid(create(parentDoc));var batch=ok(call("POST","/api/author/collections/"+parent+"/review-batch",Map.of("generation",1),author));
   var original=ok(call("GET","/api/moderation/collections/"+parent+"/preview?revision=submitted",null,reviewer));Map<?,?> dependency=(Map<?,?>)((List<?>)original.get("dependencies")).get(0);assertThat(dependency.get("requestedRevision")).isEqualTo(1);assertThat(dependency.get("submittedRevision")).isEqualTo(1);assertThat(dependency.get("batchId")).isEqualTo(batch.get("batchId"));assertThat(dependency.get("requestedRevisionCurrent")).isEqualTo(true);
-  childDoc.put("title","Replacement child revision");var revised=draft(childDoc);ok(call("POST","/api/author/stories/"+sid(child)+"/review",Map.of("generation",revised.get("generation"),"replaceReview",true),author));
+  approveChapter(sid(child));childDoc.put("title","Replacement child revision");var revised=draft(childDoc);ok(call("POST","/api/author/stories/"+sid(child)+"/review",Map.of("generation",revised.get("generation"),"replaceReview",true),author));
   var after=ok(call("GET","/api/moderation/collections/"+parent+"/preview?revision=submitted",null,reviewer));dependency=(Map<?,?>)((List<?>)after.get("dependencies")).get(0);assertThat(dependency.get("requestedRevision")).isEqualTo(1);assertThat(dependency.get("submittedRevision")).isEqualTo(2);assertThat(dependency.get("requestedRevisionCurrent")).isEqualTo(false);
   parentDoc.put("description","A newer unsubmitted collection draft");save(parent,parentDoc);var draftPreview=ok(call("GET","/api/moderation/collections/"+parent+"/preview?revision=draft",null,reviewer));assertThat(((Map<?,?>)((List<?>)draftPreview.get("dependencies")).get(0)).get("requestedRevision")).isNull();decide(parent,"approve-publish");
   assertThat(jdbc.queryForObject("select count(*) from collection_review_dependencies where collection_id=? and requested_revision=1",Integer.class,parent)).isEqualTo(1);assertThat((List<?>)ok(call("GET","/api/catalog/collections/"+parent,null,reader)).get("items")).isEmpty();

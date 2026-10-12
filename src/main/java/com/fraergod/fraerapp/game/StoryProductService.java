@@ -128,6 +128,7 @@ class StoryProductService {
 
 	@Transactional
 	UploadedAsset uploadAssetForAuthor(String playerId, String storyId, MultipartFile file, String assetKey, String type, String scope) {
+		workflow.assertDraftWritable(storyId,playerId);
 		Story story = ownedStory(playerId, storyId);
 		if ("deleted".equals(story.getVisibility())) throw new ResponseStatusException(HttpStatus.CONFLICT, "Restore the story before uploading");
 		StoryAssetStorageService.StoredAsset stored = assetStorage.store(story.getId(), file);

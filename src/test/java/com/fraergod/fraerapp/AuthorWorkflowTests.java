@@ -202,6 +202,7 @@ class AuthorWorkflowTests extends ApiTestSupport {
 		assertThat(readList(request("GET", "/api/catalog/stories", null, authorId, null).rawBody()))
 				.anySatisfy(story -> assertThat(story).containsEntry("slug", slug));
 
+		requestPublishedCorrection(port,storyId);
 		ApiResponse draftUpdate = request("POST", "/api/author/stories/import",
 				validStory(storyKey).replace("Author runtime test", "Changed unpublished title"), authorId, null);
 		assertThat(draftUpdate.status()).isEqualTo(HttpStatus.OK.value());
@@ -424,6 +425,7 @@ class AuthorWorkflowTests extends ApiTestSupport {
 		publishStory(id,owner);
 		assertThat(request("GET", "/api/account", null, reader, null).body()).containsEntry("unreadCount", 0);
 		String updated = body.replace("\"id\": \"end\"", "\"id\": \"new-ending\"").replace("\"target\": \"end\"", "\"target\": \"new-ending\"");
+		requestPublishedCorrection(port,id);
 		request("POST", "/api/author/stories/import", updated, owner, null);
 		assertThat(publishStory(id,owner).status()).isEqualTo(200);
 		assertThat(request("GET", "/api/account", null, reader, null).body()).containsEntry("unreadCount", 1);

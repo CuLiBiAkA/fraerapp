@@ -1,6 +1,7 @@
 // Shared author/Builder/moderation presentation rules. The API remains the authority.
 const words = {
   ru: {
+    "request-correction": "Запросить исправление опубликованной главы",
     draft: "Черновик", in_review: "На согласовании", approved: "Одобрена", rejected: "Нужны исправления",
     public: "Публичная", unlisted: "По ссылке", private: "Не опубликована", hidden: "Скрыта модератором", archived: "В архиве", deleted: "В корзине", purged: "Срок хранения в корзине истёк", author_restore: "Черновик восстановлен автором",
     published: "Опубликована", previousPublication: "Последняя публикация", noPublication: "Не опубликована",
@@ -12,6 +13,7 @@ const words = {
     before: "Опубликовано", after: "Просматриваемая редакция", changed: "Изменено", added: "Добавлено", removed: "Удалено", raw: "Полный JSON редакции", missing: "Не задано", mediaUnavailable: "Для этого адреса доступен только просмотр URL", noScenes: "Нет сцен",
   },
   en: {
+    "request-correction": "Request a published chapter correction",
     draft: "Draft", in_review: "In review", approved: "Approved", rejected: "Needs changes",
     public: "Public", unlisted: "Unlisted", private: "Not published", hidden: "Hidden by moderator", archived: "Archived", deleted: "In trash", purged: "Trash retention expired", author_restore: "Draft restored by author",
     published: "Published", previousPublication: "Last publication", noPublication: "Not published",
@@ -51,11 +53,36 @@ export function isOwnStory(story, user) {
   return Boolean(story.ownerUserId && String(story.ownerUserId) === String(user?.id ?? user?.userId));
 }
 
+export function canEditStoryDraft(story = {}) {
+  if (story.canEditDraft === false || ['deleted', 'purged'].includes(story.visibility) || story.reviewState === 'in_review') return false;
+  return !story.publishedRevision || (story.correctionRequested === true && story.reviewState !== 'approved');
+}
+
+export function publishedCorrectionNotice(story = {}, language = 'ru') {
+  if (!story.publishedRevision) return '';
+  const en = language === 'en';
+  if (!story.correctionRequested) return en
+    ? 'This published chapter is read-only. Only a moderator can request a correction with feedback.'
+    : 'Опубликованная глава доступна только для чтения. Исправление может открыть только модератор с замечанием.';
+  if (story.reviewState === 'in_review') return en
+    ? 'The correction is under review. Editing is locked until the moderator responds.'
+    : 'Исправление на проверке. Редактирование закрыто до решения модератора.';
+  if (story.reviewState === 'approved' && (story.restricted || ['hidden', 'archived', 'deleted'].includes(story.visibility))) return en
+    ? 'The correction is approved. A moderator must restore chapter availability before publication.'
+    : 'Исправление одобрено. Перед публикацией модератор должен восстановить доступность главы.';
+  if (story.reviewState === 'approved') return en
+    ? 'The correction is approved. You can publish it from My stories.'
+    : 'Исправление одобрено. Его можно опубликовать в разделе «Мои истории».';
+  return en
+    ? 'Correct this chapter according to the moderator’s feedback, then submit it for review again.'
+    : 'Исправьте эту главу по замечанию модератора и отправьте на повторную проверку.';
+}
+
 export function authorActions(story, user) {
   if (!canEditStories(user) || story.visibility === "purged") return [];
   if (story.visibility === "deleted") return story.canRestoreTrash ? ["restore"] : [];
-  const actions = ["edit"];
-  if (story.hasDraft) actions.push("submit");
+  const actions = canEditStoryDraft(story) ? ["edit"] : [];
+  if (story.hasDraft && canEditStoryDraft(story)) actions.push("submit");
   if (story.reviewState === "in_review") actions.push("withdraw");
   if (!story.restricted && story.visibility !== "archived") {
     actions.push("archive");
@@ -70,6 +97,7 @@ export function moderationActions(story, user) {
   if (story.visibility === "deleted") return mayRestoreOrApprove ? ["restore"] : [];
   const restricted = story.restricted || ["hidden", "archived"].includes(story.visibility);
   const actions = [];
+  if (story.publishedRevision && !story.correctionRequested && !isOwnStory(story, user)) actions.push("request-correction");
   if (story.reviewState === "in_review" && story.submittedRevision) {
     if (mayRestoreOrApprove) {
       if (!restricted) actions.push("approve-publish");

@@ -16,7 +16,7 @@ for(const width of [1440,768,390,320]){
   if(p==='/api/author/collections'&&req.method()==='POST'){work=body.document;return send(summary());}
   if(p==='/api/author/collections/work'){if(req.method()==='PUT')work=body.document;return send({...summary(),dependencies:chapter?[{id:'chapter',reviewState:chapterReview}]:[]});}
   if(p==='/api/author/stories/import'){chapter=body;return send({storyId:'chapter',key:chapter.key,generation:chapterGeneration,draftRevision:1});}
-  if(p==='/api/author/stories/chapter'){if(req.method()==='PUT'){assert.equal(body.generation,chapterGeneration);chapter=body.document;chapterGeneration++;}return send({storyId:'chapter',generation:chapterGeneration,draftRevision:chapterGeneration,draftDocument:chapter});}
+  if(p==='/api/author/stories/chapter'){if(req.method()==='PUT'){assert.equal(body.generation,chapterGeneration);chapter=body.document;chapterGeneration++;}return send({storyId:'chapter',generation:chapterGeneration,draftRevision:chapterGeneration,draftDocument:chapter,reviewState:chapterReview,visibility:'private',canEditDraft:chapterReview!=='in_review'});}
   if(p==='/api/author/collections/work/chapters/review'){chapterReview='in_review';return send({items:[],atomic:true});}
   if(p==='/api/catalog/collections/city')return send({...summary(),schemaVersion:2,completionStatus:'in_development',items:[{id:'chapter',title:'Глава 1',kind:'scenario',season:'Сезон 1',allowIndependentStart:true}]});
   if(p==='/api/collections/work/runs')return send([{id:'reading'}]);
@@ -52,14 +52,16 @@ for(const width of [1440,768,390,320]){
  await p.getByRole('link',{name:'К главам истории',exact:true}).click();
  await p.getByRole('heading',{name:'Главы истории',exact:true}).waitFor();
  assert.equal(await p.getByRole('button',{name:/Добавить в папку|Создать папку/}).count(),0);
+ await p.locator('.chapter-settings > summary').click();
  await p.getByLabel('Сезон (необязательно)',{exact:true}).fill('Сезон 1');
  await p.getByRole('button',{name:'Сохранить',exact:true}).click();
  await p.getByText('Черновик сохранён. Публикация не изменилась.',{exact:true}).waitFor();
  assert.equal(work.items[0].season,'Сезон 1');
- await p.getByRole('button',{name:'Отправить главу на проверку',exact:true}).click();
- await p.getByText('Глава отправлена на проверку. Остальные черновики сохранены.',{exact:true}).waitFor();
+ await p.getByRole('button',{name:'На модерацию',exact:true}).click();
+ await p.getByText('Глава отправлена на модерацию.',{exact:true}).waitFor();
  assert.ok(mutations.some(m=>m.p==='/api/author/collections/work/chapters/review'&&m.body.storyId==='chapter'));
- assert.match(await p.locator('.collection-item small').first().innerText(),/На согласовании/);
+ assert.equal(await p.locator('.collection-item .chapter-state').first().innerText(),'На модерации');
+ assert.equal(await p.locator('.collection-item').getByRole('link',{name:'Редактировать',exact:true}).count(),0);
  assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  assert.deepEqual(errors,[]);console.log(width+': create story → add chapter → builder → chapter list → season saved');
  if(width===1440)await p.screenshot({path:'/tmp/serial-author.png',fullPage:true});

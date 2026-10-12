@@ -8,6 +8,7 @@ final class ModerationPolicy {
  private ModerationPolicy() {}
  static void authorizeDecision(AuthIdentity actor,boolean own,String action,Boolean override) {
   if(!actor.hasRole("admin")&&!actor.hasRole("moderator"))throw new ForbiddenRoleException();
+  if(own&&"request-correction".equals(action))throw new ForbiddenRoleException();
   if(own&&List.of("approve","approve-publish","publish-approved","restore","visibility").contains(action)
      &&(!actor.hasRole("admin")||!Boolean.TRUE.equals(override)))throw new ForbiddenRoleException();
  }

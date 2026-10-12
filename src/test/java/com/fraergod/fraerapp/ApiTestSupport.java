@@ -65,6 +65,15 @@ abstract class ApiTestSupport {
   return api(port,"POST","/api/moderation/stories/"+id+"/approve-publish",
     body(Map.of("generation",current.get("generation"),"revision",current.get("submittedRevision"),"visibility","public")),reviewer);
  }
+ // Tests that update a publication must exercise the explicit moderator exception.
+ protected static void requestPublishedCorrection(int port,String id) {
+  String reviewer=TestJwtFactory.moderator("independent-correction-reviewer@example.test");
+  var read=api(port,"GET","/api/moderation/stories/"+id,null,reviewer);
+  org.assertj.core.api.Assertions.assertThat(read.statusCode()).as(read.body()).isEqualTo(200);
+  var current=object(read.body());
+  var result=api(port,"POST","/api/moderation/stories/"+id+"/request-correction",body(Map.of("generation",current.get("generation"),"revision",current.get("publishedRevision"),"reason","Correct a serious error in the published chapter.")),reviewer);
+  org.assertj.core.api.Assertions.assertThat(result.statusCode()).as(result.body()).isEqualTo(200);
+ }
  // Reader/catalogue fixtures intentionally model works published on different days.
  // Moderation/quota tests use the ordinary helper and explicit admission assertions.
  protected static void advanceReviewDay(org.springframework.jdbc.core.JdbcTemplate db,String kind,String id) {

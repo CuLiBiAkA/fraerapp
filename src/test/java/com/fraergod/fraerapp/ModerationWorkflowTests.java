@@ -53,7 +53,7 @@ class ModerationWorkflowTests extends ApiTestSupport {
   assertThat(call("GET","/api/moderation/stories",null,author).statusCode()).isEqualTo(403);
   assertThat(call("GET","/api/admin/stories",null,moderator).statusCode()).isEqualTo(403);
   assertThat(call("POST","/api/author/stories/import",story("Bad"),moderator).statusCode()).isEqualTo(403);
-  assertThat(call("POST","/api/author/stories/"+id+"/publish",null,author).statusCode()).isEqualTo(403);
+  assertThat(call("POST","/api/author/stories/"+id+"/publish",Map.of("generation",s.get("generation"),"revision",s.get("draftRevision")),author).statusCode()).isEqualTo(409);
   assertThat(call("POST","/api/admin/stories/"+id+"/publish",null,admin).statusCode()).isEqualTo(409);
   assertThat(call("POST","/api/sessions",Map.of("storyKey",key),reader).statusCode()).isEqualTo(404);
   var preview=call("GET","/api/author/stories/"+id+"/preview",null,author);
@@ -66,14 +66,17 @@ class ModerationWorkflowTests extends ApiTestSupport {
   var published=decision(id,"approve-publish","");String slug=published.get("publishedSlug").toString();
   var run=ok(call("POST","/api/sessions",Map.of("storyKey",key),reader));String save=run.get("sessionId").toString();
   var revisionOne=published.get("publishedRevision");
+  requestPublishedCorrection(port,id);
   ok(call("POST","/api/author/stories/import",story("version two").replace("\"start\"","\"new_start\""),author));
-  var submitted=submit(id,author,false);draft("version three",author);
+  var submitted=submit(id,author,false);
+  assertThat(call("POST","/api/author/stories/import",story("version three"),author).statusCode()).isEqualTo(409);
+  decision(id,"approve","");assertThat(call("POST","/api/author/stories/import",story("version three"),author).statusCode()).isEqualTo(409);
   var pending=detail(id);
   assertThat(((Map<?,?>)pending.get("submittedDocument")).get("scenes").toString()).contains("version two").doesNotContain("version three");
-  assertThat(pending).containsEntry("hasDraft",true).containsEntry("publishedRevision",revisionOne);
+  assertThat(pending).containsEntry("hasDraft",false).containsEntry("publishedRevision",revisionOne);
   assertThat(call("GET","/api/catalog/stories/"+slug,null,reader).statusCode()).isEqualTo(200);
-  assertThat(call("POST","/api/author/stories/"+id+"/review",Map.of("generation",pending.get("generation")),author).statusCode()).isEqualTo(409);
-  decision(id,"approve-publish","");
+  assertThat(call("POST","/api/author/stories/"+id+"/publish",Map.of("generation",pending.get("generation"),"revision",((Number)pending.get("draftRevision")).intValue()+1),author).statusCode()).isEqualTo(409);
+  decision(id,"publish-approved","Release the approved snapshot");
   assertThat(detail(id).get("publishedRevision")).isEqualTo(submitted.get("submittedRevision"));
   var oldState=ok(call("GET","/api/sessions/"+save+"/state",null,reader));
   assertThat(((Map<?,?>)oldState.get("scene")).get("text")).isEqualTo("version one");
@@ -90,6 +93,20 @@ class ModerationWorkflowTests extends ApiTestSupport {
   decision(id,"restore","Restriction removed");
   assertThat(call("GET","/api/catalog/stories/"+slug,null,reader).statusCode()).isEqualTo(404);
   assertThat(detail(id)).containsEntry("visibility","private");
+ }
+ @Test void authorMustFixRejectedDraftAndReceiveApprovalBeforePublishing() {
+  String id=id(draft("first",author));submit(id,author,false);
+  assertThat(call("POST","/api/author/stories/"+id+"/versions/1/rollback",null,author).statusCode()).isEqualTo(409);
+  var rejected=decision(id,"reject","Clarify the ending");
+  assertThat(call("POST","/api/author/stories/"+id+"/publish",Map.of("generation",rejected.get("generation"),"revision",rejected.get("draftRevision")),author).statusCode()).isEqualTo(409);
+  draft("corrected ending",author);submit(id,author,false);var approved=decision(id,"approve","");
+  assertThat(approved.get("publishedRevision")).isNull();
+  var command=Map.of("generation",approved.get("generation"),"revision",approved.get("draftRevision"));
+  assertThat(call("POST","/api/author/stories/"+id+"/publish",command,reader).statusCode()).isEqualTo(403);
+  assertThat(call("POST","/api/author/stories/"+id+"/publish",command,TestJwtFactory.author("other-"+UUID.randomUUID()+"@example.test")).statusCode()).isEqualTo(403);
+  var published=ok(call("POST","/api/author/stories/"+id+"/publish",command,author));
+  assertThat(published).containsEntry("publishedRevision",approved.get("draftRevision")).containsEntry("visibility","public");
+  assertThat(call("POST","/api/author/stories/"+id+"/publish",command,author).statusCode()).isEqualTo(409);
  }
  @Test void approveOnlyIsPrivateAndSelfApprovalRequiresExplicitAdminOverride() {
   String email="own-"+UUID.randomUUID()+"@example.test";
@@ -125,8 +142,8 @@ class ModerationWorkflowTests extends ApiTestSupport {
   var own=call("GET","/api/author/stories/"+id,null,author);
   assertThat(own.body()).contains("Please clarify ending").doesNotContain("private moderator note");
   assertThat(call("GET","/api/account",null,author).body()).contains("Please clarify ending").contains(id).doesNotContain("private moderator note");
-  draft("improved",author);submit(id,author,false);draft("replacement",author);submit(id,author,true);
-  assertThat(detail(id).get("events").toString()).contains("superseded");
+  draft("improved",author);submit(id,author,false);decision(id,"reject","Please revise again");draft("replacement",author);submit(id,author,true);
+  assertThat(detail(id).get("events").toString()).contains("reject");
   var pending=detail(id);
   ok(call("POST","/api/author/stories/"+id+"/withdraw",Map.of("generation",pending.get("generation")),author));
   assertThat(detail(id)).containsEntry("reviewState","draft").containsEntry("submittedRevision",null);
@@ -159,6 +176,7 @@ class ModerationWorkflowTests extends ApiTestSupport {
   submit(id,author,false);decision(id,"approve-publish","");
   var visible=call("GET",first,null,reader);assertThat(visible.statusCode()).isEqualTo(200);
   assertThat(visible.headers().firstValue("Cache-Control").orElse("")).contains("no-store");
+  requestPublishedCorrection(port,id);
   String second=upload(id,"cover");
   assertThat(call("GET",second,null,reader).statusCode()).isEqualTo(404);
   assertThat(call("GET",first,null,reader).statusCode()).isEqualTo(200);

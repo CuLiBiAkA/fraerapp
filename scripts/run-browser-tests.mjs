@@ -7,7 +7,7 @@ const checks = [
   'unified-catalog', 'frontend-audit', 'legal-pages', 'builder-editing', 'site-controls',
   'admin-panel', 'subscriptions', 'reader-ads', 'notifications',
   'reader-layout', 'review-limit', 'serial-stories', 'story-contents', 'builder-help', 'chapter-tabs',
-  'author-workspace', 'reader-recovery', 'standalone-recovery',
+  'author-workspace', 'author-accordion', 'published-corrections', 'reader-recovery', 'standalone-recovery',
   'guest-catalog', 'draft-playtest', 'image-preparation', 'author-playtest-trash',
 ];
 for (const name of checks) {

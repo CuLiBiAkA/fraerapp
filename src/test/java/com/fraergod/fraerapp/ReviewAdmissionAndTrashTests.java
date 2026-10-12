@@ -41,7 +41,7 @@ class ReviewAdmissionAndTrashTests extends ApiTestSupport {
  @Test void withdrawingAndDecisionsDoNotBypassTheDailyAdmissionButSameStoryUpdatesDo(){
   var doc=document();var a=create(doc);String id=id(a);var b=create(document());
   var pending=ok(submit(id,a));var before=db.queryForObject("select admitted_at from author_review_admission where owner_player_id=(select owner_player_id from stories where id=?)",Timestamp.class,id);
-  doc.put("title","Same work, corrected");var changed=create(doc);pending=ok(submit(id,changed));
+  withdraw(id,pending);doc.put("title","Same work, corrected");var changed=create(doc);pending=ok(submit(id,changed));
   assertThat(db.queryForObject("select admitted_at from author_review_admission where owner_player_id=(select owner_player_id from stories where id=?)",Timestamp.class,id)).isEqualTo(before);
   var draft=withdraw(id,pending);var denied=submit(id(b),b);
   assertThat(denied.statusCode()).isEqualTo(409);assertThat(object(denied.body())).containsEntry("code","REVIEW_DAILY_LIMIT_REACHED").containsKey("reviewAvailableAt");
