@@ -26,8 +26,10 @@
 .chapter-buttons { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:8px; }
 .workspace .chapter-buttons :is(a,button) { display:inline-flex; justify-content:center; align-items:center; min-height:44px; padding:8px 12px; border:1px solid var(--line); border-radius:10px; color:var(--text); text-decoration:none; font:500 13px/1.4 var(--font-control); }
 .workspace .chapter-buttons .add-button { color:white; }
-.workspace .chapter-feedback { margin-top:8px; border:0; border-radius:6px; padding:0; background:transparent; font-size:13px; }
-.workspace .chapter-feedback > summary { min-height:32px; padding:4px 0 4px 22px; width:fit-content; font-size:13px; line-height:24px; }
+.workspace .chapter-feedback { margin-top:8px; border:0; border-radius:8px; padding:4px 12px; background:#f3e1e8; font-size:13px; }
+.workspace .chapter-feedback > summary { display:flex; align-items:center; gap:10px; min-height:32px; padding:4px 0; width:fit-content; font-size:13px; line-height:24px; }
+.workspace .chapter-feedback > summary::before { position:static; flex:0 0 8px; align-self:center; margin:0; transform:rotate(-45deg); }
+.workspace .chapter-feedback[open] > summary::before { transform:rotate(45deg); }
 .chapter-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; }
 .chapter-heading h3 { margin:0; }
 .story-about-dialog { box-sizing:border-box; width:min(720px,calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; padding:24px; border:1px solid var(--line); border-radius:20px; }
