@@ -89,6 +89,7 @@ class CollectionService {
   if(d==null)throw bad("Collection document required");name(d.key(),"collection key");
   if(d.schemaVersion()!=null&&d.schemaVersion()!=1&&d.schemaVersion()!=2)throw bad("Unsupported collection schema");
   if(d.genre()!=null&&d.genre().length()>200)throw bad("Genre too long");
+  if(d.topic()!=null&&d.topic().length()>200)throw bad("Topic too long");
   if(d.serialStory()&&!list(d.transitions()).isEmpty())throw bad("Chapter progress is transferred automatically");
   if(d.type()==null||!List.of("story","volume","cycle","catalog").contains(d.type()))throw bad("Invalid collection type");
   if(d.title()==null||d.title().isBlank()||d.title().length()>200)throw bad("Collection title is required (max 200 characters)");
@@ -132,7 +133,7 @@ class CollectionService {
    if(strict&&t.stateTransfer()!=null&&"mapped".equals(t.stateTransfer().mode()))links.validateMapping(links.targetDocument(from,owner),links.targetDocument(to,owner),t.stateTransfer());
    transitions.add(new CollectionDocument.Transition(t.id(),from,to,t.stateTransfer()));
   }
-  return new CollectionDocument(d.serialStory()?2:1,d.key(),d.type(),d.title(),d.description(),d.coverUrl(),d.completionStatus(),items,transitions,d.genre());
+  return new CollectionDocument(d.serialStory()?2:1,d.key(),d.type(),d.title(),d.description(),d.coverUrl(),d.completionStatus(),items,transitions,d.genre(),d.topic());
  }
  static boolean same(WorkMetadata.Target a,WorkMetadata.Target b){return a.kind().equals(b.kind())&&(a.id()!=null&&b.id()!=null?a.id().equals(b.id()):Objects.equals(a.key(),b.key()));}
  private void validateChild(String parentId,WorkMetadata.Target t,String owner,WorkLinksService.TargetInfo child,List<Map<String,Object>> memberships) {

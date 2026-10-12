@@ -21,7 +21,7 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
    if(p==='/api/author/stories/chapter')return send(story);
    if(p==='/api/author/stories/chapter/preview')return send({revision:9,document:chapter,validation:{valid:true}});
    if(p.startsWith('/api/')||p.startsWith('/auth/'))return send({notifications:[],unreadCount:0});
-   let file=path.join(process.cwd(),'frontend',p.slice(1));if(fs.existsSync(file)&&fs.statSync(file).isDirectory())file=path.join(file,'index.html');
+   let file=path.join(process.cwd(),p.startsWith('/builder/')?'story-builder':'frontend',p.startsWith('/builder/')?p.slice(9):p.slice(1));if(fs.existsSync(file)&&fs.statSync(file).isDirectory())file=path.join(file,'index.html');
    return fs.existsSync(file)?route.fulfill({path:file}):route.fulfill({status:404,body:''});
   });
   const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));

@@ -18,7 +18,7 @@ for(const width of [320,390,768,1440]){
   if(p.startsWith('/api/author/stories/'))return send(chapters.find(c=>c.id===p.split('/').pop())||{});
   if(p==='/'&&u.searchParams.has('previewStory'))return route.fulfill({contentType:'text/html',body:'<!doctype html><title>Private reader fixture</title>'});
   if(p.startsWith('/api/')||p.startsWith('/auth/'))return send({});
-  let file=path.join(process.cwd(),'frontend',p.slice(1));if(fs.existsSync(file)&&fs.statSync(file).isDirectory())file=path.join(file,'index.html');return fs.existsSync(file)?route.fulfill({path:file}):route.fulfill({status:404,body:''});
+  let file=path.join(process.cwd(),p.startsWith('/builder/')?'story-builder':'frontend',p.startsWith('/builder/')?p.slice(9):p.slice(1));if(fs.existsSync(file)&&fs.statSync(file).isDirectory())file=path.join(file,'index.html');return fs.existsSync(file)?route.fulfill({path:file}):route.fulfill({status:404,body:''});
  });
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto('https://fraerapp.ru/my-stories/');
  await page.locator('[data-work-id=city]').click();const rows=page.locator('.collection-item');await rows.last().waitFor();assert.equal(await rows.count(),5);

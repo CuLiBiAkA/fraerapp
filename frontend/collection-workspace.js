@@ -5,6 +5,7 @@ import {workflowLabel, renderDocumentDiff, canEditStoryDraft} from "./story-work
 import {renderFolderReview} from "./folder-review.js?v=6";
 import {authorCard,coverImage} from "./author-ui.js?v=3";
 import {seasonGroups,seasonDialog} from "./author-seasons.js?v=1";
+import {genres,topics,fillClassification} from '/builder/genre-topic.js?v=1';
 import {chooseCover,uploadImage} from "./author-cover.js?v=3";
 
 const params = new URLSearchParams(location.search);
@@ -276,12 +277,17 @@ async function start(root) {
     aboutDialog.replaceChildren(aboutTitle,metadata,aboutStatus,aboutActions);
     const reviewNotice=el("p",reviewLimitMessage(document.documentElement.lang,current||{}),"collection-status review-limit-notice");reviewNotice.hidden=!current?.reviewLimitReached;editor.append(reviewNotice);
     const fields=el("div",null,"collection-fields"),advanced=el("details");advanced.append(el("summary",words("Дополнительные настройки", "Additional settings")));
-    for(const [key,ru,en,inputType] of [["key","Ключ","Key","text"],["title","Название","Title","text"],["description","Описание","Description","textarea"],["genre","Жанры","Genres","text"]]){
+    for(const [key,ru,en,inputType] of [["key","Ключ","Key","text"],["title","Название","Title","text"],["description","Описание","Description","textarea"]]){
       const f=field(words(ru,en),doc[key]||"",inputType);f.input.disabled=key==="key"&&Boolean(current);f.input.maxLength=key==="description"?5000:key==="coverUrl"?500:200;
       f.input.oninput=()=>{doc[key]=f.input.value;changed();};(key==="key"?advanced:fields).append(f.label);
     }
     const completion=select(words("Завершённость", "Completion"),[["in_development",words("В разработке", "In progress")],["completed",words("Завершено", "Completed")],["abandoned",words("Приостановлено", "Paused")]],doc.completionStatus||"in_development");completion.input.onchange=()=>{doc.completionStatus=completion.input.value;changed();};
-    fields.append(completion.label);metadata.append(fields);
+    const classification=el('div',null,'story-classification');
+    for(const [key,ru,en,options] of [['genre','Жанр','Genre',genres],['topic','Тема','Topic',topics]]){
+      const control=select(words(ru,en),[['','']],doc[key]);fillClassification(control.input,options,doc[key],document.documentElement.lang);
+      control.input.onchange=()=>{doc[key]=control.input.value;changed();};classification.append(control.label);
+    }
+    fields.append(classification,completion.label);metadata.append(fields);
     const cover=el("div",null,"author-cover-setting");cover.append(coverImage(doc.coverUrl),button(words("Выбрать обложку","Choose cover"),()=>chooseCover({url:doc.coverUrl,getImages:()=>current?request(`${api}/${current.collectionId}/covers`):[],upload:async file=>{if(!current)await save();return uploadImage(`${api}/${current.collectionId}/cover`,file);},onSelect:url=>{doc.coverUrl=url;changed();renderEditor();}})));metadata.append(cover);
     const chapterHeading=el('div',null,'chapter-heading');chapterHeading.append(el('h3',words('Главы истории','Story chapters')),aboutButton);chapters.append(chapterHeading);
     const items=el("ol",null,"collection-items");

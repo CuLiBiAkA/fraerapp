@@ -4,7 +4,8 @@ import java.util.List;
 
 record CollectionDocument(Integer schemaVersion, String key, String type, String title,
  String description, String coverUrl, String completionStatus, List<Item> items,
- List<Transition> transitions, String genre) {
+ List<Transition> transitions, String genre, String topic) {
+ CollectionDocument(Integer schemaVersion,String key,String type,String title,String description,String coverUrl,String completionStatus,List<Item> items,List<Transition> transitions,String genre){this(schemaVersion,key,type,title,description,coverUrl,completionStatus,items,transitions,genre,null);}
  CollectionDocument(Integer schemaVersion,String key,String type,String title,String description,String coverUrl,String completionStatus,List<Item> items,List<Transition> transitions){this(schemaVersion,key,type,title,description,coverUrl,completionStatus,items,transitions,null);}
  boolean serialStory(){return Integer.valueOf(2).equals(schemaVersion);}
  record Item(WorkMetadata.Target target, String label, String season, String seasonId, String seasonDescription) {

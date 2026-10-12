@@ -2,6 +2,14 @@
 
 Last updated: 2026-10-12.
 
+## Shared genre/topic choices (2026-10-12)
+
+About story uses Builder's genre-topic.js directly: one genre and one topic,
+with identical options and legacy authored values retained. CollectionDocument
+now preserves optional topic through normalization, export and private replay;
+no migration is needed. Published chapters keep Read opening the published reader
+page; unpublished chapters keep Preview opening their private saved revision.
+
 ## Chapter list simplification (2026-10-12)
 
 Deployed 5882df4; backup backups/chapter-ui-20261012-174242. Runtime/public assets

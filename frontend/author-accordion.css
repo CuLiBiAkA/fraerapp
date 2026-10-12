@@ -36,6 +36,8 @@
 .story-about-dialog :is(input,textarea,select) { box-sizing:border-box; max-width:100%; font:inherit; }
 .story-about-dialog .collection-fields { display:grid; gap:12px; }
 .story-about-dialog label { display:grid; gap:8px; }
+.story-classification { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; grid-column:1/-1; }
+.story-classification select { width:100%; min-width:0; }
 .chapter-feedback p { white-space:pre-wrap; margin:8px 0; }
 .moderator-comment { padding:8px 0; border-top:1px solid #7f64a433; font-size:14px; }
 .moderator-comment small { margin-top:6px; }

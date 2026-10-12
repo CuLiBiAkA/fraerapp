@@ -59,6 +59,10 @@ for(const language of ['ru','en'])for(const width of [320,390,768,1440]){
  assert.ok(await page.locator('.author-list-screen').isVisible());assert.equal(await page.locator('.accordion-story .collection-editor').count(),1);assert.ok(await page.locator('.collection-editor').isVisible());
  assert.equal(await page.locator('.chapter-settings').count(),0);assert.equal(await role('button','↓ Ниже','↓ Down').count(),0);assert.equal(await page.locator('.author-season').count(),2);await page.locator('.author-season > summary').first().click();assert.equal(document.items[0].target.id,'chapter');
  await role('button','Об истории','About story').click();assert.ok(await role('dialog','Об истории','About story').isVisible());
+ const options=await page.evaluate(async()=>{const {genres,topics}=await import('/builder/genre-topic.js?v=1');return {genres:genres.map(x=>x[0]),topics:topics.map(x=>x[0])};});
+ assert.deepEqual(await role('combobox','Тема','Topic').locator('option').evaluateAll(nodes=>nodes.slice(1).map(n=>n.value)),options.topics);
+ assert.deepEqual((await role('combobox','Жанр','Genre').locator('option').evaluateAll(nodes=>nodes.slice(1).map(n=>n.value))).slice(0,options.genres.length),options.genres);
+ await role('combobox','Жанр','Genre').selectOption('Повседневность');await role('combobox','Тема','Topic').selectOption('Животные');
  await role('textbox','Название','Title').fill('Unsaved title');
  await page.evaluate(()=>{const anchor=document.querySelector('.collection-item a');for(const kind of ['ctrlKey','metaKey','shiftKey','altKey','target','download']){if(kind==='target')anchor.target='_blank';if(kind==='download')anchor.setAttribute('download','draft');document.addEventListener('click',event=>event.preventDefault(),{once:true});anchor.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,button:0,[kind]:true}));anchor.removeAttribute('target');anchor.removeAttribute('download');}});
  page.once('dialog',dialog=>dialog.dismiss());await page.goBack();await page.waitForURL('**collection=work');

@@ -40,13 +40,14 @@ class CollectionWorkflowTests extends ApiTestSupport {
   var a=draft(scenario(key(),1));var b=draft(scenario(key(),2));var c=draft(scenario(key(),3));
   var first=new LinkedHashMap<String,Object>(item("scenario",a));var second=new LinkedHashMap<String,Object>(item("scenario",b));var third=new LinkedHashMap<String,Object>(item("scenario",c));
   for(var i:List.of(first,second)){i.put("seasonId","season-one");i.put("season","");i.put("seasonDescription","A beginning with a cat");}
-  var d=document("story",List.of(first,second,third));d.put("schemaVersion",2);String id=cid(create(d));
+  var d=document("story",List.of(first,second,third));d.put("schemaVersion",2);d.put("topic","Животные");d.put("genre","Повседневность");String id=cid(create(d));
   var restored=(Map<?,?>)details(id).get("draftDocument");var items=(List<?>)restored.get("items");
+  assertThat(restored.get("topic")).isEqualTo("Животные");assertThat(restored.get("genre")).isEqualTo("Повседневность");
   assertThat(((Map<?,?>)items.get(0)).get("seasonDescription")).isEqualTo("A beginning with a cat");
   assertThat(((Map<?,?>)((Map<?,?>)items.get(0)).get("target")).get("id")).isEqualTo(sid(a));
   assertThat(((Map<?,?>)((Map<?,?>)items.get(1)).get("target")).get("id")).isEqualTo(sid(b));
   var exported=ok(call("GET","/api/author/collections/"+id+"/export",null,author));
-  assertThat(exported.toString()).contains("season-one","A beginning with a cat");
+  assertThat(exported.toString()).contains("season-one","A beginning with a cat","Животные","Повседневность");
   second.put("seasonDescription","Inconsistent");
   assertThat(call("PUT","/api/author/collections/"+id,Map.of("generation",details(id).get("generation"),"document",d),author).statusCode()).isEqualTo(400);
   second.put("seasonDescription","A beginning with a cat");d.put("items",List.of(first,third,second));

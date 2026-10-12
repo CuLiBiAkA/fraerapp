@@ -1,5 +1,12 @@
 # FraerApp deploy and ops runbook
 
+## Shared genre/topic choices (2026-10-12)
+
+Rebuild API for optional collection topic. Ship collection-workspace v16,
+workspace-entry v15, author-accordion CSS v5 and both entry HTML files. The
+existing /builder/genre-topic.js v1 supplies the shared options (no Builder change).
+Verify topic round-trip/export, matching options, preview labels and health.
+
 ## Chapter list simplification (2026-10-12)
 
 Deployed 5882df4 with backup backups/chapter-ui-20261012-174242. Five runtime files

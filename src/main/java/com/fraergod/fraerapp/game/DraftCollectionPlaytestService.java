@@ -60,7 +60,7 @@ class DraftCollectionPlaytestService {
    if(!seen.add(target.id()))throw bad("A chapter cannot occur twice in the story contents");
    items.add(new CollectionDocument.Item(target,item.label(),item.season(),item.seasonId(),item.seasonDescription()));
   }
-  return new CollectionDocument(document.schemaVersion(),document.key(),document.type(),document.title(),document.description(),document.coverUrl(),document.completionStatus(),items,document.transitions(),document.genre());
+  return new CollectionDocument(document.schemaVersion(),document.key(),document.type(),document.title(),document.description(),document.coverUrl(),document.completionStatus(),items,document.transitions(),document.genre(),document.topic());
  }
  private Story retainedChapter(String id,String owner){
   var story=stories.findById(id).orElseThrow(StoryNotFoundException::new);
