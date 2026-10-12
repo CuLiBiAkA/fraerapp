@@ -1,5 +1,14 @@
 # FraerApp deploy and ops runbook
 
+## Author seasons update (2026-10-12)
+
+Rebuild API for the additive collection Item seasonId/seasonDescription fields;
+no migration or Builder rebuild. Ship author-seasons.js v1, collection-workspace
+v13, workspace-entry v12 and author-accordion CSS v3 with both entry HTML files.
+Back up API image, runtime files and database before cutover. Verify collection
+round-trip/export validation, legacy season labels, dialog and grouped chapters
+on mobile/desktop. Do not create seasons in real user stories as a smoke test.
+
 ## Author list tools update (2026-10-12)
 
 Frontend-only: ship collection-workspace v12, workspace-entry v11, author-accordion

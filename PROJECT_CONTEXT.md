@@ -2,6 +2,19 @@
 
 Last updated: 2026-10-12.
 
+## Author seasons (2026-10-12)
+
+My stories groups consecutive chapters into collapsed season blocks. Add season
+opens a dialog selecting ungrouped consecutive chapters, optional title (100 chars)
+and description (1000 chars); save uses the existing versioned collection draft.
+Chapter contents and order are unchanged. The chapter ellipsis, label editor,
+move/remove controls and drag reorder are removed from this author view.
+Existing text season labels render as consecutive groups without rewriting data.
+New groups use Item.seasonId and Item.seasonDescription alongside optional season
+title. Normalization preserves these fields and rejects noncontiguous IDs or
+inconsistent metadata. Export and private playtest retain them. No DB migration
+is required; existing moderation/publication and published chapter locks remain.
+
 ## Author list tools (2026-10-12)
 
 My stories keeps search, filters and tools visible without a disclosure control.

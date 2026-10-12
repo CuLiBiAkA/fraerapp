@@ -1,9 +1,10 @@
-import {el,link,button,field,select,checkbox,words,typeName,request,errorMessage,download,targetKey,moveItem} from "./collection-ui.js?v=6";
+import {el,link,button,field,select,checkbox,words,typeName,request,errorMessage,download,targetKey} from "./collection-ui.js?v=6";
 import {chapterState,chapterStateLabel} from "./chapter-state.js?v=2";
 import {reviewLimitMessage} from "./review-limit.js?v=2";
 import {workflowLabel, renderDocumentDiff, canEditStoryDraft} from "./story-workflow.js?v=3";
 import {renderFolderReview} from "./folder-review.js?v=6";
 import {authorCard,coverImage,editorTabs,showAuthoringPrompts} from "./author-ui.js?v=2";
+import {seasonGroups,seasonDialog} from "./author-seasons.js?v=1";
 import {chooseCover,uploadImage} from "./author-cover.js?v=3";
 
 const params = new URLSearchParams(location.search);
@@ -28,6 +29,7 @@ async function start(root) {
   const api = moderation ? "/api/moderation/collections" : "/api/author/collections";
   let all = [], current = null, doc = null, targets = [], dirty = false, busy = false, openRequest = 0, pageIndex=0, totalPages=0, targetSearch="", targetPage=0;
   let chapterDetails=new Map(),notices=[];
+  const expandedSeasons=new Set();
   let tabKey="chapters",trash=params.get("trash")==="1",screen="list",historyIndex=0,restoringHistory=false,lastOpened=null,permissionNotice="";
   history.replaceState({...history.state,authorIndex:0},"",location.href);
   const heading = el("h1",words(moderation ? "Заявки на публикацию" : "Мои истории",moderation ? "Publication applications" : "My stories"));
@@ -274,30 +276,36 @@ async function start(root) {
     const cover=el("div",null,"author-cover-setting");cover.append(coverImage(doc.coverUrl),button(words("Выбрать обложку","Choose cover"),()=>chooseCover({url:doc.coverUrl,getImages:()=>current?request(`${api}/${current.collectionId}/covers`):[],upload:async file=>{if(!current)await save();return uploadImage(`${api}/${current.collectionId}/cover`,file);},onSelect:url=>{doc.coverUrl=url;changed();renderEditor();}})));metadata.append(cover);
     chapters.append(el("h3",words("Главы истории", "Story chapters")),el("p",words("Главы читаются по порядку. Их количество заранее задавать не нужно. Название сезона можно оставить пустым. Изменения увидят читатели после проверки.", "Chapters are read in order. Add more whenever ready. Season names are optional. Readers see changes after review.")));
     const items=el("ol",null,"collection-items");
-    (doc.items||[]).forEach((item,i)=>{
-      const row=el("li",null,"collection-item"), found=targets.find(t=>targetKey(t)===targetKey(item.target)||t.key===item.target.key);
-      row.draggable=true;row.ondragstart=event=>event.dataTransfer.setData("text/plain",String(i));row.ondragover=event=>event.preventDefault();
-      row.ondrop=event=>{event.preventDefault();const from=Number(event.dataTransfer.getData("text/plain"));if(Number.isInteger(from)){doc.items=moveItem(doc.items,from,i);changed();renderEditor();}};
-      row.append(el("h4",`${i+1}. ${found?.title||item.target.key||item.target.id}`));
-      const caption=field(words("Подпись в оглавлении (необязательно)", "Contents label (optional)"),item.label||"");caption.input.oninput=()=>{item.label=caption.input.value;changed();};
-      const actions=el("div",null,"collection-actions");
-      const move=(to,direction)=>{doc.items=moveItem(doc.items,i,to);changed();renderEditor();requestAnimationFrame(()=>{const controls=editor.querySelectorAll('.collection-item')[to]?.querySelectorAll('button');const candidate=controls?.[direction];(candidate&&!candidate.disabled?candidate:Array.from(controls||[]).find(control=>!control.disabled))?.focus();});};
-      const up=button(words("↑ Выше", "↑ Up"),()=>move(i-1,0));up.disabled=i===0;
-      const down=button(words("↓ Ниже", "↓ Down"),()=>move(i+1,1));down.disabled=i===doc.items.length-1;
-      actions.append(up,down,button(words("Исключить", "Remove"),()=>{if(!confirm(words("Убрать главу из оглавления? Сам черновик сохранится. Опубликованный порядок изменится после проверки.","Remove this chapter from the contents? Its draft remains. Published order changes after review.")))return;doc.items.splice(i,1);changed();renderEditor();}));
-      if(item.target.kind==="collection")actions.append(button(words("Открыть состав", "Open contents"),()=>{if(discard())work(()=>open(found?.id||item.target.id));}));
-      const season=field(words("Сезон (необязательно)", "Season (optional)"),item.season||"");
-      season.input.maxLength=100;season.input.oninput=()=>{item.season=season.input.value;changed();};
-      const chapterState=current?.dependencies?.find(child=>child.id===item.target.id);
-      if(!moderation&&item.target.kind==='scenario'){
-        const settings=el('details',null,'chapter-settings');settings.append(el('summary',words('Настройки главы','Chapter settings')),caption.label,season.label);
-        const secondary=el('div',null,'collection-actions');secondary.append(up,down,actions.children[0]);settings.append(secondary);
-        row.replaceChildren();renderChapterOverview(row,item,i,chapterDetails.get(item.target.id)||chapterState||found||{});row.append(settings);
-      }else row.append(el("small",chapterState?labels({...found,...chapterState}):found?labels(found):words("Черновик", "Draft")),caption.label,season.label,actions);
-      items.append(row);
-    });chapters.append(items);
+    for(const group of seasonGroups(doc.items||[])){
+      let destination=items;
+      if(group.key){
+        const wrapper=el('li',null,'season-item'),details=el('details',null,'author-season');
+        const expansionKey=`${current?.collectionId||'new'}:${group.key}:${group.number}`;
+        details.open=expandedSeasons.has(expansionKey);
+        details.addEventListener('toggle',()=>{if(details.isConnected){if(details.open)expandedSeasons.add(expansionKey);else expandedSeasons.delete(expansionKey);}});
+        details.append(el('summary',words(`Сезон ${group.number}`,`Season ${group.number}`)+(group.title?` · ${group.title}`:'')+words(` · Глав: ${group.chapters.length}`,` · Chapters: ${group.chapters.length}`)));
+        if(group.description)details.append(el('p',group.description,'season-description'));
+        destination=el('ol',null,'collection-items');details.append(destination);wrapper.append(details);items.append(wrapper);
+      }
+      for(const {item,index:i} of group.chapters){
+        const row=el('li',null,'collection-item');row.value=i+1;
+        const found=targets.find(t=>targetKey(t)===targetKey(item.target)||t.key===item.target.key);
+        const state=current?.dependencies?.find(child=>child.id===item.target.id);
+        if(item.target.kind==='scenario')renderChapterOverview(row,item,i,chapterDetails.get(item.target.id)||state||found||{});
+        else row.append(el('h4',`${i+1}. ${found?.title||item.target.key||item.target.id}`),link(words('Открыть состав','Open contents'),`/my-stories/?collection=${encodeURIComponent(item.target.id)}`));
+        destination.append(row);
+      }
+    }
+    chapters.append(items);
     if(!doc.items?.length)chapters.append(el("p",words("Глав пока нет. Добавьте первую и откройте её сцены в конструкторе.","No chapters yet. Add the first chapter to build its scenes.")));
-    chapters.append(button(words("+ Добавить главу", "+ Add chapter"),()=>work(createChapter),"add-button"));
+    const addActions=el('div',null,'collection-actions');
+    addActions.append(button(words("+ Добавить главу", "+ Add chapter"),()=>work(createChapter),"add-button"));
+    addActions.append(button(words('+ Добавить сезон','+ Add season'),()=>seasonDialog({
+      items:doc.items||[],
+      titleFor:item=>chapterDetails.get(item.target.id)?.draftDocument?.title||targets.find(t=>targetKey(t)===targetKey(item.target))?.title||item.target.key||item.target.id,
+      onAdd:({indices,id,name,description})=>{for(const i of indices)Object.assign(doc.items[i],{seasonId:id,season:name,seasonDescription:description});changed();renderEditor();}
+    }),'add-button add-season'));
+    chapters.append(addActions);
     editor.append(chapters,metadata);
 
     const actions=el("div",null,"collection-actions");

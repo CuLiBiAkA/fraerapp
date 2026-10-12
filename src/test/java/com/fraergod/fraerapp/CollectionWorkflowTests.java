@@ -36,6 +36,22 @@ class CollectionWorkflowTests extends ApiTestSupport {
   ok(call("POST","/api/author/collections/"+id+"/chapters/publish",Map.of("storyId",sid(b),"storyGeneration",chapter.get("generation"),"revision",chapter.get("draftRevision"),"generation",details(id).get("generation")),author));
  }
  String key(){return "work_"+UUID.randomUUID().toString().replace("-","");}
+ @Test void seasonsPreserveChapterOrderAndRoundTripTheirDescription() {
+  var a=draft(scenario(key(),1));var b=draft(scenario(key(),2));var c=draft(scenario(key(),3));
+  var first=new LinkedHashMap<String,Object>(item("scenario",a));var second=new LinkedHashMap<String,Object>(item("scenario",b));var third=new LinkedHashMap<String,Object>(item("scenario",c));
+  for(var i:List.of(first,second)){i.put("seasonId","season-one");i.put("season","");i.put("seasonDescription","A beginning with a cat");}
+  var d=document("story",List.of(first,second,third));d.put("schemaVersion",2);String id=cid(create(d));
+  var restored=(Map<?,?>)details(id).get("draftDocument");var items=(List<?>)restored.get("items");
+  assertThat(((Map<?,?>)items.get(0)).get("seasonDescription")).isEqualTo("A beginning with a cat");
+  assertThat(((Map<?,?>)((Map<?,?>)items.get(0)).get("target")).get("id")).isEqualTo(sid(a));
+  assertThat(((Map<?,?>)((Map<?,?>)items.get(1)).get("target")).get("id")).isEqualTo(sid(b));
+  var exported=ok(call("GET","/api/author/collections/"+id+"/export",null,author));
+  assertThat(exported.toString()).contains("season-one","A beginning with a cat");
+  second.put("seasonDescription","Inconsistent");
+  assertThat(call("PUT","/api/author/collections/"+id,Map.of("generation",details(id).get("generation"),"document",d),author).statusCode()).isEqualTo(400);
+  second.put("seasonDescription","A beginning with a cat");d.put("items",List.of(first,third,second));
+  assertThat(call("PUT","/api/author/collections/"+id,Map.of("generation",details(id).get("generation"),"document",d),author).statusCode()).isEqualTo(400);
+ }
  @Test void authorPublishesOnlyApprovedCurrentChaptersInOrder() {
   var aDoc=scenario(key(),1);var a=draft(aDoc);var b=draft(scenario(key(),2));
   var d=document("story",List.of(item("scenario",a),item("scenario",b)));d.put("schemaVersion",2);String id=cid(create(d));

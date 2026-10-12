@@ -58,7 +58,7 @@ class DraftCollectionPlaytestService {
    retainedChapter(chapterId,row.owner());
    var target=links.resolve(item.target(),row.owner(),true);
    if(!seen.add(target.id()))throw bad("A chapter cannot occur twice in the story contents");
-   items.add(new CollectionDocument.Item(target,item.label(),item.season()));
+   items.add(new CollectionDocument.Item(target,item.label(),item.season(),item.seasonId(),item.seasonDescription()));
   }
   return new CollectionDocument(document.schemaVersion(),document.key(),document.type(),document.title(),document.description(),document.coverUrl(),document.completionStatus(),items,document.transitions(),document.genre());
  }

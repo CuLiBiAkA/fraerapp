@@ -109,7 +109,17 @@ class CollectionService {
    if(t.id()!=null)validateChild(id,t,owner,targets.info(t),memberships);
    if(d.serialStory()&&!"scenario".equals(t.kind()))throw bad("Stories contain chapters; use season labels to group them");
    if(item.season()!=null&&item.season().length()>100)throw bad("Season name too long");
-   items.add(new CollectionDocument.Item(t,item.label(),item.season()));
+   if(item.seasonId()!=null&&(item.seasonId().isBlank()||item.seasonId().length()>100))throw bad("Invalid season ID");
+   if(item.seasonDescription()!=null&&item.seasonDescription().length()>1000)throw bad("Season description too long");
+   if(item.seasonDescription()!=null&&item.seasonId()==null)throw bad("Season description requires a season ID");
+   items.add(new CollectionDocument.Item(t,item.label(),item.season(),item.seasonId(),item.seasonDescription()));
+  }
+  Set<String> closedSeasons=new HashSet<>();String previousSeason=null;
+  Map<String,CollectionDocument.Item> seasonMetadata=new HashMap<>();
+  for(var item:items){String season=item.seasonId();
+   if(!Objects.equals(season,previousSeason)){if(previousSeason!=null)closedSeasons.add(previousSeason);if(season!=null&&closedSeasons.contains(season))throw bad("Season chapters must be consecutive");}
+   if(season!=null){var first=seasonMetadata.putIfAbsent(season,item);if(first!=null&&(!Objects.equals(first.season(),item.season())||!Objects.equals(first.seasonDescription(),item.seasonDescription())))throw bad("Season metadata must match");}
+   previousSeason=season;
   }
   var transitions=new ArrayList<CollectionDocument.Transition>();Set<String> policyIds=new HashSet<>(),pairs=new HashSet<>();
   for(var t:list(d.transitions())) {
