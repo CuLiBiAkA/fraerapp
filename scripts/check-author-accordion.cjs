@@ -45,7 +45,7 @@ for(const width of [320,390,768,1440]){
  await rows.nth(2).getByRole('button',{name:'Отметить просмотренным'}).click();await page.waitForFunction(()=>!document.querySelector('main.collections-panel').inert);
  assert.equal(await page.locator('.story-unread').count(),0);assert.deepEqual(writes,['/api/account/notifications/notice/read']);
  await rows.first().getByRole('button',{name:'Читать',exact:true}).click();await page.waitForURL('**/history/c0');await page.goBack();await rows.last().waitFor();
- if(width===1440)assert.ok((await rows.first().locator('h4').boundingBox()).height<35,'Desktop chapter title fits one line');
+ if(width===1440)assert.ok(await rows.first().locator('h4').evaluate(node=>node.getBoundingClientRect().height<=parseFloat(getComputedStyle(node).lineHeight)+1),'Desktop chapter title fits one line');
  await rows.nth(4).getByRole('button',{name:'Предпросмотр',exact:true}).click();await page.waitForURL('**/author-preview.html?**');
  const frame=page.locator('iframe');await frame.waitFor();assert.match(await frame.getAttribute('src'),/previewStory=c4&revision=1/);
  await page.locator('#device').selectOption('390px');const box=await frame.boundingBox();assert.ok(box.width<=390&&box.width<=width);

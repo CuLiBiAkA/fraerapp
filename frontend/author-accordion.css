@@ -85,6 +85,68 @@ body[data-workspace="author"] { background:radial-gradient(ellipse at 25% 0%,#80
  .chapter-state { justify-self:start; }
  .workspace .chapter-buttons :is(a,button) { padding-inline:10px; }
 }
+/* Figma 282:142: typography, compact badges and chapter controls. */
+body[data-workspace="author"] { background:#684e86 url('/assets/author/background.svg') center top/cover fixed; }
+.workspace.collections-panel { width:min(1368px,calc(100% - 72px)); }
+.workspace.collections-panel > .author-title-row { margin:20px 28px 24px; }
+.workspace.collections-panel > .author-title-row h1 { font-size:40px; line-height:63px; letter-spacing:4.4px; }
+.author-heading-copy { min-width:0; }
+.author-tagline { margin:0; color:#ead2ef; font:400 18px/25px var(--font-body); text-transform:uppercase; }
+.workspace .story-toggle { grid-template-columns:218px minmax(0,1fr) auto; padding:24px 28px 20px; gap:24px; }
+.story-toggle .author-cover { width:218px; aspect-ratio:218/138; }
+.story-toggle .story-card-title { color:#2f1147; font-size:35px; line-height:1.4; letter-spacing:.11em; }
+.story-toggle .author-card-description { color:#51316d; font-size:18px; line-height:25px; }
+.story-toggle .author-card-status { color:#8a6a9e; font:400 14px/18px var(--font-control); }
+.story-unread { color:#4f3a68; font-size:14px; }
+.workspace .accordion-story .collection-editor { margin-inline:28px; padding:0 0 12px; gap:8px; }
+.workspace .chapter-heading { min-height:58px; margin:0; gap:16px; }
+.workspace .chapter-heading h3 { color:#2f1147; font-size:35px; letter-spacing:.11em; }
+.workspace .chapter-heading > button { font:500 20px/25px var(--font-control); padding:5px 12px; }
+.workspace .accordion-story .collection-item { padding:10px 12px; }
+.chapter-overview { grid-template-columns:minmax(220px,1fr) 183px auto; gap:14px; }
+.chapter-overview h4 { font:400 28px/37px var(--font-heading); letter-spacing:.07em; color:#40205c; }
+.chapter-state { display:inline-flex; align-items:center; gap:7px; justify-self:start; padding:2px 8px; border-radius:10px; font:400 14px/18px var(--font-control); white-space:nowrap; }
+.chapter-state img,.chapter-buttons img { flex:none; }
+.state-published { background:#ceeadd; color:#226c60; }
+.state-in_review,.state-approved,.state-draft { background:#e8d6f8; color:#4f3a68; }
+.state-rejected { background:#ffd9d5; color:#a02d39; }
+.workspace .chapter-buttons :is(a,button) { font:500 18px/25px var(--font-control); padding:5px 10px; gap:8px; min-height:40px; border-radius:6px; }
+.chapter-buttons [data-chapter-action=preview],.chapter-buttons [data-chapter-action=read] { order:-1; }
+.workspace .chapter-buttons .add-button { background:#563b70; color:#fee3e2; }
+.workspace .chapter-feedback { background:#f8e0e7; border:0; color:#a4465e; padding:5px 14px; margin-top:10px; }
+.workspace .chapter-feedback > summary { font:400 16px/25px var(--font-body); gap:12px; }
+.workspace .chapter-feedback > summary::before,.workspace .chapter-feedback[open] > summary::before { width:24px; height:24px; flex-basis:24px; border:0; transform:none; background:url('/assets/author/comment.svg') center no-repeat; }
+.workspace .chapter-feedback > summary::after { content:'⌄'; margin-left:8px; }
+.workspace .chapter-feedback[open] > summary::after { content:'⌃'; }
+.workspace .chapter-feedback > p { font:400 14px/20px var(--font-control); padding-left:36px; }
+.workspace .moderator-comment { font:400 12px/18px var(--font-control); color:#806179; }
+@media(max-width:1250px){
+ .chapter-overview { grid-template-columns:minmax(0,1fr) auto; }
+ .chapter-buttons { grid-column:1/-1; justify-content:flex-end; }
+ .chapter-overview h4 { font-size:23px; line-height:32px; }
+ .story-toggle .story-card-title { font-size:28px; }
+}
+@media(max-width:720px){
+ .workspace.collections-panel { width:calc(100% - 24px); }
+ .workspace.collections-panel > .author-title-row { margin:12px 0 20px; }
+ .workspace.collections-panel > .author-title-row h1 { font-size:30px; line-height:42px; letter-spacing:.06em; }
+ .author-tagline { font-size:12px; line-height:20px; }
+ .workspace .story-toggle { grid-template-columns:76px minmax(0,1fr) 16px; padding:16px; gap:12px; }
+ .story-toggle .author-cover { width:76px; aspect-ratio:1; }
+ .story-toggle .story-card-title { font-size:20px; letter-spacing:.02em; }
+ .story-toggle .author-card-description { font-size:13px; line-height:20px; }
+ .story-toggle .author-card-status { font-size:12px; }
+ .story-unread { font-size:0; }
+ .workspace .accordion-story .collection-editor { margin-inline:16px; }
+ .workspace .chapter-heading h3 { font-size:25px; }
+ .workspace .chapter-heading > button { font-size:14px; }
+ .workspace .accordion-story .collection-item { padding:12px 0; }
+ .chapter-overview { grid-template-columns:minmax(0,1fr); gap:10px; }
+ .chapter-overview h4 { font-size:21px; line-height:30px; letter-spacing:.02em; }
+ .chapter-buttons { grid-column:auto; }
+ .workspace .chapter-buttons :is(a,button) { min-height:44px; font-size:14px; }
+ .workspace .chapter-feedback > summary { font-size:13px; line-height:20px; }
+}
 @media(max-width:1000px){.chapter-overview { grid-template-columns:minmax(0,1fr) auto; }.chapter-buttons { grid-column:1/-1; justify-content:flex-start; }}
 @media(max-width:600px){
  .workspace .story-toggle { grid-template-columns:76px minmax(0,1fr) 20px; gap:12px; padding:16px; }

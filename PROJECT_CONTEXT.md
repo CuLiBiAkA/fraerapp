@@ -2,6 +2,22 @@
 
 Last updated: 2026-10-12.
 
+## My stories Figma reference and status vocabulary (2026-10-12)
+
+The author page visual reference is Figma Design-Website, file
+5vh1st4bxxI1OoGHTp4tcw, node 282:142. It uses Playfair Display SC headings,
+Montserrat descriptions, Inter controls, small colored status badges and pink
+moderator feedback. Original SVG icons/background are stored in assets/author.
+Keep search/tools visible and retain seasons and explicit feedback-read controls.
+Do not restore ellipsis, chapter reordering or whole-story preview from a mockup.
+
+User-approved chapter status labels (preserve these in future UI changes):
+Опубликована, На модерации, Нужны исправления, Модерация пройдена, Черновик.
+Недоступна remains the restricted/unavailable state. Labels describe individual
+chapters. Published chapters use Читать and the public reader route; all available
+unpublished chapters use Предпросмотр and private preview. Styling does not grant
+editing permission or change moderation/publication rules.
+
 ## Author page visual hierarchy (2026-10-12)
 
 My stories follows the supplied pale-panel/purple reference: separated chapter

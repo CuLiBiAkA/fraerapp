@@ -53,6 +53,7 @@ async function start(root) {
   const next=button(words("Далее →", "Next →"),()=>work(async()=>{pageIndex++;await loadList();}));const pageLabel=el("span");pagination.append(previous,pageLabel,next);
   const listColumn=el("div",null,"author-list-screen");listColumn.append(list,pagination);
   const titleRow=el("div",null,"author-title-row"); titleRow.append(heading);
+  if(!moderation){const intro=el('div',null,'author-heading-copy');intro.append(heading,el('p',words('Пишите. Вдохновляйте. Создавайте другие миры.','Write. Inspire. Create other worlds.'),'author-tagline'));titleRow.append(intro);}
   const utilities=el("div",null,"author-utilities");
   const activeButton=button(words("Истории","Stories"),()=>switchTrash(false)),trashButton=button(words("Корзина","Trash"),()=>switchTrash(true));
   utilities.append(activeButton,trashButton);
@@ -172,7 +173,7 @@ async function start(root) {
       const children=item.children||[],count=item.kind==='scenario'?1:(expanded?doc.items?.length:children.length)||0,published=item.kind==='scenario'?(item.publishedRevision?1:0):children.filter(c=>c.publishedRevision).length;
       copy.append(el('span',words(`${count} глав · ${published} опубликовано`,`${count} chapters · ${published} published`),'author-card-status'));
       const mark=el('span',null,'story-card-mark');const unread=relatedNotices(item).some(n=>n.unread);
-      if(unread)mark.append(el('span',words('● Новое решение','● New feedback'),'story-unread'));
+      if(unread)mark.append(el('span',words('● Новый комментарий','● New feedback'),'story-unread'));
       mark.append(el('span',expanded?'⌃':'⌄','story-chevron'));
       trigger.append(coverImage(item.coverUrl),copy,mark);card.append(trigger);
       if(expanded)card.append(editor);list.append(card);
@@ -210,6 +211,8 @@ async function start(root) {
     const id=item.target.id,state=chapterState(detail),en=document.documentElement.lang==='en';
     const title=detail.draftDocument?.title||detail.title||item.label||item.target.key||words('Глава','Chapter');
     const top=el('div',null,'chapter-overview');top.append(el('h4',`${index+1}. ${title}`),el('span',chapterStateLabel(state,en),`chapter-state state-${state}`));
+    const stateIcon={in_review:'clock',rejected:'warning',approved:'approved',draft:'draft'}[state];
+    if(stateIcon){const badge=top.querySelector('.chapter-state');badge.textContent=badge.textContent.replace(/^✓\s*/,'');const icon=el('img');icon.src=`/assets/author/${stateIcon}.svg`;icon.alt='';badge.prepend(icon);}
     const actions=el('div',null,'chapter-buttons');
     if(canEdit&&canEditStoryDraft(detail))actions.append(link(words('Редактировать','Edit'),`/builder/?story=${encodeURIComponent(id)}${current?.standalone?'':`&work=${encodeURIComponent(current?.collectionId||'')}`}`));
     if(!detail.publishedRevision&&state!=='unavailable')actions.append(button(words('Предпросмотр','Preview'),()=>{if(discard())location.href=`/author-preview.html?previewStory=${encodeURIComponent(id)}&revision=${encodeURIComponent(detail.draftRevision)}`;}));
@@ -231,10 +234,9 @@ async function start(root) {
       else await request(`${api}/${current.collectionId}/chapters/publish`,{method:'POST',body});
       await reloadExpanded();status.textContent=words('Глава опубликована.','Chapter published.');
     }),'add-button'));
-    const icons={edit:'M4 16l-1 5 5-1L20 8l-4-4L4 16z M14 6l4 4',preview:'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z M15 12a3 3 0 1 1-6 0 3 3 0 1 1 6 0',read:'M12 5v15 M12 5C8 2 3 3 2 4v15c4-2 7-1 10 1 3-2 6-3 10-1V4c-1-1-6-2-10 1',publish:'M12 16V3 M7 8l5-5 5 5 M4 15v6h16v-6',send:'M22 2L9 15 M22 2l-7 20-6-7-7-6 20-7z'};
-    for(const control of actions.children){const label=control.textContent;const kind=control.tagName==='A'?'edit':label===words('Предпросмотр','Preview')?'preview':label===words('Читать','Read')?'read':state==='approved'?'publish':'send';const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.5');svg.setAttribute('stroke-linejoin','round');const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',icons[kind]);svg.append(path);control.prepend(svg);}
+    for(const control of actions.children){const label=control.textContent;const kind=control.tagName==='A'?'edit':label===words('Предпросмотр','Preview')?'preview':label===words('Читать','Read')?'read':state==='approved'?'publish':state==='rejected'?'resubmit':'send';const icon=el('img');icon.src=`/assets/author/${kind}.svg`;icon.alt='';control.prepend(icon);control.dataset.chapterAction=kind;}
     top.append(actions);row.append(top);
-    if(detail.publishedRevision&&!detail.correctionRequested)row.append(el('small',words('Опубликованная глава доступна только для чтения. Исправление может открыть модератор с замечанием.','Published chapters are read-only. A moderator can request a correction with feedback.')));
+    if(detail.publishedRevision&&!detail.correctionRequested)top.querySelector('.chapter-state').title=words('Опубликованная глава доступна только для чтения. Исправление может открыть модератор с замечанием.','Published chapters are read-only. A moderator can request a correction with feedback.');
     if(detail.publishedRevision&&detail.publishedRevision!==detail.draftRevision)row.append(el('small',words('Читателям доступна предыдущая опубликованная версия.','Readers still see the previous published edition.')));
     renderFeedback(row,detail,id);
   }
@@ -289,7 +291,7 @@ async function start(root) {
     }
     fields.append(classification,completion.label);metadata.append(fields);
     const cover=el("div",null,"author-cover-setting");cover.append(coverImage(doc.coverUrl),button(words("Выбрать обложку","Choose cover"),()=>chooseCover({url:doc.coverUrl,getImages:()=>current?request(`${api}/${current.collectionId}/covers`):[],upload:async file=>{if(!current)await save();return uploadImage(`${api}/${current.collectionId}/cover`,file);},onSelect:url=>{doc.coverUrl=url;changed();renderEditor();}})));metadata.append(cover);
-    const chapterHeading=el('div',null,'chapter-heading');chapterHeading.append(el('h3',words('Главы истории','Story chapters')),aboutButton);chapters.append(chapterHeading);
+    const chapterHeading=el('div',null,'chapter-heading');chapterHeading.append(el('h3',words('Главы','Chapters')),aboutButton);chapters.append(chapterHeading);
     const items=el("ol",null,"collection-items");
     for(const group of seasonGroups(doc.items||[])){
       let destination=items;
