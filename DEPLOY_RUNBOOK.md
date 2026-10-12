@@ -1,5 +1,23 @@
 # FraerApp deploy and ops runbook
 
+## Accordion/correction release receipt (deployed, 2026-10-12)
+
+Source `ef511a3` is committed, pushed and installed. Backup
+`backups/accordion-20261012-164040` holds validated API/auth dumps, the final API
+cutover dump, previous files, image metadata and build logs. Rollback tags are
+`fraerapp-<service>:before-accordion-20261012-164040`; new API/Builder tags are
+`fraerapp-<service>:accordion-20261012-164040` (also tagged with compose aliases).
+Both services were stopped before recreation; edge was checked and reloaded.
+V23 succeeded on PostgreSQL. Six services are healthy, recent errors are zero,
+and installed/JAR/Builder/versioned public asset hashes match. Environment values,
+entrypoints and users are preserved. Private previews reject anonymous access.
+No real author content or moderation decision was changed for verification.
+
+137 API + 69 auth tests, 155 Node tests and responsive browser checks passed.
+The earlier accordion-20261012-161848 candidate was staged but never installed.
+Preserve V23 and user activity on rollback. Previous API images do not enforce
+the published edit lock; prefer a forward fix or keep author writes unavailable.
+
 ## Published chapter correction release
 
 Ship V23 with the rebuilt API and Builder, plus all changed author/moderation
@@ -23,15 +41,12 @@ Do not enable or submit corrections against real stories as a smoke test.
 Old API images do not enforce the published edit lock: rollback must preserve the
 new policy or keep author writes unavailable until a forward fix is installed.
 
-## Pending author accordion followup
+## Author accordion release procedure
 
-See `docs/author-accordion-plan.md`. Backup `backups/accordion-20261012-161848`
-contains both validated database dumps, runtime files and rollback API/Builder
-images. Accordion images are staged only; the running services are unchanged.
-Before release, include the concurrent published-chapter correction workflow and
-rebuild/retest from the final combined tree. Do not install the earlier staged JAR
-over that change. Deploy API and Builder together with the versioned workspace
-entry, collection UI, chapter-state and author-preview/accordion assets.
+See `docs/author-accordion-plan.md`. Always build from the final combined source,
+including the published-chapter correction workflow. Deploy API and Builder together
+with the versioned workspace entry, collection UI, chapter-state and author-preview/
+accordion assets. Do not reuse the pre-correction staged JAR.
 
 Verify exact-revision author publication, rejected/in-review denial, old published
 reader snapshots, legacy parent compatibility, inline expansion, notification
@@ -40,7 +55,7 @@ its entrypoint/user/environment, and reload edge after API/Builder recreation.
 Compare installed and served asset hashes, six-service health and recent logs.
 No real author publication or account mutation is needed for release smoke tests.
 
-## Combined release receipt (deployed, 2026-10-12)
+## Earlier combined release receipt (deployed, 2026-10-12)
 
 Source `0ca3aa0` is committed, pushed and deployed. Backup:
 `backups/authoring-20261012-012425` (both custom-format dumps validated with

@@ -74,3 +74,12 @@ Combined accordion (four widths) and author workspace (eight RU/EN cases) pass;
 private replay has eight scenario/serial cases. Fresh Java 17 bootJar built from
 the final frozen source. Production baseline matches; final staging and release
 receipt will supersede the earlier unused staging backup above.
+
+## Released
+
+Combined source `ef511a3` committed, pushed and deployed with backup
+`backups/accordion-20261012-164040`. V23 succeeded; six services healthy, recent
+errors zero, 23 runtime source hashes and API JAR verified. Builder and versioned
+public frontend files match; anonymous private previews return 401. Environment
+values and entrypoints unchanged. Earlier staging was not installed. The context
+and runbook contain the final release/rollback receipt.

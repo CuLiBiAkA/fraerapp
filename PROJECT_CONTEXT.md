@@ -2,7 +2,24 @@
 
 Last updated: 2026-10-12.
 
-## Published chapter corrections (local; release pending)
+## Accordion and correction release receipt (deployed, 2026-10-12)
+
+Source `ef511a3` is committed, pushed to main and deployed. Backup:
+`backups/accordion-20261012-164040`, including validated database dumps, a final
+API cutover dump, prior runtime files and rollback image tags. API and Builder
+images are `fraerapp-<service>:accordion-20261012-164040` with the usual compose
+aliases. PostgreSQL V23 succeeded. All six services are healthy; recent API/auth/
+edge errors are zero. The 23 installed source files, running API JAR, Builder files
+and versioned public frontend modules match the tested sources. Environment values,
+entrypoints and users are unchanged. Anonymous private previews return 401.
+
+Final checks: 137 API, 69 auth and 155 Node tests; responsive author/moderation,
+correction, quota, serial-story and private replay browser checks; syntax,
+production validator and diff checks. User stories, reading saves and moderation
+decisions were not changed by verification. Local output/ remains excluded.
+The earlier `backups/accordion-20261012-161848` staging was never installed.
+
+## Published chapter corrections (deployed, 2026-10-12)
 
 Published chapters and standalone stories are read-only for their author. Only
 an independent moderator/admin can open `request-correction` for the exact
@@ -34,10 +51,10 @@ Final local verification: 137 API and 69 auth tests, 155 Node tests, JavaScript
 syntax and production validation pass. The dedicated correction browser suite
 passes in RU/EN at 390/1440px, covering read-only publication, mandatory feedback,
 unlocked correction, review lock and approval lock. Independent review found and
-verified the author-publication availability fix. The combined release owner is
-finishing the full browser matrix and building API/Builder from this final tree.
+verified the author-publication availability fix. The remaining browser matrix passed and API/Builder were built from the frozen
+combined tree; see the release receipt above.
 
-## Author accordion followup (local; release pending)
+## Author accordion (deployed, 2026-10-12)
 
 `docs/author-accordion-plan.md` records the approved inline story/chapter UI and
 its verification. My stories now expands one full-width card on the same page;
@@ -47,12 +64,8 @@ replay with device-width controls. Grouped moderator approval is separate from
 author publication; publication checks exact approved revisions and generations.
 Under-review chapter writes and rollback are locked.
 
-Pre-followup checks: 130 API, 69 auth, 150 Node tests and relevant responsive
-browser suites pass. This code has not been deployed or committed by this task.
-Backup/staging: `backups/accordion-20261012-161848`; running production remains the
-release below. A concurrent user-requested published-chapter editing lock is being
-integrated before one coordinated final build and deployment. The staged accordion
-JAR must not overwrite that newer work. See the plan for the coordination receipt.
+This ships together with the published-chapter correction rule above. The final
+source, backup and verification receipt supersede the earlier unused staging.
 
 ## Authoring and session release (deployed, 2026-10-12)
 
