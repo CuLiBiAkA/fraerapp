@@ -4,6 +4,12 @@ Last updated: 2026-10-12.
 
 ## Author seasons (2026-10-12)
 
+Deployed source cd9198e; backup backups/seasons-20261012-172408, API image
+fraerapp-api:seasons-20261012-172408. Installed sources, running JAR and four public
+assets match. Six services healthy; public health/catalogue return 200. Checks:
+138 API, 69 auth, 153 Node tests; author workspace RU/EN at four widths, serial
+season flow at four widths, and published-correction checks RU/EN at two widths.
+
 My stories groups consecutive chapters into collapsed season blocks. Add season
 opens a dialog selecting ungrouped consecutive chapters, optional title (100 chars)
 and description (1000 chars); save uses the existing versioned collection draft.

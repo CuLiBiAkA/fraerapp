@@ -2,6 +2,11 @@
 
 ## Author seasons update (2026-10-12)
 
+Deployed cd9198e with backup backups/seasons-20261012-172408 (source archive,
+validated database dumps before and at cutover, rollback image before-seasons-
+20261012-172408). Six services healthy; source/JAR/public assets verified and
+health/catalogue return 200. No user stories were edited by deployment checks.
+
 Rebuild API for the additive collection Item seasonId/seasonDescription fields;
 no migration or Builder rebuild. Ship author-seasons.js v1, collection-workspace
 v13, workspace-entry v12 and author-accordion CSS v3 with both entry HTML files.
