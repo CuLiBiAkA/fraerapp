@@ -2,6 +2,15 @@
 
 Last updated: 2026-10-12.
 
+## Author page visual hierarchy (2026-10-12)
+
+My stories follows the supplied pale-panel/purple reference: separated chapter
+rows, aligned desktop status column, consistent outlined actions and pink feedback
+blocks. Mobile actions wrap within their chapter. Existing search/tools, seasons,
+published Read and unpublished Preview behavior remain. CSS-only release uses
+author-accordion.css v7; no API or data changes. Four-width chapter browser checks
+and the 53-test frontend/Builder baseline pass.
+
 ## Shared genre/topic choices (2026-10-12)
 
 Deployed cab81ef, backup backups/classification-20261012-175009. Six services
