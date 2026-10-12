@@ -1,5 +1,13 @@
 # FraerApp deploy and ops runbook
 
+## Author list tools update (2026-10-12)
+
+Frontend-only: ship collection-workspace v12, workspace-entry v11, author-accordion
+CSS v2 and both author/moderation entry HTML files. Back up these five files first;
+no service rebuild or database change is required. Verify runtime/public hashes,
+service health, visible search/tools and the trash retention notice. The author
+workspace browser matrix covers both languages and four viewport widths.
+
 ## Accordion/correction release receipt (deployed, 2026-10-12)
 
 Source `ef511a3` is committed, pushed and installed. Backup

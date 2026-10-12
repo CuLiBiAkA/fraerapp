@@ -41,7 +41,7 @@
 .accordion-story .author-chapters > .add-button { margin:8px 0; }
 .workspace .story-toggle:focus-visible { outline-offset:-4px; }
 .workspace.collections-panel > .author-list-tools { background:transparent;color:inherit;border:0;padding:0;margin-bottom:18px; }
-.author-list-tools > summary { width:fit-content; }
+.author-trash-notice { padding:16px; border:1px solid currentColor; border-radius:12px; line-height:1.5; }
 .author-list-tools .author-utilities { margin-bottom:0; }
 .chapter-buttons svg { width:18px;height:18px;flex:none;margin-right:7px; }
 @media(min-width:601px){.accordion-story .author-chapters > h3 { margin-top:-54px;padding-right:210px;min-height:44px; }}

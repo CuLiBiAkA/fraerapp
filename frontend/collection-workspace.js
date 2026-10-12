@@ -52,7 +52,9 @@ async function start(root) {
   const back=button(words("← К моим историям","← My stories"),()=>{if(!discard())return;dirty=false;if(historyIndex>0)history.back();else{writeUrl(false,null);showScreen("list",true);}});
   if(moderation)back.textContent=words("← К заявкам","← Applications");back.className="author-back";back.hidden=true;
   grid.append(listColumn,editor); root.append(titleRow,back,toolbar,utilities,status,grid);
-  if(!moderation){const filters=el('details',null,'author-list-tools');filters.append(el('summary',words('Поиск и инструменты','Search and tools')),toolbar,utilities);titleRow.after(filters);}
+  if(!moderation){const filters=el('div',null,'author-list-tools');filters.append(toolbar,utilities);titleRow.after(filters);}
+  const trashNotice=el('p',words('Истории хранятся в корзине 30 дней с момента удаления. В течение этого времени их можно восстановить. Затем они удаляются автоматически.','Stories stay in trash for 30 days after deletion. You can restore them during this time. After that, they are deleted automatically.'),'author-trash-notice');
+  trashNotice.hidden=!trash;status.before(trashNotice);
   const changed = () => { dirty = true; status.textContent = words("Есть несохранённые изменения в форме.", "There are unsaved changes in this form."); };
   const discard = () => !dirty || confirm(words("В форме есть несохранённые изменения. Перейти без сохранения?", "This form has unsaved changes. Leave without saving?"));
   window.addEventListener("beforeunload",event=>{if(dirty){event.preventDefault();event.returnValue="";}});
@@ -126,6 +128,7 @@ async function start(root) {
   }
   async function prompts(options){try{await showAuthoringPrompts(options);}catch(error){status.textContent=errorMessage(error);status.classList.add("error");}}
   async function loadList() {
+    trashNotice.hidden=!trash;
     const visibility=trash?"deleted":["public","unlisted","private","hidden","archived"].includes(state.input.value)?state.input.value:"all";
     const searchParams=new URLSearchParams({page:pageIndex,size:20,q:query.input.value,type:"all",status:trash?"deleted":visibility!=="all"?"all":state.input.value,visibility});
     const data=await request(`/api/${moderation?"moderation":"author"}/folders?${searchParams}`);all=data.items||[];totalPages=Math.ceil((data.total||all.length)/20);

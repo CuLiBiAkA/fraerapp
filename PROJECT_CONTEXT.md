@@ -2,6 +2,13 @@
 
 Last updated: 2026-10-12.
 
+## Author list tools (2026-10-12)
+
+My stories keeps search, filters and tools visible without a disclosure control.
+Trash shows a notice above the cards explaining the 30-day retention and restore
+window. The existing retention policy and story pages are unchanged. Verified
+with the author workspace browser suite in RU/EN at 320, 390, 768 and 1440px.
+
 ## Accordion and correction release receipt (deployed, 2026-10-12)
 
 Source `ef511a3` is committed, pushed to main and deployed. Backup:
