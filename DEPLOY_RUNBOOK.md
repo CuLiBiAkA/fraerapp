@@ -2,6 +2,9 @@
 
 ## Chapter list simplification (2026-10-12)
 
+Deployed 5882df4 with backup backups/chapter-ui-20261012-174242. Five runtime files
+and three public assets verified; six services healthy, no recent errors. No rebuild.
+
 Frontend only: collection-workspace v15, workspace-entry v14, author-accordion
 CSS v4 and both workspace entry HTML files. Back up these files, verify source
 and public hashes, author metadata dialog/save/conflicts, trash, season creation

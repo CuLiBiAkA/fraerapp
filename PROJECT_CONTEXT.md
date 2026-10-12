@@ -4,6 +4,11 @@ Last updated: 2026-10-12.
 
 ## Chapter list simplification (2026-10-12)
 
+Deployed 5882df4; backup backups/chapter-ui-20261012-174242. Runtime/public assets
+match, six services healthy, recent errors zero, health/catalogue 200. Verification:
+146 Node tests; responsive author workspace, accordion, serial story, quota and
+trash/private-preview browser checks, including desktop title width and Read route.
+
 The author accordion shows chapter feedback only, with a compact disclosure.
 The About story button opens a metadata dialog instead of switching tabs; draft
 edits, cover selection and save stay available there. Whole-story Play story is
