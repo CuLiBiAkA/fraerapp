@@ -4,6 +4,10 @@ Last updated: 2026-10-12.
 
 ## Shared genre/topic choices (2026-10-12)
 
+Deployed cab81ef, backup backups/classification-20261012-175009. Six services
+healthy; runtime sources and API JAR verified. 138 API, 69 auth, 146 Node tests
+passed, plus author form and chapter-action browser checks at four widths.
+
 About story uses Builder's genre-topic.js directly: one genre and one topic,
 with identical options and legacy authored values retained. CollectionDocument
 now preserves optional topic through normalization, export and private replay;

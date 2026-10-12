@@ -2,6 +2,10 @@
 
 ## Shared genre/topic choices (2026-10-12)
 
+Deployed cab81ef with backup backups/classification-20261012-175009, including
+validated pre-release/cutover dumps, prior files and API rollback image. Runtime
+sources and running JAR match; six services healthy and recent errors zero.
+
 Rebuild API for optional collection topic. Ship collection-workspace v16,
 workspace-entry v15, author-accordion CSS v5 and both entry HTML files. The
 existing /builder/genre-topic.js v1 supplies the shared options (no Builder change).
