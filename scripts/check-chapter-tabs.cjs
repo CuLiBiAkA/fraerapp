@@ -18,6 +18,7 @@ for(const width of [1722,1440,1024,768,390,320]){
  const p=await c.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));await p.goto('https://fraerapp.ru/builder/');
  await p.waitForFunction(()=>!document.body.classList.contains('builder-locked'));
  await p.locator('#import-runtime').waitFor();
+ assert.equal(await p.locator('[data-meta="version"]').count(),0);
  for(const selector of ['.active-context-kicker','.status-badge']){
   const style=await p.locator(selector).first().evaluate(el=>{const s=getComputedStyle(el);return [s.fontFamily,s.fontSize,s.lineHeight,s.fontWeight];});
   assert.match(style[0],/Montserrat/);assert.deepEqual(style.slice(1),['18px','25px','400']);
@@ -44,6 +45,8 @@ for(const width of [1722,1440,1024,768,390,320]){
  await p.locator('[data-meta="title"]').fill('Ночной звонок');await p.locator('[data-meta="title"]').blur();
  await p.locator('#tab-chapter').click();await p.locator('#import-runtime').click();
  await p.waitForFunction(()=>document.querySelector('#server-draft-state').textContent.includes('сервер'));
+ assert.doesNotMatch(await p.locator('#server-draft-state').innerText(),/v\d/);
+ assert.doesNotMatch(await p.locator('#chapter-status').innerText(),/v\d/);
  await p.locator('#tab-publication').click();await p.locator('#publish-runtime').click();
  await p.getByText('На модерации',{exact:true}).waitFor();
  assert.ok(mutations.includes('/api/author/stories/chapter/review'));

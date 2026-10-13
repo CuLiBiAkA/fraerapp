@@ -244,6 +244,19 @@ async function start(root) {
     if(detail.publishedRevision&&!detail.correctionRequested)top.querySelector('.chapter-state').title=words('Опубликованная глава доступна только для чтения. Исправление может открыть модератор с замечанием.','Published chapters are read-only. A moderator can request a correction with feedback.');
     if(detail.publishedRevision&&detail.publishedRevision!==detail.draftRevision)row.append(el('small',words('Читателям доступна предыдущая опубликованная версия.','Readers still see the previous published edition.')));
     renderFeedback(row,detail,id);
+    const history=el('details',null,'chapter-history');
+    history.append(el('summary',words('История изменений главы','Chapter change history')));
+    const entries=el('ol');
+    for(const version of [...(detail.versions||[])].sort((a,b)=>b.versionNumber-a.versionNumber)){
+      const entry=el('li');
+      const labels=[version.versionNumber===detail.draftRevision?words('Текущий черновик','Current draft'):'',version.versionNumber===detail.publishedRevision?words('Опубликована','Published'):'',version.versionNumber===detail.submittedRevision?words('Отправлена на модерацию','Submitted for review'):''].filter(Boolean);
+      entry.append(el('strong',words(`Редакция ${version.versionNumber}`,`Revision ${version.versionNumber}`)),el('p',[version.createdAt?new Date(version.createdAt).toLocaleString(document.documentElement.lang):'',...labels].filter(Boolean).join(' · ')));
+      entry.append(link(words('Посмотреть редакцию','View revision'),`/author-preview.html?previewStory=${encodeURIComponent(id)}&revision=${encodeURIComponent(version.versionNumber)}`));
+      entries.append(entry);
+    }
+    history.append(entries);
+    if(!entries.children.length)history.append(el('p',words('Сохранённых редакций пока нет.','No saved revisions yet.')));
+    row.append(history);
   }
   async function reloadExpanded(){const id=current.collectionId,standalone=current.standalone;await loadList();if(standalone)await openStandalone(id);else await open(id);}
   async function open(id,push=false){

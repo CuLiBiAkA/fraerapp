@@ -6,6 +6,7 @@ for(const width of [320,390,768,1440]){
  const chapters=['published','in_review','rejected','approved','draft'].map((state,i)=>({id:'c'+i,storyId:'c'+i,kind:'scenario',title:['Каждая щёлочка — обещание','Записка','Закрытая дверь','Встреча','Развязка'][i],generation:2,draftRevision:1,submittedRevision:state==='draft'?null:1,publishedRevision:state==='published'?1:null,visibility:state==='published'?'public':'private',reviewState:state==='published'?'approved':state,reason:state==='rejected'?'Добавьте предупреждение о пугающей сцене.':'',events:state==='rejected'?[{action:'reject',reason:'Добавьте предупреждение о пугающей сцене.',createdAt:'2026-10-12T12:00:00Z'}]:[],draftDocument:{title:['Каждая щёлочка — обещание','Записка','Закрытая дверь','Встреча','Развязка'][i]}}));
  const document={schemaVersion:2,key:'city',type:'story',title:'Тайны города',description:'В городе исчезают люди, а прошлое оставляет подсказки.',coverUrl:'/assets/door.svg',items:chapters.map(c=>({target:{kind:'scenario',id:c.id,key:c.id}})),transitions:[]};
  const story={id:'city',collectionId:'city',kind:'collection',...document,generation:1,draftRevision:1,reviewState:'draft',draftDocument:document,children:chapters,metadataLocked:true};
+ chapters.forEach(chapter=>{chapter.versions=[{versionNumber:1,createdAt:'2026-10-12T12:00:00Z'}];});
  let unread=true;
  await context.route('https://fraerapp.ru/**',async route=>{
   const req=route.request(),u=new URL(req.url()),p=u.pathname,send=json=>route.fulfill({json});if(req.method()!=='GET')writes.push(p);
@@ -23,6 +24,12 @@ for(const width of [320,390,768,1440]){
  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto('https://fraerapp.ru/my-stories/');
  await page.locator('[data-work-id=city]').click();const rows=page.locator('.collection-item');await rows.last().waitFor();assert.equal(await rows.count(),5);
  assert.equal(await page.locator('.accordion-story .collection-editor').count(),1);
+ const chapterHistory=rows.first().locator('.chapter-history');
+ assert.equal(await chapterHistory.getAttribute('open'),null);
+ await chapterHistory.locator('summary').click();
+ assert.match(await chapterHistory.innerText(),/Редакция 1/);
+ assert.equal(await chapterHistory.getByRole('link',{name:'Посмотреть редакцию'}).getAttribute('href'),'/author-preview.html?previewStory=c0&revision=1');
+ await chapterHistory.locator('summary').click();
  const toggle=page.locator('[data-work-id=city]');
  await page.keyboard.press('Tab');await toggle.focus();
  assert.equal(await toggle.evaluate(el=>getComputedStyle(el).outlineStyle),'none','Story header has no rectangular focus frame');

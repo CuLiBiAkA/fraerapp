@@ -2,6 +2,15 @@
 
 Last updated: 2026-10-13.
 
+## Chapter revisions presentation (2026-10-13)
+
+Builder hides the manual document version field (the underlying imported value is
+preserved) and omits revision numbers from status/save/submission messages.
+Rejected submissions with a newer saved draft explain that feedback refers to a
+previous revision. My stories has a collapsed Chapter change history at the end
+of each chapter, listing saved revision numbers/dates and links to private previews.
+No revision data is removed and no rollback/edit permissions are added.
+
 ## Builder text styles (2026-10-13)
 
 Builder theme28 uses Inter Regular 14/18 for authoring body text, form fields and

@@ -88,10 +88,10 @@ const translations = {
     myStories: "Мои истории",
     storyStatusFilter: "Состояние работы",
     unsavedChanges: "Есть несохранённые изменения. Они хранятся только в этом браузере.",
-    savedOnServer: "Сохранено на сервере · редакция v{revision}",
+    savedOnServer: "Сохранено на сервере",
     changeSaved: "Изменение сохранено.",
-    reviewSent: "Редакция v{revision} отправлена на согласование. Публикация не меняется.",
-    replaceReviewConfirm: "Заменить заявку v{revision} новым сохранённым черновиком? Старую заявку больше нельзя будет одобрить.",
+    reviewSent: "Глава отправлена на модерацию. Публикация не меняется.",
+    replaceReviewConfirm: "Заменить заявку новым сохранённым черновиком? Старую заявку больше нельзя будет одобрить.",
     staleStory: "История изменилась. Список обновлён: проверьте текущую редакцию и повторите действие.",
     withdrawConfirm: "Отозвать заявку «{title}»? Черновик и предыдущая публикация сохранятся.",
     archiveConfirm: "Архивировать «{title}»? История станет недоступна читателям. Данные и прогресс сохранятся.",
@@ -279,10 +279,10 @@ const translations = {
     myStories: "My stories",
     storyStatusFilter: "Work status",
     unsavedChanges: "Unsaved changes. They exist only in this browser.",
-    savedOnServer: "Saved on server · revision v{revision}",
+    savedOnServer: "Saved on server",
     changeSaved: "Change saved.",
-    reviewSent: "Revision v{revision} submitted for review. Publication is unchanged.",
-    replaceReviewConfirm: "Replace submission v{revision} with the new saved draft? The old submission can no longer be approved.",
+    reviewSent: "Chapter submitted for review. Publication is unchanged.",
+    replaceReviewConfirm: "Replace the submission with the new saved draft? The old submission can no longer be approved.",
     staleStory: "The story changed. The list has been refreshed: inspect the current revision and try again.",
     withdrawConfirm: "Withdraw submission for “{title}”? The draft and previous publication are retained.",
     archiveConfirm: "Archive “{title}”? Readers will lose access. Data and progress are retained.",
@@ -2418,12 +2418,16 @@ function renderAuthorWorkspace(home = authorHomeCache) {
   document.querySelector('#chapter-story-name').textContent = chapterParent?.title || chapterParent?.draftDocument?.title || (en ? 'Independent draft' : 'Отдельный черновик');
   document.querySelector('#chapter-number').textContent = index < 0 ? '' : [items[index].season, `${en ? 'Chapter' : 'Глава'} ${index + 1}`].filter(Boolean).join(' · ');
   document.querySelector('#chapter-title').textContent = draft.title || draft.key;
-  document.querySelector('#chapter-status').textContent = current ? storyLabels(current, currentLanguage).join(' · ') : (en ? 'Draft' : 'Черновик');
+  const simpleStatus = !current ? (en ? 'Draft' : 'Черновик') : [current.publishedRevision ? (en ? 'Published' : 'Опубликована') : (en ? 'Not published' : 'Не опубликована'), ({draft:en?'Draft':'Черновик',in_review:en?'Under review':'На модерации',rejected:en?'Changes requested':'Нужны исправления',approved:en?'Review passed':'Модерация пройдена'})[current.reviewState]].filter(Boolean).join(' · ');
+  document.querySelector('#chapter-status').textContent = simpleStatus;
   document.querySelector('#chapter-publication-status').textContent = current?.reviewState === 'in_review'
     ? (en ? 'Under review' : 'На модерации')
     : current?.publishedRevision && (hasUnsavedChanges() || current.draftRevision !== current.publishedRevision)
       ? (en ? 'Unpublished changes' : 'Есть неопубликованные изменения')
-      : current ? storyLabels(current, currentLanguage).join(' · ') : (en ? 'Not published yet' : 'Ещё не опубликована');
+      : simpleStatus;
+  const revisionNote = document.querySelector('#chapter-revision-note');
+  revisionNote.hidden = !(current?.reviewState === 'rejected' && current.submittedRevision && current.draftRevision > current.submittedRevision);
+  revisionNote.textContent = en ? 'The feedback concerns a previous revision. You have saved changes since the review.' : 'Замечания относятся к предыдущей редакции. После проверки вы сохранили изменения.';
   const comment = document.querySelector('#chapter-review-comment');
   const feedback = document.querySelector('#chapter-review-feedback');
   const commentText = [...new Set([current?.correctionReason,current?.reason].filter(Boolean))].join('\n');
