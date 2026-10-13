@@ -33,6 +33,17 @@ body { background: var(--bg); color: var(--ink); }
 .chapter-content .status-badge { display: block; width: fit-content; white-space: normal; }
 .chapter-content #api-result:empty { display: none; }
 .chapter-content #api-result { white-space: pre-wrap; font-size: 14px; }
+.chapter-content #chapter-review-feedback { margin:18px 0; padding:0; border:1px solid #A4465E; border-radius:12px; background:#F8DCE3; color:#A4465E; }
+.chapter-content #chapter-review-feedback[hidden] { display:none; }
+.chapter-content #chapter-review-feedback > summary { display:flex; align-items:center; gap:12px; padding:14px 16px; min-height:48px; box-sizing:border-box; cursor:pointer; list-style:none; font:500 16px/1.5 var(--font-body); }
+.chapter-content #chapter-review-feedback > summary::-webkit-details-marker { display:none; }
+.chapter-content #chapter-review-feedback > summary::before { content:none; }
+.chapter-content #chapter-review-feedback > summary svg { width:24px; height:24px; flex:none; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+.chapter-content #chapter-review-feedback > summary > span:first-of-type { min-width:0; overflow-wrap:anywhere; }
+.chapter-content #chapter-review-feedback .feedback-chevron { width:10px; height:10px; border-right:2px solid currentColor; border-bottom:2px solid currentColor; transform:rotate(45deg); margin-left:auto; flex:none; }
+.chapter-content #chapter-review-feedback[open] .feedback-chevron { transform:rotate(225deg); }
+.chapter-content #chapter-review-feedback > summary:focus-visible { outline:2px solid #A4465E; outline-offset:3px; border-radius:12px; }
+.chapter-content #chapter-review-comment { margin:0; padding:0 16px 16px; white-space:pre-wrap; overflow-wrap:anywhere; font-size:15px; line-height:1.6; }
 #chapter-preview-dialog { width: min(800px, calc(100vw - 32px)); max-height: 85dvh; overflow: auto; }
 #chapter-preview-content section { border-top: 1px solid var(--line); padding: 16px 0; }
 .chapter-prose { white-space: pre-wrap; }

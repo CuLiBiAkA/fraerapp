@@ -1,5 +1,11 @@
 # FraerApp deploy and ops runbook
 
+## Builder feedback disclosure (2026-10-13)
+
+Ship Builder index.html, app.js vbuilder-62 and theme.css v26; rebuild/recreate
+story-builder and reload edge after backing up the old image/runtime. Check public
+versioned bytes, Builder health and long feedback at mobile widths. No API rebuild.
+
 ## Published metadata lock (2026-10-13)
 
 Rebuild API and ship collection-workspace v18, workspace-entry v17 and the two

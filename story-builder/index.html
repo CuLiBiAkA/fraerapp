@@ -11,7 +11,7 @@
     <script>if (location.protocol === "file:") document.querySelector("[data-builder-typography]").href = "../frontend/typography.css?v=2";</script>
     <link rel="stylesheet" href="/collections.css?v=5">
     <link rel="stylesheet" href="/author-workspace.css?v=2">
-    <link rel="stylesheet" href="theme.css?v=25">
+    <link rel="stylesheet" href="theme.css?v=26">
     <link rel="stylesheet" href="/site-controls.css?v=6">
     <script type="module" src="/site-controls.js?v=7"></script>
   </head>
@@ -167,7 +167,10 @@
               <section id="panel-publication" role="tabpanel" aria-labelledby="tab-publication" hidden>
                 <h2 data-help-key="runtimeActions" data-panel-text="publication">Публикация</h2>
                 <p id="chapter-publication-status" class="status-badge"></p>
-                <p id="chapter-review-comment"></p>
+                <details id="chapter-review-feedback" hidden>
+                  <summary><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15a3 3 0 0 1-3 3H9l-6 4V6a3 3 0 0 1 3-3h11a3 3 0 0 1 3 3Z"/></svg><span data-panel-text="moderatorComment">Комментарий модератора</span><span class="feedback-chevron" aria-hidden="true"></span></summary>
+                  <p id="chapter-review-comment"></p>
+                </details>
                 <p data-panel-text="publicationHint">После одобрения модератором глава станет доступна читателям.</p>
                 <button id="publish-runtime" type="button" data-panel-text="submit">Отправить на модерацию</button>
                 <p class="chapter-note" data-panel-text="submitHint">Перед отправкой проверим главу и сохраним изменения.</p>
@@ -205,6 +208,6 @@
       <button id="quick-add-scene" type="button" title="Добавить сцену">+ Сцена</button>
     </nav>
 
-    <script src="app.js?v=builder-61" type="module"></script>
+    <script src="app.js?v=builder-62" type="module"></script>
   </body>
 </html>

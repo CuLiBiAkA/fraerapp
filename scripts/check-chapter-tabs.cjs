@@ -2,11 +2,12 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
 (async()=>{const browser=await chromium.launch();
 for(const width of [1722,1440,1024,768,390,320]){
  const c=await browser.newContext({viewport:{width,height:1000}});const mutations=[];let review='draft',saved=null,generation=0;
+ const comment='Добавьте предупреждение о пугающей сцене.\n'+('Уточните описание выбора, чтобы читателю было понятно действие героя. ').repeat(12);
  await c.route('https://fraerapp.ru/**',r=>{
   const req=r.request(),p=new URL(req.url()).pathname;const send=json=>r.fulfill({json});
   if(['POST','PUT'].includes(req.method()))mutations.push(p);
   if(p==='/auth/me')return send({email:'author@example.test',roles:['author']});
-  if(p==='/api/author/home')return send({stories:saved?[{storyId:'chapter',title:saved.title,reviewState:review,visibility:'private',draftRevision:1,generation}]:[]});
+  if(p==='/api/author/home')return send({stories:saved?[{storyId:'chapter',title:saved.title,reviewState:review,visibility:'private',draftRevision:1,generation,reason:comment}]:[]});
   if(p==='/api/author/stories/import'){saved=req.postDataJSON();generation=1;return send({storyId:'chapter',generation,draftRevision:1});}
   if(p==='/api/author/stories/chapter'&&req.method()==='PUT'){const body=req.postDataJSON();assert.equal(body.generation,generation);saved=body.document;generation++;return send({storyId:'chapter',generation,draftRevision:1});}
   if(p==='/api/author/stories/chapter/review'){review='in_review';return send({submittedRevision:1});}
@@ -17,6 +18,7 @@ for(const width of [1722,1440,1024,768,390,320]){
  const p=await c.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));await p.goto('https://fraerapp.ru/builder/');
  await p.waitForFunction(()=>!document.body.classList.contains('builder-locked'));
  await p.locator('#import-runtime').waitFor();
+ assert.equal(await p.locator('#chapter-review-feedback').isVisible(),false);
  assert.deepEqual(await p.getByRole('tab').allTextContents(),['Моя глава','Проверка','Публикация']);
  assert.equal(await p.locator('#author-search, #author-story-select, #author-filter').count(),0);
  await p.locator('#tab-chapter').focus();await p.keyboard.press('ArrowDown');
@@ -33,6 +35,17 @@ for(const width of [1722,1440,1024,768,390,320]){
  await p.locator('#tab-publication').click();await p.locator('#publish-runtime').click();
  await p.getByText('На модерации',{exact:true}).waitFor();
  assert.ok(mutations.includes('/api/author/stories/chapter/review'));
+ const feedback=p.locator('#chapter-review-feedback'),summary=feedback.locator('summary');
+ assert.equal(await feedback.getAttribute('open'),null);
+ const before=(await p.locator('#chapter-workspace').boundingBox()).height;
+ await summary.focus();await p.keyboard.press('Enter');
+ assert.equal(await p.locator('#chapter-review-comment').textContent(),comment);
+ assert.ok((await p.locator('#chapter-workspace').boundingBox()).height>before+100);
+ assert.ok(await feedback.evaluate(n=>n.scrollHeight<=n.clientHeight+2));
+ assert.equal(await feedback.evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(248, 220, 227)');
+ assert.equal(await feedback.evaluate(n=>getComputedStyle(n).borderTopColor),'rgb(164, 70, 94)');
+ if([1440,390].includes(width))await p.locator('#chapter-workspace').screenshot({path:`/tmp/chapter-feedback-${width}.png`});
+ await summary.click();assert.equal(await feedback.getAttribute('open'),null);
  for(const tab of ['chapter','check','publication']){
   await p.locator('#tab-'+tab).click();assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   assert.ok(await p.locator('#chapter-workspace').evaluate(n=>n.scrollWidth<=n.clientWidth));

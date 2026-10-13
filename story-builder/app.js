@@ -2378,6 +2378,7 @@ window.addEventListener("focus",()=>{
 });
 
 const panelWords = {
+  moderatorComment: ['Комментарий модератора', 'Moderator comment'],
   chapter: ['Моя глава', 'My chapter'], check: ['Проверка', 'Validation'], publication: ['Публикация', 'Publication'],
   save: ['Сохранить главу', 'Save chapter'], preview: ['Просмотр сцен', 'Scene preview'], close: ['Закрыть', 'Close'],
   checkAgain: ['Проверить ещё раз', 'Check again'], submit: ['Отправить на модерацию', 'Submit for moderation'],
@@ -2424,7 +2425,13 @@ function renderAuthorWorkspace(home = authorHomeCache) {
       ? (en ? 'Unpublished changes' : 'Есть неопубликованные изменения')
       : current ? storyLabels(current, currentLanguage).join(' · ') : (en ? 'Not published yet' : 'Ещё не опубликована');
   const comment = document.querySelector('#chapter-review-comment');
-  comment.textContent = [...new Set([current?.correctionReason,current?.reason].filter(Boolean))].join('\n'); comment.hidden = !comment.textContent;
+  const feedback = document.querySelector('#chapter-review-feedback');
+  const commentText = [...new Set([current?.correctionReason,current?.reason].filter(Boolean))].join('\n');
+  const commentKey = `${getDraftStoryId() || ''}:${commentText}`;
+  if (feedback.dataset.commentKey !== commentKey) feedback.open = false;
+  feedback.dataset.commentKey = commentKey;
+  comment.textContent = commentText;
+  feedback.hidden = !commentText;
   const editNotice=document.querySelector('#chapter-edit-notice');
   editNotice.textContent=publishedCorrectionNotice(current,currentLanguage);
   editNotice.hidden=!editNotice.textContent;

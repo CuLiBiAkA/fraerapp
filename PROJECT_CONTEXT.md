@@ -2,6 +2,17 @@
 
 Last updated: 2026-10-13.
 
+## Builder moderator comment disclosure (2026-10-13)
+
+The Publication tab shows moderator feedback in a native collapsed details block
+labelled Комментарий модератора / Moderator comment. Fill #F8DCE3, border/text
+#A4465E. Expanding displays the full preserved text and grows the workspace without
+an internal scroll area; absent feedback hides the block. Opening survives rerender
+of unchanged feedback and resets when chapter/comment changes. Existing correction
+reason and current reason are deduplicated, never rewritten. Builder app62/theme26.
+Six-width browser checks cover keyboard disclosure, long text, colors and overflow;
+53 baseline Node tests pass. No API or moderation workflow changes.
+
 ## Published story metadata is immutable (2026-10-13)
 
 After publication, or while a linked chapter has a published revision, collection
