@@ -67,7 +67,8 @@
 .season-dialog .collection-actions { display:flex; flex-wrap:wrap; gap:12px; }
 .season-dialog button { min-height:44px; padding:10px 16px; border:1px solid var(--line); border-radius:10px; font:inherit; }
 .accordion-story .author-chapters > .add-button { margin:8px 0; }
-.workspace .story-toggle:focus-visible { outline-offset:-4px; }
+.workspace .story-toggle:focus-visible { outline:none; }
+.workspace .story-toggle:focus-visible .story-chevron { outline:2px solid #4f3a68; outline-offset:4px; border-radius:4px; }
 .workspace.collections-panel > .author-list-tools { background:transparent;color:inherit;border:0;padding:0;margin-bottom:18px; }
 .author-trash-notice { padding:16px; border:1px solid currentColor; border-radius:12px; line-height:1.5; }
 .author-list-tools .author-utilities { margin-bottom:0; }
