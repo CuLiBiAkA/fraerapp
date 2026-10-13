@@ -49,10 +49,18 @@ for(const width of [320,390,768,1440]){
  assert.ok(await rows.nth(4).getByRole('button',{name:'На модерацию',exact:true}).isVisible());
  assert.ok(await rows.nth(2).getByText('Добавьте предупреждение о пугающей сцене.',{exact:true}).isVisible());
  assert.deepEqual(writes,[],'opening must not mark feedback read');
+ page.once('dialog',async dialog=>{assert.match(dialog.message(),/Одновременно на проверке может быть одна ваша история/);await dialog.dismiss();});
+ await rows.nth(4).getByRole('button',{name:'На модерацию',exact:true}).click();
+ await page.waitForFunction(()=>!document.querySelector('main.collections-panel').inert);
+ assert.deepEqual(writes,[],'Cancelling review confirmation must not save or submit');
  const advanced=page.locator('.collection-editor > details').filter({has:page.locator('label')});
  await advanced.locator(':scope > summary').click();
  const keyBox=await advanced.locator(':scope > label').boundingBox(),exportBox=await advanced.getByRole('button',{name:'Экспорт истории',exact:true}).boundingBox();
  assert.ok(exportBox.y-keyBox.y-keyBox.height>=15,'Key and utility buttons have a separate 16px gap');
+ const previewButton=advanced.getByRole('button',{name:'Предпросмотр истории',exact:true});
+ assert.equal(await previewButton.evaluate(el=>el.parentElement.classList.contains('collection-actions')),true);
+ assert.equal(await advanced.getByText(/На модерации может быть одна/).count(),0);
+ if(width===1440){const archiveBox=await advanced.getByRole('button',{name:'В архив',exact:true}).boundingBox(),previewBox=await previewButton.boundingBox();assert.ok(Math.abs(archiveBox.y-previewBox.y)<2,'Archive and preview share a desktop row');}
  await advanced.locator(':scope > summary').click();
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await page.screenshot({path:`/tmp/accordion-chapters-${width}.png`,fullPage:true});

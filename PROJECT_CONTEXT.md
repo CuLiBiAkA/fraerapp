@@ -2,6 +2,15 @@
 
 Last updated: 2026-10-13.
 
+## Contextual moderation guidance (2026-10-13)
+
+My stories explains the one-story review limit when confirming a chapter submission,
+not in Additional settings. Blocked submission reasons appear beside eligible
+chapter actions and refresh on focus, including the existing daily limit.
+The API does not provide the blocking story title, so the notice says another story.
+Export, archive, trash and the existing contents preview share one wrapping action
+row in Additional settings. No moderation rules or preview behavior changed.
+
 ## Builder moderator comment disclosure (2026-10-13)
 
 The Publication tab shows moderator feedback in a native collapsed details block
