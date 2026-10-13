@@ -9,7 +9,9 @@ labelled Комментарий модератора / Moderator comment. Fill #
 #A4465E. Expanding displays the full preserved text and grows the workspace without
 an internal scroll area; absent feedback hides the block. Opening survives rerender
 of unchanged feedback and resets when chapter/comment changes. Existing correction
-reason and current reason are deduplicated, never rewritten. Builder app62/theme26.
+reason and current reason are deduplicated, never rewritten. Builder app62/theme27.
+Header and comment use Montserrat Regular 18px/25px, zero letter spacing, and the
+original Figma comment.svg icon at 23.3118×24px from /assets/author/.
 Six-width browser checks cover keyboard disclosure, long text, colors and overflow;
 53 baseline Node tests pass. No API or moderation workflow changes.
 

@@ -44,6 +44,8 @@ for(const width of [1722,1440,1024,768,390,320]){
  assert.ok(await feedback.evaluate(n=>n.scrollHeight<=n.clientHeight+2));
  assert.equal(await feedback.evaluate(n=>getComputedStyle(n).backgroundColor),'rgb(248, 220, 227)');
  assert.equal(await feedback.evaluate(n=>getComputedStyle(n).borderTopColor),'rgb(164, 70, 94)');
+ for(const node of [summary,p.locator('#chapter-review-comment')])assert.deepEqual(await node.evaluate(n=>{const s=getComputedStyle(n);return [s.fontSize,s.lineHeight,s.fontWeight,s.letterSpacing];}),['18px','25px','400','normal']);
+ assert.ok(await summary.locator('img').evaluate(n=>n.complete&&n.naturalWidth>0&&Math.abs(n.getBoundingClientRect().width-23.3118)<.1));
  if([1440,390].includes(width))await p.locator('#chapter-workspace').screenshot({path:`/tmp/chapter-feedback-${width}.png`});
  await summary.click();assert.equal(await feedback.getAttribute('open'),null);
  for(const tab of ['chapter','check','publication']){

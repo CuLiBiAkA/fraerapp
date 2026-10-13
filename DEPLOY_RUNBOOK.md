@@ -2,7 +2,7 @@
 
 ## Builder feedback disclosure (2026-10-13)
 
-Ship Builder index.html, app.js vbuilder-62 and theme.css v26; rebuild/recreate
+Ship Builder index.html, app.js vbuilder-62 and theme.css v27; rebuild/recreate
 story-builder and reload edge after backing up the old image/runtime. Check public
 versioned bytes, Builder health and long feedback at mobile widths. No API rebuild.
 
