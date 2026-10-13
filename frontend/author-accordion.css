@@ -85,6 +85,10 @@ body[data-workspace="author"] { background:radial-gradient(ellipse at 25% 0%,#80
  .chapter-state { justify-self:start; }
  .workspace .chapter-buttons :is(a,button) { padding-inline:10px; }
 }
+/* Keep the key and utility actions on separate, evenly spaced rows. */
+.workspace .collection-editor > details:has(> label) > :is(summary,label,p,section,details,.collection-actions) { min-width:0; box-sizing:border-box; margin:0 0 16px; }
+.workspace .collection-editor > details:has(> label) > button { margin:0 16px 16px 0; min-height:44px; }
+.workspace .collection-editor > details:has(> label) > .collection-actions { gap:16px; }
 /* Figma 282:142: typography, compact badges and chapter controls. */
 body[data-workspace="author"] { background:#684e86 url('/assets/author/background.svg') center top/cover fixed; }
 .workspace.collections-panel { width:min(1368px,calc(100% - 72px)); }

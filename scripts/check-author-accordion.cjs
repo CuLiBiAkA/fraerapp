@@ -40,6 +40,11 @@ for(const width of [320,390,768,1440]){
  assert.ok(await rows.nth(4).getByRole('button',{name:'На модерацию',exact:true}).isVisible());
  assert.ok(await rows.nth(2).getByText('Добавьте предупреждение о пугающей сцене.',{exact:true}).isVisible());
  assert.deepEqual(writes,[],'opening must not mark feedback read');
+ const advanced=page.locator('.collection-editor > details').filter({has:page.locator('label')});
+ await advanced.locator(':scope > summary').click();
+ const keyBox=await advanced.locator(':scope > label').boundingBox(),exportBox=await advanced.getByRole('button',{name:'Экспорт истории',exact:true}).boundingBox();
+ assert.ok(exportBox.y-keyBox.y-keyBox.height>=15,'Key and utility buttons have a separate 16px gap');
+ await advanced.locator(':scope > summary').click();
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await page.screenshot({path:`/tmp/accordion-chapters-${width}.png`,fullPage:true});
  await rows.nth(2).getByRole('button',{name:'Отметить просмотренным'}).click();await page.waitForFunction(()=>!document.querySelector('main.collections-panel').inert);
