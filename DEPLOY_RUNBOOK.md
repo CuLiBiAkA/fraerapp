@@ -1,5 +1,14 @@
 # FraerApp deploy and ops runbook
 
+## Published metadata lock (2026-10-13)
+
+Rebuild API and ship collection-workspace v18, workspace-entry v17 and the two
+workspace HTML entrypoints. Back up API runtime and database before cutover.
+No migration is required. Verify metadata edits return 409 after a chapter is
+published, while appending chapters and grouping seasons still works. About story
+must be read-only with no cover/save action; review-settings and refresh buttons
+are removed. Test with isolated fixtures, not live user content.
+
 ## Shared genre/topic choices (2026-10-12)
 
 Deployed cab81ef with backup backups/classification-20261012-175009, including

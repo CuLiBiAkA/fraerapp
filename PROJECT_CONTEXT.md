@@ -1,6 +1,20 @@
 # FraerApp project context
 
-Last updated: 2026-10-12.
+Last updated: 2026-10-13.
+
+## Published story metadata is immutable (2026-10-13)
+
+After publication, or while a linked chapter has a published revision, collection
+metadata is locked: title, description, cover, genre, topic, completion status and
+schema. Key/type already were immutable. Collection details expose metadataLocked;
+author save rejects metadata changes and publication cannot replace the published
+metadata with an older pending edit. Chapter additions and season grouping still
+use the existing contents workflow. No database migration or content rewrite.
+
+About story becomes read-only with no save/cover action. Removed Refresh details,
+Submit story settings for review and Publish approved settings from the author UI.
+Eligibility still refreshes automatically. This supersedes the earlier editable
+published-story metadata flow; individual chapter moderation remains unchanged.
 
 ## My stories Figma reference and status vocabulary (2026-10-12)
 

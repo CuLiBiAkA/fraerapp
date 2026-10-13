@@ -272,11 +272,13 @@ async function start(root) {
       renderSnapshot(editor,doc);return;
     }
     const metadata=el("section",null,"author-metadata"),chapters=el("section",null,"author-chapters");
+    const metadataLocked=Boolean(current?.metadataLocked||current?.publishedRevision||(current?.dependencies||[]).some(chapter=>chapter.publishedRevision||chapter.available));
     const aboutButton=button(words('Об истории','About story'),()=>{tabKey='metadata';editor.querySelector('.story-primary-actions').hidden=true;aboutDialog.showModal();},'story-about-button');
     const aboutTitle=el('h2',words('Об истории','About story'));aboutTitle.id='story-about-title';
     const aboutStatus=el('p',null,'collection-status');aboutStatus.setAttribute('role','status');
     const aboutActions=el('div',null,'collection-actions');aboutActions.append(button(words('Сохранить','Save'),()=>work(save),'add-button'),button(words('Закрыть','Close'),()=>aboutDialog.close()));
     aboutDialog.replaceChildren(aboutTitle,metadata,aboutStatus,aboutActions);
+    if(metadataLocked){aboutActions.firstElementChild.remove();metadata.append(el('p',words('Первая глава уже опубликована. Данные истории доступны только для просмотра.','The first chapter has been published. Story details are read-only.')));}
     const reviewNotice=el("p",reviewLimitMessage(document.documentElement.lang,current||{}),"collection-status review-limit-notice");reviewNotice.hidden=!current?.reviewLimitReached;editor.append(reviewNotice);
     const fields=el("div",null,"collection-fields"),advanced=el("details");advanced.append(el("summary",words("Дополнительные настройки", "Additional settings")));
     for(const [key,ru,en,inputType] of [["key","Ключ","Key","text"],["title","Название","Title","text"],["description","Описание","Description","textarea"]]){
@@ -291,6 +293,7 @@ async function start(root) {
     }
     fields.append(classification,completion.label);metadata.append(fields);
     const cover=el("div",null,"author-cover-setting");cover.append(coverImage(doc.coverUrl),button(words("Выбрать обложку","Choose cover"),()=>chooseCover({url:doc.coverUrl,getImages:()=>current?request(`${api}/${current.collectionId}/covers`):[],upload:async file=>{if(!current)await save();return uploadImage(`${api}/${current.collectionId}/cover`,file);},onSelect:url=>{doc.coverUrl=url;changed();renderEditor();}})));metadata.append(cover);
+    if(metadataLocked){metadata.querySelectorAll('input,textarea').forEach(control=>control.readOnly=true);metadata.querySelectorAll('select').forEach(control=>control.disabled=true);cover.querySelector('button').remove();}
     const chapterHeading=el('div',null,'chapter-heading');chapterHeading.append(el('h3',words('Главы','Chapters')),aboutButton);chapters.append(chapterHeading);
     const items=el("ol",null,"collection-items");
     for(const group of seasonGroups(doc.items||[])){
@@ -327,9 +330,7 @@ async function start(root) {
 
     const actions=el("div",null,"collection-actions");
     actions.append(button(words("Сохранить", "Save"),()=>work(save),"add-button"));
-    actions.append(button(words("Обновить сведения","Refresh details"),()=>work(async()=>{await refreshReviewEligibility();status.textContent=permissionNotice||(dirty?words("Есть несохранённые изменения в форме.","There are unsaved changes in this form."):words("Сведения обновлены.","Details refreshed."));})));
     if(current){
-      if(current.publishedRevision){const send=button(words("Отправить настройки истории на проверку", "Submit story settings for review"),()=>work(async()=>{await save();await submit(false);}));send.dataset.reviewSubmit="true";send.disabled=Boolean(current.reviewLimitReached);actions.append(send);}
       advanced.append(button(words("Экспорт истории", "Export story"),()=>work(async()=>{download(await request(`${api}/${current.collectionId}/export`),`${current.key}.json`);status.textContent="";})));
       if(current.reviewState==="in_review")advanced.append(button(words("Отозвать проверку истории", "Withdraw story review"),()=>work(async()=>{await request(`${api}/${current.collectionId}/withdraw`,{method:"POST",body:{generation:current.generation}});await open(current.collectionId);await loadList();})));
       if(!current.restricted&&current.visibility!=="archived"){
@@ -339,13 +340,6 @@ async function start(root) {
     }
     const primaryActions=el("div",null,"collection-actions story-primary-actions");primaryActions.append(actions.firstElementChild);primaryActions.hidden=aboutDialog.open||tabKey==='metadata';editor.append(primaryActions);advanced.append(actions);advanced.append(el("p",words("На модерации может быть одна ваша история с её главами. Остальные истории можно создавать и редактировать; отправить их получится после решения модератора.","Only one of your stories and its chapters can be under review. Keep creating and editing other stories; submit them after the moderator’s decision.")));editor.append(advanced);
     if(tabKey==='metadata'&&!aboutDialog.open)aboutDialog.showModal();
-    if(current?.publishedRevision&&current.reviewState==='approved'&&current.submittedRevision===current.draftRevision&&current.publishedRevision!==current.draftRevision){
-      metadata.append(button(words('Опубликовать одобренные настройки','Publish approved settings'),()=>work(async()=>{
-        if(dirty)throw new Error(words('Сначала сохраните изменения.','Save changes first.'));
-        if(!confirm(words('Опубликовать одобренное описание и оглавление?','Publish the approved description and contents?')))return;
-        await request(`${api}/${current.collectionId}/publish`,{method:'POST',body:{generation:current.generation,revision:current.draftRevision}});await reloadExpanded();
-      }),'add-button'));
-    }
     if(current){
       const previewHost=el("section");
       advanced.append(button(words("Предпросмотр истории", "Preview story"),()=>work(async()=>{

@@ -64,7 +64,7 @@ class CollectionPresentationTests extends ApiTestSupport {
   String other=TestJwtFactory.player("other-"+UUID.randomUUID()+"@example.test");ok(call("PUT","/api/catalog/collections/"+id+"/rating",Map.of("score",5),other));ok(call("POST","/api/catalog/collections/"+id+"/view",null,other));
   assertThat(publicDetail(id)).containsEntry("views",2).containsEntry("rating",4.0).containsEntry("ratingCount",2).containsEntry("myRating",3);
   jdbc.update("update collection_views set viewed_on=? where collection_id=?",java.sql.Date.valueOf(LocalDate.now(ZoneOffset.UTC).minusDays(1)),id);ok(call("POST","/api/catalog/collections/"+id+"/view",null,reader));assertThat(publicDetail(id)).containsEntry("views",3);
-  doc.put("title","PRIVATE draft title");ok(call("PUT","/api/author/collections/"+id,Map.of("generation",detail(id).get("generation"),"document",doc),author));var after=publicDetail(id);
+  var grouped=new LinkedHashMap<>(item(chapter));grouped.put("season","Private season draft");doc.put("items",List.of(grouped));ok(call("PUT","/api/author/collections/"+id,Map.of("generation",detail(id).get("generation"),"document",doc),author));var after=publicDetail(id);
   for(String field:List.of("title","publishedAt","updatedAt"))assertThat(after.get(field)).isEqualTo(initial.get(field));
   assertThat(jdbc.queryForObject("select count(*) from story_ratings where story_id=?",Long.class,chapter.get("storyId"))).isZero();
   assertThat(jdbc.queryForObject("select count(*) from story_views where story_id=?",Long.class,chapter.get("storyId"))).isZero();
@@ -155,7 +155,7 @@ class CollectionPresentationTests extends ApiTestSupport {
   assertThat(call("POST","/api/catalog/collections/"+id+"/view",null,reader).statusCode()).isEqualTo(404);
   doc.put("items",List.of(item(chapter())));doc.put("coverUrl",url);ok(call("PUT",path,Map.of("generation",detail(id).get("generation"),"document",doc),author));publish(id);
   assertThat(publicDetail(id)).containsEntry("coverUrl",url);assertThat(call("GET",url,null,reader).statusCode()).isEqualTo(200);assertThat(call("GET",url,null,null).statusCode()).isEqualTo(401);
-  String draftUrl=ok(upload(path+"/cover",author,"image/svg+xml")).get("url").toString();doc.put("coverUrl",draftUrl);ok(call("PUT",path,Map.of("generation",detail(id).get("generation"),"document",doc),author));
+  String draftUrl=ok(upload(path+"/cover",author,"image/svg+xml")).get("url").toString();doc.put("coverUrl",draftUrl);assertThat(call("PUT",path,Map.of("generation",detail(id).get("generation"),"document",doc),author).statusCode()).isEqualTo(409);
   assertThat(call("GET",draftUrl,null,reader).statusCode()).isEqualTo(404);assertThat(publicDetail(id)).containsEntry("coverUrl",url);
   doc.put("coverUrl","/uploads/other/file.svg");assertThat(call("PUT",path,Map.of("generation",detail(id).get("generation"),"document",doc),author).statusCode()).isEqualTo(400);
   ok(call("POST",path+"/archive",Map.of("generation",detail(id).get("generation")),author));assertThat(call("GET",url,null,reader).statusCode()).isEqualTo(404);

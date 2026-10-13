@@ -53,6 +53,7 @@ class CollectionService {
  Map<String,Object> details(String id,String player,boolean moderator) {
   Row r=row(id);if(!moderator)owner(r,player);var result=summary(r);
   result.put("draftDocument",json.readCollection(r.draft()));result.put("document",json.readCollection(r.draft()));
+  result.put("metadataLocked",metadataLocked(r));
   result.put("submittedDocument",r.submitted()==null?null:document(r,r.submitted()));result.put("publishedDocument",r.published()==null?null:document(r,r.published()));
   result.put("versions",jdbc.queryForList("select revision,created_at from collection_versions where collection_id=? order by revision desc",r.id()));
   result.put("events",jdbc.queryForList("select id,revision,action,reason,created_at"+(moderator?",actor_id,internal_note":"")+" from collection_moderation_events where collection_id=? order by created_at desc",r.id()));
@@ -79,11 +80,22 @@ class CollectionService {
   Row r=lock(id);owner(r,player);expected(r,generation);if("deleted".equals(r.visibility()))throw conflict("Restore collection before editing");
   if(d==null)throw bad("Collection document required");
   if(!Objects.equals(d.key(),r.key())||!Objects.equals(d.type(),r.type()))throw bad("Collection key and type are immutable");
-  d=normalize(d,player,id,false);String body=json.write(d);if(body.equals(r.draft()))return summary(r);
+  d=normalize(d,player,id,false);
+  if(metadataLocked(r)&&!sameMetadata(json.readCollection(r.draft()),d))throw conflict("После публикации первой главы данные истории изменять нельзя.");
+  String body=json.write(d);if(body.equals(r.draft()))return summary(r);
   int revision=r.draftRevision()+1;
   jdbc.update("insert into collection_versions(collection_id,revision,document_json) values (?,?,?)",id,revision,body);
   jdbc.update("update work_collections set draft_json=?,draft_title=?,draft_revision=?,generation=generation+1,updated_at=current_timestamp where id=?",body,d.title(),revision,id);
   reindex(row(id));return summary(row(id));
+ }
+ private boolean metadataLocked(Row r) {
+  return r.published()!=null||jdbc.queryForObject("select count(*) from collection_memberships m join stories s on s.id=m.target_id where m.parent_id=? and m.target_kind='scenario' and s.published_revision is not null",Integer.class,r.id())>0;
+ }
+ private boolean sameMetadata(CollectionDocument a,CollectionDocument b) {
+  return Objects.equals(a.title(),b.title())&&Objects.equals(a.description(),b.description())
+   &&Objects.equals(a.coverUrl(),b.coverUrl())&&Objects.equals(a.genre(),b.genre())
+   &&Objects.equals(a.topic(),b.topic())&&Objects.equals(a.completionStatus(),b.completionStatus())
+   &&Objects.equals(a.schemaVersion(),b.schemaVersion());
  }
  CollectionDocument normalize(CollectionDocument d,String owner,String id,boolean strict) {
   if(d==null)throw bad("Collection document required");name(d.key(),"collection key");
@@ -220,6 +232,7 @@ class CollectionService {
   if(r.restricted()||List.of("hidden","archived","deleted").contains(r.visibility()))throw conflict("Restore availability explicitly before publication");
   if(visibility!=null&&!List.of("public","unlisted").contains(visibility))throw bad("Publication visibility must be public or unlisted");
   var document=normalize(document(r,revision),r.owner(),r.id(),true);
+  if(r.published()!=null&&!sameMetadata(document(r,r.published()),document))throw conflict("После публикации первой главы данные истории изменять нельзя.");
   jdbc.update("update work_collections set published_at=coalesce(published_at,current_timestamp),published_updated_at=case when published_revision=? then published_updated_at else current_timestamp end,published_revision=?,published_title=?,visibility=? where id=?",revision,revision,document.title(),"unlisted".equals(visibility)?"unlisted":"public",r.id());reindex(row(r.id()));
  }
  @Transactional

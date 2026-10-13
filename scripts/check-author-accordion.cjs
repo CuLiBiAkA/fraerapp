@@ -5,7 +5,7 @@ for(const width of [320,390,768,1440]){
  const context=await browser.newContext({viewport:{width,height:1000}}),errors=[],writes=[];
  const chapters=['published','in_review','rejected','approved','draft'].map((state,i)=>({id:'c'+i,storyId:'c'+i,kind:'scenario',title:['Каждая щёлочка — обещание','Записка','Закрытая дверь','Встреча','Развязка'][i],generation:2,draftRevision:1,submittedRevision:state==='draft'?null:1,publishedRevision:state==='published'?1:null,visibility:state==='published'?'public':'private',reviewState:state==='published'?'approved':state,reason:state==='rejected'?'Добавьте предупреждение о пугающей сцене.':'',events:state==='rejected'?[{action:'reject',reason:'Добавьте предупреждение о пугающей сцене.',createdAt:'2026-10-12T12:00:00Z'}]:[],draftDocument:{title:['Каждая щёлочка — обещание','Записка','Закрытая дверь','Встреча','Развязка'][i]}}));
  const document={schemaVersion:2,key:'city',type:'story',title:'Тайны города',description:'В городе исчезают люди, а прошлое оставляет подсказки.',coverUrl:'/assets/door.svg',items:chapters.map(c=>({target:{kind:'scenario',id:c.id,key:c.id}})),transitions:[]};
- const story={id:'city',collectionId:'city',kind:'collection',...document,generation:1,draftRevision:1,reviewState:'draft',draftDocument:document,children:chapters};
+ const story={id:'city',collectionId:'city',kind:'collection',...document,generation:1,draftRevision:1,reviewState:'draft',draftDocument:document,children:chapters,metadataLocked:true};
  let unread=true;
  await context.route('https://fraerapp.ru/**',async route=>{
   const req=route.request(),u=new URL(req.url()),p=u.pathname,send=json=>route.fulfill({json});if(req.method()!=='GET')writes.push(p);
@@ -30,6 +30,11 @@ for(const width of [320,390,768,1440]){
  await page.getByRole('button',{name:'Об истории',exact:true}).click();
  const about=page.getByRole('dialog',{name:'Об истории',exact:true});await about.waitFor();
  assert.equal(await about.getByLabel('Описание',{exact:true}).inputValue(),document.description);
+ assert.equal(await about.getByLabel('Описание',{exact:true}).getAttribute('readonly'),'');
+ assert.equal(await about.getByRole('button',{name:'Сохранить',exact:true}).count(),0);
+ assert.equal(await about.getByRole('button',{name:'Выбрать обложку',exact:true}).count(),0);
+ assert.equal(await page.getByRole('button',{name:'Обновить сведения',exact:true}).count(),0);
+ assert.equal(await page.getByRole('button',{name:'Отправить настройки истории на проверку',exact:true}).count(),0);
  await about.getByRole('button',{name:'Закрыть',exact:true}).click();
  assert.equal(await page.locator('[data-work-id=cat]').isVisible(),true);
  assert.equal(await rows.nth(1).getByRole('link',{name:'Редактировать',exact:true}).count(),0);
