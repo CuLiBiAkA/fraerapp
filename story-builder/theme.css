@@ -48,7 +48,7 @@ body { background: var(--bg); color: var(--ink); }
 #chapter-preview-content section { border-top: 1px solid var(--line); padding: 16px 0; }
 .chapter-prose { white-space: pre-wrap; }
 @media (max-width: 1180px) { .chapter-workspace { grid-template-columns: 46px minmax(0, 1fr); } .chapter-tabs { padding-inline: 3px; } .chapter-tabs button { width: 40px; padding: 6px; } .chapter-content { padding: 16px 10px; } }
-body, input, select, textarea { font-family: var(--font-body); font-weight: 400; }
+body, input, select, textarea { font-family: var(--font-control); font-weight: 400; }
 button, .file-button, .button-link { font-family: var(--font-control); font-weight: 500; }
 .builder, .board-shell { width: min(1680px, calc(100% - 112px)); padding-top: 52px; }
 .builder { padding-bottom: 220px; }
@@ -245,3 +245,16 @@ dialog { max-height: calc(100dvh - 32px); overflow: auto; }
   dialog { padding: 18px; }
   .topbar h1, .board-title h1 { font-size: 28px; line-height: 1.375; }
 }
+/* Authoring text: Figma Caption; badges: Figma Body L. */
+.builder { font:400 14px/18px var(--font-control); letter-spacing:0; }
+.builder :is(label, input, select, textarea, .muted-hint, .summary-title, .summary-subtitle, .summary-state, .row-head strong, .active-context-title, .active-context-subtitle),
+.builder .project-panel :is(summary, .outline-link, .project-group-title),
+.builder .chapter-content p, .builder .chapter-content #chapter-title, .builder .chapter-content #api-result { font:400 14px/18px var(--font-control); letter-spacing:0; }
+.builder .active-context-kicker, .builder .chapter-content .status-badge {
+  font-family:var(--font-body); font-size:18px !important; line-height:25px;
+  font-weight:400 !important; letter-spacing:0; text-transform:none; white-space:normal; overflow-wrap:anywhere;
+}
+.builder .active-context :is(strong, span:last-child) { font:400 14px/18px var(--font-control); }
+.builder .chapter-content #chapter-review-feedback > summary,
+.builder .chapter-content #chapter-review-comment { font:400 18px/25px var(--font-body); }
+.builder .collapsible-item > .scene-order { margin-top:12px; gap:12px; }

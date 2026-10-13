@@ -2,6 +2,14 @@
 
 Last updated: 2026-10-13.
 
+## Builder text styles (2026-10-13)
+
+Builder theme28 uses Inter Regular 14/18 for authoring body text, form fields and
+the structure tree. Context and publication badges use Montserrat Regular 18/25
+without uppercase transformation. Moderator feedback keeps its Montserrat 18/25
+style; display headings retain Playfair. Scene reorder controls have a 12px top
+margin below the summary/delete action, including native details layout.
+
 ## Contextual moderation guidance (2026-10-13)
 
 My stories explains the one-story review limit when confirming a chapter submission,

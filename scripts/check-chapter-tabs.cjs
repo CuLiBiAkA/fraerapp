@@ -18,6 +18,18 @@ for(const width of [1722,1440,1024,768,390,320]){
  const p=await c.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));await p.goto('https://fraerapp.ru/builder/');
  await p.waitForFunction(()=>!document.body.classList.contains('builder-locked'));
  await p.locator('#import-runtime').waitFor();
+ for(const selector of ['.active-context-kicker','.status-badge']){
+  const style=await p.locator(selector).first().evaluate(el=>{const s=getComputedStyle(el);return [s.fontFamily,s.fontSize,s.lineHeight,s.fontWeight];});
+  assert.match(style[0],/Montserrat/);assert.deepEqual(style.slice(1),['18px','25px','400']);
+ }
+ const textStyle=await p.locator('[data-meta="title"]').evaluate(el=>{const s=getComputedStyle(el);return [s.fontFamily,s.fontSize,s.lineHeight,s.fontWeight];});
+ assert.match(textStyle[0],/Inter/);assert.deepEqual(textStyle.slice(1),['14px','18px','400']);
+ const scene= p.locator('.collapsible-item:has(> .scene-order)').first();
+ if(await scene.count()){
+  await scene.evaluate(el=>el.open=true);
+  const remove=await scene.locator(':scope > .collapsible-tools .danger').boundingBox(),order=await scene.locator(':scope > .scene-order').boundingBox();
+  assert.ok(order.y-remove.y-remove.height>=12,'Delete and reorder controls have at least 12px separation');
+ }
  assert.equal(await p.locator('#chapter-review-feedback').isVisible(),false);
  assert.deepEqual(await p.getByRole('tab').allTextContents(),['Моя глава','Проверка','Публикация']);
  assert.equal(await p.locator('#author-search, #author-story-select, #author-filter').count(),0);
