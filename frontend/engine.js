@@ -1,4 +1,5 @@
 import { fetchWithSession, refreshSession } from "./auth-session.js?v=1";
+import { profileLabel, bindTelegramNotifications } from "./telegram-profile.js?v=1";
 import {
   credentialToJson,
   parseCreationOptions,
@@ -9,8 +10,8 @@ import {
 import { enhanceFilterSelect } from "./filter-select.js?v=1";
 import { observeHomeFit } from "./home-fit.js?v=7";
 import { createAccountUI } from "./account-ui.js?v=7";
-import { mountSiteControls, updateSiteControlsLanguage } from "./site-controls.js?v=7";
-import { mountAccountDialogs } from "./account-dialogs.js?v=3";
+import { mountSiteControls, updateSiteControlsLanguage } from "./site-controls.js?v=8";
+import { mountAccountDialogs } from "./account-dialogs.js?v=4";
 import { createCollectionReader } from "./collection-reader.js?v=8";
 import { readingBackground, decorateReadingStat } from "./reader-presentation.js?v=2";
 import { createReaderAds } from "./reader-ads.js?v=1";
@@ -99,7 +100,6 @@ const profileLogoutButton = document.querySelector("#profile-logout");
 const modalLangRuButton = document.querySelector("#modal-lang-ru");
 const modalLangEnButton = document.querySelector("#modal-lang-en");
 const modalSoundToggle = document.querySelector("#modal-sound-toggle");
-const modalNotificationsToggle = document.querySelector("#modal-notifications-toggle");
 const modalSettingsStatus = document.querySelector("#modal-settings-status");
 const modalPasskeyButton = document.querySelector("#modal-passkey");
 
@@ -144,7 +144,7 @@ const translations = {
     settingsSound: "Звук",
     profileModalTitle: "Аккаунт",
     settingsNotifications: "Уведомления",
-    notificationsHint: "Уведомления доступны в личном кабинете. Push-уведомления появятся позже.",
+    notificationsHint: "Бот присылает те же уведомления, что и сайт.",
     settingsSupport: "Поддержка",
     settingsPasskey: "Привязать passkey",
     settingsPasskeyFailed: "Не удалось привязать passkey. Попробуйте снова или заново войдите через Telegram.",
@@ -310,7 +310,7 @@ const translations = {
     settingsSound: "Sound",
     profileModalTitle: "Account",
     settingsNotifications: "Notifications",
-    notificationsHint: "Notifications are available in your account. Push notifications are coming later.",
+    notificationsHint: "The bot sends the same notifications as the website.",
     settingsSupport: "Support",
     settingsPasskey: "Add passkey",
     settingsPasskeyFailed: "Could not add a passkey. Try again or sign in again through Telegram.",
@@ -438,6 +438,7 @@ const translations = {
   },
 };
 
+let signedInUser = null;
 const storage = {
   get email() {
     return localStorage.getItem("fraerapp.email");
@@ -466,6 +467,7 @@ const storage = {
     return localStorage.getItem("fraerapp.passkeyNudgeDismissed") === "true";
   },
   setUser(user) {
+    signedInUser = user;
     localStorage.setItem("fraerapp.email", user.email);
     localStorage.setItem("fraerapp.roles", JSON.stringify(user.roles || []));
   },
@@ -490,6 +492,7 @@ const storage = {
     localStorage.removeItem("fraerapp.storyKey");
   },
   clear() {
+    signedInUser = null;
     this.clearGame();
     localStorage.removeItem("fraerapp.email");
     localStorage.removeItem("fraerapp.roles");
@@ -1458,7 +1461,7 @@ function openAuthModal() {
 
 function openSettingsModal() {
   document.querySelector('#modal-volume').value = soundVolume;
-  modalNotificationsToggle.setAttribute("aria-checked", String(localStorage.getItem("fraerapp.notifications") === "true"));
+  telegramNotifications.refresh();
   modalSettingsStatus.textContent = "";
   openModal(settingsModal);
 }
@@ -1468,7 +1471,7 @@ function openProfileModal() {
     openAuthModal();
     return;
   }
-  profileModalEmail.textContent = storage.email;
+  profileModalEmail.textContent = profileLabel(signedInUser || {email:storage.email});
   accountUI.refresh(true);
   document.querySelector("#profile-builder").classList.toggle("hidden", !hasAnyRole(storage.roles, ["author", "admin"]));
   document.querySelector("#profile-moderation").classList.toggle("hidden", !hasAnyRole(storage.roles, ["moderator", "admin"]));
@@ -2359,11 +2362,7 @@ document.querySelector('#modal-volume').addEventListener('input', event => {
   volumeSlider.value = event.target.value;
   volumeSlider.dispatchEvent(new Event('input'));
 });
-modalNotificationsToggle.addEventListener("click", () => {
-  const enabled = modalNotificationsToggle.getAttribute("aria-checked") !== "true";
-  localStorage.setItem("fraerapp.notifications", String(enabled));
-  modalNotificationsToggle.setAttribute("aria-checked", String(enabled));
-});
+const telegramNotifications = bindTelegramNotifications({language:() => storage.language});
 document.querySelector("#modal-support").addEventListener("click", () => {
   window.location.assign("/terms.html#contacts");
 });

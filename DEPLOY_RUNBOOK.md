@@ -1,5 +1,57 @@
 # FraerApp deploy and ops runbook
 
+## Telegram profile and notification delivery (local, 2026-10-15)
+
+Release auth V11 and API V24 with the frontend/shared controls together. Back up
+both databases and changed runtime files first; inspect current services/logs/DNS
+using the existing production checklist. Rebuild auth-service and API; rebuild
+Builder for its changed shared-controls import URLs. Frontend remains mounted.
+Assets: engine-95, site-controls JS v8/CSS v7, standalone-dialogs v5,
+account-dialogs JS v4/CSS v3, telegram-profile v1. Deploy the complete diff,
+including the new module and auth's updated admin HTML.
+
+Configure only in the private runtime environment:
+
+```bash
+TELEGRAM_NOTIFICATIONS_ENABLED=true
+TELEGRAM_NOTIFICATION_SECRET='<separate-random-service-secret-at-least-32-characters>'
+AUTH_PUBLIC_BASE_URL='https://<public-domain>'
+```
+
+Both services receive the same notification secret through compose. Do not reuse
+the bot token, webhook secret or JWT secret. Existing bot configuration remains
+required. /internal/telegram/notifications is called only on the compose network;
+do not add an edge proxy or publish auth's port. No webhook change is needed.
+
+Verify outbound TLS connectivity to api.telegram.org from auth's network before
+activation; successful login does not prove this path works. Never print token
+URLs, personal message bodies or exception request URIs. Use an authorized
+disposable account to check one new site notice arrives in its private bot chat,
+opt-out survives reload, read/delete still work, and restart does not resend
+acknowledged messages. Do not notify real users merely as a smoke test. Check
+profile name/username after a fresh bot interaction and /auth/me. Without delivery
+configuration, settings show delivery as unavailable.
+
+Inspect aggregate queue status without personal data:
+
+```sql
+select telegram_status,count(*) from account_notifications group by telegram_status;
+select count(*) as deferred from account_notifications
+where telegram_status='pending' and telegram_attempts>0;
+```
+
+V24 skips existing notices; notices created after migration are eligible. Failures
+remain pending with 30-second to one-hour backoff; Telegram retry_after can extend
+this. Batches contain up to 20 notices and run every five seconds. Receipt/worker
+leases recover after 30/60 seconds. An ambiguous Telegram response can result in
+a duplicate; an in-flight delivery can finish after opt-out/deletion. Disable
+TELEGRAM_NOTIFICATIONS_ENABLED on both services to pause delivery. Keep migrations,
+preferences and receipts for rollback/re-enable; never truncate receipts.
+
+Checks: full Java API/auth tests; baseline Node tests plus telegram-profile.test.js;
+check-telegram-profile.cjs, check-site-controls.cjs and check-notifications.cjs;
+production validator, syntax and git diff --check. All tests use isolated data.
+
 ## Builder feedback disclosure (2026-10-13)
 
 Ship Builder index.html, app.js vbuilder-62 and theme.css v27; rebuild/recreate

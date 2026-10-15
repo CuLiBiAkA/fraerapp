@@ -1,4 +1,4 @@
-import { mountStandaloneDialogs } from './standalone-dialogs.js?v=4';
+import { mountStandaloneDialogs } from './standalone-dialogs.js?v=5';
 
 const ru = () => localStorage.getItem('fraerapp.language') !== 'en';
 const words = (a, b) => ru() ? a : b;

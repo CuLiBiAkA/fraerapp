@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 // The obsolete check-chapters-ui.mjs targets a retired editor and is excluded.
 const checks = [
   'unified-catalog', 'frontend-audit', 'legal-pages', 'builder-editing', 'site-controls',
-  'admin-panel', 'subscriptions', 'reader-ads', 'notifications',
+  'admin-panel', 'subscriptions', 'reader-ads', 'notifications', 'telegram-profile',
   'reader-layout', 'review-limit', 'serial-stories', 'story-contents', 'builder-help', 'chapter-tabs',
   'author-workspace', 'author-accordion', 'published-corrections', 'reader-recovery', 'standalone-recovery',
   'guest-catalog', 'draft-playtest', 'image-preparation', 'author-playtest-trash',

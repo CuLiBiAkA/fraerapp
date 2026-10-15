@@ -1,5 +1,6 @@
 import { fetchWithSession } from './auth-session.js?v=1';
-import { mountAccountDialogs } from './account-dialogs.js?v=3';
+import { profileLabel, bindTelegramNotifications } from './telegram-profile.js?v=1';
+import { mountAccountDialogs } from './account-dialogs.js?v=4';
 import { createAccountUI } from './account-ui.js?v=7';
 import { credentialToJson, parseCreationOptions, passkeysSupported } from './passkeys.js';
 
@@ -42,7 +43,7 @@ export function mountStandaloneDialogs({setActions}) {
   const account = createAccountUI({request, email:()=>user?.email, language:()=>en?'en':'ru'});
   async function refresh() {
     try { user = await request('/auth/me'); } catch { user = null; }
-    $('#profile-modal-email').textContent = user?.email || '';
+    $('#profile-modal-email').textContent = profileLabel(user);
     const roles = user?.roles || [];
     for (const [id, allowed] of [['builder',['author','admin']],['moderation',['moderator','admin']],['admin',['admin']]]) $('#profile-'+id).classList.toggle('hidden', !roles.some(r=>allowed.includes(r)));
     await account.refresh(true);
@@ -50,7 +51,8 @@ export function mountStandaloneDialogs({setActions}) {
   const ready = refresh();
   $('#modal-volume').value = localStorage.getItem('fraerapp.volume') || '45';
   $('#modal-volume').oninput = e => localStorage.setItem('fraerapp.volume',e.target.value);
-  setActions(() => { $('#modal-settings-status').textContent = ''; open(settings); }, async () => { await ready; if (!user) { location.assign('/?panel=account'); return; } open(profile); refresh(); });
+  const telegramNotifications = bindTelegramNotifications({language:() => en ? 'en' : 'ru'});
+  setActions(() => { $('#modal-settings-status').textContent = ''; open(settings); telegramNotifications.refresh(); }, async () => { await ready; if (!user) { location.assign('/?panel=account'); return; } open(profile); refresh(); });
   for (const [id, url] of Object.entries({favorites:'/?panel=favorites', 'my-stories':'/my-stories/', builder:'/builder/', moderation:'/moderation/', admin:'/auth/admin'})) $('#profile-'+id).onclick=()=>location.assign(url);
   $('#profile-logout').onclick = async () => {
     const b=$('#profile-logout');b.disabled=true;
@@ -62,7 +64,7 @@ export function mountStandaloneDialogs({setActions}) {
     b.setAttribute('aria-pressed',String(lang===(en?'en':'ru')));
     b.onclick=()=>{localStorage.setItem('fraerapp.language',lang);localStorage.setItem('fraerapp.storyBuilderLanguage',lang);location.reload();};
   }
-  for (const [id,key] of [['sound','fraerapp.sound'],['notifications','fraerapp.notifications']]) {
+  for (const [id,key] of [['sound','fraerapp.sound']]) {
     const b=$('#modal-'+id+'-toggle');b.setAttribute('aria-checked',String(localStorage.getItem(key)==='true'));
     b.onclick=()=>{const enabled=b.getAttribute('aria-checked')!=='true';localStorage.setItem(key,String(enabled));b.setAttribute('aria-checked',String(enabled));};
   }

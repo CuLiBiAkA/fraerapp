@@ -10,6 +10,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 class AccountService {
+ // Shared by the site inbox and Telegram delivery; never disclose stale hidden titles.
+ static final String NOTICE_MESSAGE = "case when (n.kind='story' and s.id is null) or (n.kind='chapter' and (s.id is null or c.id is null)) then 'История временно недоступна' else n.message end";
+ static final String NOTICE_JOINS = """
+   from account_notifications n left join stories s on s.id=n.story_id and s.status='PUBLISHED' and s.visibility='public'
+   left join work_collections c on c.id=n.collection_id and c.visibility='public' and c.published_revision is not null
+   """;
  private final JdbcTemplate jdbc;
  private final TransactionTemplate transactions;
  AccountService(JdbcTemplate jdbc, PlatformTransactionManager manager) { this.jdbc=jdbc;this.transactions=new TransactionTemplate(manager); }
@@ -18,13 +24,11 @@ class AccountService {
  @Transactional(readOnly=true)
  Account get(String userId) {
   String avatar=jdbc.query("select avatar from account_preferences where user_id=?", (r,n)->r.getString(1), userId).stream().findFirst().orElse("fairy");
-  List<Notice> notices=jdbc.query("""
-   select n.id,n.kind,case when (n.kind='story' and s.id is null) or (n.kind='chapter' and (s.id is null or c.id is null)) then 'История временно недоступна' else n.message end,
+  List<Notice> notices=jdbc.query("select n.id,n.kind," + NOTICE_MESSAGE + "," + """
    case when n.kind='chapter' and c.id is null then null else s.published_slug end,n.created_at,n.read_at,
    case when n.kind in ('story','chapter') and (s.id is null or (n.kind='chapter' and c.id is null)) then null else n.story_id end,n.revision,n.reviewer_id,
    case when n.kind='chapter' and (c.id is null or s.id is null) then null else n.collection_id end
-   from account_notifications n left join stories s on s.id=n.story_id and s.status='PUBLISHED' and s.visibility='public'
-   left join work_collections c on c.id=n.collection_id and c.visibility='public' and c.published_revision is not null
+   """ + NOTICE_JOINS + """
    where n.user_id=? order by case when n.read_at is null then 0 else 1 end,n.created_at desc,n.id desc limit 100
    """,(r,n)->new Notice(r.getString(1),r.getString(2),r.getString(3),r.getString(4),r.getString(7),(Integer)r.getObject(8),r.getString(9),r.getTimestamp(5).toInstant().toString(),r.getTimestamp(6)==null,r.getString(10)),userId);
   long unread=jdbc.queryForObject("select count(*) from account_notifications where user_id=? and read_at is null",Long.class,userId);

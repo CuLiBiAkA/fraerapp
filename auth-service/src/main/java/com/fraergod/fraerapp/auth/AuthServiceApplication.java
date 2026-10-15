@@ -142,6 +142,9 @@ class AuthController {
 	@Value("${auth.telegram.webhook-secret:}")
 	private String telegramWebhookSecret;
 
+	@Value("${auth.telegram.notifications-enabled:false}")
+	private boolean telegramNotificationsEnabled;
+
 	@Value("${auth.telegram.login-redirect-path:/}")
 	private String telegramLoginRedirectPath;
 
@@ -344,7 +347,8 @@ class AuthController {
 				&& !message.containsKey("forward_origin") && !message.containsKey("forward_from")
 				&& !message.containsKey("forward_from_chat") && !message.containsKey("forward_date")
 				&& !message.containsKey("via_bot") && !booleanValue(message.get("is_automatic_forward"));
-		return Optional.of(new TelegramMessage(chatId, userId, username, messageId, sentAt, text, explicitEligible));
+		return Optional.of(new TelegramMessage(chatId, userId, username,
+				stringValue(from.get("first_name")), stringValue(from.get("last_name")), messageId, sentAt, text, explicitEligible));
 	}
 
 	private Map<?, ?> mapValue(Object value) {
@@ -443,8 +447,22 @@ class AuthController {
 		response.setHeader("Cache-Control", "private, no-store");
 		JwtClaims claims = currentClaims(authorization, accessToken);
 		User user = userForClaims(claims);
-		return Map.of("id", user.id(), "email", user.email(), "roles", user.roles(),
-				"blocked", false, "sessionId", claims.sessionId(),"subscriptionActive",subscriptions.active(user.id()));
+		var view = new LinkedHashMap<>(userView(user));
+		view.put("sessionId", claims.sessionId());
+		view.put("subscriptionActive", subscriptions.active(user.id()));
+		return view;
+	}
+
+	record TelegramPreference(@NotNull Boolean enabled) {}
+
+	@PostMapping("/telegram/notifications")
+	Map<String, Object> telegramNotifications(
+			@RequestHeader(name = "Authorization", required = false) String authorization,
+			@CookieValue(name = "fraer_access", required = false) String accessToken,
+			@Valid @RequestBody TelegramPreference preference) {
+		User user = currentUser(authorization, accessToken);
+		store.telegramNotifications(user.id(), preference.enabled());
+		return userView(user);
 	}
 
 	@PostMapping("/logout")
@@ -843,7 +861,11 @@ class AuthController {
 	}
 
 	private Map<String, Object> userView(User user) {
-		return Map.of("id", user.id(), "email", user.email(), "roles", user.roles(), "blocked", user.blockedAt() != null);
+		var view = new LinkedHashMap<String, Object>();
+		view.putAll(Map.of("id", user.id(), "email", user.email(), "roles", user.roles(), "blocked", user.blockedAt() != null));
+		view.putAll(store.telegramProfile(user.id()));
+		view.put("telegramNotificationsAvailable", telegramNotificationsEnabled);
+		return view;
 	}
 
 	private String roleChangeMetadata(User user, String role, boolean grant) {
@@ -1283,6 +1305,11 @@ class AuthStore {
 			if (revokedLater) return Optional.empty();
 		}
 		User user = userForTelegram(message.userId(), message.chatId(), message.username());
+		jdbc.update("""
+				update telegram_identities set first_name=?, last_name=?, username=?, profile_message_id=?
+				where telegram_user_id=? and profile_message_id < ?
+				""", profileText(message.firstName()), profileText(message.lastName()), profileText(message.username()),
+				message.messageId(), message.userId(), message.messageId());
 		if (accepts && !replay) {
 			if (!active) recordConsent(email, policyVersion, "telegram_explicit");
 			audit(user.id(), email, "telegram_consent_confirmed", receipt);
@@ -1305,9 +1332,29 @@ class AuthStore {
 		Instant now = Instant.now();
 		jdbc.update("""
 				update telegram_identities
-				set telegram_chat_id = ?, username = ?, updated_at = ?, last_seen_at = ?
+				set telegram_chat_id = ?, updated_at = ?, last_seen_at = ?
 				where telegram_user_id = ?
-				""", telegramChatId, blankToNull(username), timestamp(now), timestamp(now), telegramUserId);
+				""", telegramChatId, timestamp(now), timestamp(now), telegramUserId);
+	}
+
+	private String profileText(String value) {
+		String text = value == null ? "" : value.strip();
+		return text.substring(0, Math.min(text.length(), 128));
+	}
+
+	Map<String, Object> telegramProfile(String userId) {
+		return jdbc.query("select first_name,last_name,username,notifications_enabled from telegram_identities where user_id=?", (rs, row) -> {
+			String first = Objects.toString(rs.getString(1), ""), last = Objects.toString(rs.getString(2), "");
+			String username = Objects.toString(rs.getString(3), "");
+			String name = (first + " " + last).strip();
+			return Map.<String, Object>of("displayName", name.isEmpty() ? (username.isEmpty() ? "Telegram" : "@" + username) : name,
+					"telegramUsername", username, "telegramLinked", true, "telegramNotificationsEnabled", rs.getBoolean(4));
+		}, userId).stream().findFirst().orElse(Map.of("displayName", "", "telegramUsername", "", "telegramLinked", false, "telegramNotificationsEnabled", false));
+	}
+
+	void telegramNotifications(String userId, boolean enabled) {
+		if (jdbc.update("update telegram_identities set notifications_enabled=? where user_id=?", enabled, userId) == 0)
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "Telegram account is not linked");
 	}
 
 	private String telegramEmail(long telegramUserId) {
@@ -1681,7 +1728,7 @@ record JwtClaims(String userId, String sessionId) {
 record SessionAuthentication(String authMethod, Instant authenticatedAt) {
 }
 
-record TelegramMessage(long chatId, long userId, String username, long messageId, long sentAt, String text, boolean explicitEligible) {
+record TelegramMessage(long chatId, long userId, String username, String firstName, String lastName, long messageId, long sentAt, String text, boolean explicitEligible) {
 }
 
 record TelegramAuthorization(User user, boolean replay) {

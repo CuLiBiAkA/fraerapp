@@ -23,7 +23,7 @@ export function mountAccountDialogs() {
           <span id="modal-notifications-label" data-i18n="settingsNotifications">Уведомления</span>
           <button id="modal-notifications-toggle" class="settings-switch" type="button" role="switch" aria-checked="false" aria-labelledby="modal-notifications-label" aria-describedby="notifications-hint"></button>
         </div>
-        <p id="notifications-hint" class="settings-hint" data-i18n="notificationsHint">Уведомления доступны в личном кабинете. Push-уведомления появятся позже.</p>
+        <p id="notifications-hint" class="settings-hint" data-i18n="notificationsHint">Бот присылает те же уведомления, что и сайт.</p>
         <div class="settings-actions">
           <button id="modal-support" type="button" data-i18n="settingsSupport">Поддержка</button>
           <button id="modal-passkey" type="button" data-i18n="settingsPasskey">Привязать passkey</button>

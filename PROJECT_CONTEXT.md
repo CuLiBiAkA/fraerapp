@@ -1,6 +1,31 @@
 # FraerApp project context
 
-Last updated: 2026-10-13.
+Last updated: 2026-10-15.
+
+## Telegram profile and mirrored notifications (local, 2026-10-15)
+
+Auth V11 stores Telegram first/last name and username after the existing consent
+check. Newer private-chat message IDs refresh the profile; the permanent Telegram
+ID/account binding, synthetic email, sessions, roles and story ownership remain.
+Auth responses expose displayName, telegramUsername, telegramLinked and delivery
+preference/availability. Shared account dialogs show the name and @username;
+existing accounts refresh names on their next bot interaction. No avatar import
+or separate site username was added.
+
+API V24 adds persistent delivery state to account_notifications. All new kinds
+use a background worker and the site's story-availability mask. Pre-migration
+notices are skipped. Auth resolves the private chat and checks blocking, current
+explicit consent and the saved preference. Shared settings persist the Telegram
+switch server-side. Internal dispatch has a separate service secret and no public
+edge route. Delivery is off until TELEGRAM_NOTIFICATIONS_ENABLED and a shared
+TELEGRAM_NOTIFICATION_SECRET are configured. Auth needs an HTTPS public base URL
+and outbound Telegram API access; login keeps its independent webhook-response flow.
+
+Committed leases avoid holding account/inbox locks over HTTPS. Failures retry with
+backoff and Telegram retry_after; receipts suppress acknowledged retries. Telegram
+cannot guarantee exactly-once delivery after an ambiguous failure/crash. In-flight
+delivery may finish after opt-out/deletion; site read/delete state is independent.
+See docs/telegram-profile-notifications.md and the runbook. Not deployed yet.
 
 ## Chapter revisions presentation (2026-10-13)
 

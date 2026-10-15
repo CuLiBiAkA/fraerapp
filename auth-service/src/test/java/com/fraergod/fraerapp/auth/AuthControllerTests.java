@@ -153,7 +153,8 @@ class AuthControllerTests {
 				new ClassPathResource("db/migration/V7__author_access_requests.sql"),
 				new ClassPathResource("db/migration/V8__moderator_and_bootstrap_initialization.sql"),
 				new ClassPathResource("db/migration/V9__author_subscriptions.sql"),
-				new ClassPathResource("db/migration/V10__login_link_issuance_locks.sql"));
+				new ClassPathResource("db/migration/V10__login_link_issuance_locks.sql"),
+				new ClassPathResource("db/migration/V11__telegram_profile_and_delivery.sql"));
 		schema.execute(dataSource);
 		jdbc = new JdbcTemplate(dataSource);
 		var subscriptions = new SubscriptionService(jdbc,true);
@@ -996,6 +997,45 @@ class AuthControllerTests {
 
 		assertThat(response).containsEntry("enabled", true)
 				.containsEntry("botUrl", "https://t.me/culibiaka_bot?start=login");
+	}
+
+	@Test
+	void telegramNotificationPreferenceRequiresSessionAndPersistsForItsOwner() {
+		controller.telegramWebhook("secret", telegramUpdate(2, "Согласен на обработку данных · 2026-10-09"), request());
+		User user = store.userByTelegramId(67890L).orElseThrow();
+		assertThatThrownBy(() -> controller.telegramNotifications(null,null,new AuthController.TelegramPreference(false)))
+				.isInstanceOf(ResponseStatusException.class);
+		String token = "Bearer " + authenticatedToken(user);
+		assertThat(controller.telegramNotifications(token,null,new AuthController.TelegramPreference(false)))
+				.containsEntry("telegramNotificationsEnabled",false);
+		assertThat(controller.me(token,null,new MockHttpServletResponse())).containsEntry("telegramNotificationsEnabled",false);
+		User other = store.user("other-notice@example.test",true).orElseThrow();
+		assertThatThrownBy(() -> controller.telegramNotifications("Bearer " + authenticatedToken(other),null,new AuthController.TelegramPreference(true)))
+				.isInstanceOf(ResponseStatusException.class);
+		assertThat(controller.me(token,null,new MockHttpServletResponse())).containsEntry("telegramNotificationsEnabled",false);
+	}
+
+	@Test
+	void telegramProfileUsesNamesAndUsernameWithoutChangingAccountIdentity() {
+		var update = telegramUpdate(2, "Согласен на обработку данных · 2026-10-09");
+		var message = new java.util.HashMap<>((Map<String, Object>) update.get("message"));
+		message.put("from", Map.of("id", 67890L, "first_name", "Анна", "last_name", "Иванова", "username", "anna_reader"));
+		controller.telegramWebhook("secret", Map.of("message", message), request());
+		User user = store.userByTelegramId(67890L).orElseThrow();
+		var response = controller.me("Bearer " + authenticatedToken(user), null, new MockHttpServletResponse());
+		assertThat(response).containsEntry("displayName", "Анна Иванова").containsEntry("telegramUsername", "anna_reader");
+		message.put("message_id", 3);
+		message.put("text", "/start");
+		message.put("from", Map.of("id", 67890L, "first_name", "Аня"));
+		controller.telegramWebhook("secret", Map.of("message", message), request());
+		assertThat(store.userByTelegramId(67890L).orElseThrow().id()).isEqualTo(user.id());
+		assertThat(controller.me("Bearer " + authenticatedToken(user), null, new MockHttpServletResponse()))
+				.containsEntry("displayName", "Аня").containsEntry("telegramUsername", "");
+		message.put("message_id", 1);
+		message.put("from", Map.of("id", 67890L, "first_name", "Old name", "username", "stale_name"));
+		controller.telegramWebhook("secret", Map.of("message", message), request());
+		assertThat(controller.me("Bearer " + authenticatedToken(user), null, new MockHttpServletResponse()))
+				.containsEntry("displayName", "Аня").containsEntry("telegramUsername", "");
 	}
 
 	@Test
