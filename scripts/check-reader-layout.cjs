@@ -22,6 +22,12 @@ for(const width of [1722,1024,768,700,390,320]){
  if(width===390)await page.screenshot({path:'/tmp/unified-account.png',animations:'disabled'});
  await page.keyboard.press('Escape');await page.goto('https://fraerapp.ru/read/fixture',{waitUntil:'domcontentloaded'});await page.locator('#scene-screen').waitFor({state:'visible'});
  assert.equal(await page.locator('#scene-stats').evaluate(n=>n.open),false);
+ for(const selector of ['#choices button','.variable-header strong','.variable-value']){
+  const style=await page.locator(selector).first().evaluate(el=>{const s=getComputedStyle(el);return [s.fontFamily,s.fontSize,s.lineHeight,s.fontWeight,s.letterSpacing,s.color];});
+  assert.match(style[0],/Inter/);assert.deepEqual(style.slice(1),['23px','25px','500','normal','rgb(254, 227, 226)']);
+ }
+ const prose=await page.locator('#scene-text').evaluate(el=>{const s=getComputedStyle(el);return [s.fontFamily,s.fontSize,s.lineHeight,s.fontWeight,s.letterSpacing];});
+ assert.match(prose[0],/Montserrat/);assert.deepEqual(prose.slice(1),['22px','24px','500','0.88px']);
  await page.locator('#scene-stats summary').click();await page.locator('#scene-stats summary').click();
  assert.ok(await page.locator('[data-site-account]').isVisible());assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await page.waitForFunction(()=>{const image=document.querySelector('#scene-image');return image.complete&&image.naturalWidth>0;});

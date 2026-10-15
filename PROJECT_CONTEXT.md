@@ -2,6 +2,11 @@
 
 Last updated: 2026-10-15.
 
+Reader typography follows the October 15 reference: stats and answer/navigation
+buttons use Inter Medium 23/25 with zero tracking; scene prose uses Montserrat
+Medium 22/24 with .04em tracking, all #FEE3E2. Mobile stats use one column to
+retain readable labels at the requested size. reader.css v6.
+
 My stories no longer shows the technical Chapter and dependency status section.
 Chapter status, moderator feedback and per-chapter revision history remain in the
 chapter rows. Dependency data and moderator-side checks are unchanged.
