@@ -2,7 +2,22 @@
 
 Last updated: 2026-10-15.
 
-## Telegram profile and mirrored notifications (local, 2026-10-15)
+## Telegram profile and notification code (deployed, 2026-10-15)
+
+Source 31ce21d is committed, pushed to main and deployed. Backup:
+backups/telegram-20261015-094225, with validated database dumps, final cutover
+dumps and rollback images. Auth V11/API V24 succeeded; six services are healthy.
+The two running JARs, Builder files and 33 installed source files match the release.
+Eight public assets match from an independent client; HTML comparison removes
+only Cloudflare's injected analytics beacon. Existing entrypoints, users and
+environment values are preserved apart from the two new notification settings.
+
+Telegram delivery is explicitly DISABLED in production. Both host probes and
+Java inside auth-service cannot connect to api.telegram.org (IPv4 timeout, no
+IPv6 route; container HttpConnectTimeoutException). A separate service secret is
+stored only in private runtime configuration. Restore outbound connectivity and
+verify it before enabling both services. Login retains its inbound webhook-response
+flow, independent of outgoing delivery. No real-user test notifications were sent.
 
 Auth V11 stores Telegram first/last name and username after the existing consent
 check. Newer private-chat message IDs refresh the profile; the permanent Telegram
@@ -25,7 +40,8 @@ Committed leases avoid holding account/inbox locks over HTTPS. Failures retry wi
 backoff and Telegram retry_after; receipts suppress acknowledged retries. Telegram
 cannot guarantee exactly-once delivery after an ambiguous failure/crash. In-flight
 delivery may finish after opt-out/deletion; site read/delete state is independent.
-See docs/telegram-profile-notifications.md and the runbook. Not deployed yet.
+See docs/telegram-profile-notifications.md and the runbook. Delivery remains
+pending the network prerequisite above; profile changes are live.
 
 ## Chapter revisions presentation (2026-10-13)
 

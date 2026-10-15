@@ -1,6 +1,28 @@
 # FraerApp deploy and ops runbook
 
-## Telegram profile and notification delivery (local, 2026-10-15)
+## Telegram profile release receipt (2026-10-15)
+
+Deployed source 31ce21d from main. Backup backups/telegram-20261015-094225 includes
+validated baseline and final cutover dumps, old runtime files and rollback images.
+New API/auth/Builder images use fraerapp-<service>:telegram-31ce21d plus compose
+aliases. Auth V11 and API V24 are successful; six services are healthy. Running
+JARs, Builder files, 33 runtime files and eight public assets match. HTML has a
+Cloudflare analytics beacon; remove only that injection for byte comparison.
+The public asset comparison was also verified from an independent client because
+requests from the origin to the CDN occasionally timed out.
+
+TELEGRAM_NOTIFICATIONS_ENABLED is false in both services. The private service
+secret is provisioned, but api.telegram.org is unreachable from the host and
+auth container; Java getMe fails with HttpConnectTimeoutException. Bot login keeps
+its inbound webhook-response flow. Restore outbound connectivity, then follow the
+activation checklist below. No live-user messages were generated for verification.
+
+Java 17 JARs were built locally and their hashes verified in running containers;
+images use unchanged Dockerfile final stages. Server /tmp could not hold the
+release archive, so it was transferred into the restricted backup on the main
+disk. The incomplete temporary archive was removed. Keep private backups restricted.
+
+## Telegram profile and notification delivery procedure
 
 Release auth V11 and API V24 with the frontend/shared controls together. Back up
 both databases and changed runtime files first; inspect current services/logs/DNS

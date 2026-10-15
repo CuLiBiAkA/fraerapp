@@ -1,7 +1,7 @@
 # Telegram profile and account notifications
 
 Task started 2026-10-15 on main at 1427c9d. Only pre-existing untracked output/
-was present; preserve it. Work is local until explicitly released.
+was present; preserve it. Source 31ce21d was subsequently released on 2026-10-15.
 
 User confirmed: save Telegram @username; mirror the notifications already shown
 on the website into the user's private bot chat.
@@ -53,3 +53,11 @@ existing runtime files matching the source baseline. Direct Telegram HTTPS times
 out on IPv4 and IPv6 has no route; ordinary external HTTPS works. Deploy the code
 and migrations with delivery disabled until outbound Telegram connectivity is
 restored. Do not show delivery as available or send real-user smoke messages.
+
+Deployment completed from source 31ce21d with backup
+backups/telegram-20261015-094225. Auth V11/API V24 and all six services are healthy;
+running JARs, Builder files, 33 runtime sources and eight public assets match.
+Only Cloudflare's injected analytics beacon is normalized in public HTML checks.
+The container-level Java getMe probe confirms HttpConnectTimeoutException.
+Telegram delivery remains explicitly disabled; profile changes are live. No
+real-user messages were sent. The source commit is pushed and output/ is preserved.
