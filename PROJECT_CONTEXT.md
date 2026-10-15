@@ -2,6 +2,10 @@
 
 Last updated: 2026-10-15.
 
+My stories no longer shows the technical Chapter and dependency status section.
+Chapter status, moderator feedback and per-chapter revision history remain in the
+chapter rows. Dependency data and moderator-side checks are unchanged.
+
 ## My stories pagination (deployed, 2026-10-15)
 
 Author lists show 10 works per page, including trash and the standalone list.
