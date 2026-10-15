@@ -1,5 +1,21 @@
 # FraerApp deploy and ops runbook
 
+## My stories pagination release receipt (2026-10-15)
+
+Deployed source `6e313e8` after push to main. Backup
+`backups/pagination-20261015-204414/frontend-before.tar.gz` contains the five
+previous frontend files with verified hashes; the release archive and source
+commit are retained alongside it. Ship collection-workspace v21, story-workspace
+v7, workspace-entry v20 and both author/moderation HTML entrypoints together.
+Frontend is mounted into edge; no service rebuild or database change is needed.
+
+All five installed files and three public JS assets match. Six services are
+healthy; API readiness returns 200/UP, home/health/catalogue return 200, anonymous
+author API returns 401 and private pages return 302. Recent API/auth/edge error
+counts are zero. Checks: 59 Node tests, production validator, pagination boundary
+checks and author workspace browser checks in RU/EN at four widths. Rollback
+restores only these five files from the verified backup and repeats these probes.
+
 ## Telegram profile release receipt (2026-10-15)
 
 Deployed source 31ce21d from main. Backup backups/telegram-20261015-094225 includes

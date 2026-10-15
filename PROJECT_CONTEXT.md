@@ -2,11 +2,19 @@
 
 Last updated: 2026-10-15.
 
-## My stories pagination (2026-10-15, local change)
+## My stories pagination (deployed, 2026-10-15)
 
 Author lists show 10 works per page, including trash and the standalone list.
 Folder requests, page counts and pagination visibility use the same page size.
 Moderation retains 20 items per page. No API or deployment procedure changes.
+
+Source `6e313e8` is committed, pushed to main and deployed. Backup:
+`backups/pagination-20261015-204414`. Five runtime files and three public JS
+assets match the release; six services are healthy, API readiness is UP, public
+home/health/catalogue return 200 and recent service error counts are zero.
+Private routes retain anonymous denial/recovery. Verification: 59 Node tests,
+production validator, pagination boundary checks and author workspace browser
+checks in RU/EN at 320, 390, 768 and 1440px. No service rebuild or data changes.
 
 ## Telegram profile and notification code (deployed, 2026-10-15)
 
