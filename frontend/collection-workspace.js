@@ -11,6 +11,7 @@ import {chooseCover,uploadImage} from "./author-cover.js?v=3";
 const params = new URLSearchParams(location.search);
 try { document.documentElement.lang = localStorage.getItem("fraerapp.language") === "en" ? "en" : "ru"; } catch { document.documentElement.lang = "ru"; }
 const moderation = document.body.dataset.workspace === "moderation";
+const pageSize = moderation ? 20 : 10;
 const path = moderation ? "/moderation/" : "/my-stories/";
 const selectedView = !params.has("story") && params.get("view") !== "stories";
 const switcher = el("nav",null,"workspace-nav author-section-nav"); switcher.style.padding = "18px 28px 0";
@@ -140,10 +141,10 @@ async function start(root) {
   async function loadList() {
     trashNotice.hidden=!trash;
     const visibility=trash?"deleted":["public","unlisted","private","hidden","archived"].includes(state.input.value)?state.input.value:"all";
-    const searchParams=new URLSearchParams({page:pageIndex,size:20,q:query.input.value,type:"all",status:trash?"deleted":visibility!=="all"?"all":state.input.value,visibility});
-    const data=await request(`/api/${moderation?"moderation":"author"}/folders?${searchParams}`);all=data.items||[];totalPages=Math.ceil((data.total||all.length)/20);
+    const searchParams=new URLSearchParams({page:pageIndex,size:pageSize,q:query.input.value,type:"all",status:trash?"deleted":visibility!=="all"?"all":state.input.value,visibility});
+    const data=await request(`/api/${moderation?"moderation":"author"}/folders?${searchParams}`);all=data.items||[];totalPages=Math.ceil((data.total||all.length)/pageSize);
     if(pageIndex>Math.max(0,totalPages-1)){pageIndex=Math.max(0,totalPages-1);return loadList();}
-    previous.disabled=pageIndex===0;next.disabled=pageIndex+1>=totalPages;pageLabel.textContent=words(`Страница ${pageIndex+1}`,`Page ${pageIndex+1}`);pagination.hidden=pageIndex===0&&all.length<20;
+    previous.disabled=pageIndex===0;next.disabled=pageIndex+1>=totalPages;pageLabel.textContent=words(`Страница ${pageIndex+1}`,`Page ${pageIndex+1}`);pagination.hidden=pageIndex===0&&all.length<pageSize;
     if(!moderation)notices=(await request("/api/account")).notifications||[];
     renderList();await refreshReviewEligibility();status.textContent=permissionNotice||(dirty?words("Есть несохранённые изменения в форме.","There are unsaved changes in this form."):"");
     activeButton.setAttribute("aria-pressed",String(!trash));trashButton.setAttribute("aria-pressed",String(trash));state.input.disabled=trash;

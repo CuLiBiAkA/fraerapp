@@ -18,7 +18,7 @@ const initialParams = new URLSearchParams(location.search);
 const state = { user: null, items: [], all: [], page: 0, totalPages: 0, selected: initialParams.get("story"), detail: null, preview: null, previewRevision: null, loading: false, listRequest: 0, detailRequest: 0, previewRequest: 0 };
 const decisionDrafts = new Map();
 const apiBase = moderation ? "/api/moderation/stories" : "/api/author/stories";
-const pageSize = 20;
+const pageSize = moderation ? 20 : 10;
 let metadataDraft=null,metadataDirty=false,selectedTab="content",screen="list",historyIndex=0,restoringHistory=false,decisionPending=false;
 history.replaceState({...history.state,authorIndex:0},"",location.href);
 const discardMetadata=()=>!metadataDirty||confirm(choose("Есть несохранённые изменения. Перейти без сохранения?","There are unsaved changes. Leave without saving?"));

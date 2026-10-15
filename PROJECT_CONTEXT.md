@@ -2,6 +2,12 @@
 
 Last updated: 2026-10-15.
 
+## My stories pagination (2026-10-15, local change)
+
+Author lists show 10 works per page, including trash and the standalone list.
+Folder requests, page counts and pagination visibility use the same page size.
+Moderation retains 20 items per page. No API or deployment procedure changes.
+
 ## Telegram profile and notification code (deployed, 2026-10-15)
 
 Source 31ce21d is committed, pushed to main and deployed. Backup:
