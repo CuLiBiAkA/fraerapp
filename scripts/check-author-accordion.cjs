@@ -25,6 +25,8 @@ for(const width of [320,390,768,1440]){
  await page.locator('[data-work-id=city]').click();const rows=page.locator('.collection-item');await rows.last().waitFor();assert.equal(await rows.count(),5);
  assert.equal(await page.locator('.accordion-story .collection-editor').count(),1);
  const chapterHistory=rows.first().locator('.chapter-history');
+ const historyStyle=await chapterHistory.locator('summary').evaluate(el=>({display:getComputedStyle(el).display,gap:getComputedStyle(el).gap,position:getComputedStyle(el,'::before').position}));
+ assert.deepEqual(historyStyle,{display:'flex',gap:'12px',position:'static'},'History arrow stays beside text with a gap');
  assert.equal(await chapterHistory.getAttribute('open'),null);
  await chapterHistory.locator('summary').click();
  assert.match(await chapterHistory.innerText(),/Редакция 1/);
