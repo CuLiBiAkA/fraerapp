@@ -1,5 +1,21 @@
 # FraerApp deploy and ops runbook
 
+## Meow experiment statistics (2026-10-23)
+
+Run both Java suites, frontend baseline, meow and admin browser checks. Ship V25,
+MeowStatsController/Service, auth admin.html, admin-panel v5, admin-experiments.js,
+toy app v7 and visits.js. The toy build now contains 12 static assets.
+Inspect live services/logs and baseline source hashes before overwriting; back up
+both databases and scoped runtime files, and retain current API/auth image tags.
+Build/recreate API and auth-service (admin HTML is embedded). The verified local
+bootJar packaging procedure below preserves the existing Docker runtime stages.
+Publish static dependencies before entrypoints. Verify V25, installed sources,
+running JAR hashes, public assets, anonymous aggregate denial and a repeated-visit
+probe. Remove only the probe's generated visitor row. Browser checks mock visits
+to avoid inflating production counts. Recheck six services, health/API and logs.
+Rollback restores previous API/auth images and scoped files; additive V25 may
+remain. Never overwrite subsequent user writes with an old database dump.
+
 ## Meow cat settings update (2026-10-23)
 
 The current build contains 11 toy files, including new `settings.js`; ship it

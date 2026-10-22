@@ -19,6 +19,8 @@ const server = http.createServer((req, res) => {
   const browser = await chromium.launch({ headless: true });
   try {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, hasTouch: true });
+    // Browser/audio checks must not inflate real experiment statistics.
+    await context.route('**/api/experiments/meow/visit', route => route.fulfill({ status: 204 }));
     await context.addInitScript(() => {
       const Native = window.AudioContext;
       window.__audio = { contexts: [], active: 0, oscillators: [] };

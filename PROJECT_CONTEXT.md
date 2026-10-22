@@ -2,6 +2,25 @@
 
 Last updated: 2026-10-23.
 
+## Meow experiment statistics (2026-10-23)
+
+Admin `/auth/admin#experiments` shows unique browsers (all time, today, last 7
+calendar days) and page opens separately from story analytics. Day boundaries use
+Europe/Kaliningrad. A UUID v4 in localStorage `fraerapp.meow.visitor` identifies a
+browser; clearing storage or changing browsers creates another visitor. No account
+linkage, IP, User-Agent, third-party collector or historical backfill is used.
+V25 `meow_visitors` stores UUID, first/last seen and cumulative opens. Atomic
+increments with duplicate-insert recovery preserve concurrent page views.
+
+`visits.js` sends one best-effort JSON POST `/api/experiments/meow/visit`, omitting
+credentials, with a five-second timeout and no retry; music never waits for it.
+Disabled storage can overcount visitors; blocked requests undercount. This is an
+audience estimate, not bot-proof analytics. Existing edge limits and CORS apply.
+GET `/api/admin/experiments/meow` requires a verified admin session and is not
+cached. `admin-experiments.js` owns loading, retry, empty and revoked states.
+Admin module v5; toy app v7; 12 static toy files. API and auth-service rebuilds
+are required because admin HTML is embedded in auth's JAR. Stories are unchanged.
+
 ## Meow cat settings (2026-10-23)
 
 A small cat with a gear replaces the Tone button and opens settings for timbre,

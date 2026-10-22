@@ -4,6 +4,9 @@ import { NoteInput, bindInput } from './input.js?v=2';
 import { CatScene } from './scene.js?v=2';
 import { renderPiano } from './piano.js';
 import { mountSettings } from './settings.js';
+import { recordVisit } from './visits.js';
+
+recordVisit();
 
 const piano = document.querySelector('#piano'), status = document.querySelector('#audio-status');
 const audio = new MeowAudio(), scene = new CatScene(document.querySelector('#cats'), NOTES);

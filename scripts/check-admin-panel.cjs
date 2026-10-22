@@ -8,7 +8,7 @@ const assert = require('node:assert/strict');
   try {
     for(const width of [1440,768,390,320]){
       const context=await browser.newContext({viewport:{width,height:1000}});
-      let access='admin', messageFails=true, statsFail=false;
+      let access='admin', messageFails=true, statsFail=false, experimentFail=false;
       const me={id:'admin-id',email:'admin@example.test',roles:['player','admin']};
       const targetEmail='author.with.a.long.address.for.layout@example.test';
       let users=[{...me}, {id:'target',email:targetEmail,roles:['player','author']}, ...Array.from({length:23},(_,i)=>({id:'reader-'+i,email:`reader-${String(i).padStart(2,'0')}@example.test`,roles:['player']}))].map(u=>({...u,blocked:false,sessions:4,activeSessions:2,passkeys:1,auditEvents:5,createdAt:'2026-10-01T12:00:00Z',updatedAt:'2026-10-01T12:00:00Z'}));
@@ -23,6 +23,7 @@ const assert = require('node:assert/strict');
         if(p==='/auth/admin')return route.fulfill({path:path.join(process.cwd(),'auth-service/src/main/resources/admin.html')});
         if(p==='/auth/me')return access==='guest'?send({},401):send({...me,roles:access==='admin'?['player','admin']:['player','moderator']});
         if(p==='/auth/refresh')return send({},401);
+        if(p==='/api/admin/experiments/meow')return access!=='admin'?send({},403):experimentFail?send({},503):send({visitors:12,pageViews:25,visitorsToday:3,visitorsWeek:9,firstVisitAt:'2026-10-23T00:00:00Z',timeZone:'Europe/Kaliningrad'});
         if(p==='/api/account')return send({avatar:'fairy',unreadCount:0,notifications:[]});
         if(p==='/auth/admin/users'){
           if(access!=='admin')return send({},403);
@@ -55,6 +56,17 @@ const assert = require('node:assert/strict');
       });
       const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
       await page.goto('https://admin.test/auth/admin');
+      await page.locator('[data-view=experiments]').click();
+      await page.waitForFunction(()=>document.querySelectorAll('#experiment-metrics strong').length===4);
+      assert.deepEqual(await page.locator('#experiment-metrics strong').allTextContents(),['12','3','9','25']);
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Experiment overflow '+width);
+      if([1440,390].includes(width))await page.screenshot({path:'/tmp/fraer-experiments-'+width+'.png',fullPage:true});
+      experimentFail=true;await page.locator('#experiments-refresh').click();
+      await page.waitForFunction(()=>document.querySelector('#experiments-status').dataset.kind==='error');
+      assert.equal(await page.locator('#experiment-metrics strong').count(),0);
+      experimentFail=false;await page.locator('#experiments-refresh').click();
+      await page.waitForFunction(()=>document.querySelectorAll('#experiment-metrics strong').length===4);
+      await page.locator('[data-view=users]').click();
       await page.getByRole('button',{name:'Открыть карточку '+targetEmail,exact:true}).waitFor();
       assert.equal(await page.locator('.admin-user').count(),20);
       assert.equal(await page.locator('#users-page').textContent(),'1–20 из 25');
