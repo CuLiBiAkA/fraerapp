@@ -2,7 +2,7 @@ export const MIN_NOTE = .16;
 export const RELEASE = .18;
 
 export class MeowAudio {
-  constructor() { this.voices = new Set(); this.volume = .65; this.muted = false; this.tone = .5; }
+  constructor() { this.voices = new Set(); this.volume = .65; this.muted = false; this.tone = .5; this.releaseTime = RELEASE; }
   prepare() {
     if (!this.context) {
       const Audio = globalThis.AudioContext || globalThis.webkitAudioContext;
@@ -36,6 +36,9 @@ export class MeowAudio {
     if (!Number.isFinite(value)) return;
     this.tone = Math.max(0, Math.min(1, value));
     for (const voice of this.voices) voice.setTone(this.tone);
+  }
+  setRelease(seconds) {
+    if (Number.isFinite(seconds)) this.releaseTime = Math.max(.08, Math.min(.6, seconds));
   }
   start(note, ended = () => {}) {
     const c = this.context, now = c.currentTime;
@@ -98,13 +101,15 @@ export class MeowAudio {
       release: () => {
         if (released || stopped) return;
         released = true;
+        const duration = this.releaseTime;
         const at = Math.max(c.currentTime, now + MIN_NOTE);
         hold(envelope.gain, at);
         envelope.gain.linearRampToValueAtTime(.16, at + .055);
-        envelope.gain.linearRampToValueAtTime(0, at + RELEASE);
+        envelope.gain.linearRampToValueAtTime(0, at + duration);
         filters.forEach(({ filter, u }) => { hold(filter.frequency, at); filter.frequency.exponentialRampToValueAtTime(u, at + .055); });
         body.gain.setTargetAtTime(.12, at, .02);
-        osc.stop(at + RELEASE + .01); vibrato.stop(at + RELEASE + .01);
+        osc.stop(at + duration + .01); vibrato.stop(at + duration + .01);
+        return duration;
       },
       stop: () => {
         if (stopped) return;

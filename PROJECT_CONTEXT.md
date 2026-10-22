@@ -2,6 +2,24 @@
 
 Last updated: 2026-10-23.
 
+## Meow cat settings (2026-10-23)
+
+A small cat with a gear replaces the Tone button and opens settings for timbre,
+octave (C3–C4, C4–C5, C5–C6), volume and release (80–600 ms). Preview plays the
+lowest note; full reset restores tone 50%, octave 4, volume 65%, release 180 ms
+and unmuted audio. Quick mute stays outside the panel. `settings.js` owns controls
+and validated `fraerapp.meow.settings` storage, migrating the previous tone key.
+Octave changes stop current notes safely and update frequencies and labels;
+release duration also controls the cat's exit. Tone remains adjustable live.
+The panel scrolls in short viewports and may overlap the piano on phones.
+App/audio v6, config/scene v2, input v2 and CSS v4; 11 static toy files.
+No backend/API change. Verification: 58 Node tests, production build, Chromium
+input/audio/settings coverage and six responsive sizes. Human listening and
+physical mobile devices remain outside the automated checks.
+Deployed after backup `backups/meow-20261022-230641` (UTC). All 13 runtime/public
+asset hashes match; six services healthy, health/API 200 and recent errors zero.
+Release source is the feature commit containing this entry.
+
 ## Meow live timbre control (2026-10-23)
 
 The Tone button beside volume opens a 0–100% Nasal–Open slider and reset to 50%.

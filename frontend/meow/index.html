@@ -7,8 +7,8 @@
   <meta name="description" content="Собери кошачий хор! 13 рисованных котиков, настоящее пианино и выразительное мяуканье. Играй бесплатно с клавиатуры или касанием.">
   <title>Мяу-пианино — маленький кошачий оркестр · FraerApp</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=3">
-  <script type="module" src="./app.js?v=5"></script>
+  <link rel="stylesheet" href="./style.css?v=4">
+  <script type="module" src="./app.js?v=6"></script>
 </head>
 <body>
   <main class="toy">
@@ -33,19 +33,23 @@
     <section class="instrument" aria-label="Пианино от C4 до C5">
       <div class="instrument-top"><span class="instrument-brand"><span aria-hidden="true">✿</span> MEOW STUDIO</span><span class="instrument-hint">Лапки на клавиши!</span><span class="live-dot" aria-hidden="true"></span></div>
       <div id="piano" class="piano" role="group" aria-label="Клавиши пианино"></div>
-      <div class="instrument-bottom"><span>Одна октава. Бесконечно много мяу.</span><span aria-hidden="true">C4 — C5</span></div>
+      <div class="instrument-bottom"><span>Одна октава. Бесконечно много мяу.</span><span id="octave-label" aria-hidden="true">C4 — C5</span></div>
     </section>
     <footer class="controls">
       <div class="play-hint"><span class="hint-icon" aria-hidden="true">⌨</span><span>Клавиатура, мышь или твои пальцы<span class="hold-hint">Удерживай ноту — котик будет петь</span></span></div>
       <div class="sound-tools">
-        <button id="tone-toggle" class="tone-toggle" type="button" aria-expanded="false" aria-controls="tone-panel">Тембр · 50%</button>
-        <div class="volume-control"><button id="mute" type="button" aria-label="Выключить звук" aria-pressed="false">♫</button><label for="volume" class="sr-only">Громкость</label><input id="volume" type="range" min="0" max="100" value="65"><output id="volume-value" for="volume">65%</output></div>
+        <button id="settings-toggle" class="cat-settings" type="button" aria-label="Настройки кошачьего хора" title="Настройки кошачьего хора" aria-expanded="false" aria-controls="settings-panel"><img src="./favicon.svg" alt="" width="44" height="44"><span class="settings-badge" aria-hidden="true">⚙</span></button>
+        <span class="settings-hint">Настрой свой кошачий хор</span>
+        <button id="mute" class="quick-mute" type="button" aria-label="Выключить звук" aria-pressed="false">♫</button>
       </div>
-      <div id="tone-panel" class="tone-panel" role="region" aria-label="Настройка тембра" hidden>
-        <div class="tone-heading"><label for="tone">Тембр голоса</label><output id="tone-value" for="tone">50%</output></div>
-        <input id="tone" type="range" min="0" max="100" step="1" value="50" aria-describedby="tone-help">
-        <div class="tone-endpoints"><span>Носовой</span><span>Открытый</span></div>
-        <div class="tone-bottom"><p id="tone-help">Зажми ноту и двигай ползунок</p><button id="tone-reset" type="button">Сбросить</button></div>
+      <div id="settings-panel" class="settings-panel" role="region" aria-labelledby="settings-title" hidden>
+        <div class="settings-heading"><h2 id="settings-title">Кошачьи настройки</h2><button id="settings-close" type="button" aria-label="Закрыть настройки">×</button></div>
+        <div class="setting-field"><div class="setting-label"><label for="tone">Тембр голоса</label><output id="tone-value" for="tone">50%</output></div><input id="tone" type="range" min="0" max="100" step="1" value="50"><div class="setting-endpoints"><span>Носовой</span><span>Открытый</span></div></div>
+        <div class="setting-field octave-field"><label for="octave">Октава</label><select id="octave"><option value="3">Низкая · C3–C4</option><option value="4" selected>Обычная · C4–C5</option><option value="5">Высокая · C5–C6</option></select></div>
+        <div class="setting-field"><div class="setting-label"><label for="volume">Громкость</label><output id="volume-value" for="volume">65%</output></div><input id="volume" type="range" min="0" max="100" value="65"></div>
+        <div class="setting-field"><div class="setting-label"><label for="release">Затухание ноты</label><output id="release-value" for="release">180 мс</output></div><input id="release" type="range" min="80" max="600" step="10" value="180"><div class="setting-endpoints"><span>Коротко</span><span>Плавно</span></div></div>
+        <p class="settings-tip">Меняй звук на слух. При смене октавы текущие ноты остановятся.</p>
+        <div class="settings-actions"><button id="preview-note" type="button">♫ Послушать мяу</button><button id="settings-reset" type="button">Сбросить всё</button></div>
       </div>
     </footer>
     <div class="audio-feedback"><p id="audio-status" role="status">Нажмите любую клавишу — звук включится</p><button id="enable-audio" type="button" hidden>Включить звук</button></div>

@@ -21,13 +21,14 @@ const server = http.createServer((req, res) => {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, hasTouch: true });
     await context.addInitScript(() => {
       const Native = window.AudioContext;
-      window.__audio = { contexts: [], active: 0 };
+      window.__audio = { contexts: [], active: 0, oscillators: [] };
       window.AudioContext = class extends Native {
         constructor(...args) {
           super(...args); window.__audio.contexts.push(this);
           const create = this.createOscillator.bind(this);
           this.createOscillator = () => {
             const osc = create(), start = osc.start.bind(osc);
+            window.__audio.oscillators.push(osc);
             osc.start = (...args) => { window.__audio.active++; start(...args); };
             osc.addEventListener('ended', () => window.__audio.active--);
             return osc;
@@ -119,18 +120,18 @@ const server = http.createServer((req, res) => {
 
     // Render the production synth in a real browser OfflineAudioContext.
     const audioResults = await page.evaluate(async () => {
-      const { MeowAudio } = await import('./audio.js?v=5');
-      const { NOTES } = await import('./config.js');
-      async function render(notes, release = true, muted = false) {
+      const { MeowAudio } = await import('./audio.js?v=6');
+      const { NOTES, notesForOctave } = await import('./config.js?v=2');
+      async function render(notes, release = true, muted = false, releaseSeconds = .18) {
         const c = new OfflineAudioContext(1, 44100, 44100), a = new MeowAudio();
-        a.setVolume(.65, muted); a.attach(c);
+        a.setVolume(.65, muted); a.setRelease(releaseSeconds); a.attach(c);
         for (const note of notes) { const v = a.start(note); if (release) v.release(); }
         const data = (await c.startRendering()).getChannelData(0);
         const rms = (start, end) => Math.sqrt(data.slice(start * 44100, end * 44100).reduce((s, n) => s + n * n, 0) / ((end - start) * 44100));
-        return { data, peak: data.reduce((m, x) => Math.max(m, Math.abs(x)), 0), attack: rms(.03, .15), tail: rms(.7, .99), sustain: rms(.7, .9) };
+        return { data, peak: data.reduce((m, x) => Math.max(m, Math.abs(x)), 0), attack: rms(.03, .15), tail: rms(.85, .99), sustain: rms(.7, .9), late: rms(.45, .55) };
       }
       const notes = [];
-      for (const note of NOTES) {
+      for (const note of [...NOTES, notesForOctave(3)[0], notesForOctave(5)[12]]) {
         const r = await render([note], false);
         let best = -Infinity, bestLag = 0;
         for (let lag = Math.floor(44100 / note.frequency * .94); lag <= Math.ceil(44100 / note.frequency * 1.06); lag++) {
@@ -165,7 +166,8 @@ const server = http.createServer((req, res) => {
       const toneBuffer = await toneContext.startRendering(); await change;
       const toneData = toneBuffer.getChannelData(0);
       const liveTone = { closed: brightness(toneData, .3, .4), open: brightness(toneData, .7, .8) };
-      return { notes, tap: { attack: tap.attack, tail: tap.tail }, chord: { peak: chord.peak, tail: chord.tail }, silent: silent.sustain, heldAfterStress, articulation, liveTone };
+      const shortRelease = await render([NOTES[0]], true, false, .08), longRelease = await render([NOTES[0]], true, false, .6);
+      return { notes, tap: { attack: tap.attack, tail: tap.tail }, chord: { peak: chord.peak, tail: chord.tail }, silent: silent.sustain, heldAfterStress, articulation, liveTone, release: { short: shortRelease.late, long: longRelease.late, tail: longRelease.tail } };
     });
     for (const n of audioResults.notes) {
       assert.ok(Math.abs(n.measured / n.expected - 1) < .015, JSON.stringify(n));
@@ -179,18 +181,19 @@ const server = http.createServer((req, res) => {
     assert.ok(audioResults.articulation.nasal < audioResults.articulation.vowel * .8, 'a muted nasal onset must precede the open vowel');
     assert.ok(audioResults.articulation.rounded < audioResults.articulation.vowel * .8, 'the short meow must round into /u/ before fading');
     assert.ok(audioResults.liveTone.open > audioResults.liveTone.closed * 1.2, 'the slider must audibly change an already-held voice');
-    console.log('Audio: all 13 measured pitches within 1.5%, sustained signal, audible short note, silent release tail and mute, no 13-note clipping.', JSON.stringify(audioResults));
+    assert.ok(audioResults.release.short < 1e-6 && audioResults.release.long > .001 && audioResults.release.tail < 1e-6, 'release duration must affect the tail and still end in silence');
+    console.log('Audio: 13 base pitches plus C3/C6 within 1.5%, sustained signal, audible short note, silent release tail and mute, no 13-note clipping.', JSON.stringify(audioResults));
     for (const [width, height] of [[1440, 900], [1024, 768], [768, 1024], [390, 844], [320, 667], [844, 390]]) {
       await page.setViewportSize({ width, height });
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       const pianoBox = await page.locator('#piano').boundingBox();
       if (height >= 667) assert.ok(pianoBox.y + pianoBox.height <= height, `piano below fold ${width}`);
-      await page.locator('#tone-toggle').click();
-      const toneBox = await page.locator('#tone-panel').boundingBox();
+      await page.locator('#settings-toggle').click();
+      const toneBox = await page.locator('#settings-panel').boundingBox();
       assert.ok(toneBox.x >= 0 && toneBox.x + toneBox.width <= width, `tone panel outside viewport ${width}`);
-      if (height >= 667) assert.ok(toneBox.y >= 0 && toneBox.y + toneBox.height <= pianoBox.y, `tone panel covers piano ${width}`);
+      assert.ok(toneBox.y >= 0 && toneBox.y + toneBox.height <= height, `settings panel outside viewport ${width}`);
       if (width === 390) await page.screenshot({ path: '/tmp/meow-tone-mobile.png', fullPage: true });
-      await page.locator('#tone-toggle').click();
+      await page.locator('#settings-toggle').click();
       await page.screenshot({ path: `/tmp/meow-${width}.png`, fullPage: true });
       for (const k of keys) await page.keyboard.down(k);
       await page.waitForTimeout(350);
@@ -208,7 +211,7 @@ const server = http.createServer((req, res) => {
     await page.keyboard.down('a');
     assert.equal(await page.locator('.cat-body').last().evaluate(e => getComputedStyle(e).animationName), 'none');
     await page.keyboard.up('a'); await clear();
-    await page.locator('#tone-toggle').click();
+    await page.locator('#settings-toggle').click();
     await page.keyboard.down('a');
     await page.locator('#tone').focus(); await page.keyboard.press('End');
     assert.equal(await page.locator('#tone-value').innerText(), '100%');
@@ -219,12 +222,37 @@ const server = http.createServer((req, res) => {
     await page.waitForFunction(() => document.querySelector('.cat[data-note="2"]'));
     await page.keyboard.up('s'); await clear();
     await page.keyboard.press('Escape');
-    assert.equal(await page.locator('#tone-toggle').getAttribute('aria-expanded'), 'false');
+    assert.equal(await page.locator('#settings-toggle').getAttribute('aria-expanded'), 'false');
     await page.reload();
     assert.equal(await page.locator('#tone').inputValue(), '100');
-    await page.locator('#tone-toggle').click(); await page.locator('#tone-reset').click();
+    await page.locator('#settings-toggle').click(); await page.locator('#settings-reset').click();
     assert.equal(await page.locator('#tone').inputValue(), '50');
-    assert.equal(await page.evaluate(() => localStorage.getItem('fraerapp.meow.tone')), '50');
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fraerapp.meow.settings')).tone), 50);
+    assert.equal(await page.evaluate(() => localStorage.getItem('fraerapp.meow.tone')), null);
+    await page.keyboard.down('a');
+    await page.waitForFunction(() => document.querySelector('.cat.singing'));
+    await page.locator('#octave').selectOption('3'); await clear(); await page.keyboard.up('a');
+    assert.equal(await page.locator('.piano-key[data-note="0"] .note-label').innerText(), 'C3');
+    assert.equal(await page.locator('.piano-key[data-note="12"] .note-label').innerText(), 'C4');
+    await page.locator('#preview-note').click();
+    await page.waitForFunction(() => document.querySelector('.cat.singing'));
+    assert.ok(Math.abs(await page.evaluate(() => window.__audio.oscillators.at(-2).frequency.value) - 130.8128) < .01);
+    await clear();
+    await page.locator('#octave').selectOption('5');
+    await page.locator('#release').focus(); await page.keyboard.press('End');
+    assert.equal(await page.locator('#release-value').innerText(), '600 мс');
+    await page.locator('#volume').focus(); await page.keyboard.press('Home');
+    assert.equal(await page.locator('#volume-value').innerText(), '0%');
+    await page.reload();
+    assert.equal(await page.locator('#octave').inputValue(), '5');
+    assert.equal(await page.locator('#release').inputValue(), '600');
+    assert.equal(await page.locator('#volume').inputValue(), '0');
+    assert.equal(await page.locator('#octave-label').innerText(), 'C5 — C6');
+    await page.locator('#settings-toggle').click(); await page.locator('#settings-reset').click();
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('fraerapp.meow.settings'))), { tone: 50, octave: 4, volume: 65, release: 180, muted: false });
+    await page.locator('#settings-close').click();
+    assert.equal(await page.locator('#settings-toggle').getAttribute('aria-expanded'), 'false');
+    console.log('Cat settings: octave labels/frequencies, safe held-note octave change, preview, release, volume, persistence and full reset passed.');
     console.log('Tone control: live audio change, no retrigger, keyboard range, persistence, reset, Escape and six responsive layouts passed.');
     assert.deepEqual(errors, []);
     // Explicit unsupported-audio recovery is visible.

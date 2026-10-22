@@ -23,3 +23,12 @@ export const NOTES = cats.map(([name, fur, ink, pattern, shape, ears, eyes], ind
   cat: { name, fur, ink, pattern, shape, ears, eyes },
   timbre: { formant: .88 + index % 5 * .065, vibrato: 4.3 + index % 4 * .5, breath: .025 + index % 3 * .008 },
 }));
+
+export function notesForOctave(octave) {
+  const base = [3, 4, 5].includes(octave) ? octave : 4;
+  return NOTES.map(note => ({
+    ...note,
+    note: note.note.replace(/\d$/, String(base + (note.id === 12 ? 1 : 0))),
+    frequency: note.frequency * 2 ** (base - 4),
+  }));
+}

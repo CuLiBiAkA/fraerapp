@@ -1,5 +1,18 @@
 # FraerApp deploy and ops runbook
 
+## Meow cat settings update (2026-10-23)
+
+The current build contains 11 toy files, including new `settings.js`; ship it
+with config/scene v2, app/audio v6, CSS v4 and the HTML entrypoint. Inspect runtime
+and baseline hashes, then back up before publishing. No service rebuild/restart.
+Verify all 13 toy/homepage runtime and public asset hashes, health/API and logs.
+Run the browser suite locally and publicly: octave labels and measured frequency,
+octave change during a held note, preview, release extremes, saved settings,
+full reset, quick mute and panel fit at six viewport sizes. The panel may cover
+the piano on phones; preview remains inside it. Follow the static rollback below.
+Verified backup: `backups/meow-20261022-230641` (UTC). All 13 runtime/public hashes
+match, six services healthy, health/API 200 and recent error markers zero.
+
 ## Meow timbre control update (2026-10-23)
 
 Ship meow audio.js/app.js (v5), input.js (v2), style.css (v3) and index.html together after

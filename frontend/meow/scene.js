@@ -16,7 +16,10 @@ export class CatScene {
     this.element.append(el); this.active.set(note.id, el); this.layout();
     el.addEventListener('animationend', event => { if (event.animationName === 'arrive') el.classList.remove('entering'); });
     return {
-      release: () => el.classList.add('leaving'),
+      release: (duration = .18) => {
+        el.style.setProperty('--release-duration', `${duration}s`);
+        el.classList.add('leaving');
+      },
       end: () => {
         el.classList.remove('singing'); el.remove();
         if (this.active.get(note.id) === el) this.active.delete(note.id);
