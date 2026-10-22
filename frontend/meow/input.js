@@ -22,7 +22,7 @@ export class NoteInput {
 
 export function bindInput(piano, notes, input, reset) {
   const codes = new Map(notes.map(n => [n.code, n.id]));
-  const editable = el => el?.closest?.('input, textarea, select, [contenteditable="true"]');
+  const editable = el => el?.closest?.('input:not([type="range"]), textarea, select, [contenteditable="true"]');
   window.addEventListener('keydown', event => {
     if (event.ctrlKey || event.metaKey || event.altKey || editable(event.target)) return;
     let note = codes.get(event.code);

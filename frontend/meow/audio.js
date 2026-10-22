@@ -2,7 +2,7 @@ export const MIN_NOTE = .16;
 export const RELEASE = .18;
 
 export class MeowAudio {
-  constructor() { this.voices = new Set(); this.volume = .65; this.muted = false; }
+  constructor() { this.voices = new Set(); this.volume = .65; this.muted = false; this.tone = .5; }
   prepare() {
     if (!this.context) {
       const Audio = globalThis.AudioContext || globalThis.webkitAudioContext;
@@ -32,6 +32,11 @@ export class MeowAudio {
     this.volume = volume; this.muted = muted;
     if (this.master) this.master.gain.setTargetAtTime(muted ? 0 : volume, this.context.currentTime, .012);
   }
+  setTone(value) {
+    if (!Number.isFinite(value)) return;
+    this.tone = Math.max(0, Math.min(1, value));
+    for (const voice of this.voices) voice.setTone(this.tone);
+  }
   start(note, ended = () => {}) {
     const c = this.context, now = c.currentTime;
     // Bound retrigger release tails without restricting the 13-note keyboard.
@@ -47,7 +52,7 @@ export class MeowAudio {
     vibrato.frequency.value = note.timbre.vibrato; depth.gain.value = 7;
     vibrato.connect(depth).connect(osc.detune);
     const envelope = c.createGain(), body = c.createGain();
-    const nasal = c.createBiquadFilter(), oral = c.createGain();
+    const nasal = c.createBiquadFilter(), nasalMix = c.createGain(), oral = c.createGain();
     envelope.gain.setValueAtTime(0, now); envelope.gain.linearRampToValueAtTime(.25, now + .025);
     envelope.gain.setTargetAtTime(.19, now + .045, .065);
     envelope.connect(this.compressor);
@@ -55,7 +60,8 @@ export class MeowAudio {
     nasal.type = 'lowpass'; nasal.frequency.value = note.frequency * 1.6; nasal.Q.value = .6;
     body.gain.setValueAtTime(.6, now);
     body.gain.setTargetAtTime(note.timbre.breath, now + .035, .022);
-    osc.connect(nasal).connect(body).connect(envelope);
+    osc.connect(nasal).connect(body).connect(nasalMix).connect(envelope);
+    nasalMix.gain.value = 1.8 - 1.6 * this.tone;
     oral.gain.setValueAtTime(0, now);
     oral.gain.setValueAtTime(0, now + .025);
     oral.gain.linearRampToValueAtTime(1, now + .085);
@@ -68,6 +74,7 @@ export class MeowAudio {
     ].map(([m, ya, a, u, q, gain]) => {
       const filter = c.createBiquadFilter(), level = c.createGain(), f = note.timbre.formant;
       filter.type = 'bandpass'; filter.Q.value = q; level.gain.value = gain;
+      filter.detune.value = (this.tone - .5) * 900;
       filter.frequency.setValueAtTime(m * f, now);
       filter.frequency.setValueAtTime(m * f, now + .03);
       filter.frequency.exponentialRampToValueAtTime(ya * f, now + .105);
@@ -83,6 +90,11 @@ export class MeowAudio {
     const voice = {
       startedAt: now,
       get releasing() { return released || stopped; },
+      setTone: value => {
+        // Change vocal resonances and nasal balance, never the musical oscillator.
+        filters.forEach(({ filter }) => filter.detune.setTargetAtTime((value - .5) * 900, c.currentTime, .025));
+        nasalMix.gain.setTargetAtTime(1.8 - 1.6 * value, c.currentTime, .025);
+      },
       release: () => {
         if (released || stopped) return;
         released = true;
@@ -104,7 +116,7 @@ export class MeowAudio {
     };
     osc.onended = () => {
       this.voices.delete(voice);
-      [osc, vibrato, depth, body, nasal, oral, envelope, ...filters.flatMap(f => [f.filter, f.level])].forEach(n => n.disconnect());
+      [osc, vibrato, depth, body, nasal, nasalMix, oral, envelope, ...filters.flatMap(f => [f.filter, f.level])].forEach(n => n.disconnect());
       ended();
     };
     this.voices.add(voice); osc.start(now); vibrato.start(now);

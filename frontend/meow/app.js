@@ -1,6 +1,6 @@
 import { NOTES } from './config.js';
-import { MeowAudio, MIN_NOTE } from './audio.js?v=4';
-import { NoteInput, bindInput } from './input.js';
+import { MeowAudio, MIN_NOTE } from './audio.js?v=5';
+import { NoteInput, bindInput } from './input.js?v=2';
 import { CatScene } from './scene.js';
 import { renderPiano } from './piano.js';
 
@@ -61,5 +61,30 @@ function updateVolume() {
 }
 mute.addEventListener('click', () => { muted = !muted; updateVolume(); });
 volume.addEventListener('input', () => { muted = false; updateVolume(); });
+
+const tone = document.querySelector('#tone'), toneToggle = document.querySelector('#tone-toggle');
+const tonePanel = document.querySelector('#tone-panel'), toneValue = document.querySelector('#tone-value');
+try {
+  const saved = localStorage.getItem('fraerapp.meow.tone');
+  if (saved !== null && saved.trim() !== '' && Number.isFinite(Number(saved))) tone.value = String(Math.max(0, Math.min(100, Number(saved))));
+} catch { /* Storage may be disabled; the live control still works. */ }
+function updateTone(save = false) {
+  audio.setTone(Number(tone.value) / 100);
+  toneValue.textContent = `${tone.value}%`;
+  toneToggle.textContent = `Тембр · ${tone.value}%`;
+  tone.setAttribute('aria-valuetext', `${tone.value}% открытости голоса`);
+  if (save) { try { localStorage.setItem('fraerapp.meow.tone', tone.value); } catch { /* Keep the session setting. */ } }
+}
+toneToggle.addEventListener('click', () => {
+  tonePanel.hidden = !tonePanel.hidden;
+  toneToggle.setAttribute('aria-expanded', String(!tonePanel.hidden));
+});
+tonePanel.addEventListener('keydown', event => {
+  if (event.code !== 'Escape') return;
+  tonePanel.hidden = true; toneToggle.setAttribute('aria-expanded', 'false'); toneToggle.focus();
+});
+tone.addEventListener('input', () => updateTone(true));
+document.querySelector('#tone-reset').addEventListener('click', () => { tone.value = '50'; updateTone(true); });
+updateTone();
 // Native audio interruptions (e.g. a phone call) must not leave visual held notes.
 audio.oninterrupt = reset;

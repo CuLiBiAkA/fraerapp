@@ -7,8 +7,8 @@
   <meta name="description" content="Собери кошачий хор! 13 рисованных котиков, настоящее пианино и выразительное мяуканье. Играй бесплатно с клавиатуры или касанием.">
   <title>Мяу-пианино — маленький кошачий оркестр · FraerApp</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=2">
-  <script type="module" src="./app.js?v=4"></script>
+  <link rel="stylesheet" href="./style.css?v=3">
+  <script type="module" src="./app.js?v=5"></script>
 </head>
 <body>
   <main class="toy">
@@ -37,7 +37,16 @@
     </section>
     <footer class="controls">
       <div class="play-hint"><span class="hint-icon" aria-hidden="true">⌨</span><span>Клавиатура, мышь или твои пальцы<span class="hold-hint">Удерживай ноту — котик будет петь</span></span></div>
-      <div class="volume-control"><button id="mute" type="button" aria-label="Выключить звук" aria-pressed="false">♫</button><label for="volume" class="sr-only">Громкость</label><input id="volume" type="range" min="0" max="100" value="65"><output id="volume-value" for="volume">65%</output></div>
+      <div class="sound-tools">
+        <button id="tone-toggle" class="tone-toggle" type="button" aria-expanded="false" aria-controls="tone-panel">Тембр · 50%</button>
+        <div class="volume-control"><button id="mute" type="button" aria-label="Выключить звук" aria-pressed="false">♫</button><label for="volume" class="sr-only">Громкость</label><input id="volume" type="range" min="0" max="100" value="65"><output id="volume-value" for="volume">65%</output></div>
+      </div>
+      <div id="tone-panel" class="tone-panel" role="region" aria-label="Настройка тембра" hidden>
+        <div class="tone-heading"><label for="tone">Тембр голоса</label><output id="tone-value" for="tone">50%</output></div>
+        <input id="tone" type="range" min="0" max="100" step="1" value="50" aria-describedby="tone-help">
+        <div class="tone-endpoints"><span>Носовой</span><span>Открытый</span></div>
+        <div class="tone-bottom"><p id="tone-help">Зажми ноту и двигай ползунок</p><button id="tone-reset" type="button">Сбросить</button></div>
+      </div>
     </footer>
     <div class="audio-feedback"><p id="audio-status" role="status">Нажмите любую клавишу — звук включится</p><button id="enable-audio" type="button" hidden>Включить звук</button></div>
     <noscript>Для пианино нужен JavaScript. Включите его в настройках браузера.</noscript>

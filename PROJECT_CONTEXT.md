@@ -2,6 +2,22 @@
 
 Last updated: 2026-10-23.
 
+## Meow live timbre control (2026-10-23)
+
+The Tone button beside volume opens a 0–100% Nasal–Open slider and reset to 50%.
+It continuously changes formant detune (-450 to +450 cents) and nasal mix
+(1.8 to .2), including held voices with a 25 ms smoothing constant. The musical
+oscillator frequency/pitch envelope is unchanged. Store only this preference in
+`fraerapp.meow.tone` localStorage, with unavailable-storage fallback. Escape
+closes the panel and restores focus; the panel stays above the piano at the
+tested portrait/desktop sizes. Letter keys still play notes while a range is
+focused; native arrow keys adjust the range. App/audio v5, input v2 and CSS v3.
+No backend/API change.
+Deployed with backup `backups/meow-20261022-224850` (UTC). All 12 runtime/public
+hashes match; six services healthy, health/API 200 and recent errors zero.
+Source is the feature commit containing this entry; browser checks cover the
+live timbre change, preference persistence/reset, keyboard use and panel layout.
+
 ## Meow voice articulation correction (2026-10-23)
 
 User listening feedback described the first synth as “бляя/бяя”. App/audio v4

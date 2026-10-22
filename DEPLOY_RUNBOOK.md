@@ -1,5 +1,16 @@
 # FraerApp deploy and ops runbook
 
+## Meow timbre control update (2026-10-23)
+
+Ship meow audio.js/app.js (v5), input.js (v2), style.css (v3) and index.html together after
+baseline/runtime inspection and static backup. No rebuild/restart of services.
+Run build and the meow browser suite; verify live tone changes without voice
+retrigger, local preference reload, reset, range keyboard controls, Escape and
+panel fit above the piano at six viewport sizes. Inspect public asset hashes,
+health/API and recent logs using the static release procedure below.
+Verified backup: `backups/meow-20261022-224850` (UTC); all 12 public/runtime hashes
+match, six services healthy, health/API 200 and recent error markers zero.
+
 ## Meow voice articulation update (2026-10-23)
 
 Publish `frontend/meow/audio.js`, `app.js` and `index.html` together (app/audio v4)
