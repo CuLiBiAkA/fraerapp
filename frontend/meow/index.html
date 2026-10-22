@@ -8,7 +8,7 @@
   <title>Мяу-пианино — маленький кошачий оркестр · FraerApp</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./style.css?v=4">
-  <script type="module" src="./app.js?v=7"></script>
+  <script type="module" src="./app.js?v=8"></script>
 </head>
 <body>
   <main class="toy">
@@ -44,7 +44,7 @@
       </div>
       <div id="settings-panel" class="settings-panel" role="region" aria-labelledby="settings-title" hidden>
         <div class="settings-heading"><h2 id="settings-title">Кошачьи настройки</h2><button id="settings-close" type="button" aria-label="Закрыть настройки">×</button></div>
-        <div class="setting-field"><div class="setting-label"><label for="tone">Тембр голоса</label><output id="tone-value" for="tone">50%</output></div><input id="tone" type="range" min="0" max="100" step="1" value="50"><div class="setting-endpoints"><span>Носовой</span><span>Открытый</span></div></div>
+        <div class="setting-field"><div class="setting-label"><label for="tone">Тембр голоса</label><output id="tone-value" for="tone">100%</output></div><input id="tone" type="range" min="0" max="100" step="1" value="100"><div class="setting-endpoints"><span>Носовой</span><span>Открытый</span></div></div>
         <div class="setting-field octave-field"><label for="octave">Октава</label><select id="octave"><option value="3">Низкая · C3–C4</option><option value="4" selected>Обычная · C4–C5</option><option value="5">Высокая · C5–C6</option></select></div>
         <div class="setting-field"><div class="setting-label"><label for="volume">Громкость</label><output id="volume-value" for="volume">65%</output></div><input id="volume" type="range" min="0" max="100" value="65"></div>
         <div class="setting-field"><div class="setting-label"><label for="release">Затухание ноты</label><output id="release-value" for="release">180 мс</output></div><input id="release" type="range" min="80" max="600" step="10" value="180"><div class="setting-endpoints"><span>Коротко</span><span>Плавно</span></div></div>

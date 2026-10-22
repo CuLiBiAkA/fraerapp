@@ -44,6 +44,7 @@ const server = http.createServer((req, res) => {
     page.on('response', r => { if (r.status() >= 400) errors.push(`${r.status()} ${r.url()}`); });
     await page.goto(`${origin}/meow/`);
     await page.locator('.piano-key').first().waitFor();
+    assert.equal(await page.locator('#tone').inputValue(), '100', 'new browsers start with open timbre');
     assert.equal(await page.locator('.white').count(), 8);
     assert.equal(await page.locator('.black').count(), 5);
     await page.screenshot({ path: '/tmp/meow-desktop.png', fullPage: true });
@@ -227,9 +228,11 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.locator('#settings-toggle').getAttribute('aria-expanded'), 'false');
     await page.reload();
     assert.equal(await page.locator('#tone').inputValue(), '100');
-    await page.locator('#settings-toggle').click(); await page.locator('#settings-reset').click();
-    assert.equal(await page.locator('#tone').inputValue(), '50');
-    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fraerapp.meow.settings')).tone), 50);
+    await page.locator('#settings-toggle').click();
+    await page.locator('#tone').focus(); await page.keyboard.press('Home');
+    await page.locator('#settings-reset').click();
+    assert.equal(await page.locator('#tone').inputValue(), '100');
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('fraerapp.meow.settings')).tone), 100);
     assert.equal(await page.evaluate(() => localStorage.getItem('fraerapp.meow.tone')), null);
     await page.keyboard.down('a');
     await page.waitForFunction(() => document.querySelector('.cat.singing'));
@@ -251,7 +254,7 @@ const server = http.createServer((req, res) => {
     assert.equal(await page.locator('#volume').inputValue(), '0');
     assert.equal(await page.locator('#octave-label').innerText(), 'C5 — C6');
     await page.locator('#settings-toggle').click(); await page.locator('#settings-reset').click();
-    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('fraerapp.meow.settings'))), { tone: 50, octave: 4, volume: 65, release: 180, muted: false });
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('fraerapp.meow.settings'))), { tone: 100, octave: 4, volume: 65, release: 180, muted: false });
     await page.locator('#settings-close').click();
     assert.equal(await page.locator('#settings-toggle').getAttribute('aria-expanded'), 'false');
     console.log('Cat settings: octave labels/frequencies, safe held-note octave change, preview, release, volume, persistence and full reset passed.');

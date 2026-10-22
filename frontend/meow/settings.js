@@ -1,4 +1,4 @@
-export const DEFAULT_SETTINGS = Object.freeze({ tone: 50, octave: 4, volume: 65, release: 180, muted: false });
+export const DEFAULT_SETTINGS = Object.freeze({ tone: 100, octave: 4, volume: 65, release: 180, muted: false });
 
 export function normalizeSettings(value) {
   const source = value && typeof value === 'object' ? value : {};

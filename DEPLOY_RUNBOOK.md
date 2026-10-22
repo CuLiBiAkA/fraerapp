@@ -1,5 +1,14 @@
 # FraerApp deploy and ops runbook
 
+## Meow default timbre (2026-10-23)
+
+Publish settings.js v2, app.js v8 and meow index.html after baseline inspection
+and a static backup; no service restart. Verify a clean browser starts at 100%,
+full reset returns to 100%, saved preferences survive and music still works.
+Mock visit collection during browser checks to avoid inflating experiment stats.
+Verified backup: `backups/meow-default-20261022-232836` (UTC); three runtime/public
+hashes match, six services healthy, health/catalogue 200. No restart was needed.
+
 ## Meow experiment statistics (2026-10-23)
 
 Run both Java suites, frontend baseline, meow and admin browser checks. Ship V25,

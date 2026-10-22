@@ -2,6 +2,15 @@
 
 Last updated: 2026-10-23.
 
+## Meow default timbre (2026-10-23)
+
+New/invalid/absent preferences and full reset now select 100% open timbre.
+Existing saved preferences, including 0% and the previous 50%, are preserved.
+App v8 imports settings v2; HTML fallback also shows 100%. Static-only change.
+Deployed after backup `backups/meow-default-20261022-232836` (UTC); all three
+runtime/public hashes match, six services healthy and health/catalogue 200.
+Build, 60 Node tests and local browser checks passed. No service restart.
+
 ## Meow experiment statistics (2026-10-23)
 
 Admin `/auth/admin#experiments` shows unique browsers (all time, today, last 7

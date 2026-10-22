@@ -3,7 +3,7 @@ import { MeowAudio, MIN_NOTE } from './audio.js?v=6';
 import { NoteInput, bindInput } from './input.js?v=2';
 import { CatScene } from './scene.js?v=2';
 import { renderPiano } from './piano.js';
-import { mountSettings } from './settings.js';
+import { mountSettings } from './settings.js?v=2';
 import { recordVisit } from './visits.js';
 
 recordVisit();
