@@ -41,26 +41,38 @@ export class MeowAudio {
     }
     const osc = c.createOscillator(), vibrato = c.createOscillator(), depth = c.createGain();
     osc.setPeriodicWave(this.wave); osc.frequency.value = note.frequency;
-    osc.detune.setValueAtTime(-85, now); osc.detune.linearRampToValueAtTime(0, now + .065);
+    osc.detune.setValueAtTime(-140, now);
+    osc.detune.linearRampToValueAtTime(35, now + .09);
+    osc.detune.linearRampToValueAtTime(0, now + .18);
     vibrato.frequency.value = note.timbre.vibrato; depth.gain.value = 7;
     vibrato.connect(depth).connect(osc.detune);
     const envelope = c.createGain(), body = c.createGain();
-    envelope.gain.setValueAtTime(0, now); envelope.gain.linearRampToValueAtTime(.25, now + .018);
+    const nasal = c.createBiquadFilter(), oral = c.createGain();
+    envelope.gain.setValueAtTime(0, now); envelope.gain.linearRampToValueAtTime(.25, now + .025);
     envelope.gain.setTargetAtTime(.19, now + .045, .065);
     envelope.connect(this.compressor);
-    body.gain.value = note.timbre.breath; osc.connect(body).connect(envelope);
-    // Parallel vocal resonances: /m/ -> /ia/ -> sustained /a/, release /u/.
+    // A closed-mouth hum precedes the vowels: no broadband/plosive onset.
+    nasal.type = 'lowpass'; nasal.frequency.value = note.frequency * 1.6; nasal.Q.value = .6;
+    body.gain.setValueAtTime(.6, now);
+    body.gain.setTargetAtTime(note.timbre.breath, now + .035, .022);
+    osc.connect(nasal).connect(body).connect(envelope);
+    oral.gain.setValueAtTime(0, now);
+    oral.gain.setValueAtTime(0, now + .025);
+    oral.gain.linearRampToValueAtTime(1, now + .085);
+    oral.connect(envelope);
+    // /m/ -> /i/ -> open /a/. The /u/ arrives early enough in the release to hear.
     const filters = [
-      [320, 820, 650, 340, 3.8, .8],
-      [1900, 1550, 1280, 780, 5, .36],
-      [2900, 2700, 2500, 2100, 6, .12],
+      [350, 780, 620, 320, 3.8, .8],
+      [2350, 1700, 1350, 720, 5, .36],
+      [3100, 2800, 2500, 2050, 6, .12],
     ].map(([m, ya, a, u, q, gain]) => {
       const filter = c.createBiquadFilter(), level = c.createGain(), f = note.timbre.formant;
       filter.type = 'bandpass'; filter.Q.value = q; level.gain.value = gain;
       filter.frequency.setValueAtTime(m * f, now);
-      filter.frequency.exponentialRampToValueAtTime(ya * f, now + .09);
-      filter.frequency.exponentialRampToValueAtTime(a * f, now + .23);
-      osc.connect(filter).connect(level).connect(envelope);
+      filter.frequency.setValueAtTime(m * f, now + .03);
+      filter.frequency.exponentialRampToValueAtTime(ya * f, now + .105);
+      filter.frequency.exponentialRampToValueAtTime(a * f, now + .2);
+      osc.connect(filter).connect(level).connect(oral);
       return { filter, level, u: u * f };
     });
     let released = false, stopped = false;
@@ -75,8 +87,11 @@ export class MeowAudio {
         if (released || stopped) return;
         released = true;
         const at = Math.max(c.currentTime, now + MIN_NOTE);
-        hold(envelope.gain, at); envelope.gain.linearRampToValueAtTime(0, at + RELEASE);
-        filters.forEach(({ filter, u }) => { hold(filter.frequency, at); filter.frequency.exponentialRampToValueAtTime(u, at + .12); });
+        hold(envelope.gain, at);
+        envelope.gain.linearRampToValueAtTime(.16, at + .055);
+        envelope.gain.linearRampToValueAtTime(0, at + RELEASE);
+        filters.forEach(({ filter, u }) => { hold(filter.frequency, at); filter.frequency.exponentialRampToValueAtTime(u, at + .055); });
+        body.gain.setTargetAtTime(.12, at, .02);
         osc.stop(at + RELEASE + .01); vibrato.stop(at + RELEASE + .01);
       },
       stop: () => {
@@ -89,7 +104,7 @@ export class MeowAudio {
     };
     osc.onended = () => {
       this.voices.delete(voice);
-      [osc, vibrato, depth, body, envelope, ...filters.flatMap(f => [f.filter, f.level])].forEach(n => n.disconnect());
+      [osc, vibrato, depth, body, nasal, oral, envelope, ...filters.flatMap(f => [f.filter, f.level])].forEach(n => n.disconnect());
       ended();
     };
     this.voices.add(voice); osc.start(now); vibrato.start(now);

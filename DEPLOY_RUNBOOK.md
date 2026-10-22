@@ -1,5 +1,17 @@
 # FraerApp deploy and ops runbook
 
+## Meow voice articulation update (2026-10-23)
+
+Publish `frontend/meow/audio.js`, `app.js` and `index.html` together (app/audio v4)
+after the existing static backup and baseline hash checks. No service restart.
+`npm run build` and the meow browser suite cover the nasal/vowel/release spectrum,
+pitch, clipping, mute, short taps and held-note cleanup. Recheck the public suite
+with `MEOW_BASE_URL` and ask for listening feedback; automated acoustic checks
+alone do not confirm a recognizable cat voice. Follow the static verification
+and rollback procedure below, preserving the previous v3 files in the backup.
+Verified deployment backup: `backups/meow-20261022-224157` (UTC). All 12 asset
+hashes match; six services healthy; public health/API 200; recent errors zero.
+
 ## Meow piano static release (2026-10-23)
 
 Run `npm run build`, baseline frontend/Builder tests, `npm run test:meow` (requires

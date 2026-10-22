@@ -2,6 +2,19 @@
 
 Last updated: 2026-10-23.
 
+## Meow voice articulation correction (2026-10-23)
+
+User listening feedback described the first synth as “бляя/бяя”. App/audio v4
+adds a separate low-pass nasal onset, crossfades the vowel path over 25–85 ms,
+and reaches the rounded /u/ within the first 55 ms of release, before fading.
+Pitch rises from -140 to +35 cents and settles to the note by 180 ms. Sustain,
+160 ms minimum tap and 180 ms release remain. Browser checks cover the darker
+nasal/release spectra as well as pitch, silence and voice lifecycle. Perceived
+cat likeness still needs listening feedback; spectral checks cannot establish it.
+Deployed after backup `backups/meow-20261022-224157` (UTC); all 12 installed/public
+asset hashes match, six services are healthy, public health/API return 200 and
+recent error markers are zero. Source is the fix commit containing this entry.
+
 ## Meow piano (2026-10-23)
 
 Public standalone `/meow/` is a zero-dependency static musical toy, linked beside

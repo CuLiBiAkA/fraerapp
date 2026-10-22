@@ -119,7 +119,7 @@ const server = http.createServer((req, res) => {
 
     // Render the production synth in a real browser OfflineAudioContext.
     const audioResults = await page.evaluate(async () => {
-      const { MeowAudio } = await import('./audio.js?v=3');
+      const { MeowAudio } = await import('./audio.js?v=4');
       const { NOTES } = await import('./config.js');
       async function render(notes, release = true, muted = false) {
         const c = new OfflineAudioContext(1, 44100, 44100), a = new MeowAudio();
@@ -141,12 +141,25 @@ const server = http.createServer((req, res) => {
         notes.push({ expected: note.frequency, measured: 44100 / bestLag, sustain: r.sustain });
       }
       const tap = await render([NOTES[0]]), chord = await render(NOTES), silent = await render(NOTES, false, true);
+      const brightness = (data, from, to) => {
+        let energy = 0, differences = 0;
+        for (let i = Math.floor(from * 44100) + 1; i < to * 44100; i++) {
+          energy += data[i] ** 2;
+          differences += (data[i] - data[i - 1]) ** 2;
+        }
+        return Math.sqrt(differences / energy);
+      };
+      const articulation = {
+        nasal: brightness(tap.data, .012, .03),
+        vowel: brightness(tap.data, .09, .15),
+        rounded: brightness(tap.data, .23, .28),
+      };
       const stressContext = new OfflineAudioContext(1, 44100, 44100), stress = new MeowAudio();
       stress.attach(stressContext); stress.start(NOTES[0]);
       for (let i = 0; i < 60; i++) stress.start(NOTES[4]).release();
       const stressData = (await stressContext.startRendering()).getChannelData(0);
       const heldAfterStress = stressData.slice(33075).some(x => Math.abs(x) > .001);
-      return { notes, tap: { attack: tap.attack, tail: tap.tail }, chord: { peak: chord.peak, tail: chord.tail }, silent: silent.sustain, heldAfterStress };
+      return { notes, tap: { attack: tap.attack, tail: tap.tail }, chord: { peak: chord.peak, tail: chord.tail }, silent: silent.sustain, heldAfterStress, articulation };
     });
     for (const n of audioResults.notes) {
       assert.ok(Math.abs(n.measured / n.expected - 1) < .015, JSON.stringify(n));
@@ -157,6 +170,8 @@ const server = http.createServer((req, res) => {
     assert.ok(audioResults.chord.peak < .95); assert.ok(audioResults.chord.tail < 1e-6);
     assert.ok(audioResults.silent < 1e-6);
     assert.ok(audioResults.heldAfterStress, 'release-tail pruning must preserve held notes');
+    assert.ok(audioResults.articulation.nasal < audioResults.articulation.vowel * .8, 'a muted nasal onset must precede the open vowel');
+    assert.ok(audioResults.articulation.rounded < audioResults.articulation.vowel * .8, 'the short meow must round into /u/ before fading');
     console.log('Audio: all 13 measured pitches within 1.5%, sustained signal, audible short note, silent release tail and mute, no 13-note clipping.', JSON.stringify(audioResults));
     for (const [width, height] of [[1440, 900], [1024, 768], [768, 1024], [390, 844], [320, 667], [844, 390]]) {
       await page.setViewportSize({ width, height });

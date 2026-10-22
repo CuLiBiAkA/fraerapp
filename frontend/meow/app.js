@@ -1,5 +1,5 @@
 import { NOTES } from './config.js';
-import { MeowAudio, MIN_NOTE } from './audio.js?v=3';
+import { MeowAudio, MIN_NOTE } from './audio.js?v=4';
 import { NoteInput, bindInput } from './input.js';
 import { CatScene } from './scene.js';
 import { renderPiano } from './piano.js';
