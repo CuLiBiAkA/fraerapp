@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f9f5ec">
+  <meta name="description" content="Собери кошачий хор! 13 рисованных котиков, настоящее пианино и выразительное мяуканье. Играй бесплатно с клавиатуры или касанием.">
+  <title>Мяу-пианино — маленький кошачий оркестр · FraerApp</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css?v=2">
+  <script type="module" src="./app.js?v=3"></script>
+</head>
+<body>
+  <main class="toy">
+    <header class="topbar">
+      <a class="back-link" href="/">← <span>FraerApp</span></a>
+      <span class="edition"><span class="tiny-paw" aria-hidden="true">✿</span> маленький кошачий оркестр</span>
+      <span class="top-note">Сделано для улыбки</span>
+    </header>
+    <section class="intro" aria-labelledby="title">
+      <p class="eyebrow">13 КОТИКОВ · ОДНО ПИАНИНО · ТВОЯ МЕЛОДИЯ</p>
+      <h1 id="title">Мяу<span class="title-dash">-</span>пианино<span class="title-star" aria-hidden="true">✳</span></h1>
+      <p class="subtitle">Нажимай клавиши — собирай кошачий хор</p>
+    </section>
+    <section class="stage" aria-label="Сцена кошачьего хора">
+      <div class="stage-arch" aria-hidden="true"></div>
+      <span class="doodle doodle-one" aria-hidden="true">♪</span><span class="doodle doodle-two" aria-hidden="true">♫</span>
+      <span class="doodle doodle-three" aria-hidden="true">✧</span><span class="doodle doodle-four" aria-hidden="true">✳</span>
+      <div class="idle-scene"><div class="idle-cats"></div><p>Тс-с… кажется, кто-то хочет спеть</p></div>
+      <div id="cats" class="cats"></div>
+      <span class="stage-caption">ТВОЯ СЦЕНА, ТВОИ ПРАВИЛА</span>
+    </section>
+    <section class="instrument" aria-label="Пианино от C4 до C5">
+      <div class="instrument-top"><span class="instrument-brand"><span aria-hidden="true">✿</span> MEOW STUDIO</span><span class="instrument-hint">Лапки на клавиши!</span><span class="live-dot" aria-hidden="true"></span></div>
+      <div id="piano" class="piano" role="group" aria-label="Клавиши пианино"></div>
+      <div class="instrument-bottom"><span>Одна октава. Бесконечно много мяу.</span><span aria-hidden="true">C4 — C5</span></div>
+    </section>
+    <footer class="controls">
+      <div class="play-hint"><span class="hint-icon" aria-hidden="true">⌨</span><span>Клавиатура, мышь или твои пальцы<span class="hold-hint">Удерживай ноту — котик будет петь</span></span></div>
+      <div class="volume-control"><button id="mute" type="button" aria-label="Выключить звук" aria-pressed="false">♫</button><label for="volume" class="sr-only">Громкость</label><input id="volume" type="range" min="0" max="100" value="65"><output id="volume-value" for="volume">65%</output></div>
+    </footer>
+    <div class="audio-feedback"><p id="audio-status" role="status">Нажмите любую клавишу — звук включится</p><button id="enable-audio" type="button" hidden>Включить звук</button></div>
+    <noscript>Для пианино нужен JavaScript. Включите его в настройках браузера.</noscript>
+  </main>
+</body>
+</html>

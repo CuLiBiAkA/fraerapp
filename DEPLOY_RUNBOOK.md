@@ -1,5 +1,32 @@
 # FraerApp deploy and ops runbook
 
+## Meow piano static release (2026-10-23)
+
+Run `npm run build`, baseline frontend/Builder tests, `npm run test:meow` (requires
+Playwright/Chromium) and `git diff --check`. Build produces 10 self-contained files
+in `dist/meow/`; no dependency installation or backend build is needed.
+Before publishing inspect current services, sanitized logs, public health/API,
+and compare runtime `frontend/index.html` / `frontend/engine.js` to the baseline
+to avoid overwriting drift. Back up those files and any existing `frontend/meow/`
+to a restricted timestamped directory and verify the archive listing.
+Install the 10 files under `frontend/meow/`, then engine.js and index.html
+(engine-96) last. Directories must be 0755 and static files 0644. Frontend is
+mounted; no container reload/rebuild, migration or environment edit is needed.
+Verify runtime/public SHA-256 for all 12 assets (strip only Cloudflare's beacon
+from HTML if injected), `/meow/`, `/`, `/healthz`, `/actuator/health`, guest
+catalogue, six healthy services and recent logs. Smoke-test a note and release
+at the public URL. Rollback restores the backed-up homepage files and the
+previous meow directory, or removes only the newly introduced meow directory.
+Never overwrite unrelated static/runtime files.
+
+Release receipt: final backup `backups/meow-20261022-222751` contains the previous
+static files and release archive; the initial pre-feature backup is
+`backups/meow-20261022-222324` (timestamps UTC). Installed/public hashes for all
+12 files match; six services healthy; home, health, readiness and guest catalogue
+return 200; recent error markers zero. Final app/audio URLs use v3, stylesheet v2.
+Release source is the feature commit containing this entry, based on `6e372cb`.
+README records local/browser checks and device/listening limitations.
+
 ## My stories pagination release receipt (2026-10-15)
 
 Deployed source `6e313e8` after push to main. Backup

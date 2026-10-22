@@ -1,6 +1,29 @@
 # FraerApp project context
 
-Last updated: 2026-10-15.
+Last updated: 2026-10-23.
+
+## Meow piano (2026-10-23)
+
+Public standalone `/meow/` is a zero-dependency static musical toy, linked beside
+All stories on the homepage (engine-96 RU/EN label). It does not use auth or APIs.
+Existing frontend stack is preserved. `frontend/meow/` owns configuration, input,
+Web Audio synthesis, original layered SVG cats, scene and piano modules. Thirteen
+chromatic notes C4–C5 support mixed keyboard/pointer ownership and multi-touch;
+blur/hidden/pagehide/audio interruption clear voices. Sound is locally synthesized
+with vowel formants, a 160 ms minimum note and 180 ms release, not recorded samples.
+`npm run build` also packages `dist/meow/`; README documents standalone hosting,
+resources, commands and browser/device verification limits. No backend, schema,
+nginx configuration or private runtime settings change.
+
+Release source is recorded in the feature commit containing this entry, based
+on `6e372cb`. Final backup: `backups/meow-20261022-222751` (UTC). All 12 runtime
+and public static hashes match, six services are healthy, public health/API
+checks return 200 and recent error markers are zero. Baseline: 55 Node tests;
+Chromium covers input lifecycle, 13 measured pitches, mute before initialization,
+13-note clipping/silent tails, held-note preservation under 60 retriggers and
+six responsive sizes. Physical mobile devices and human listening remain untested.
+
+## Reader typography and author details (2026-10-15)
 
 Reader typography follows the October 15 reference: stats and answer/navigation
 buttons use Inter Medium 23/25 with zero tracking; scene prose uses Montserrat
