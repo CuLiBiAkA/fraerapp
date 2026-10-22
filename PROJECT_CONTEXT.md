@@ -21,6 +21,15 @@ cached. `admin-experiments.js` owns loading, retry, empty and revoked states.
 Admin module v5; toy app v7; 12 static toy files. API and auth-service rebuilds
 are required because admin HTML is embedded in auth's JAR. Stories are unchanged.
 
+Deployed source `0b1ccf5`; backup `backups/meow-stats-20261022-232042` (UTC)
+contains validated database dumps, a cutover API dump, scoped files and rollback
+image references. V25 succeeded; nine installed sources, both running JARs,
+changed public assets and public admin HTML match. All six services are healthy;
+home/health/catalogue return 200. Two edge connection-refused entries occurred
+during API recreation; post-cutover probes succeeded. An isolated repeat visitor
+produced one row/two opens and was removed. Checks: 147 API, 78 auth, 60 Node tests,
+four-width admin fixtures and local/public six-size meow audio/input checks.
+
 ## Meow cat settings (2026-10-23)
 
 A small cat with a gear replaces the Tone button and opens settings for timbre,

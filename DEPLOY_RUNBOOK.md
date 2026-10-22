@@ -16,6 +16,16 @@ to avoid inflating production counts. Recheck six services, health/API and logs.
 Rollback restores previous API/auth images and scoped files; additive V25 may
 remain. Never overwrite subsequent user writes with an old database dump.
 
+Release receipt: source `0b1ccf5`, backup `backups/meow-stats-20261022-232042`
+(UTC). API/auth images use `meow-stats-20261022-232042` and their existing compose
+aliases; rollback tags use `before-meow-stats-20261022-232042`. Verified dumps,
+V25 success, nine installed sources, two running JARs and changed public assets,
+including served admin HTML. Anonymous stats GET returns 401; the scoped two-view
+probe yielded one visitor and was deleted. All six services healthy and public
+home/health/catalogue 200. Two edge connection failures during recreation were
+transient; post-cutover probes and public browser checks passed. Tests: 147 API,
+78 auth, 60 Node, four admin widths and six meow sizes. No account mutations.
+
 ## Meow cat settings update (2026-10-23)
 
 The current build contains 11 toy files, including new `settings.js`; ship it
