@@ -6,6 +6,10 @@ Home has one Mini-games link opening an accessible native dialog with Meow piano
 and Cat drop links. Both existing game URLs remain unchanged; Escape/close return
 focus to the launcher. Labels follow the selected RU/EN language.
 
+Compact story cards on Home and in the catalogue contain cover, genre, title,
+statistics and favorite only. The author capsule belongs to the opened story
+detail, not compact cards; do not append it in fillStoryCard.
+
 ## Published chapter inspection (2026-10-23)
 
 My stories retains the Edit label for published chapters. It opens a shared

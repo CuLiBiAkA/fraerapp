@@ -1718,7 +1718,6 @@ function fillStoryCard(card, story, coverClass) {
   renderStoryCardStats(stats, story);
   info.append(title, stats); link.append(cover, info);
   card.append(link, favoriteButton(story));
-  const author=authorCapsule(story);if(author)card.append(author);
 }
 
 function renderStoryCardStats(stats, story) {
