@@ -59,17 +59,19 @@ export async function prepareImage(file, { purpose = 'scene' } = {}) {
   if (!file?.type?.startsWith('image/')) return file;
   const prepared = await compress(file);
   if (!document.querySelector('link[data-image-preparation]')) {
-    const style = document.createElement('link'); style.rel = 'stylesheet'; style.href = '/image-preparation.css?v=1';
+    const style = document.createElement('link'); style.rel = 'stylesheet'; style.href = '/image-preparation.css?v=2';
     style.dataset.imagePreparation = ''; document.head.append(style);
   }
   const previous = document.activeElement, url = URL.createObjectURL(prepared.file);
   const dialog = node('dialog', null, 'image-preparation');
+  const isAvatar = purpose === 'avatar';
+  if (isAvatar) dialog.classList.add('image-preparation-avatar');
   const heading = node('h2', words('Проверьте изображение', 'Check your image')); heading.id = 'image-preparation-title';
   dialog.setAttribute('aria-labelledby', heading.id);
-  dialog.append(heading, node('p', words('Держите лица, надписи и важные детали в центральной области. Рамки показывают пример обрезки на разных экранах.', 'Keep faces, text and important details in the centre. The frames show example crops on different screens.')));
+  dialog.append(heading, node('p', isAvatar ? words('Так фотография будет выглядеть в профиле автора на телефоне и компьютере.', 'This is how your photo will appear in your author profile on phones and computers.') : words('Держите лица, надписи и важные детали в центральной области. Рамки показывают пример обрезки на разных экранах.', 'Keep faces, text and important details in the centre. The frames show example crops on different screens.')));
   const stage = node('div', null, 'image-preparation-stage');
   const img = node('img'); img.src = url; img.alt = words('Подготовленное изображение с безопасной областью', 'Prepared image with safe area'); stage.append(img);
-  const formats = purpose === 'cover'
+  const formats = isAvatar ? [] : purpose === 'cover'
     ? [[words('Карточка автора', 'Author card'), 4 / 5], [words('Телефон', 'Phone'), 4 / 3], [words('Страница истории', 'Story page'), 640 / 150]]
     : [[words('Десктоп', 'Desktop'), 16 / 9], [words('Планшет', 'Tablet'), 3 / 4], [words('Телефон', 'Phone'), 390 / 844]];
   const legend = node('div', null, 'image-preparation-legend');
@@ -83,9 +85,9 @@ export async function prepareImage(file, { purpose = 'scene' } = {}) {
     stage.append(overlay); legend.append(node('span', label, `format-${index}`));
   });
   const safe = node('div', null, 'image-preparation-safe');
-  Object.assign(safe.style, { left: `${left}%`, top: `${top}%`, width: `${right - left}%`, height: `${bottom - top}%` }); stage.append(safe);
+  Object.assign(safe.style, { left: `${left}%`, top: `${top}%`, width: `${right - left}%`, height: `${bottom - top}%` }); if (!isAvatar) stage.append(safe);
   const details = node('p', `${prepared.width} × ${prepared.height} · ${Math.ceil(prepared.file.size / 1024)} ${words('КБ', 'KB')} · ${words('не больше 1920 × 1080 и 500 КБ', 'at most 1920 × 1080 and 500 KB')}`);
-  const notice = node('p', words('Зелёная область видна во всех показанных форматах. На других пропорциях кадрирование может отличаться. Исходные пропорции сохранены; изображение не растягивается.', 'The green area is visible in all shown formats. Other aspect ratios may crop differently. Original proportions are preserved without stretching.'));
+  const notice = node('p', isAvatar ? words('Аватар отображается в круге. Края фотографии обрезаются по центру, без растягивания.', 'Your avatar appears in a circle, cropped from the centre without stretching.') : words('Зелёная область видна во всех показанных форматах. На других пропорциях кадрирование может отличаться. Исходные пропорции сохранены; изображение не растягивается.', 'The green area is visible in all shown formats. Other aspect ratios may crop differently. Original proportions are preserved without stretching.'));
   if (file.type === 'image/gif') notice.append(document.createTextNode(words(' GIF будет сохранён как неподвижное изображение.', ' GIF will be saved as a still image.')));
   const actions = node('div', null, 'image-preparation-actions');
   const cancel = node('button', words('Выбрать другое', 'Choose another')), accept = node('button', words('Использовать изображение', 'Use image'));

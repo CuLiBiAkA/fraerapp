@@ -1,8 +1,8 @@
 import {el,button,field,words,request,errorMessage} from './collection-ui.js?v=6';
 import {uploadImage} from './author-cover.js?v=3';
-import {prepareImage} from './image-preparation.js?v=1';
+import {prepareImage} from './image-preparation.js?v=2';
 
-const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/author-profile.css?v=1';document.head.append(sheet);
+const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/author-profile.css?v=2';document.head.append(sheet);
 function modal(){
  const previous=document.activeElement,dialog=el('dialog',null,'author-profile-dialog');
  const heading=el('h2',words('Об авторе','About the author'));heading.id='author-profile-'+crypto.randomUUID();dialog.setAttribute('aria-labelledby',heading.id);
@@ -51,7 +51,7 @@ export async function editAuthorProfile(){
   function value(){return {...profile,nickname:name.input.value.trim(),biography:bio.value.trim(),links:[...links.children].map(row=>{const inputs=row.querySelectorAll('input');return {label:inputs[0].value.trim(),url:inputs[1].value.trim()};})};}
   const save=button(words('Сохранить','Save'),()=>{},'author-profile-primary');save.type='submit';
   file.input.onchange=async()=>{const selected=file.input.files[0];if(!selected)return;uploading=true;save.disabled=true;file.input.disabled=true;
-   try{const prepared=await prepareImage(selected,{purpose:'cover'});if(prepared){profile.avatar=await uploadImage('/api/author/profile/avatar',prepared);const next=avatar(profile.avatar);picture.replaceWith(next);picture=next;dirty=true;status.textContent=words('Аватар загружен. Сохраните профиль.','Avatar uploaded. Save your profile.');}}
+   try{const prepared=await prepareImage(selected,{purpose:'avatar'});if(prepared){profile.avatar=await uploadImage('/api/author/profile/avatar',prepared);const next=avatar(profile.avatar);picture.replaceWith(next);picture=next;dirty=true;status.textContent=words('Аватар загружен. Сохраните профиль.','Avatar uploaded. Save your profile.');}}
    catch(error){status.textContent=errorMessage(error);}finally{uploading=false;save.disabled=false;file.input.disabled=false;file.input.value='';}
   };
   const actions=el('div',null,'author-profile-actions');actions.append(save,button(words('Посмотреть профиль','Preview profile'),async()=>{if(!form.reportValidity()||uploading||saving)return;try{const existing=await request('/api/authors/'+encodeURIComponent(profile.id));if(dialog.isConnected)showAuthor(profile.id,{profile:value(),works:existing.works});}catch(error){status.textContent=errorMessage(error);}}));

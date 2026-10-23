@@ -1,5 +1,5 @@
 import { fetchWithSession, refreshSession } from "./auth-session.js?v=1";
-import {authorCapsule} from './author-profile.js?v=1';
+import {authorCapsule} from './author-profile.js?v=2';
 import { profileLabel, bindTelegramNotifications } from "./telegram-profile.js?v=1";
 import {
   credentialToJson,

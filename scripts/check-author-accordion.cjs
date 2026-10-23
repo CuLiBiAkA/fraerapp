@@ -93,6 +93,14 @@ for(const width of [320,390,768,1440]){
  await page.screenshot({path:`/tmp/author-profile-page-${width}.png`,fullPage:true});
  await page.getByRole('button',{name:'Об авторе',exact:true}).click();
  const profileDialog=page.locator('.author-profile-dialog');await profileDialog.getByLabel('Публичное имя').fill('Лисса новая');
+ const photo=await page.evaluate(async()=>{const c=document.createElement('canvas');c.width=240;c.height=360;const x=c.getContext('2d');x.fillStyle='#604577';x.fillRect(0,0,240,360);x.fillStyle='#fee3e2';x.fillRect(60,90,120,180);return c.toDataURL().split(',')[1];});
+ await profileDialog.locator('input[type=file]').setInputFiles({name:'portrait.png',mimeType:'image/png',buffer:Buffer.from(photo,'base64')});
+ const preview=page.locator('.image-preparation-avatar');await preview.waitFor();
+ assert.equal(await preview.locator('.image-preparation-frame,.image-preparation-safe').count(),0);
+ assert.ok(await preview.locator('.image-preparation-stage').evaluate(el=>{const r=el.getBoundingClientRect();return Math.abs(r.width-r.height)<1&&getComputedStyle(el).borderRadius==='50%';}));
+ await page.screenshot({path:`/tmp/avatar-preview-${width}.png`,fullPage:true});
+ await preview.getByRole('button',{name:'Выбрать другое'}).click();await preview.waitFor({state:'detached'});
+ assert.equal(await profileDialog.evaluate(el=>getComputedStyle(el).outlineStyle),'none');
  await profileDialog.getByRole('button',{name:'Сохранить',exact:true}).click();await profileDialog.getByText('Профиль сохранён.',{exact:true}).waitFor();
  assert.equal(profile.nickname,'Лисса новая');
  await page.screenshot({path:`/tmp/author-profile-editor-${width}.png`,fullPage:true});

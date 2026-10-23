@@ -4,6 +4,12 @@ Last updated: 2026-10-23.
 
 ## Public author profiles and author-page controls (2026-10-23)
 
+Avatar preparation uses a dedicated circular preview (`purpose: avatar`), matching
+the centred object-fit cover rendering in profiles. Cover/scene crop guides do
+not apply to avatars. Author dialogs use the shared translucent purple/light
+border palette, without an outline around the dialog itself. Entry versions:
+engine-100, workspace-entry 23, collection-workspace 24, author-profile 2.
+
 The My stories heading and tagline align with the filter/story panels. Header
 actions are “Об авторе” and “+ Создать историю”, with #4f3a68 fill, #fee3e2
 border/text, Inter Medium 23/25. Text buttons in the author workspace use this

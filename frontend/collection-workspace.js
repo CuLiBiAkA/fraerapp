@@ -7,7 +7,7 @@ import {authorCard,coverImage} from "./author-ui.js?v=3";
 import {seasonGroups,seasonDialog} from "./author-seasons.js?v=1";
 import {genres,topics,fillClassification} from '/builder/genre-topic.js?v=1';
 import {chooseCover,uploadImage} from "./author-cover.js?v=3";
-import {editAuthorProfile} from './author-profile.js?v=1';
+import {editAuthorProfile} from './author-profile.js?v=2';
 
 const params = new URLSearchParams(location.search);
 try { document.documentElement.lang = localStorage.getItem("fraerapp.language") === "en" ? "en" : "ru"; } catch { document.documentElement.lang = "ru"; }
