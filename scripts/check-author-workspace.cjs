@@ -76,6 +76,9 @@ for(const language of ['ru','en'])for(const width of [320,390,768,1440]){
  await role('checkbox','Пугающие сцены','Frightening scenes').check();
  await role('checkbox','Подробные интимные сцены · 18+','Explicit intimate scenes · 18+').check();
  assert.ok(await page.locator('.age-conflict').isVisible());
+ assert.ok(await page.locator('.warning-groups fieldset').evaluateAll(nodes=>nodes.every(node=>getComputedStyle(node).borderTopWidth==='1px')));
+ assert.equal(await page.locator('.age-conflict button').evaluate(node=>getComputedStyle(node).fontSize),'18px');
+ if(width===1440&&language==='ru')await page.locator('.content-warning-section').screenshot({path:'/tmp/content-warning-cards.png'});
  await role('button','Установить 18+','Set to 18+').click();
  assert.equal(await role('combobox','Возрастная категория','Age category').inputValue(),'18+');
  await role('checkbox','Подробные интимные сцены · 18+','Explicit intimate scenes · 18+').uncheck();

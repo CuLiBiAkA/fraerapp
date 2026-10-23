@@ -2,7 +2,7 @@ import {el,field,select,words} from './collection-ui.js?v=6';
 import {warningGroups,splitWarnings,needsAdultRating} from './content-warning-options.js?v=1';
 
 if(!document.querySelector('link[data-age-classification]')){
- const style=document.createElement('link');style.rel='stylesheet';style.href='/age-classification.css?v=3';style.dataset.ageClassification='';document.head.append(style);
+ const style=document.createElement('link');style.rel='stylesheet';style.href='/age-classification.css?v=4';style.dataset.ageClassification='';document.head.append(style);
 }
 export function ageBadge(value){
  const badge=el('span',value||words('Возраст не указан','Age not specified'),'age-badge');
@@ -28,7 +28,10 @@ export function classificationFields(doc,onChange,{readOnly=false}={}){
  const warnings=field(words('Другое предупреждение','Other content warning'),state.other,'textarea');warnings.input.maxLength=1000;warnings.input.readOnly=readOnly;
  const alert=el('div',null,'age-conflict');alert.setAttribute('role','alert');
  const promote=el('button',words('Установить 18+','Set to 18+'));promote.type='button';promote.disabled=readOnly;
- alert.append(el('strong',words('Нужно повысить категорию до 18+','An 18+ category is required')),el('p',words('Выбранные подробные сцены требуют категории 18+. Черновик можно сохранить, но перед отправкой на модерацию повысьте категорию.','The selected explicit scenes require 18+. You can save the draft, but must raise the category before submitting for review.')),promote);
+ const alertText=el('div',null,'age-conflict-copy');
+ alertText.append(el('strong',words('Нужно повысить категорию до 18+','An 18+ category is required')),el('p',words('Выбранные подробные сцены требуют категории 18+.','The selected explicit scenes require an 18+ category.')));
+ alert.append(alertText,promote);
+ alert.title=words('Черновик можно сохранить. Перед отправкой на модерацию повысьте категорию.','You can save the draft. Raise the category before submitting for review.');
  const refresh=()=>{alert.hidden=!needsAdultRating(doc);};
  const update=()=>{doc.contentWarnings=[...state.selected,warnings.input.value.trim()].filter(Boolean).join('\n');onChange();refresh();};
  warningGroups.forEach(([ru,en,options])=>{

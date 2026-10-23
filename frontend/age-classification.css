@@ -10,10 +10,12 @@
 .story-metadata-text{display:grid;gap:12px;min-width:0}.story-metadata-text label{display:grid;gap:8px}
 .story-about-dialog .author-metadata>.collection-fields{grid-template-columns:minmax(0,1fr)}
 .workspace .story-metadata-text input{height:48px;min-height:48px}.workspace .story-metadata-text textarea{height:140px;min-height:140px;resize:vertical}
-.age-control{display:grid;gap:6px;align-content:start;min-width:0}.content-warning-section{min-width:0}.content-warning-section h3{margin:0}.content-warning-section>p{margin:4px 0 12px}
-.warning-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.warning-groups fieldset{border:0;padding:0;margin:0;min-width:0}.warning-groups legend{font-weight:400;margin-bottom:6px}
+.age-control{display:grid;gap:6px;align-content:start;min-width:0}.content-warning-section{min-width:0;border:1px solid #c8b4d6;border-radius:10px;padding:12px}.content-warning-section h3{margin:0}.content-warning-section>p{margin:4px 0 12px}
+.warning-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.warning-groups fieldset{border:1px solid #c8b4d6;border-radius:10px;background:#ffffff20;padding:12px;margin:0;min-width:0}.warning-groups legend{float:left;width:100%;padding:0;margin:0 0 6px}.warning-groups legend+.warning-choice{clear:both}
 .age-classification-fields .warning-choice{display:flex;align-items:flex-start;gap:10px;margin:6px 0;font:400 18px/25px var(--font-body);cursor:pointer}.workspace .warning-choice input{flex:none;width:20px;height:20px;min-height:20px;margin:2px 0;accent-color:#715185;padding:0}
-.age-conflict{border:1px solid #b34c6b;background:#f8dce3;border-radius:14px;padding:18px;margin-top:16px;color:#643449}.age-conflict[hidden]{display:none}.age-conflict p{margin:8px 0 16px;font:400 18px/25px var(--font-body)}
+.age-conflict{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #b34c6b;background:#f8dce3;border-radius:10px;padding:12px;margin-top:12px;color:#643449}.age-conflict[hidden]{display:none}.age-conflict-copy{min-width:0}.age-conflict p{margin:4px 0 0;font:400 18px/25px var(--font-body)}
+body .workspace dialog.story-about-dialog .age-conflict button,.age-classification-fields .age-conflict button{flex:none;min-height:40px;padding:8px 12px;font:500 18px/25px var(--font-control);white-space:nowrap}
+@media(max-width:600px){.age-conflict{align-items:stretch;flex-direction:column}.age-conflict button{align-self:flex-start}.content-warning-section{padding:10px}}
 @media(max-width:600px){.story-metadata-top{grid-template-columns:minmax(0,1fr);gap:20px}.workspace .story-metadata-top .author-cover-setting{width:160px}.workspace .story-metadata-top .author-cover-setting img{height:180px}.warning-groups{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:600px){.workspace .story-metadata-top .author-cover{height:180px}.story-about-dialog .story-classification{grid-template-columns:minmax(0,1fr)}}
 .age-classification-fields{display:grid;gap:12px;margin:12px 0;min-width:0}

@@ -2,6 +2,10 @@
 
 ## Age classification release (2026-10-24)
 
+Warning-card presentation uses the same static-only release procedure: verify
+nine bordered groups, 18+ notice/action on desktop/mobile, retained selections,
+and unchanged save/review semantics with check-author-workspace.cjs.
+
 Spacing/typography follow-up is frontend-only: age fields/CSS, typography,
 workspace modules and HTML entries. Check author workspace in RU/EN at four
 widths, all nine groups, computed H2/body/button fonts, equal select heights,

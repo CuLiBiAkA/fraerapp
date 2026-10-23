@@ -4,6 +4,12 @@ Last updated: 2026-10-24.
 
 ## Story age classification (2026-10-24)
 
+Warning groups use the approved bordered-card layout: nine visible fieldsets
+inside a thin lavender outline, two columns on desktop and one on mobile.
+The 18+ conflict is a compact text-and-action row (stacked on phones), with
+Inter Medium 18/25 for its compact action. Standard dialog H2/body roles remain.
+Age fields/CSS 4, workspace entry 32, collection workspace 33, story workspace 11.
+
 About story spacing correction: all nine content-warning groups (24 choices)
 are directly visible, with no collapsed Other warnings section. Cover aligns
 with the title input; description is 140px high, selects share a 32px height,
