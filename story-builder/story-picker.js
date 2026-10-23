@@ -11,7 +11,7 @@ export function createStoryPicker({request,state,save}) {
   storyLabel.append(storyText,storySelect,hint);chapterLabel.append(chapterText,chapterSelect);host.append(storyLabel,chapterLabel,status);
   function options(select,rows,value,placeholder){select.replaceChildren(new Option(placeholder,''),...rows.map(([id,title])=>new Option(title,id)));select.value=value||'';}
   function render(){
-    const s=state();storyText.textContent=words('История','Story');chapterText.textContent=words('Глава','Chapter');hint.textContent=words('Только незаконченные истории','Unfinished stories only');
+    const s=state();storyText.textContent=words('История','Story');chapterText.textContent=words('Глава','Chapter');hint.textContent=words('Все ваши истории. Опубликованные главы — только для просмотра.','All your stories. Published chapters are view-only.');
     status.hidden=!status.textContent;
     options(storySelect,works.map(w=>[w.collectionId||w.id,w.title]),selected?.collectionId||selected?.storyId,words('Выберите историю','Choose a story'));
     options(chapterSelect,chapters.map((c,i)=>[c.storyId,`${i+1}. ${c.title||c.draftDocument?.title||c.key} · ${c.publishedRevision?words('Опубликована · Только просмотр','Published · View only'):c.reviewState==='in_review'?words('На модерации','Under review'):c.reviewState==='rejected'?words('Нужны исправления','Changes requested'):words('Черновик','Draft')}`]),s.id,words('Выберите главу','Choose a chapter'));
@@ -85,7 +85,7 @@ export function createStoryPicker({request,state,save}) {
     async refresh(){
       if(!state().canEdit)return;
       const all=[];for(let page=0;;page++){const result=await request(`/api/author/folders?page=${page}&size=100`);const rows=result.items||[];all.push(...rows);if(rows.length<100||all.length>=result.total)break;}
-      works=all.filter(w=>w.completionStatus!=='completed'&&!['deleted','purged','archived'].includes(w.visibility));
+      works=all.filter(w=>!['deleted','purged','archived'].includes(w.visibility));
       if(!selected&&state().id&&works.some(w=>w.kind==='scenario'&&w.id===state().id))await selectWork(state().id);
       notices=(await request('/api/account')).notifications||[];render();
     }

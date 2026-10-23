@@ -4,8 +4,8 @@ Last updated: 2026-10-23.
 
 ## Builder My stories panel (2026-10-23)
 
-The existing chapter sidebar now selects unfinished author collections and their
-chapters; completed/deleted/purged/archived works are excluded. Published chapters
+The existing chapter sidebar selects all author stories and their
+chapters, including completed stories; deleted/purged/archived works are excluded. Published chapters
 require confirmation and open view=published; other chapters retain server edit
 eligibility. Switching offers save/discard/stay for unsaved content, with a
 single-use session handoff to avoid a second confirmation on reload. Add chapter
@@ -16,8 +16,8 @@ Moderator feedback appears in this panel; unread dots use account notifications
 and opening feedback marks only this chapter's moderation notices read.
 The selector uses /api/author/folders, the same tree as My stories, including
 standalone scenarios (opened as one chapter). Add chapter remains available for
-collections. Completed stories are excluded by their completionStatus.
-Builder entry builder-68, story-picker.js v2/css v1, help.js v7.
+unfinished collections. Completion status never hides a story from inspection.
+Builder entry builder-69, story-picker.js v3/css v1, help.js v8 (2026-10-24).
 
 Home has one Mini-games link opening an accessible native dialog with Meow piano
 and Cat drop links. Both existing game URLs remain unchanged; Escape/close return

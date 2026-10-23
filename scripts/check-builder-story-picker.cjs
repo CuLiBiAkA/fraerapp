@@ -14,6 +14,7 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
   if(p==='/api/account/notifications/note/read'){unread=false;return send({});}
   if(p==='/api/author/folders')return send({items:[{kind:'collection',id:'work',title:work.title,completionStatus:'in_development'},{kind:'scenario',id:'draft',title:'Самостоятельная история',completionStatus:'in_development'},{kind:'collection',id:'finished',title:'Законченная история',completionStatus:'completed'}],total:3});
   if(p==='/api/author/collections/parents')return send([{collectionId:'work'}]);
+  if(p==='/api/author/collections/finished')return send({...work,collectionId:'finished',draftDocument:{...work.draftDocument,completionStatus:'completed',items:[{target:{kind:'scenario',id:'pub',key:'pub'}}]}});
   if(p==='/api/author/collections/work'){if(req.method()==='PUT'){const b=req.postDataJSON();assert.equal(b.generation,3);work.draftDocument=b.document;}return send(work);}
   if(p==='/api/author/stories/import'){const d=req.postDataJSON();assert.equal(d.variables.trust,2);chapters.new={storyId:'new',generation:1,draftRevision:1,reviewState:'draft',draftDocument:d};return send(chapters.new);}
   if(p.startsWith('/api/author/stories/')){const id=p.split('/').pop();if(req.method()==='PUT'){chapters[id].draftDocument=req.postDataJSON().document;}return send(chapters[id]);}
@@ -22,7 +23,7 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
  });
  const p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto('https://fraerapp.ru/builder/?story=draft');
  await p.waitForFunction(()=>document.querySelector('#builder-chapter-select')?.value==='draft');
- assert.equal(await p.locator('#builder-story-select option[value="finished"]').count(),0);
+ assert.equal(await p.locator('#builder-story-select option[value="finished"]').count(),1);
  assert.equal(await p.locator('#builder-story-select option[value="draft"]').count(),1);
  await p.locator('#builder-story-select').selectOption('draft');await p.waitForFunction(()=>document.querySelector('#builder-chapter-select')?.options.length===2);assert.ok(await p.locator('#builder-add-chapter').isDisabled());
  await p.locator('#builder-story-select').selectOption('work');await p.waitForFunction(()=>document.querySelector('#builder-chapter-select')?.options.length===3);
@@ -39,5 +40,11 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
  await p.locator('#builder-chapter-select').selectOption('draft');await p.waitForFunction(()=>document.querySelector('[data-meta="title"]')?.value==='Сохранённое название');
  await p.locator('#builder-add-chapter').click();await p.getByRole('textbox',{name:'Название главы',exact:true}).fill('Новая глава');await p.locator('dialog[open]').getByRole('button',{name:'Добавить главу',exact:true}).click();
  await p.waitForFunction(()=>document.querySelector('[data-meta="title"]')?.value==='Новая глава');assert.ok(work.draftDocument.items.some(i=>i.target.id==='new'));assert.equal(writes.filter(w=>w.p==='/api/author/stories/import').length,1);assert.deepEqual(errors,[]);assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
- console.log(width,'unfinished stories, feedback read receipt, unsaved cancel, published lock, draft switch and chapter creation');await c.close();
+ const beforeView=writes.length;
+ await p.locator('#builder-story-select').selectOption('finished');await p.waitForFunction(()=>document.querySelector('#builder-chapter-select')?.options.length===2);
+ assert.ok(await p.locator('#builder-add-chapter').isDisabled());
+ await p.locator('#builder-chapter-select').selectOption('pub');await p.getByRole('button',{name:'Открыть для просмотра',exact:true}).click();
+ await p.waitForFunction(()=>document.querySelector('#chapter-status')?.textContent==='Опубликована · Только просмотр');
+ assert.ok(await p.locator('[data-meta="title"]').isDisabled());assert.equal(writes.length,beforeView);
+ console.log(width,'all stories including completed, feedback read receipt, unsaved cancel, published lock, draft switch and chapter creation');await c.close();
 }}finally{await browser.close();}})().catch(e=>{console.error(e);process.exit(1);});
