@@ -36,11 +36,36 @@ Verified: 148 API/78 auth/58 focused Node tests; all production ending replays;
 live 320/390/1440px reader and Builder export. Six services healthy, no recent
 API/auth error markers. Public collection and all 60 images respond successfully.
 
-The requested old-catalogue cleanup is not yet applied: the owner must identify
-the story referred to as «щелочение». Once identified, back up/reinspect current
-states and use revision/generation-aware moderation archive actions for only the
-other published works. Preserve private drafts and audit history; do not purge.
-If archiving a collection, inspect and handle its published descendants too.
+The owner confirmed «Мира и искусство открытых дверей» with all three chapters.
+Cleanup completed after backup `backups/catalogue-cleanup-20261023-002536` (UTC),
+with both database dumps validated. The four other standalone publications were
+archived through `POST /api/moderation/stories/{id}/archive`, using freshly read
+generations, their published revisions and an explicit reason. No purge or direct
+publication-table writes occurred. Preserved publication pointers:
+
+| Story key | Story ID | Revision |
+| --- | --- | --- |
+| `night_train` | `02eb6182-befa-4ae6-adfc-a338e81a44c2` | 3 |
+| `kak_pogladit_kota_ne_ubiv` | `ddc10c20-5192-4b09-a9c0-8e7c45003643` | 3 |
+| `new_story` | `9ece4fa4-efc4-4880-a56c-e7faebaa35c5` | 20 |
+| `kak_shodit_v_tualet_pravilno` | `91048eb1-2be6-456c-ad3f-8a549e211075` | 3 |
+
+Verification compared every story/collection version hash and draft hash before
+and after; only the four scoped availability/restriction states and generations
+changed. Authenticated standalone catalogue is empty; collection catalogue has
+exactly Mira and District with three and one readable chapters respectively.
+Archived public detail endpoints return 404. Live browser checks at 390/1440px
+show two cards, no overflow or page errors. Six services healthy, recent API/auth
+error markers zero; home/health/collection routes 200. Temporary operator session
+revoked; prior sessions unchanged. No restart or runtime file replacement.
+The guest catalogue is empty under the unchanged sign-in/demo policy.
+
+For a requested rollback, inspect current state and audit history first. Use the
+moderation `restore` action (returns the work to private), refetch its generation,
+then `visibility` with `public` and the preserved published revision. Retain the
+reason and applicable self-review override; never restore an old database dump
+over newer user work. If a future cleanup archives a collection, inspect and
+handle its published descendants explicitly as well.
 
 ## Meow default timbre (2026-10-23)
 

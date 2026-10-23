@@ -32,12 +32,23 @@ Live browser checks at 320/390/1440px include a 43-transition mobile completion,
 no horizontal overflow and download of all 60 scenes from Builder. Six services
 remain healthy, recent API/auth error markers zero. No service rebuild/restart.
 
-Catalogue cleanup is PENDING USER CLARIFICATION. No exact «щелочение» title exists.
-The closest title is «Каждая щёлочка — обещание», chapter 1 of «Мира и искусство
-открытых дверей»; cat-petting and toilet demos also exist. Preserve all existing
-publications/private drafts until the owner identifies the retained work, then
-archive only the other scoped publications through moderation. New stories with
-chapters retain the existing sign-in requirement.
+The owner confirmed retention of «Мира и искусство открытых дверей», including
+all three chapters. Catalogue cleanup is complete: the authenticated catalogue
+contains that collection and the new district game, with four readable chapters
+in total. `night_train`, `kak_pogladit_kota_ne_ubiv`, `new_story` and
+`kak_shodit_v_tualet_pravilno` were reversibly archived through moderation with
+fresh generations and recorded reasons. Published revisions (3, 3, 20 and 3),
+all version documents and draft contents are preserved. Private/deleted drafts
+and both retained collections are unchanged; nothing was purged.
+
+Cleanup backup: `backups/catalogue-cleanup-20261023-002536` (UTC), both database
+dumps validated before mutation. Authenticated catalogue/API and live 390/1440px
+checks show exactly two collection cards; archived story details return 404.
+Six services are healthy, recent API/auth error markers zero; home/health/public
+collection routes return 200. The temporary operator session was revoked and
+prior sessions remain unchanged. No service rebuild/restart. Collections retain
+their existing sign-in requirement; the guest catalogue is now empty because the
+three former demo stories were among the archived publications.
 
 ## Meow default timbre (2026-10-23)
 
