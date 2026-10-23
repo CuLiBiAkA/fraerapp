@@ -59,6 +59,8 @@ for(const language of ['ru','en'])for(const width of [320,390,768,1440]){
  assert.ok(await page.locator('.author-list-screen').isVisible());assert.equal(await page.locator('.accordion-story .collection-editor').count(),1);assert.ok(await page.locator('.collection-editor').isVisible());
  assert.equal(await page.locator('.chapter-settings').count(),0);assert.equal(await role('button','↓ Ниже','↓ Down').count(),0);assert.equal(await page.locator('.author-season').count(),2);await page.locator('.author-season > summary').first().click();assert.equal(document.items[0].target.id,'chapter');
  await role('button','Об истории','About story').click();assert.ok(await role('dialog','Об истории','About story').isVisible());
+ await role('combobox','Возрастная категория','Age category').selectOption('16+');
+ await role('textbox','Предупреждения о содержании (необязательно)','Content warnings (optional)').fill('Пугающие сцены');
  const options=await page.evaluate(async()=>{const {genres,topics}=await import('/builder/genre-topic.js?v=1');return {genres:genres.map(x=>x[0]),topics:topics.map(x=>x[0])};});
  assert.deepEqual(await role('combobox','Тема','Topic').locator('option').evaluateAll(nodes=>nodes.slice(1).map(n=>n.value)),options.topics);
  assert.deepEqual((await role('combobox','Жанр','Genre').locator('option').evaluateAll(nodes=>nodes.slice(1).map(n=>n.value))).slice(0,options.genres.length),options.genres);
@@ -68,7 +70,7 @@ for(const language of ['ru','en'])for(const width of [320,390,768,1440]){
  page.once('dialog',dialog=>dialog.dismiss());await page.goBack();await page.waitForURL('**collection=work');
  assert.equal(await role('textbox','Название','Title').inputValue(),'Unsaved title');
  conflict=true;await role('button','Сохранить','Save').click();await page.getByText(/Concurrent update/).first().waitFor();assert.equal(await role('textbox','Название','Title').inputValue(),'Unsaved title');
- conflict=false;await role('button','Сохранить','Save').click();await page.getByText(words('Черновик сохранён. Публикация не изменилась.','Draft saved. Publication is unchanged.'),{exact:true}).first().waitFor();assert.equal(document.title,'Unsaved title');
+ conflict=false;await role('button','Сохранить','Save').click();await page.getByText(words('Черновик сохранён. Публикация не изменилась.','Draft saved. Publication is unchanged.'),{exact:true}).first().waitFor();assert.equal(document.title,'Unsaved title');assert.equal(document.ageRating,'16+');assert.equal(document.contentWarnings,'Пугающие сцены');
  holdSave=true;await role('button','Сохранить','Save').click();await page.waitForFunction(()=>document.querySelector('main.collections-panel').inert);await page.goBack();await page.waitForURL('**collection=work');assert.ok(await page.locator('.collection-editor').isVisible());holdSave=false;releaseSave();await page.getByText(words('Черновик сохранён. Публикация не изменилась.','Draft saved. Publication is unchanged.'),{exact:true}).first().waitFor();
  await role('button','Выбрать обложку','Choose cover').click();await role('dialog','Обложка истории','Story cover').waitFor();
  await audit(page,`${language} ${width} cover picker`);

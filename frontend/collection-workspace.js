@@ -2,7 +2,8 @@ import {el,link,button,field,select,checkbox,words,typeName,request,errorMessage
 import {chapterState,chapterStateLabel} from "./chapter-state.js?v=2";
 import {reviewLimitMessage} from "./review-limit.js?v=2";
 import {workflowLabel, renderDocumentDiff, canEditStoryDraft} from "./story-workflow.js?v=3";
-import {renderFolderReview} from "./review-screen.js?v=1";
+import {renderFolderReview} from "./review-screen.js?v=2";
+import {classificationFields} from './age-classification.js?v=1';
 import {coverImage} from "./author-ui.js?v=3";
 import {seasonGroups,seasonDialog} from "./author-seasons.js?v=1";
 import {genres,topics,fillClassification} from '/builder/genre-topic.js?v=1';
@@ -327,7 +328,7 @@ async function start(root) {
     const aboutStatus=el('p',null,'collection-status');aboutStatus.setAttribute('role','status');
     const aboutActions=el('div',null,'collection-actions');aboutActions.append(button(words('Сохранить','Save'),()=>work(save),'add-button'),button(words('Закрыть','Close'),()=>aboutDialog.close()));
     aboutDialog.replaceChildren(aboutTitle,metadata,aboutStatus,aboutActions);
-    if(metadataLocked){aboutActions.firstElementChild.remove();metadata.append(el('p',words('Первая глава уже опубликована. Данные истории доступны только для просмотра.','The first chapter has been published. Story details are read-only.')));}
+    if(metadataLocked){metadata.append(el('p',words('Первая глава уже опубликована. Можно обновить возрастную категорию и предупреждения; остальные данные доступны только для просмотра.','The first chapter has been published. You can update the age category and content warnings; other details are read-only.')));}
     const fields=el("div",null,"collection-fields"),advanced=el("details");advanced.append(el("summary",words("Дополнительные настройки", "Additional settings")));
     for(const [key,ru,en,inputType] of [["key","Ключ","Key","text"],["title","Название","Title","text"],["description","Описание","Description","textarea"]]){
       const f=field(words(ru,en),doc[key]||"",inputType);f.input.disabled=key==="key"&&Boolean(current);f.input.maxLength=key==="description"?5000:key==="coverUrl"?500:200;
@@ -342,6 +343,7 @@ async function start(root) {
     fields.append(classification,completion.label);metadata.append(fields);
     const cover=el("div",null,"author-cover-setting");cover.append(coverImage(doc.coverUrl),button(words("Выбрать обложку","Choose cover"),()=>chooseCover({url:doc.coverUrl,getImages:()=>current?request(`${api}/${current.collectionId}/covers`):[],upload:async file=>{if(!current)await save();return uploadImage(`${api}/${current.collectionId}/cover`,file);},onSelect:url=>{doc.coverUrl=url;changed();renderEditor();}})));metadata.append(cover);
     if(metadataLocked){metadata.querySelectorAll('input,textarea').forEach(control=>control.readOnly=true);metadata.querySelectorAll('select').forEach(control=>control.disabled=true);cover.querySelector('button').remove();}
+    metadata.insertBefore(classificationFields(doc,changed),cover);
     const chapterHeading=el('div',null,'chapter-heading');chapterHeading.append(el('h3',words('Главы','Chapters')),aboutButton);chapters.append(chapterHeading);
     const items=el("ol",null,"collection-items");
     for(const group of seasonGroups(doc.items||[])){

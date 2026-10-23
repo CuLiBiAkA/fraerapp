@@ -17,7 +17,10 @@ record StoryDocument(
 		List<AssetDocument> assets,
 		List<SceneDocument> scenes,
 		WorkMetadata metadata,
-		String topic) {
+		String topic, String ageRating, String contentWarnings) {
+	StoryDocument(String key,String title,String description,String genre,String completionStatus,int version,String startSceneId,Map<String,JsonNode> variables,List<AssetDocument> assets,List<SceneDocument> scenes,WorkMetadata metadata,String topic) {
+		this(key,title,description,genre,completionStatus,version,startSceneId,variables,assets,scenes,metadata,topic,null,null);
+	}
 
 	StoryDocument(String key, String title, String description, String genre, String completionStatus,
 			int version, String startSceneId, Map<String, JsonNode> variables,

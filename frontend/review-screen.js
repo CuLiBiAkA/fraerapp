@@ -1,6 +1,7 @@
 import {el,button,field,checkbox,words,request,errorMessage} from './collection-ui.js?v=6';
 import {renderDocumentDiff,workflowLabel} from './story-workflow.js?v=3';
 import {coverImage} from './author-ui.js?v=3';
+import {classificationSummary} from './age-classification.js?v=1';
 
 function modal(title,wide=false){
  const opener=document.activeElement,dialog=el('dialog',null,'review-dialog'+(wide?' review-reader-dialog':''));
@@ -23,6 +24,8 @@ export function renderFolderReview(host,{group,roles,onDecision,onDirty=()=>{}})
  const title=el('h1',tree.title||words('Проверка заявки','Application review'),'application-title');title.tabIndex=-1;
  const intro=el('div',null,'application-heading'),meta=el('p',words('Автор: ','Author: ')+(tree.authorName||words('Автор','Author'))+(tree.submittedAt?' · '+date(tree.submittedAt):''),'application-author');
  const menu=el('div',null,'application-menu');intro.append(title,meta,menu);host.append(intro);
+ const submittedRoot=items.find(i=>i.kind===tree.kind&&i.id===tree.id)?.document||tree.document||{};
+ intro.append(classificationSummary(submittedRoot));
  function readChapter(item){
   const {body,dialog}=modal(item.document?.title||item.title,true),frame=el('iframe');frame.title=words('Чтение главы на проверке','Read submitted chapter');
   frame.src='/?'+new URLSearchParams({previewStory:item.id,revision:item.revision,moderationPreview:'1'});body.append(frame);
@@ -31,6 +34,7 @@ export function renderFolderReview(host,{group,roles,onDecision,onDirty=()=>{}})
  function about(item={...tree,document:tree.document}){
   const doc=item.document||{}, {body}=modal(words('Об истории','About story'));
   const card=el('section',null,'review-story-preview');card.append(coverImage(doc.coverUrl||doc.metadata?.coverUrl||tree.coverUrl),el('h3',doc.title||tree.title),el('p',doc.description||''));
+  card.append(classificationSummary(doc));
   for(const [label,value] of [[words('Жанр','Genre'),doc.genre],[words('Тема','Topic'),doc.topic],[words('Статус','Status'),doc.completionStatus]])if(value)card.append(el('p',`${label}: ${workflowLabel(value,lang)}`));
   const contents=el('ol');for(const node of nodes.filter(n=>n.kind==='scenario'))contents.append(el('li',node.title));card.append(contents);body.append(card);
  }

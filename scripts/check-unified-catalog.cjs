@@ -15,6 +15,7 @@ async function check(browserType, language, width) {
       localStorage.setItem('fraerapp.cookieConsent', 'accepted');
     }, language);
     const cat = { ...packageStory, id: 'cat', collectionId: 'cat', kind: 'collection', favorite: false, views: 27, rating: 4.8, ratingCount: 5, myRating: null, authorName: 'Автор Миры', publishedAt: '2026-10-08T12:00:00Z', endingCount: 3, discoveredEndings: 0 };
+    cat.ageRating='16+';cat.contentWarnings='Пугающие сцены';cat.authorId='cat-author';
     const sameKey = { id: 'collision', collectionId: 'collision', kind: 'collection', key: 'shared', slug: 'shared', title: 'Цикл', favorite: false, completionStatus: 'in_development' };
     const ordinary = [
       { key: 'ordinary', slug: 'ordinary', title: 'Обычная история', genre: 'Приключения', coverUrl: '/assets/platform.svg' },
@@ -74,6 +75,7 @@ async function check(browserType, language, width) {
     assert.equal(await card.locator('.story-genre').textContent(), 'Повседневность');
     assert.equal(await card.locator('.story-favorite').count(), 1);
     assert.match(await card.locator('.story-card-stats').textContent(), /27.*4\.8/, 'chaptered card carries the same rating/view statistics');
+    assert.equal(await card.locator('.age-badge').innerText(),'16+');
     const sizes = await page.locator('#stories .story-card').evaluateAll(nodes => nodes.map(n => { const r = n.getBoundingClientRect(); return [r.width, r.height]; }));
     assert.ok(sizes.every(([w, h]) => Math.abs(w - sizes[0][0]) < 1 && Math.abs(h - sizes[0][1]) < 1), 'all card types use the same size');
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'catalogue overflow');
@@ -94,6 +96,8 @@ async function check(browserType, language, width) {
     await card.locator('.story-card-link').click();
     await page.locator('#collection-screen:not(.hidden)').waitFor();
     assert.equal(await page.locator('#story-detail-title').textContent(), cat.title);
+    assert.equal(await page.locator('#story-detail-byline .age-badge').innerText(),'16+');
+    assert.match(await page.locator('#story-detail-warnings').innerText(),/Пугающие сцены/);
     assert.match(await page.locator('#story-detail-byline').textContent(), /Автор Миры/);
     assert.match(await page.locator('#story-detail-meta').textContent(), /27/);
     assert.equal(await page.locator('#story-interactions button').count(), 5);

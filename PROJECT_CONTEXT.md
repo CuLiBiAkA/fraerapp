@@ -1,6 +1,23 @@
 # FraerApp project context
 
-Last updated: 2026-10-23.
+Last updated: 2026-10-24.
+
+## Story age classification (2026-10-24)
+
+CollectionDocument and StoryDocument retain optional ageRating (0+/6+/12+/16+/18+)
+and contentWarnings (max 1000 characters) in versioned JSON; no schema migration.
+Unknown legacy categories remain unspecified, never default to 0+. About story
+edits these fields. For published collections only these safety fields remain
+editable alongside chapter structure; other published metadata remains locked.
+Changes create a draft revision and require existing review/publication before
+reader visibility. Standalone stories retain their existing draft edit rules.
+Builder import/export preserves both fields. Public summaries/details read the
+published revision, moderation reads the submitted revision. Reader covers show
+a compact age badge; detail cards show age beside genre and warnings below the
+description. The shared help explains whole-story classification and reassessment
+when adding a chapter. This is a content label, not age verification or an access gate.
+Entries: engine-105, workspace-entry 29 / collection-workspace 30 / story-workspace 8,
+review-screen 2, age-classification JS/CSS 1, Builder builder-70.
 
 ## Builder My stories panel (2026-10-23)
 

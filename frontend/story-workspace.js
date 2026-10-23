@@ -19,6 +19,7 @@ const state = { user: null, items: [], all: [], page: 0, totalPages: 0, selected
 const decisionDrafts = new Map();
 const apiBase = moderation ? "/api/moderation/stories" : "/api/author/stories";
 const pageSize = moderation ? 20 : 10;
+import {classificationFields,classificationSummary} from './age-classification.js?v=1';
 let metadataDraft=null,metadataDirty=false,selectedTab="content",screen="list",historyIndex=0,restoringHistory=false,decisionPending=false;
 history.replaceState({...history.state,authorIndex:0},"",location.href);
 const discardMetadata=()=>!metadataDirty||confirm(choose("Есть несохранённые изменения. Перейти без сохранения?","There are unsaved changes. Leave without saving?"));
@@ -231,7 +232,8 @@ function renderDetail() {
 }
 function renderMetadata(container){
   const editable=canEditStories(state.user)&&canEditStoryDraft(state.detail);
-  if(!editable){container.append(node("p",choose("Только чтение","Read only")),node("p",metadataDraft.description||""));return;}
+  if(!editable){container.append(node("p",choose("Только чтение","Read only")),node("p",metadataDraft.description||""),classificationSummary(metadataDraft));return;}
+  container.append(classificationFields(metadataDraft,()=>{metadataDirty=true;}));
   const fields=node("div",null,"collection-fields");
   for(const [key,label,multiline] of [["title",choose("Название","Title")],["description",choose("Описание","Description"),true],["genre",choose("Жанры","Genres")]]){
     const field=node("label",label),control=node(multiline?"textarea":"input");control.value=metadataDraft[key]||"";control.maxLength=multiline?5000:200;control.oninput=()=>{metadataDraft[key]=control.value;metadataDirty=true;setStatus(choose("Есть несохранённые изменения в форме.","There are unsaved changes in this form."));};field.append(control);fields.append(field);

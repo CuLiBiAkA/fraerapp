@@ -170,6 +170,7 @@ class StoryProductService {
 					GameSession lastSession = recent!=null&&access.supportsRevision(story,recent.getStoryRevision())?recent:null;
 					Story snapshot=lastSession==null?null:access.atRevision(story,lastSession.getStoryRevision());
 					StoryDocument.SceneDocument lastScene = snapshot==null?null:snapshot.getRuntimeDocument().scenes().stream().filter(sc->sc.id().equals(lastSession.getCurrentSceneKey())).findFirst().orElse(null);
+					StoryDocument published=workflow.revision(story.getId(),story.getPublishedRevision());
 					return new PublishedStorySummary(
 						story.getPublishedSlug(),
 						story.getKey(),
@@ -187,7 +188,7 @@ class StoryProductService {
 						lastSession == null ? null : lastSession.getSaveName(),
 						lastSession == null ? null : lastSession.getStatus().name().toLowerCase(),
 						lastScene == null ? null : lastScene.title(),
-						cover(story));
+						cover(story),published.ageRating(),published.contentWarnings());
 				})
 				.toList();
 	}
@@ -197,6 +198,7 @@ class StoryProductService {
 		Story story = stories.findByPublishedSlug(slug)
 				.filter(access::readable)
 				.orElseThrow(StoryNotFoundException::new);
+		StoryDocument published=workflow.revision(story.getId(),story.getPublishedRevision());
 		return new PublishedStoryDetails(
 				story.getPublishedSlug(),
 				story.getKey(),
@@ -208,7 +210,7 @@ class StoryProductService {
 				sessions.countByStoryIdAndStatus(story.getId(), SessionStatus.FINISHED),
 				story.getPublishedAt(),
 				story.getPublishedAt(),
-				cover(story));
+				cover(story),published.ageRating(),published.contentWarnings());
 	}
 
 	private String cover(Story story) {return story.getMetadataJson()==null?null:json.readValue(story.getMetadataJson(),WorkMetadata.class).coverUrl();}
@@ -382,7 +384,7 @@ class StoryProductService {
 			String lastSaveName,
 			String lastSessionStatus,
 			String lastSceneTitle,
-			String coverUrl) {
+			String coverUrl, String ageRating, String contentWarnings) {
 	}
 
 	record PublishedStoryDetails(
@@ -396,7 +398,7 @@ class StoryProductService {
 			long finishedRuns,
 			Instant publishedAt,
 			Instant updatedAt,
-			String coverUrl) {
+			String coverUrl, String ageRating, String contentWarnings) {
 	}
 
 	record UploadedAsset(String id, String type, String url, Map<String, Object> metadata) {

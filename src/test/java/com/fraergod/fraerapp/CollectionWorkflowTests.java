@@ -36,6 +36,21 @@ class CollectionWorkflowTests extends ApiTestSupport {
   ok(call("POST","/api/author/collections/"+id+"/chapters/publish",Map.of("storyId",sid(b),"storyGeneration",chapter.get("generation"),"revision",chapter.get("draftRevision"),"generation",details(id).get("generation")),author));
  }
  String key(){return "work_"+UUID.randomUUID().toString().replace("-","");}
+ @Test void ageClassificationIsValidatedAndOnlyPublishedAfterReview() {
+  var chapterDoc=scenario(key(),1);chapterDoc.put("ageRating","12+");chapterDoc.put("contentWarnings","Пугающие сцены");
+  var a=draft(chapterDoc);assertThat(body(ok(call("GET","/api/author/stories/"+sid(a),null,author)))).contains("12+","Пугающие сцены");
+  publishStory(a);
+  var d=document("story",List.of(item("scenario",a)));d.put("ageRating","12+");d.put("contentWarnings","Пугающие сцены");String id=cid(create(d));
+  advanceReviewDay(jdbc,"collection",id);submit(id);decide(id,"approve-publish");
+  assertThat(ok(call("GET","/api/catalog/collections/"+id,null,reader)).get("ageRating")).isEqualTo("12+");
+  var changed=new LinkedHashMap<String,Object>((Map<String,Object>)details(id).get("draftDocument"));changed.put("ageRating","18+");changed.put("contentWarnings","Насилие");save(id,changed);
+  var published=ok(call("GET","/api/catalog/collections/"+id,null,reader));assertThat(published.get("ageRating")).isEqualTo("12+");assertThat(published.get("contentWarnings")).isEqualTo("Пугающие сцены");
+  advanceReviewDay(jdbc,"collection",id);submit(id);
+  assertThat(body(ok(call("GET","/api/moderation/collections/"+id+"/preview?revision=submitted",null,reviewer)).get("document"))).contains("18+","Насилие");
+  decide(id,"approve-publish");assertThat(ok(call("GET","/api/catalog/collections/"+id,null,reader)).get("ageRating")).isEqualTo("18+");
+  changed.put("ageRating","21+");assertThat(call("PUT","/api/author/collections/"+id,Map.of("generation",details(id).get("generation"),"document",changed),author).statusCode()).isEqualTo(400);
+  changed.put("ageRating","16+");changed.put("contentWarnings","x".repeat(1001));assertThat(call("PUT","/api/author/collections/"+id,Map.of("generation",details(id).get("generation"),"document",changed),author).statusCode()).isEqualTo(400);
+ }
  @Test void firstPublishedChapterLocksStoryMetadataButAllowsNewChapters() {
   var a=draft(scenario(key(),1));var b=draft(scenario(key(),2));
   String id=cid(create(document("story",List.of(item("scenario",a)))));

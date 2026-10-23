@@ -364,6 +364,7 @@ class StoryAdminService {
 
 	StoryValidationResult validate(StoryDocument document) {
 		List<String> errors = new ArrayList<>();
+		AgeClassification.validate(document.ageRating(),document.contentWarnings(),errors);
 		if (blank(document.key())) {
 			errors.add("Story key is required");
 		}

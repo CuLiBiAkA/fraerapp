@@ -1,5 +1,16 @@
 # FraerApp deploy and ops runbook
 
+## Age classification release (2026-10-24)
+
+Run API/auth tests, check-author-workspace.cjs, check-review-screen.cjs and
+check-unified-catalog.cjs plus Node baseline. Verify invalid category/oversized
+warnings are rejected and published labels stay unchanged after draft edits.
+Back up source/static files, API database and current API/Builder images.
+Rebuild API and Builder; install age-classification.js/css, updated workspace,
+reader and entry files. Reload edge after container recreation. Verify runtime
+JAR/static hashes, public assets, health and recent logs. No migration or existing
+story reclassification is performed; preserve prior snapshots and publication.
+
 ## Builder sidebar navigation (2026-10-23)
 
 Run check-builder-story-picker.cjs, check-builder-editing.cjs,

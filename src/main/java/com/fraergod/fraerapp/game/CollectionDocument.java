@@ -4,7 +4,8 @@ import java.util.List;
 
 record CollectionDocument(Integer schemaVersion, String key, String type, String title,
  String description, String coverUrl, String completionStatus, List<Item> items,
- List<Transition> transitions, String genre, String topic) {
+ List<Transition> transitions, String genre, String topic, String ageRating, String contentWarnings) {
+ CollectionDocument(Integer schemaVersion,String key,String type,String title,String description,String coverUrl,String completionStatus,List<Item> items,List<Transition> transitions,String genre,String topic){this(schemaVersion,key,type,title,description,coverUrl,completionStatus,items,transitions,genre,topic,null,null);}
  CollectionDocument(Integer schemaVersion,String key,String type,String title,String description,String coverUrl,String completionStatus,List<Item> items,List<Transition> transitions,String genre){this(schemaVersion,key,type,title,description,coverUrl,completionStatus,items,transitions,genre,null);}
  CollectionDocument(Integer schemaVersion,String key,String type,String title,String description,String coverUrl,String completionStatus,List<Item> items,List<Transition> transitions){this(schemaVersion,key,type,title,description,coverUrl,completionStatus,items,transitions,null);}
  boolean serialStory(){return Integer.valueOf(2).equals(schemaVersion);}

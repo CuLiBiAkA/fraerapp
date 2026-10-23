@@ -25,6 +25,7 @@ observeHomeFit();
 const loginScreen = document.querySelector("#login-screen");
 const authLoadingScreen = document.querySelector("#auth-loading-screen");
 const storyScreen = document.querySelector("#story-screen");
+import {ageBadge} from './age-classification.js?v=1';
 const storyDetailScreen = document.querySelector("#story-detail-screen");
 const settingsScreen = document.querySelector("#settings-screen");
 const sceneScreen = document.querySelector("#scene-screen");
@@ -1264,6 +1265,7 @@ function renderStoryDetail(story) {
   const byline = document.querySelector("#story-detail-byline");
   byline.replaceChildren();
   if(story.genre)byline.append(document.createTextNode(story.genre+' '));
+  byline.append(ageBadge(story.ageRating));
   const author=authorCapsule(story);if(author)byline.append(author);
   byline.hidden = !byline.childNodes.length;
   const contentsLink = document.querySelector("#story-detail-contents");
@@ -1280,6 +1282,9 @@ function renderStoryDetail(story) {
     };
   }
   storyDetailDescription.textContent = story.description || story.key;
+  let warnings=document.querySelector('#story-detail-warnings');
+  if(!warnings){warnings=document.createElement('p');warnings.id='story-detail-warnings';warnings.className='age-summary';storyDetailDescription.after(warnings);}
+  warnings.hidden=!story.contentWarnings;warnings.textContent=story.contentWarnings?`${currentLanguage==='en'?'Content warnings: ':'Предупреждения: '}${story.contentWarnings}`:'';
   const completionLabels = currentLanguage === "en"
     ? { completed: "Completed", in_development: "In development", abandoned: "On hold" }
     : { completed: "Завершена", in_development: "В разработке", abandoned: "Приостановлено" };
@@ -1709,6 +1714,7 @@ function fillStoryCard(card, story, coverClass) {
   genre.className = "story-genre";
   genre.textContent = story.genre || t("genreUnknown");
   cover.append(genre);
+  cover.append(ageBadge(story.ageRating));
   const info = document.createElement("div");
   info.className = "story-card-info";
   const title = document.createElement("strong");

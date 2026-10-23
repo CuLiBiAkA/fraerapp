@@ -102,6 +102,7 @@ class CollectionService {
   if(d.schemaVersion()!=null&&d.schemaVersion()!=1&&d.schemaVersion()!=2)throw bad("Unsupported collection schema");
   if(d.genre()!=null&&d.genre().length()>200)throw bad("Genre too long");
   if(d.topic()!=null&&d.topic().length()>200)throw bad("Topic too long");
+  var classificationErrors=new ArrayList<String>();AgeClassification.validate(d.ageRating(),d.contentWarnings(),classificationErrors);if(!classificationErrors.isEmpty())throw bad(String.join("; ",classificationErrors));
   if(d.serialStory()&&!list(d.transitions()).isEmpty())throw bad("Chapter progress is transferred automatically");
   if(d.type()==null||!List.of("story","volume","cycle","catalog").contains(d.type()))throw bad("Invalid collection type");
   if(d.title()==null||d.title().isBlank()||d.title().length()>200)throw bad("Collection title is required (max 200 characters)");
@@ -145,7 +146,7 @@ class CollectionService {
    if(strict&&t.stateTransfer()!=null&&"mapped".equals(t.stateTransfer().mode()))links.validateMapping(links.targetDocument(from,owner),links.targetDocument(to,owner),t.stateTransfer());
    transitions.add(new CollectionDocument.Transition(t.id(),from,to,t.stateTransfer()));
   }
-  return new CollectionDocument(d.serialStory()?2:1,d.key(),d.type(),d.title(),d.description(),d.coverUrl(),d.completionStatus(),items,transitions,d.genre(),d.topic());
+  return new CollectionDocument(d.serialStory()?2:1,d.key(),d.type(),d.title(),d.description(),d.coverUrl(),d.completionStatus(),items,transitions,d.genre(),d.topic(),d.ageRating(),d.contentWarnings());
  }
  static boolean same(WorkMetadata.Target a,WorkMetadata.Target b){return a.kind().equals(b.kind())&&(a.id()!=null&&b.id()!=null?a.id().equals(b.id()):Objects.equals(a.key(),b.key()));}
  private void validateChild(String parentId,WorkMetadata.Target t,String owner,WorkLinksService.TargetInfo child,List<Map<String,Object>> memberships) {
@@ -256,7 +257,7 @@ class CollectionService {
  @Transactional(readOnly=true)
  List<Map<String,Object>> catalog(boolean guest,String player,int page,int size,String q,String type,boolean favorites){if(guest)return List.of();var result=jdbc.query("select c.*,v.document_json,exists(select 1 from collection_favorites f where f.collection_id=c.id and f.player_id=?) as favorite from work_collections c join collection_versions v on v.collection_id=c.id and v.revision=c.published_revision where visibility='public' and restricted=false and (lower(published_title) like ? or lower(collection_key) like ?) and (?='all' or collection_type=?) and (?=false or exists(select 1 from collection_favorites f where f.collection_id=c.id and f.player_id=?)) order by c.published_updated_at desc nulls last,c.id limit ? offset ?",(r,n)->publicSummary(map(r,n),json.readCollection(r.getString("document_json")),r.getBoolean("favorite")),player,"%"+q.toLowerCase(Locale.ROOT)+"%","%"+q.toLowerCase(Locale.ROOT)+"%",type,type,favorites,player,Math.max(1,Math.min(100,size)),Math.max(0,page)*Math.max(1,Math.min(100,size)));metrics.enrich(result,player);return result;}
  private Map<String,Object> publicSummary(Row r,String player){return publicSummary(r,document(r,r.published()),player!=null&&jdbc.queryForObject("select count(*) from collection_favorites where player_id=? and collection_id=?",Integer.class,player,r.id())>0);}
- private Map<String,Object> publicSummary(Row r,CollectionDocument d,boolean favorite){var m=new LinkedHashMap<String,Object>();m.put("id",r.id());m.put("collectionId",r.id());m.put("key",r.key());m.put("slug",r.key());m.put("kind","collection");m.put("schemaVersion",d.schemaVersion());m.put("genre",d.genre());m.put("type",r.type());m.put("title",d.title());m.put("description",d.description());m.put("coverUrl",d.coverUrl());m.put("completionStatus",d.completionStatus());m.put("revision",r.published());m.put("favorite",favorite);return m;}
+ private Map<String,Object> publicSummary(Row r,CollectionDocument d,boolean favorite){var m=new LinkedHashMap<String,Object>();m.put("id",r.id());m.put("collectionId",r.id());m.put("key",r.key());m.put("slug",r.key());m.put("kind","collection");m.put("schemaVersion",d.schemaVersion());m.put("genre",d.genre());m.put("ageRating",d.ageRating());m.put("contentWarnings",d.contentWarnings());m.put("type",r.type());m.put("title",d.title());m.put("description",d.description());m.put("coverUrl",d.coverUrl());m.put("completionStatus",d.completionStatus());m.put("revision",r.published());m.put("favorite",favorite);return m;}
  @Transactional(readOnly=true)
  Map<String,Object> publicDetail(String id,boolean guest,String player){Row r=accessible(id,guest);var m=publicSummary(r,player);var items=publicItems(document(r,r.published()),guest);m.put("items",items);m.put("availableCount",items.size());m.put("breadcrumbs",breadcrumbs("collection",r.id(),guest));metrics.enrich(List.of(m),player);return m;}
  List<Map<String,Object>> publicItems(CollectionDocument d,boolean guest) {
