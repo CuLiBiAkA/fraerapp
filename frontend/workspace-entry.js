@@ -3,5 +3,5 @@ const view=new URLSearchParams(location.search);
 if(document.body.dataset.workspace==='moderation'&&view.get('view')==='stories'&&!view.has('story')){
  view.delete('view');history.replaceState(history.state,'',location.pathname+(view.size?'?'+view:'')+location.hash);
 }
-if(view.has("story")||view.get("view")==="stories")await import("./story-workspace.js?v=12");
-await import("./collection-workspace.js?v=34");
+if(view.has("story")||view.get("view")==="stories")await import("./story-workspace.js?v=13");
+await import("./collection-workspace.js?v=35");

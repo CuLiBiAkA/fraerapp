@@ -2,6 +2,10 @@
 
 ## Age classification release (2026-10-24)
 
+Compact geometry revision: author-workspace browser assertions check 28px selects,
+20px help, 110px description and cover/title alignment on desktop; repeat the
+existing static-file backup/hash verification procedure with CSS/module v6.
+
 Dialog dismissal/layout delivery: deploy dialog-dismiss.js and site-controls.js,
 age module, review/workspace modules and author/moderation HTML. Check the HTML
 direct stylesheet link and computed layout, backdrop close/reopen with retained

@@ -4,6 +4,11 @@ Last updated: 2026-10-24.
 
 ## Story age classification (2026-10-24)
 
+Compact About story follow-up: field-row gaps are 8px, description 110px,
+title input 40px, all four selects 28px, help circle 20px, cover 140×150px
+aligned with the title input. Typography unchanged. Age module/CSS 6,
+review screen 4, workspace entry 34, collection 35, standalone workspace 13.
+
 About-story layout CSS v5 is linked directly by author/moderation HTML and its
 module reuses/updates that link. Review and edit imports now share age module v5;
 an older cached review import must not claim the stylesheet link and keep v1.

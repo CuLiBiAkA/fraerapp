@@ -59,7 +59,7 @@ for(const language of ['ru','en'])for(const width of [320,390,768,1440]){
  assert.ok(await page.locator('.author-list-screen').isVisible());assert.equal(await page.locator('.accordion-story .collection-editor').count(),1);assert.ok(await page.locator('.collection-editor').isVisible());
  assert.equal(await page.locator('.chapter-settings').count(),0);assert.equal(await role('button','↓ Ниже','↓ Down').count(),0);assert.equal(await page.locator('.author-season').count(),2);await page.locator('.author-season > summary').first().click();assert.equal(document.items[0].target.id,'chapter');
  await role('button','Об истории','About story').click();assert.ok(await role('dialog','Об истории','About story').isVisible());
- assert.equal(await page.locator('link[data-age-classification]').getAttribute('href'),'/age-classification.css?v=5');
+ assert.equal(await page.locator('link[data-age-classification]').getAttribute('href'),'/age-classification.css?v=6');
  await role('textbox','Название','Title').fill('Retained after backdrop close');
  await role('textbox','Название','Title').click();assert.ok(await page.locator('.story-about-dialog').isVisible());
  await page.mouse.click(2,2);assert.ok(!await page.locator('.story-about-dialog').isVisible());
@@ -80,7 +80,7 @@ for(const language of ['ru','en'])for(const width of [320,390,768,1440]){
  for(const font of geometry.headings){assert.equal(font[0],'35px');assert.equal(font[1],'57px');assert.ok(font[2].includes('Playfair'));}
  assert.deepEqual(geometry.button.slice(0,2),['23px','25px']);assert.ok(geometry.button[2].includes('Inter'));assert.equal(geometry.button[3],'500');
  assert.deepEqual(geometry.label.slice(0,2),['18px','25px']);assert.ok(geometry.label[2].includes('Montserrat'));
- assert.ok(geometry.selects.every(height=>height===32));assert.equal(geometry.help,24);assert.equal(geometry.description,140);
+ assert.ok(geometry.selects.every(height=>height===28));assert.equal(geometry.help,20);assert.equal(geometry.description,110);
  if(width>600)assert.ok(Math.abs(geometry.cover-geometry.title)<2,'Cover aligns with title input');
  await role('combobox','Возрастная категория','Age category').selectOption('16+');
  await role('checkbox','Пугающие сцены','Frightening scenes').check();
