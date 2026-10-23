@@ -2,6 +2,20 @@
 
 Last updated: 2026-10-23.
 
+## Builder My stories panel (2026-10-23)
+
+The existing chapter sidebar now selects unfinished author collections and their
+chapters; completed/deleted/purged/archived works are excluded. Published chapters
+require confirmation and open view=published; other chapters retain server edit
+eligibility. Switching offers save/discard/stay for unsaved content, with a
+single-use session handoff to avoid a second confirmation on reload. Add chapter
+reuses import plus generation-checked collection update and inherits existing
+chapter variables. If attachment fails, the created draft is kept and retried
+without another import during this panel session. The help topic is updated.
+Moderator feedback appears in this panel; unread dots use account notifications
+and opening feedback marks only this chapter's moderation notices read.
+Builder entry builder-67, story-picker.js/css v1, help.js v7.
+
 Home has one Mini-games link opening an accessible native dialog with Meow piano
 and Cat drop links. Both existing game URLs remain unchanged; Escape/close return
 focus to the launcher. Labels follow the selected RU/EN language.

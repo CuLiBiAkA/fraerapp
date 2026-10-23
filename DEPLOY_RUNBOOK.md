@@ -1,5 +1,15 @@
 # FraerApp deploy and ops runbook
 
+## Builder sidebar navigation (2026-10-23)
+
+Run check-builder-story-picker.cjs, check-builder-editing.cjs,
+check-published-builder.cjs, Node baseline and git diff --check. Cover unfinished
+filtering, selected parent, unsaved transitions, published inspection, comment
+read receipts and creating/attaching a chapter. Back up Builder files and image;
+install app.js, index.html, help.js and story-picker.js/css and rebuild only
+story-builder. Verify public files, health and logs; retain the previous image
+for rollback. Existing API endpoints/schema are unchanged.
+
 ## Published chapter inspection (2026-10-23)
 
 Run check-published-builder.cjs, check-builder-editing.cjs, author workspace

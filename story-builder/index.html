@@ -144,11 +144,18 @@
             </div>
             <div class="chapter-content">
               <section id="panel-chapter" role="tabpanel" aria-labelledby="tab-chapter">
-                <h2 data-help-key="authorWorkspace" data-panel-text="chapter">Моя глава</h2>
-                <p id="chapter-story-name" class="chapter-parent"></p>
-                <p id="chapter-number"></p>
-                <strong id="chapter-title"></strong>
+                <h2 data-help-key="authorWorkspace" data-panel-text="chapter">Мои истории</h2>
+                <div id="builder-story-picker"></div>
+                <p id="chapter-story-name" class="chapter-parent" hidden></p>
+                <p id="chapter-number" hidden></p>
+                <strong id="chapter-title" hidden></strong>
                 <p id="chapter-status" class="status-badge"></p>
+                <details id="chapter-review-feedback" hidden>
+                  <summary aria-label="Комментарии модератора" title="Комментарии модератора"><img src="/assets/author/comment.svg" alt="" width="28" height="28"><span class="feedback-unread" hidden></span></summary>
+                  <strong data-panel-text="moderatorComment">Комментарий модератора</strong>
+                  <p id="chapter-review-comment"></p>
+                </details>
+                <button id="builder-add-chapter" type="button" class="secondary" data-builder-navigation>+ Добавить главу</button>
                 <p id="author-state" role="status"></p>
                 <p id="server-draft-state" role="status" aria-live="polite"></p>
                 <div class="chapter-actions">
@@ -168,10 +175,6 @@
                 <h2 data-help-key="runtimeActions" data-panel-text="publication">Публикация</h2>
                 <p id="chapter-publication-status" class="status-badge"></p>
                 <p id="chapter-revision-note" class="chapter-note" hidden></p>
-                <details id="chapter-review-feedback" hidden>
-                  <summary><img src="/assets/author/comment.svg" alt="" width="23.3118" height="24"><span data-panel-text="moderatorComment">Комментарий модератора</span><span class="feedback-chevron" aria-hidden="true"></span></summary>
-                  <p id="chapter-review-comment"></p>
-                </details>
                 <p data-panel-text="publicationHint">После одобрения модератором глава станет доступна читателям.</p>
                 <button id="publish-runtime" type="button" data-panel-text="submit">Отправить на модерацию</button>
                 <p class="chapter-note" data-panel-text="submitHint">Перед отправкой проверим главу и сохраним изменения.</p>
@@ -209,6 +212,7 @@
       <button id="quick-add-scene" type="button" title="Добавить сцену">+ Сцена</button>
     </nav>
 
-    <script src="app.js?v=builder-66" type="module"></script>
+    <link rel="stylesheet" href="story-picker.css?v=1">
+    <script src="app.js?v=builder-67" type="module"></script>
   </body>
 </html>

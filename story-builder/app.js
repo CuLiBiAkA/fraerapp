@@ -2,7 +2,8 @@ import { fetchWithSession } from "../auth-session.js?v=1";
 import { validateStory as validateStoryDocument } from "./core.js?v=2";
 import { canEditStories, canEditStoryDraft, publishedCorrectionNotice, filterAfterSubmit, storyLabels, workflowLabel } from "../story-workflow.js?v=3";
 import { reviewLimitMessage } from "../review-limit.js?v=2";
-import { decorateHelp, helpButton, helpTopics } from "./help.js?v=6";
+import { decorateHelp, helpButton, helpTopics } from "./help.js?v=7";
+import {createStoryPicker} from './story-picker.js?v=1';
 import { chooseCover } from "../author-cover.js?v=3";
 import { prepareImage } from "../image-preparation.js?v=1";
 import { readingPreview, addChoiceReadingHint } from "./reading-preview.js?v=1";
@@ -11,6 +12,7 @@ import { initChapterTabs } from "./chapter-panel.js?v=1";
 import { genres, topics, fillClassification } from "./genre-topic.js?v=1";
 const selectChapterTab = initChapterTabs(document.querySelector("#chapter-workspace"));
 let chapterParent = null;
+const storyPicker=createStoryPicker({request:authorFetch,state:()=>({id:getDraftStoryId(),parent:chapterParent,language:currentLanguage,readOnly:publishedView(),canEdit:canAuthor(),unsaved:hasUnsavedChanges()}),save:()=>importDraftToRuntime()});
 const sceneTextControls = new WeakMap();
 
 const els = {
@@ -2380,6 +2382,7 @@ async function loadAuthorHome() {
   const home = await authorFetch("/api/author/home");
   authorHomeCache = home;
   renderAuthorWorkspace(home);
+  storyPicker.refresh().catch(error=>{els.apiResult.textContent=error.message;});
   return home;
 }
 
@@ -2389,7 +2392,7 @@ window.addEventListener("focus",()=>{
 
 const panelWords = {
   moderatorComment: ['Комментарий модератора', 'Moderator comment'],
-  chapter: ['Моя глава', 'My chapter'], check: ['Проверка', 'Validation'], publication: ['Публикация', 'Publication'],
+  chapter: ['Мои истории', 'My stories'], check: ['Проверка', 'Validation'], publication: ['Публикация', 'Publication'],
   save: ['Сохранить главу', 'Save chapter'], preview: ['Просмотр сцен', 'Scene preview'], close: ['Закрыть', 'Close'],
   checkAgain: ['Проверить ещё раз', 'Check again'], submit: ['Отправить на модерацию', 'Submit for moderation'],
   saveHint: ['Сохранённая на сервере глава доступна с других устройств.', 'A chapter saved on the server is available on other devices.'],
@@ -2440,12 +2443,13 @@ function renderAuthorWorkspace(home = authorHomeCache) {
   revisionNote.textContent = en ? 'The feedback concerns a previous revision. You have saved changes since the review.' : 'Замечания относятся к предыдущей редакции. После проверки вы сохранили изменения.';
   const comment = document.querySelector('#chapter-review-comment');
   const feedback = document.querySelector('#chapter-review-feedback');
-  const commentText = [...new Set([current?.correctionReason,current?.reason].filter(Boolean))].join('\n');
+  const commentText = [...new Set([current?.correctionReason,current?.reason,...(current?.events||[]).filter(e=>['reject','request-correction'].includes(e.action)).map(e=>e.reason)].filter(Boolean))].join('\n\n');
   const commentKey = `${getDraftStoryId() || ''}:${commentText}`;
   if (feedback.dataset.commentKey !== commentKey) feedback.open = false;
   feedback.dataset.commentKey = commentKey;
   comment.textContent = commentText;
   feedback.hidden = !commentText;
+  storyPicker.update();
   const editNotice=document.querySelector('#chapter-edit-notice');
   editNotice.textContent=publishedView() ? (en ? 'You can inspect scenes, transitions and effects. Editing and saving are unavailable.' : 'Можно просматривать сцены, переходы и эффекты. Изменение и сохранение недоступны.') : publishedCorrectionNotice(current,currentLanguage);
   editNotice.hidden=!editNotice.textContent;
@@ -2473,6 +2477,7 @@ function updateAuthorGate() {
   els.authorName.disabled = loggedIn;
   document.querySelectorAll("main button, main input, main select, main textarea").forEach((control) => {
     const allowed = control.getAttribute("role") === "tab" || control === els.authorLogin || control === els.authorName || control.classList.contains("builder-help-button");
+    if(control.hasAttribute('data-builder-navigation'))return;
     if (control === els.authorLogout) {
       control.disabled = !loggedIn;
       return;
@@ -2858,7 +2863,9 @@ function focusContext(targetContextId, fallback = null) {
 }
 
 async function openAuthorStory(storyId) {
-  if (hasUnsavedChanges() && getDraftStoryId() && !confirm(t("switchUnsaved"))) return;
+  let confirmedNavigation=false;
+  try{confirmedNavigation=sessionStorage.getItem('fraerapp.builderNavigation')===storyId;sessionStorage.removeItem('fraerapp.builderNavigation');}catch{}
+  if (!confirmedNavigation && hasUnsavedChanges() && getDraftStoryId() && !confirm(t("switchUnsaved"))) return;
   const detail = await authorFetch(`/api/author/stories/${storyId}`);
   const parents = await authorFetch(`/api/author/collections/parents?scenarioId=${encodeURIComponent(storyId)}`);
   const url = new URL(location.href);

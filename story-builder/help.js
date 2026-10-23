@@ -1,8 +1,8 @@
 // Each topic: title, explanation, example. Text follows the current runtime behavior.
 export const helpTopics = {
   authorWorkspace: [
-    ['Моя глава', 'Здесь показана только открытая глава: её история, номер, статус и сохранение. Кнопка сохранения записывает черновик на сервер. Предпросмотр показывает текущие тексты и варианты выборов без создания читательского прогресса.', 'Сохраните главу, затем откройте вкладку с галочкой для проверки JSON. Создать историю или добавить главу можно в разделе «Мои истории» через личный кабинет.'],
-    ['My chapter', 'This tab shows the current chapter, its story, number, status and saved state. Save writes the draft to the server. Preview shows current scene text and choices without reader progress.', 'Save the chapter, then open the check tab to validate JSON. Create stories and add chapters in My stories through your account.'],
+    ['Мои истории', 'Выберите незавершённую историю и нужную главу или добавьте новую. Опубликованные главы открываются только для просмотра. Неопубликованные можно редактировать, если они не находятся на модерации.', 'Значок комментариев открывает замечания модератора к текущей главе. Точка означает непрочитанное сообщение. Перед сменой главы сохраните изменения или подтвердите переход без сохранения.'],
+    ['My stories', 'Choose an unfinished story and a chapter, or add a new chapter. Published chapters are view-only. Unpublished chapters can be edited unless they are under review.', 'The comment icon opens moderator feedback for the current chapter. A dot marks unread feedback. Save changes before switching chapters or confirm leaving without saving.'],
   ],
   relations: [
     ['Связи и главы', 'Добавляйте главы в историю через «Мои истории» и при необходимости указывайте сезоны. При последовательном чтении глобальные значения переходят в следующую главу автоматически. Отдельные связи позволяют связать ваши произведения между собой.', 'Если в первой главе читатель выбрал имя героя, следующая глава этой истории его запомнит. Локальные переменные останутся в своих сценах. Отдельное продолжение можно связать с другим произведением и настроить передаваемые значения.'],

@@ -1,0 +1,17 @@
+#builder-story-picker { display:grid;gap:14px;margin-bottom:16px; }
+#chapter-story-name[hidden],#chapter-number[hidden],#chapter-title[hidden] { display:none!important; }
+#builder-story-picker label { display:grid;gap:6px; }
+#builder-story-picker select { width:100%;min-width:0; }
+#builder-story-picker small { color:#756187; }
+#builder-add-chapter { width:100%;margin:16px 0; }
+#panel-chapter { position:relative; }
+#panel-chapter #chapter-status { border:0;padding:0 40px 0 0;border-radius:0;font-size:16px;line-height:24px; }
+#panel-chapter #chapter-review-feedback { position:relative;margin:0 0 16px;border:0;padding:0; }
+#panel-chapter #chapter-review-feedback summary { position:absolute;right:0;top:-45px;width:36px;height:36px;display:grid;place-items:center;padding:0;background:transparent;border:0;list-style:none;cursor:pointer; }
+#chapter-review-feedback summary::-webkit-details-marker { display:none; }
+#chapter-review-feedback .feedback-unread { position:absolute;right:0;top:0;width:9px;height:9px;border-radius:50%;background:#bd4266;border:2px solid #fee3e2; }
+#chapter-review-feedback .feedback-unread[hidden] { display:none; }
+#panel-chapter #chapter-review-feedback[open] { padding:16px;background:#f8dfe7;border:1px solid #dfb9cb;border-radius:14px; }
+#panel-chapter #chapter-review-feedback p { white-space:pre-wrap; }
+.story-picker-dialog { width:min(520px,calc(100% - 32px));box-sizing:border-box; }
+.story-picker-dialog .actions { display:flex;flex-wrap:wrap;gap:12px;margin-top:20px; }
