@@ -8,9 +8,13 @@ for(const width of [320,390,768,1440]){
  const story={id:'city',collectionId:'city',kind:'collection',...document,generation:1,draftRevision:1,reviewState:'draft',draftDocument:document,children:chapters,metadataLocked:true};
  chapters.forEach(chapter=>{chapter.versions=[{versionNumber:1,createdAt:'2026-10-12T12:00:00Z'}];});
  let unread=true;
+ let profile={id:'author',nickname:'Лисса',biography:'Пишу уютные истории',avatar:'',links:[]},favorite=false;
  await context.route('https://fraerapp.ru/**',async route=>{
   const req=route.request(),u=new URL(req.url()),p=u.pathname,send=json=>route.fulfill({json});if(req.method()!=='GET')writes.push(p);
   if(p==='/auth/me')return send({id:'author',roles:['author'],email:'author@example.test'});
+  if(p==='/api/author/profile'){if(req.method()==='PUT')profile={...profile,...req.postDataJSON()};return send(profile);}
+  if(p==='/api/authors/author')return send({profile,works:[{title:'Тайны города',url:'/collections/city'}],favorite});
+  if(p==='/api/authors/author/favorite'){favorite=req.postDataJSON().favorite;return send({favorite});}
   if(p==='/api/account')return send({notifications:[{id:'notice',kind:'moderation',storyId:'c2',unread}],unreadCount:unread?1:0});
   if(p==='/api/account/notifications/notice/read'){unread=false;return send({});}
   if(p==='/api/author/folders')return send({items:[story,{...story,id:'cat',collectionId:'cat',title:'Как погладить кота и никого не убить'}],total:2});
@@ -81,6 +85,25 @@ for(const width of [320,390,768,1440]){
  await rows.nth(4).getByRole('button',{name:'Предпросмотр',exact:true}).click();await page.waitForURL('**/author-preview.html?**');
  const frame=page.locator('iframe');await frame.waitFor();assert.match(await frame.getAttribute('src'),/previewStory=c4&revision=1/);
  await page.locator('#device').selectOption('390px');const box=await frame.boundingBox();assert.ok(box.width<=390&&box.width<=width);
- assert.deepEqual(errors,[]);console.log(width,'chapter states / inline expansion / comments / explicit notification read / device preview');await context.close();
+ await page.goto('https://fraerapp.ru/my-stories/');
+ await page.getByRole('button',{name:'Об авторе',exact:true}).waitFor();await page.evaluate(()=>document.fonts.ready);
+ const alignment=await page.evaluate(()=>({heading:document.querySelector('.author-title-row').getBoundingClientRect().x,toolbar:document.querySelector('.collection-toolbar').getBoundingClientRect().x}));assert.ok(Math.abs(alignment.heading-alignment.toolbar)<1);
+ const style=await page.getByRole('button',{name:'Об авторе',exact:true}).evaluate(el=>{const s=getComputedStyle(el);return {font:s.fontFamily,size:s.fontSize,line:s.lineHeight,weight:s.fontWeight,bg:s.backgroundColor,border:s.borderTopColor};});
+ assert.deepEqual(style,{font:'"Inter UI", sans-serif',size:'23px',line:'25px',weight:'500',bg:'rgb(79, 58, 104)',border:'rgb(254, 227, 226)'});
+ await page.screenshot({path:`/tmp/author-profile-page-${width}.png`,fullPage:true});
+ await page.getByRole('button',{name:'Об авторе',exact:true}).click();
+ const profileDialog=page.locator('.author-profile-dialog');await profileDialog.getByLabel('Публичное имя').fill('Лисса новая');
+ await profileDialog.getByRole('button',{name:'Сохранить',exact:true}).click();await profileDialog.getByText('Профиль сохранён.',{exact:true}).waitFor();
+ assert.equal(profile.nickname,'Лисса новая');
+ await page.screenshot({path:`/tmp/author-profile-editor-${width}.png`,fullPage:true});
+ await profileDialog.getByLabel('Публичное имя').fill('Не сохранять');
+ page.once('dialog',d=>d.dismiss());await profileDialog.getByRole('button',{name:'Закрыть',exact:true}).click();assert.ok(await profileDialog.isVisible());
+ page.once('dialog',d=>d.accept());await profileDialog.getByRole('button',{name:'Закрыть',exact:true}).click();await profileDialog.waitFor({state:'detached'});
+ await page.evaluate(async()=>{const {authorCapsule}=await import('/author-profile.js?v=1');document.querySelector('main.collections-panel').append(authorCapsule({authorId:'author',authorName:'Лисса новая'}));});
+ await page.getByRole('button',{name:'Об авторе: Лисса новая',exact:true}).click();await profileDialog.getByRole('link',{name:'Тайны города'}).waitFor();
+ await profileDialog.getByRole('button',{name:'♡ В избранное',exact:true}).click();await profileDialog.getByRole('button',{name:'♥ В избранном',exact:true}).waitFor();assert.equal(favorite,true);
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ await page.screenshot({path:`/tmp/author-profile-reader-${width}.png`,fullPage:true});
+ assert.deepEqual(errors,[]);console.log(width,'chapter workflow, profile persistence, discard, reader favorite, typography and alignment');await context.close();
 }
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exit(1);});

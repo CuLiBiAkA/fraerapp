@@ -2,6 +2,32 @@
 
 Last updated: 2026-10-23.
 
+## Public author profiles and author-page controls (2026-10-23)
+
+The My stories heading and tagline align with the filter/story panels. Header
+actions are “Об авторе” and “+ Создать историю”, with #4f3a68 fill, #fee3e2
+border/text, Inter Medium 23/25. Text buttons in the author workspace use this
+type role; the shared Home link uses 23/25 on desktop. Header actions wrap on
+small screens. No reading interaction or subscription behavior changes here.
+
+API V27 adds author_profiles (player-owned optional nickname, biography, raster
+avatar, up to five HTTPS social links) and per-reader author_favorites. Telegram
+names/email are never copied into public profiles. Missing nicknames show “Автор”.
+Author/admin access is required for GET/PUT /api/author/profile and avatar upload.
+Uploaded normalized images use /api/authors/{id}/avatar/{filename}; only the owner
+can preview unselected images, other readers can access the selected avatar when
+the public profile is available. Existing story uploads/access rules are intact.
+
+GET /api/authors/{id} exposes profile, reader-specific favorite state and public
+works only. Guests retain the existing demo-story restrictions; hidden serial
+chapters are excluded. PUT /api/authors/{id}/favorite is authenticated/idempotent.
+Catalogue summaries/details include authorId and opted-in nickname; a capsule
+outside the story link opens the author modal without entering the story.
+Profiles persist across devices; drafts and account credentials are never exposed.
+The editor supports optional fields, avatar upload, save/error feedback, preview,
+unsaved-change confirmation and keyboard focus restoration. Profile JS/CSS v1,
+engine-99, collection-workspace v23, workspace-entry v22, author CSS v3/v13.
+
 ## Admin Telegram identities and registrations (2026-10-23)
 
 Admin header and user cards use the stored Telegram display name and username,

@@ -96,9 +96,10 @@ body[data-workspace="author"] { background:radial-gradient(ellipse at 25% 0%,#80
 .workspace .collection-editor > details:has(> label) > button { margin:0 16px 16px 0; min-height:44px; }
 .workspace .collection-editor > details:has(> label) > .collection-actions { gap:16px; }
 /* Figma 282:142: typography, compact badges and chapter controls. */
+body[data-workspace="author"] .workspace :is(button:not(.story-toggle),a.workspace-button,.chapter-buttons a) { font-family:var(--font-control); font-size:23px; font-weight:500; line-height:25px; letter-spacing:0; }
 body[data-workspace="author"] { background:#684e86 url('/assets/author/background.svg') center top/cover fixed; }
 .workspace.collections-panel { width:min(1368px,calc(100% - 72px)); }
-.workspace.collections-panel > .author-title-row { margin:20px 28px 24px; }
+.workspace.collections-panel > .author-title-row { margin:20px 0 24px; }
 .workspace.collections-panel > .author-title-row h1 { font-size:40px; line-height:63px; letter-spacing:4.4px; }
 .author-heading-copy { min-width:0; }
 .author-tagline { margin:0; color:#ead2ef; font:400 18px/25px var(--font-body); text-transform:uppercase; }

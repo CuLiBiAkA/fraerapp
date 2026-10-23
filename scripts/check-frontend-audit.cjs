@@ -22,7 +22,7 @@ async function fixture(context) {
   const stories = Array.from({ length: 6 }, (_, i) => ({
     key: 'audit-story-' + i, slug: 'audit-story-' + i,
     title: i ? 'История ' + i : 'История с длинным названием, которое важно прочитать полностью',
-    description: 'История для проверки интерфейса', coverUrl: '/assets/platform.svg', authorName: 'Автор',
+    description: 'История для проверки интерфейса', coverUrl: '/assets/platform.svg', authorName: 'Лисса', authorId:'author',
   }));
   const state = {
     sessionId: 'fixture', story: { key: 'audit-story', title: 'История' },
@@ -43,6 +43,7 @@ async function fixture(context) {
       { id: 'notice', kind: 'message', message: 'Новая глава уже доступна для чтения.', unread: true, createdAt: '2026-10-01T12:00:00Z' },
     ] });
     if (pathname === '/api/catalog/stories') return send(stories);
+    if (pathname === '/api/authors/author') return send({profile:{id:'author',nickname:'Лисса',biography:'Пишу уютные истории',avatar:'',links:[]},works:[{title:'История 1',url:'/history/audit-story-1'}],favorite:false});
     if (pathname === '/api/catalog/engagement') return send([]);
     if (pathname === '/api/sessions/fixture/state') return send(state);
     if (pathname === '/auth/subscription') return send({
@@ -183,6 +184,14 @@ async function checkLanguageSelection(page, initialLanguage) {
         await page.goto(origin + item.url);
         await page.locator(item.ready).waitFor();
         await page.evaluate(() => document.fonts.ready);
+        if(item.name==='library') {
+          const capsule=page.locator('.author-capsule').first();await capsule.waitFor();
+          assert.equal(await capsule.evaluate(el=>getComputedStyle(el).borderTopColor),'rgb(254, 227, 226)');
+          if(language==='ru'&&[390,1440].includes(width))await page.screenshot({path:`/tmp/author-profile-catalog-${width}.png`,fullPage:true});
+          await capsule.click();const profile=page.locator('.author-profile-dialog');await profile.getByRole('heading',{name:'Лисса',exact:true}).waitFor();
+          await profile.locator('.author-profile-close').click();await profile.waitFor({state:'detached'});
+          assert.ok(await capsule.evaluate(el=>el===document.activeElement),'Author capsule regains focus');
+        }
         await page.waitForFunction(() => [...document.images].filter(node => node.getClientRects().length).every(node => node.complete));
         for (const scale of [1, 2]) {
           label = `${item.name}-${language}-${width}-text${scale}`;

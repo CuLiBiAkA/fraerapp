@@ -53,7 +53,13 @@ class CollectionPresentationTests extends ApiTestSupport {
  @Test void engagementIsIndependentIdempotentAndPublishedDatesIgnoreDraftActivity(){
   var chapter=chapter();var doc=document(2,List.of(item(chapter)));String id=create(doc).get("id").toString();publish(id);var initial=publicDetail(id);
   assertThat(initial).containsEntry("views",0).containsEntry("ratingCount",0).containsEntry("rating",null).containsEntry("myRating",null);
-  assertThat(initial.get("authorName")).asString().startsWith("Участник #").doesNotContain("@","presentation-author");
+  assertThat(initial.get("authorName")).isEqualTo("Автор");
+  String profileId=initial.get("authorId").toString();
+  assertThat(call("PUT","/api/author/profile",Map.of("nickname","Лисса","biography","","avatar","","links",List.of()),author).statusCode()).isEqualTo(200);
+  assertThat(publicDetail(id).get("authorName")).isEqualTo("Лисса");
+  var profile=call("GET","/api/authors/"+profileId,null,reader);
+  assertThat(profile.statusCode()).isEqualTo(200);
+  assertThat(object(profile.body()).get("works").toString()).contains("/collections/");
   assertThat(initial.get("publishedAt")).isNotNull();assertThat(initial.get("updatedAt")).isNotNull();
   for(Object invalid:List.of(Map.of(),Map.of("score",0),Map.of("score",6),Map.of("score",4.5)))assertThat(call("PUT","/api/catalog/collections/"+id+"/rating",invalid,reader).statusCode()).isEqualTo(400);
   assertThat(call("PUT","/api/catalog/collections/"+id+"/rating",Map.of("score",5),null).statusCode()).isEqualTo(401);

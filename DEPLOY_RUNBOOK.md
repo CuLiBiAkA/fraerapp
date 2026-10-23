@@ -1,5 +1,19 @@
 # FraerApp deploy and ops runbook
 
+## Author profiles and typography (2026-10-23)
+
+Run API/auth tests, Node tests, build/lint, check-author-accordion.cjs and
+check-frontend-audit.cjs. Check 320/390/768/1440 widths, title/filter alignment,
+Inter 23/25 header controls, profile save/discard, reader capsule/favorite and
+avatar upload/visibility. Back up API database, affected files and API image.
+Deploy V27, AuthorProfileService/Controller and modified catalogue services in a
+tested API JAR; only API needs recreation. Install author-profile.js/css before
+the engine/workspace entrypoints. Install updated author CSS, site-controls.css,
+index.html and my-stories/index.html. Refresh edge upstreams after API health.
+Verify runtime/JAR/static hashes, V27 success, API/auth health and logs, and
+anonymous author-profile edits denied. Rollback restores files/API image and
+keeps additive V27 data, uploaded avatars and subsequent user activity.
+
 ## Admin registration notices (2026-10-23)
 
 Ship admin-panel.js, auth admin.html, AuthServiceApplication.java and auth V12.

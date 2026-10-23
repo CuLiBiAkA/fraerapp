@@ -32,6 +32,11 @@ body { background: var(--bg); font-family: var(--font-body); }
 .workspace :is(.collection-list, .workspace-list) { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
 .author-title-row { display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px; }
 .author-title-row h1 { margin:0; }
+.author-title-row { flex-wrap:wrap; }
+.author-header-actions { display:flex; flex-wrap:wrap; gap:20px; }
+.workspace .author-header-actions > button { background:#4f3a68; color:#fee3e2; border:1px solid #fee3e2; border-radius:14px; padding:15px 18px; min-height:56px; font:500 23px/25px var(--font-control); white-space:normal; }
+.workspace .author-header-actions > button.add-button { background:#4f3a68; color:#fee3e2; }
+.workspace .author-header-actions button:hover { background:#604577; }
 .author-utilities { display:flex;flex-wrap:wrap;gap:10px;margin:16px 0 24px; }
 .workspace .author-utilities [aria-pressed=true], .workspace .author-tabs [aria-selected=true] { background:var(--accent);color:#fff; }
 .workspace .author-story-card { display:grid;grid-template-columns:100px minmax(0,1fr);gap:18px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:18px;padding:20px;min-width:0;overflow-wrap:anywhere; }

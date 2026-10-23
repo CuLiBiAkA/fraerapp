@@ -27,10 +27,11 @@ class StoryProductService {
 	private final StoryWorkflowService workflow;
 	private final StoryAccessService access;
 	private final CollectionService collections;
+	private final AuthorProfileService profiles;
 
 	StoryProductService(PlayerRepository players, StoryRepository stories, SceneRepository scenes, ChoiceRepository choices,
 			StoryAssetRepository assets, GameSessionRepository sessions, JsonSupport json, StoryAdminService admin,
-			StoryAssetStorageService assetStorage,StoryWorkflowService workflow,StoryAccessService access,CollectionService collections) {
+			StoryAssetStorageService assetStorage,StoryWorkflowService workflow,StoryAccessService access,CollectionService collections,AuthorProfileService profiles) {
 		this.players = players;
 		this.stories = stories;
 		this.scenes = scenes;
@@ -43,6 +44,7 @@ class StoryProductService {
 		this.workflow = workflow;
 		this.access = access;
 		this.collections = collections;
+		this.profiles = profiles;
 	}
 
 	@Transactional(readOnly = true)
@@ -173,7 +175,8 @@ class StoryProductService {
 						story.getKey(),
 						story.getTitle(),
 						story.getDescription(),
-						playerName(story.getOwnerPlayerId()),
+						profiles.name(story.getOwnerPlayerId()),
+						story.getOwnerPlayerId(),
 						totalRuns,
 						finishedRuns,
 						storyProgress(snapshot, lastSession),
@@ -199,7 +202,8 @@ class StoryProductService {
 				story.getKey(),
 				story.getTitle(),
 				story.getDescription(),
-				playerName(story.getOwnerPlayerId()),
+				profiles.name(story.getOwnerPlayerId()),
+				story.getOwnerPlayerId(),
 				sessions.countByStoryId(story.getId()),
 				sessions.countByStoryIdAndStatus(story.getId(), SessionStatus.FINISHED),
 				story.getPublishedAt(),
@@ -367,6 +371,7 @@ class StoryProductService {
 			String title,
 			String description,
 			String authorName,
+			String authorId,
 			long totalRuns,
 			long finishedRuns,
 			double completionRate,
@@ -386,6 +391,7 @@ class StoryProductService {
 			String title,
 			String description,
 			String authorName,
+			String authorId,
 			long totalRuns,
 			long finishedRuns,
 			Instant publishedAt,

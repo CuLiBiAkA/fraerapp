@@ -97,7 +97,17 @@ class AuthorWorkflowTests extends ApiTestSupport {
 		ApiResponse details = request("GET", "/api/catalog/stories/" + slug, null, authorId, null);
 		assertThat(details.status()).isEqualTo(HttpStatus.OK.value());
 		assertThat(details.body()).containsEntry("slug", slug);
-			assertThat(details.body().get("authorName").toString()).startsWith("Участник #");
+		assertThat(details.body().get("authorName")).isEqualTo("Автор");
+		String profileId=details.body().get("authorId").toString();
+		assertThat(request("PUT","/api/author/profile","{\"nickname\":\"Лисса\",\"biography\":\"Пишу истории\",\"avatar\":\"\",\"links\":[]}",authorId,null).status()).isEqualTo(200);
+		assertThat(request("GET","/api/catalog/stories/"+slug,null,authorId,null).body().get("authorName")).isEqualTo("Лисса");
+		String visitor=login("profile-reader-"+UUID.randomUUID());
+		var publicProfile=request("GET","/api/authors/"+profileId,null,visitor,null);
+		assertThat(publicProfile.status()).isEqualTo(200);
+		assertThat(castList(publicProfile.body().get("works"))).anySatisfy(work->assertThat(work.get("url")).isEqualTo("/history/"+slug));
+		for(int i=0;i<2;i++)assertThat(request("PUT","/api/authors/"+profileId+"/favorite","{\"favorite\":true}",visitor,null).status()).isEqualTo(200);
+		assertThat(request("GET","/api/authors/"+profileId,null,visitor,null).body().get("favorite")).isEqualTo(true);
+		assertThat(request("GET","/api/authors/"+profileId,null,authorId,null).body().get("favorite")).isEqualTo(false);
 			assertThat(details.body().get("authorName")).isNotEqualTo(home.body().get("username"));
 		ApiResponse guestCatalog = request("GET", "/api/catalog/stories", null, null, null);
 		assertThat(guestCatalog.status()).isEqualTo(200);

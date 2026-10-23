@@ -27,9 +27,10 @@ class CollectionMetricsService {
   var byId=new LinkedHashMap<String,Map<String,Object>>();for(var item:summaries)byId.put(item.get("id").toString(),item);
   Object[] ids=byId.keySet().toArray();String in=marks(ids.length);
   var documents=new HashMap<String,CollectionDocument>();
-  for(var row:db.queryForList("select c.id,c.owner_player_id,c.published_at,c.published_updated_at,v.document_json from work_collections c join collection_versions v on v.collection_id=c.id and v.revision=c.published_revision where c.id in ("+in+")",ids)){
+  for(var row:db.queryForList("select c.id,c.owner_player_id,c.published_at,c.published_updated_at,v.document_json,p.nickname from work_collections c join collection_versions v on v.collection_id=c.id and v.revision=c.published_revision left join author_profiles p on p.player_id=c.owner_player_id where c.id in ("+in+")",ids)){
    String id=row.get("id").toString();var item=byId.get(id);documents.put(id,json.readCollection(row.get("document_json").toString()));
-   item.put("authorName","Участник #"+row.get("owner_player_id").toString().substring(0,8));
+   item.put("authorId",row.get("owner_player_id"));
+   item.put("authorName",Objects.toString(row.get("nickname"),"").isBlank()?"Автор":row.get("nickname"));
    item.put("publishedAt",instant(row.get("published_at")));item.put("updatedAt",instant(row.get("published_updated_at")));
    item.put("views",0L);item.put("rating",null);item.put("ratingCount",0L);item.put("myRating",null);
   }

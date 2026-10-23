@@ -7,6 +7,7 @@ import {authorCard,coverImage} from "./author-ui.js?v=3";
 import {seasonGroups,seasonDialog} from "./author-seasons.js?v=1";
 import {genres,topics,fillClassification} from '/builder/genre-topic.js?v=1';
 import {chooseCover,uploadImage} from "./author-cover.js?v=3";
+import {editAuthorProfile} from './author-profile.js?v=1';
 
 const params = new URLSearchParams(location.search);
 try { document.documentElement.lang = localStorage.getItem("fraerapp.language") === "en" ? "en" : "ru"; } catch { document.documentElement.lang = "ru"; }
@@ -505,7 +506,9 @@ async function start(root) {
     const importDialog=el("dialog",null,"workspace-dialog author-import");importDialog.setAttribute("aria-labelledby","author-import-title");const importHeading=el("h2",words("Импорт истории из файла","Import story from a file"));importHeading.id="author-import-title";
     const importStatus=el("p","","workspace-status");importStatus.setAttribute("role","status");importDialog.append(importHeading,el("p",words("Выберите JSON всей истории. Перед записью вы увидите новые главы, изменения и конфликты.","Choose a complete story JSON package. Review new chapters, changes and conflicts before saving.")),upload.label,importStatus,button(words("Закрыть","Close"),()=>importDialog.close()));document.body.append(importDialog);
     const importButton=button(words("Импорт истории из файла","Import story from a file"),()=>importDialog.showModal());importButton.dataset.authorMutation="true";
-    utilities.append(importButton);titleRow.append(create);
+    const profile=button(words('Об авторе','About the author'),editAuthorProfile);
+    const actions=el('div',null,'author-header-actions');actions.append(profile,create);
+    utilities.append(importButton);titleRow.append(actions);
   }
   const filterChanged=()=>{if(!discard())return;dirty=false;current=null;doc=null;screen="list";editor.hidden=true;pageIndex=0;writeUrl(false,null);work(loadList);};toolbar.onsubmit=event=>{event.preventDefault();filterChanged();};query.input.onsearch=filterChanged;state.input.onchange=filterChanged;
   await loadList();

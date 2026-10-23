@@ -1,4 +1,5 @@
 import { fetchWithSession, refreshSession } from "./auth-session.js?v=1";
+import {authorCapsule} from './author-profile.js?v=1';
 import { profileLabel, bindTelegramNotifications } from "./telegram-profile.js?v=1";
 import {
   credentialToJson,
@@ -1259,8 +1260,10 @@ function renderStoryDetail(story) {
   storyDetailCover.style.backgroundImage = `url("${storyCoverAsset(story)}")`;
   storyDetailTitle.textContent = story.title;
   const byline = document.querySelector("#story-detail-byline");
-  byline.textContent = [story.genre, story.authorName ? `${currentLanguage === "en" ? "Author" : "Автор"}: ${story.authorName}` : ""].filter(Boolean).join(" · ");
-  byline.hidden = !byline.textContent;
+  byline.replaceChildren();
+  if(story.genre)byline.append(document.createTextNode(story.genre+' '));
+  const author=authorCapsule(story);if(author)byline.append(author);
+  byline.hidden = !byline.childNodes.length;
   const contentsLink = document.querySelector("#story-detail-contents");
   contentsLink.classList.toggle("hidden", !collection);
   if (collection) {
@@ -1713,6 +1716,7 @@ function fillStoryCard(card, story, coverClass) {
   renderStoryCardStats(stats, story);
   info.append(title, stats); link.append(cover, info);
   card.append(link, favoriteButton(story));
+  const author=authorCapsule(story);if(author)card.append(author);
 }
 
 function renderStoryCardStats(stats, story) {
