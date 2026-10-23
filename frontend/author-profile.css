@@ -19,6 +19,9 @@
 .author-profile-works img { width:100px; height:75px; object-fit:cover; border-radius:8px; flex-shrink:0; }
 body button.author-capsule { display:inline-flex; align-items:center; width:fit-content; max-width:100%; min-height:44px; padding:8px 16px; border:1px solid #fee3e2; border-radius:999px; background:transparent; color:#fee3e2; font:500 23px/25px var(--font-control); cursor:pointer; overflow-wrap:anywhere; text-align:left; }
 .engagement-card > .author-capsule { margin:0 16px 16px; }
+.engagement-card:has(> .author-capsule), #story-screen .story-list .engagement-card:has(> .author-capsule), .home-story-card.engagement-card:has(> .author-capsule):is(.is-active,:hover) { display:flex; flex-direction:column; }
+.engagement-card:has(> .author-capsule) > .story-card-link { flex:1; height:auto; min-height:0; }
+.engagement-card > .author-capsule { flex-shrink:0; }
 body button.author-capsule:hover { background:#fee3e214; }
 .author-profile-dialog :focus-visible,button.author-capsule:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
 .author-profile-dialog button:disabled { opacity:.6; cursor:wait; }

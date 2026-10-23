@@ -187,6 +187,7 @@ async function checkLanguageSelection(page, initialLanguage) {
         if(item.name==='library') {
           const capsule=page.locator('.author-capsule').first();await capsule.waitFor();
           assert.equal(await capsule.evaluate(el=>getComputedStyle(el).borderTopColor),'rgb(254, 227, 226)');
+          assert.ok(await capsule.evaluate(el=>{const a=el.getBoundingClientRect(),b=el.closest('.engagement-card').getBoundingClientRect();return a.bottom<=b.bottom&&a.top>=b.top;}),'Author capsule fits inside its card');
           if(language==='ru'&&[390,1440].includes(width))await page.screenshot({path:`/tmp/author-profile-catalog-${width}.png`,fullPage:true});
           await capsule.click();const profile=page.locator('.author-profile-dialog');await profile.getByRole('heading',{name:'Лисса',exact:true}).waitFor();
           await profile.locator('.author-profile-close').click();await profile.waitFor({state:'detached'});
