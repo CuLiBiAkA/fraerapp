@@ -2,8 +2,8 @@ import {el,link,button,field,select,checkbox,words,typeName,request,errorMessage
 import {chapterState,chapterStateLabel} from "./chapter-state.js?v=2";
 import {reviewLimitMessage} from "./review-limit.js?v=2";
 import {workflowLabel, renderDocumentDiff, canEditStoryDraft} from "./story-workflow.js?v=3";
-import {renderFolderReview} from "./review-screen.js?v=4";
-import {classificationFields} from './age-classification.js?v=6';
+import {renderFolderReview} from "./review-screen.js?v=5";
+import {classificationFields} from './age-classification.js?v=7';
 import {coverImage} from "./author-ui.js?v=3";
 import {seasonGroups,seasonDialog} from "./author-seasons.js?v=1";
 import {genres,topics,fillClassification} from '/builder/genre-topic.js?v=1';

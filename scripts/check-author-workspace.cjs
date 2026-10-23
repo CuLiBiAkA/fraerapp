@@ -66,7 +66,8 @@ for(const language of ['ru','en'])for(const width of [320,390,768,1440]){
  assert.ok(await page.locator('.author-list-screen').isVisible());assert.equal(await page.locator('.accordion-story .collection-editor').count(),1);assert.ok(await page.locator('.collection-editor').isVisible());
  assert.equal(await page.locator('.chapter-settings').count(),0);assert.equal(await role('button','↓ Ниже','↓ Down').count(),0);assert.equal(await page.locator('.author-season').count(),2);await page.locator('.author-season > summary').first().click();assert.equal(document.items[0].target.id,'chapter');
  await role('button','Об истории','About story').click();assert.ok(await role('dialog','Об истории','About story').isVisible());
- assert.equal(await page.locator('link[data-age-classification]').getAttribute('href'),'/age-classification.css?v=6');
+ assert.equal(await page.locator('link[data-age-classification]').getAttribute('href'),'/age-classification.css?v=7');
+ assert.equal(await page.locator('.story-about-dialog').evaluate(node=>getComputedStyle(node).paddingTop),'12px');
  await role('textbox','Название','Title').fill('Retained after backdrop close');
  await role('textbox','Название','Title').click();assert.ok(await page.locator('.story-about-dialog').isVisible());
  await page.mouse.click(2,2);assert.ok(!await page.locator('.story-about-dialog').isVisible());
@@ -82,13 +83,13 @@ for(const language of ['ru','en'])for(const width of [320,390,768,1440]){
  const geometry=await page.locator('.story-about-dialog').evaluate(dialog=>{
   const style=node=>{const s=getComputedStyle(node);return [s.fontSize,s.lineHeight,s.fontFamily,s.fontWeight];};
   const rect=selector=>dialog.querySelector(selector).getBoundingClientRect();
-  return {headings:[...dialog.querySelectorAll('h2,.content-warning-section h3')].map(style),button:style(dialog.querySelector('button')),label:style(dialog.querySelector('label')),selects:[...dialog.querySelectorAll('select')].map(node=>node.getBoundingClientRect().height),help:rect('.age-help summary').width,cover:rect('.author-cover').top,title:rect('.story-metadata-text input').top,description:rect('.story-metadata-text textarea').height};
+  return {headings:[...dialog.querySelectorAll('h2,.content-warning-section h3')].map(style),button:style(dialog.querySelector('button')),label:style(dialog.querySelector('label')),selects:[...dialog.querySelectorAll('select')].map(node=>node.getBoundingClientRect().height),help:rect('.age-help summary').width,cover:rect('.author-cover').top,title:rect('.story-metadata-text label').top,description:rect('.story-metadata-text textarea').height};
  });
  for(const font of geometry.headings){assert.equal(font[0],'35px');assert.equal(font[1],'57px');assert.ok(font[2].includes('Playfair'));}
  assert.deepEqual(geometry.button.slice(0,2),['23px','25px']);assert.ok(geometry.button[2].includes('Inter'));assert.equal(geometry.button[3],'500');
  assert.deepEqual(geometry.label.slice(0,2),['18px','25px']);assert.ok(geometry.label[2].includes('Montserrat'));
  assert.ok(geometry.selects.every(height=>height===28));assert.equal(geometry.help,20);assert.equal(geometry.description,110);
- if(width>600)assert.ok(Math.abs(geometry.cover-geometry.title)<2,'Cover aligns with title input');
+ if(width>600)assert.ok(Math.abs(geometry.cover-geometry.title-4)<2,'Cover aligns with title label cap height');
  await role('combobox','Возрастная категория','Age category').selectOption('16+');
  await role('checkbox','Пугающие сцены','Frightening scenes').check();
  await role('checkbox','Подробные интимные сцены · 18+','Explicit intimate scenes · 18+').check();

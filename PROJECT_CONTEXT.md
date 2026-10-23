@@ -12,6 +12,11 @@ Author CSS v4, collection workspace v36, workspace entry v35.
 
 ## Story age classification (2026-10-24)
 
+About-story top inset is now 12px. Desktop cover starts 4px below the title
+label box (near its capital-letter top), with height 177px; its bottom and
+button retain their previous position. Mobile cover remains 150px tall.
+Age CSS/module v7, review v5, collection v37, standalone v14, entry v36.
+
 Compact About story follow-up: field-row gaps are 8px, description 110px,
 title input 40px, all four selects 28px, help circle 20px, cover 140×150px
 aligned with the title input. Typography unchanged. Age module/CSS 6,

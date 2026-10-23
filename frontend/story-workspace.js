@@ -19,7 +19,7 @@ const state = { user: null, items: [], all: [], page: 0, totalPages: 0, selected
 const decisionDrafts = new Map();
 const apiBase = moderation ? "/api/moderation/stories" : "/api/author/stories";
 const pageSize = moderation ? 20 : 10;
-import {classificationFields,classificationSummary} from './age-classification.js?v=6';
+import {classificationFields,classificationSummary} from './age-classification.js?v=7';
 let metadataDraft=null,metadataDirty=false,selectedTab="content",screen="list",historyIndex=0,restoringHistory=false,decisionPending=false;
 history.replaceState({...history.state,authorIndex:0},"",location.href);
 const discardMetadata=()=>!metadataDirty||confirm(choose("Есть несохранённые изменения. Перейти без сохранения?","There are unsaved changes. Leave without saving?"));

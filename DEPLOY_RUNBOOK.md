@@ -10,6 +10,11 @@ stories and unsaved edits. Browser coverage runs in RU/EN at four widths.
 
 ## Age classification release (2026-10-24)
 
+Top-inset follow-up: deploy age CSS/module v7, review/collection/standalone
+modules, workspace entry and author/moderation HTML together. Verify 12px top
+padding and desktop cover alignment with the title label, preserving mobile
+stacking. Static files only; use the same backup and hash checks below.
+
 Compact geometry revision: author-workspace browser assertions check 28px selects,
 20px help, 110px description and cover/title alignment on desktop; repeat the
 existing static-file backup/hash verification procedure with CSS/module v6.

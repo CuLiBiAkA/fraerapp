@@ -2,7 +2,7 @@ import {el,field,select,words} from './collection-ui.js?v=6';
 import {warningGroups,splitWarnings,needsAdultRating} from './content-warning-options.js?v=1';
 
 const classificationStyle=document.querySelector('link[data-age-classification]')||document.createElement('link');
-classificationStyle.rel='stylesheet';classificationStyle.href='/age-classification.css?v=6';classificationStyle.dataset.ageClassification='';
+classificationStyle.rel='stylesheet';classificationStyle.href='/age-classification.css?v=7';classificationStyle.dataset.ageClassification='';
 if(!classificationStyle.isConnected)document.head.append(classificationStyle);
 export function ageBadge(value){
  const badge=el('span',value||words('Возраст не указан','Age not specified'),'age-badge');

@@ -3,9 +3,9 @@
 .home-story-cover>.age-badge,.story-cover>.age-badge{position:absolute;top:12px;left:12px;background:#4f3a68e8;color:#fee3e2;max-width:calc(100% - 80px);white-space:normal}
 .age-summary{margin:12px 0;overflow-wrap:anywhere}.age-summary p{margin:8px 0;white-space:pre-wrap}
 .story-metadata-top{display:grid;grid-template-columns:140px minmax(0,1fr);gap:16px;align-items:start;margin-bottom:8px}
-.workspace .story-metadata-top .author-cover-setting{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:31px 0 0}
-.workspace .story-metadata-top .author-cover-setting img{width:100%;height:150px;object-fit:cover}
-.workspace .story-metadata-top .author-cover{width:100%;height:150px;aspect-ratio:auto}
+.workspace .story-metadata-top .author-cover-setting{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin:4px 0 0}
+.workspace .story-metadata-top .author-cover-setting img{width:100%;height:177px;object-fit:cover}
+.workspace .story-metadata-top .author-cover{width:100%;height:177px;aspect-ratio:auto}
 .workspace .story-metadata-top .author-cover-setting button{font:500 23px/25px var(--font-control);padding:8px}
 .story-metadata-text{display:grid;gap:8px;min-width:0}.story-metadata-text label{display:grid;gap:8px}
 .story-about-dialog .author-metadata>.collection-fields{grid-template-columns:minmax(0,1fr);gap:8px}
@@ -23,6 +23,7 @@ body .workspace dialog.story-about-dialog .age-conflict button,.age-classificati
 .age-classification-heading{display:flex;gap:12px;align-items:center}.age-help{position:relative}.age-help summary{display:grid;place-items:center;cursor:pointer;list-style:none;border:1px solid currentColor;border-radius:50%;width:32px;height:32px}.age-help summary::-webkit-details-marker{display:none}.age-help p{position:absolute;z-index:5;right:0;width:min(300px,65vw);padding:16px;border:1px solid #bca6ca;border-radius:12px;background:#4f3a68;color:#fee3e2;font:400 18px/25px var(--font-body,Montserrat,sans-serif);box-shadow:0 8px 24px #0003}.age-help:not([open]) p{display:none}.age-help:hover p,.age-help:focus-within p{display:block}
 .workspace .age-help>summary{display:grid;place-items:center;box-sizing:border-box;padding:0;margin:0;width:20px;height:20px;min-height:20px;line-height:1;font-family:var(--font-control);list-style:none}.workspace .age-help>summary::before,.workspace .age-help>summary::after{content:none}.age-help{flex:none}
 /* Reset inherited dialog label margins; keep the two rows on a compact baseline. */
+body .workspace dialog.story-about-dialog{padding-top:12px}
 body .workspace .story-about-dialog label{margin:0;gap:6px}
 body .workspace .story-about-dialog .story-classification{align-items:end;gap:8px 12px}
 body .workspace .story-about-dialog select{height:28px;min-height:28px;padding:0 8px;line-height:25px;border-radius:6px}
