@@ -57,6 +57,15 @@ const assert = require('node:assert/strict');
       });
       const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
       await page.goto('https://admin.test/auth/admin');
+      for(const [trigger,modal] of [['[data-site-account]','#profile-modal'],['[data-site-settings]','#settings-modal']]){
+        await page.locator(trigger).click();
+        const close=page.locator(modal+' .modal-close');await close.waitFor({state:'visible'});
+        assert.equal(await close.evaluate(el=>getComputedStyle(el).outlineStyle),'none','Close has no square frame');
+        await page.keyboard.press('Tab');await close.focus();
+        assert.equal(await close.evaluate(el=>getComputedStyle(el).outlineStyle),'none');
+        assert.notEqual(await close.evaluate(el=>getComputedStyle(el).filter),'none','Keyboard focus remains visible');
+        await page.keyboard.press('Enter');await page.locator(modal).waitFor({state:'hidden'});
+      }
       await page.locator('[data-view=experiments]').click();
       await page.waitForFunction(()=>document.querySelectorAll('#experiment-metrics strong').length===4);
       assert.deepEqual(await page.locator('#experiment-metrics strong').allTextContents(),['12','3','9','25']);

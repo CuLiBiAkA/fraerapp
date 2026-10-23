@@ -244,4 +244,7 @@ body.modal-open { overflow: hidden; }
 #settings-modal .modal-segmented .is-active { background: #daafe4; }
 #settings-modal .modal-links a { background: transparent; border: 0; padding: 0; }
 .modal-layer :focus-visible { outline: 2px solid #fee3e2; outline-offset: 3px; }
+.modal-layer button.modal-close:focus-visible { outline:none; filter:drop-shadow(0 0 5px #21152dcc); }
+.modal-layer button.modal-close:focus-visible::before,
+.modal-layer button.modal-close:focus-visible::after { height:2.5px; }
 #settings-modal #modal-volume { width: 110px; min-height: 32px; padding: 0; margin: 0; accent-color: #daafe4; background: transparent; border: 0; }

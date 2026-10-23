@@ -28,6 +28,7 @@
 .admin-panel .secondary,.admin-dialog .secondary { color:#4f3a68; border-color:#7f64a466; background:transparent; }.admin-panel .danger,.admin-dialog .danger { background:#963d51; border-color:#963d51; color:white; }
 .admin-panel button:hover:not(:disabled), .admin-dialog button:hover:not(:disabled) { filter:brightness(.94); }.admin-page button:disabled { opacity:.55; cursor:wait; }
 .admin-page :is(button,a,input,select,textarea,summary):focus-visible { outline:3px solid #a8478c; outline-offset:3px; }
+.admin-page button.admin-close:focus-visible { outline:none; color:#4f3a68; box-shadow:0 0 0 2px #a8478c inset; border-radius:50%; }
 .admin-panel label,.admin-dialog label { display:block; font:600 12px/1.5 var(--font-control,sans-serif); margin-bottom:6px; }
 .admin-panel :is(input,select,textarea),.admin-dialog :is(input,select,textarea) { width:100%; min-width:0; min-height:44px; padding:10px 12px; border:1px solid #7f64a477; border-radius:9px; background:#fff8f7; color:#4f3a68; }
 .admin-page textarea { resize:vertical; }.admin-page :is(input,textarea)::placeholder { color:#816d8e; }.admin-page input[type=checkbox] { width:19px; min-height:19px; flex:0 0 19px; accent-color:#684e86; }
