@@ -31,6 +31,26 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 class AuthControllerTests {
+	@Test void registrationsArePrivateDurableAndSeparateForEachAdmin() {
+		User first=admin("notice-admin@example.test"), second=admin("notice-other@example.test");
+		jdbc.update("update users set created_at=?",java.sql.Timestamp.from(Instant.now().minusSeconds(60)));
+		User reader=store.user("new-reader@example.test",true).orElseThrow();
+		String token="Bearer "+authenticatedToken(first);
+		var response=new MockHttpServletResponse();
+		assertThat(controller.registrations(token,null,response).get("total")).isEqualTo(1L);
+		assertThat(response.getHeader("Cache-Control")).contains("no-store");
+		store.user(reader.email(),true);
+		assertThat(store.registrations(first.id()).get("total")).isEqualTo(1L);
+		controller.readRegistration(token,null,reader.id());
+		controller.readRegistration(token,null,reader.id());
+		assertThat(store.registrations(first.id()).get("total")).isEqualTo(0L);
+		assertThat(store.registrations(second.id()).get("total")).isEqualTo(1L);
+		String readerToken="Bearer "+authenticatedToken(reader);
+		assertThatThrownBy(()->controller.registrations(readerToken,null,new MockHttpServletResponse()))
+				.isInstanceOf(ResponseStatusException.class).satisfies(e->assertThat(((ResponseStatusException)e).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
+		assertThatThrownBy(()->controller.readRegistration(readerToken,null,reader.id()))
+				.isInstanceOf(ResponseStatusException.class).satisfies(e->assertThat(((ResponseStatusException)e).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
+	}
 	@Test void newReaderHasAdsUntilAnActiveSubscriptionEvenWithManualAuthorRole(){
 		User user=store.user("ad-reader@example.test",true).orElseThrow();String token="Bearer "+authenticatedToken(user);
 		assertThat(user.roles()).containsExactly("player");assertThat(controller.me(token,null,new MockHttpServletResponse())).containsEntry("subscriptionActive",false);
@@ -154,7 +174,8 @@ class AuthControllerTests {
 				new ClassPathResource("db/migration/V8__moderator_and_bootstrap_initialization.sql"),
 				new ClassPathResource("db/migration/V9__author_subscriptions.sql"),
 				new ClassPathResource("db/migration/V10__login_link_issuance_locks.sql"),
-				new ClassPathResource("db/migration/V11__telegram_profile_and_delivery.sql"));
+                new ClassPathResource("db/migration/V11__telegram_profile_and_delivery.sql"),
+                new ClassPathResource("db/migration/V12__admin_registration_notices.sql"));
 		schema.execute(dataSource);
 		jdbc = new JdbcTemplate(dataSource);
 		var subscriptions = new SubscriptionService(jdbc,true);
@@ -1024,6 +1045,12 @@ class AuthControllerTests {
 		User user = store.userByTelegramId(67890L).orElseThrow();
 		var response = controller.me("Bearer " + authenticatedToken(user), null, new MockHttpServletResponse());
 		assertThat(response).containsEntry("displayName", "Анна Иванова").containsEntry("telegramUsername", "anna_reader");
+		for(String search:List.of("Анна","Иванова","@anna_reader",user.email())) {
+			var page=store.adminUsers(0,20,search,"all","all");
+			assertThat(page.totalElements()).isEqualTo(1);
+			assertThat(page.items().get(0).displayName()).isEqualTo("Анна Иванова");
+			assertThat(page.items().get(0).telegramUsername()).isEqualTo("anna_reader");
+		}
 		message.put("message_id", 3);
 		message.put("text", "/start");
 		message.put("from", Map.of("id", 67890L, "first_name", "Аня"));

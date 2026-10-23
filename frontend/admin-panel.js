@@ -3,6 +3,36 @@ import { credentialToJson, parseCreationOptions, parseRequestOptions, passkeysSu
 import { mountSubscriptions } from './admin-subscriptions.js?v=1';
 import { mountReaderAds } from './admin-reader-ads.js?v=1';
 import { mountExperiments } from './admin-experiments.js?v=2';
+import { profileLabel } from './telegram-profile.js?v=1';
+const userLabel = user => profileLabel(user) === 'Telegram' ? 'Пользователь Telegram · ' + user.id : profileLabel(user);
+let registrationSeq = 0;
+
+async function loadRegistrations() {
+  if (!state.admin) return;
+  const seq = ++registrationSeq, epoch = state.epoch;
+  try {
+    const result = await api('/auth/admin/registrations');
+    if (seq !== registrationSeq || epoch !== state.epoch) return;
+    $('#registrations-count').textContent = result.total ? String(result.total) : '';
+    $('#registrations-summary').textContent = 'Новые пользователи: ' + result.total;
+    const list = $('#registrations-list'); list.replaceChildren();
+    for (const user of result.items) {
+      const row = el('article', undefined, 'admin-record'), copy = el('div');
+      copy.append(el('h3', userLabel(user)), el('p', 'Регистрация: ' + date(user.createdAt)));
+      row.append(copy, button('Открыть и отметить просмотренным', trigger => perform(trigger, '#registrations-status', async () => {
+        await api('/auth/admin/registrations/' + encodeURIComponent(user.id) + '/read', {method:'POST'});
+        if (epoch !== state.epoch) return;
+        openUser(user); await loadRegistrations();
+      })));
+      list.append(row);
+    }
+    status('#registrations-status', result.total > result.items.length
+      ? 'Показаны последние 50. После просмотра появятся остальные.'
+      : result.total ? '' : 'Новых регистраций нет.');
+  } catch (error) {
+    if (seq === registrationSeq && epoch === state.epoch) report('#registrations-status', error);
+  }
+}
 
 const $ = selector => document.querySelector(selector);
 const roles = {player:'Читатель', author:'Автор', moderator:'Модератор', admin:'Администратор'};
@@ -34,6 +64,7 @@ function revokeAccess(error) {
   if(error.code==='RECENT_AUTH_REQUIRED' || error.detail==='Recent authentication required') return;
   if(![401,403].includes(error.status)) return;
   state.admin=false; state.epoch++; state.selected=null; state.users=[]; state.authors=[]; state.runtime.clear();$('#identity').textContent=error.status===401?'Вход не выполнен':'Доступ требует проверки';
+  $('#registrations-list').replaceChildren();$('#registrations-count').textContent='';
   subscriptions.reset();
   advertising.reset();
   experiments.reset();
@@ -92,14 +123,14 @@ function renderUsers() {
   const list=$('#users-list'); list.replaceChildren();
   if(!state.users.length) { empty(list,'Пользователи не найдены','Измените поисковый запрос или сбросьте фильтры.');return; }
   for(const user of state.users) {
-    const row=el('article',undefined,'admin-user'), identity=el('div'); identity.append(el('h3',user.email));
+    const row=el('article',undefined,'admin-user'), identity=el('div'); identity.append(el('h3',userLabel(user)));
     const badges=el('div',undefined,'admin-badges');for(const role of user.roles) badges.append(badge(roles[role] || role));
     if(user.blocked) badges.append(badge('Заблокирован','blocked'));
     if(user.id===state.me?.id) badges.append(badge('Это вы','self'));
     const pending=badge('Заявка автора','pending');pending.dataset.authorRequest=user.id;pending.hidden=!state.authors.some(r=>r.userId===user.id);badges.append(pending);
     identity.append(badges,el('p','Регистрация: '+date(user.createdAt)));
     const activity=el('div',undefined,'admin-user-activity');activity.append(el('p',`Активные входы: ${user.activeSessions}`),el('p',`Ключи доступа: ${user.passkeys}`));
-    const open=button('Открыть карточку',()=>openUser(user));open.setAttribute('aria-label','Открыть карточку '+user.email);
+    const open=button('Открыть карточку',()=>openUser(user));open.setAttribute('aria-label','Открыть карточку '+userLabel(user));
     row.append(identity,activity,open);list.append(row);
   }
 }
@@ -115,7 +146,7 @@ async function openUser(user) {
 }
 function paintUser() {
   const user=state.selected;if(!user)return;
-  $('#user-heading').textContent=user.email;$('#user-summary').textContent=roleNames(user.roles)+' · '+(user.blocked?'Доступ заблокирован':'Доступ открыт');
+  $('#user-heading').textContent=userLabel(user);$('#user-summary').textContent=roleNames(user.roles)+' · '+(user.blocked?'Доступ заблокирован':'Доступ открыт');
   const metrics=$('#user-metrics');metrics.replaceChildren();
   const runtime=state.runtime.get(user.id);
   const detail=$('#user-detail-stats');detail.replaceChildren();
@@ -224,14 +255,14 @@ for(const id of ['#user-role','#user-status','#user-size'])$(id).onchange=()=>{c
 $('#reset-users').onclick=()=>{$('#user-query').value='';$('#user-role').value='all';$('#user-status').value='all';clearTimeout(userTimer);state.userPage=0;loadUsers();};
 $('#request-query').oninput=()=>{state.loginSeq++;clearTimeout(loginTimer);state.loginPage=0;loginTimer=setTimeout(loadLogins,250);};
 $('#request-size').onchange=()=>{state.loginPage=0;loadLogins();};$('#author-query').oninput=renderAuthors;
-$('#refresh-users').onclick=loadUsers;$('#refresh-logins').onclick=loadLogins;$('#refresh-authors').onclick=()=>loadAuthors();
+$('#refresh-users').onclick=()=>{loadUsers();loadRegistrations();};$('#refresh-logins').onclick=loadLogins;$('#refresh-authors').onclick=()=>loadAuthors();
 for(const kind of ['users','logins'])for(const direction of ['prev','next'])$('#'+kind+'-'+direction).onclick=()=>{const pageKey=kind==='users'?'userPage':'loginPage',pagesKey=kind==='users'?'userPages':'loginPages';state[pageKey]=Math.max(0,Math.min(Math.max(0,state[pagesKey]-1),state[pageKey]+(direction==='next'?1:-1)));(kind==='users'?loadUsers:loadLogins)();};
 async function logout(event){await perform(event.currentTarget,'#page-status',async()=>{await api('/auth/logout',{method:'POST'});location.replace('/auth/admin');});}
 $('#logout').onclick=logout;$('#denied-logout').onclick=logout;$('#retry-access').onclick=loadSession;
-async function loadSession(){const epoch=++state.epoch;status('#page-status','Проверяем доступ…');try{const me=await api('/auth/me');if(epoch!==state.epoch)return;state.me=me;state.admin=me.roles.includes('admin');$('#identity').textContent=me.email+' · '+roleNames(me.roles);$('#security-identity').textContent='Вы вошли как '+me.email;$('#login-section').hidden=true;$('#access-denied').hidden=state.admin;$('#denied-moderation').hidden=!me.roles.some(r=>['moderator','admin'].includes(r));$('#admin-layout').hidden=!state.admin;status('#page-status');if(state.admin){loadAuthors({quiet:true});switchView(location.hash.slice(1)||'users',false);}else{for(const dialog of document.querySelectorAll('dialog[open]'))dialog.close();clearInvite();}}
+async function loadSession(){const epoch=++state.epoch;status('#page-status','Проверяем доступ…');try{const me=await api('/auth/me');if(epoch!==state.epoch)return;state.me=me;state.admin=me.roles.includes('admin');$('#identity').textContent=userLabel(me)+' · '+roleNames(me.roles);$('#security-identity').textContent='Вы вошли как '+userLabel(me);$('#login-section').hidden=true;$('#access-denied').hidden=state.admin;$('#denied-moderation').hidden=!me.roles.some(r=>['moderator','admin'].includes(r));$('#admin-layout').hidden=!state.admin;status('#page-status');if(state.admin){loadRegistrations();loadAuthors({quiet:true});switchView(location.hash.slice(1)||'users',false);}else{for(const dialog of document.querySelectorAll('dialog[open]'))dialog.close();clearInvite();}}
   catch(error){if(epoch!==state.epoch)return;revokeAccess(error);state.admin=false;state.selected=null;for(const dialog of document.querySelectorAll('dialog[open]'))dialog.close();clearInvite();$('#admin-layout').hidden=true;$('#login-section').hidden=error.status===403;$('#access-denied').hidden=error.status!==403;$('#identity').textContent=error.status===403?'Доступ требует проверки':'Вход не выполнен';status('#page-status',error.status===401?'':errorText(error),error.status===401?'info':'error');}
 }
-const timer=setInterval(()=>{if(state.admin&&!document.hidden&&!state.mutation&&!document.querySelector('dialog[open]'))loadAuthors({quiet:true});},30000);
+const timer=setInterval(()=>{if(state.admin&&!document.hidden&&!state.mutation&&!document.querySelector('dialog[open]')){loadAuthors({quiet:true});loadRegistrations();}},30000);
 window.addEventListener('pagehide',()=>{clearInterval(timer);clearTimeout(userTimer);clearTimeout(loginTimer);clearInvite();},{once:true});
 async function start(){const params=new URLSearchParams(location.search),token=params.get('auth_token');if(token){history.replaceState(null,'','/auth/admin');try{await api('/auth/verify',{method:'POST',body:{token}});}catch(error){status('#login-status',errorText(error),'error');}}await loadSession();}
 start();

@@ -1,5 +1,17 @@
 # FraerApp deploy and ops runbook
 
+## Admin registration notices (2026-10-23)
+
+Ship admin-panel.js, auth admin.html, AuthServiceApplication.java and auth V12.
+Run auth tests/bootJar, focused Node checks and check-admin-panel.cjs at four
+widths. Inspect runtime baseline and logs; back up auth database, changed files
+and existing auth image. Rebuild/recreate auth-service only from the tested JAR,
+then reload edge after health. Verify V12, running JAR/static hashes and public
+health; anonymous registration endpoints must reject access. V12 begins new
+registration notifications at migration time, without notifying for old users.
+Rollback restores files and auth image; retain the additive V12 tables and all
+subsequent user data. No bot, subscription or author-profile changes are included.
+
 ## Cat drop game and experiment statistics (2026-10-23)
 
 Run `npm test`, `npm run lint`, `npm run build`, the admin browser suite,

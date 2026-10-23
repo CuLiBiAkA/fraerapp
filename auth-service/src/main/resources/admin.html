@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/site-controls.css?v=7">
   <link rel="stylesheet" href="/admin-panel.css?v=4">
   <script type="module" src="/site-controls.js?v=8"></script>
-  <script type="module" src="/admin-panel.js?v=6"></script>
+  <script type="module" src="/admin-panel.js?v=7"></script>
 </head>
 <body class="admin-page">
   <a class="admin-skip" href="#admin-content">К содержимому</a>
@@ -28,7 +28,7 @@
     <section id="access-denied" class="admin-panel" hidden><h2>Нет доступа к управлению</h2><p>Попросите действующего администратора выдать вам права. Если права уже изменены, проверьте доступ ещё раз.</p><button id="retry-access">Проверить доступ</button><a id="denied-moderation" class="admin-button secondary" href="/moderation/" hidden>Перейти к модерации</a><button id="denied-logout" class="secondary">Сменить аккаунт</button></section>
     <div id="admin-layout" class="admin-layout" hidden>
       <nav class="admin-nav" aria-label="Разделы администратора">
-        <a href="#users" data-view="users" aria-current="page"><span>Пользователи</span></a>
+        <a href="#users" data-view="users" aria-current="page"><span>Пользователи</span><span id="registrations-count" aria-label="Новые пользователи"></span></a>
         <a href="#authors" data-view="authors"><span>Заявки авторов</span><span id="authors-count" class="admin-count">—</span></a>
         <a href="#subscriptions" data-view="subscriptions"><span>Подписки</span></a>
         <a href="#advertising" data-view="advertising"><span>Реклама</span></a>
@@ -41,8 +41,9 @@
       <div id="admin-content" tabindex="-1">
         <section id="view-users" class="admin-panel" data-panel="users" aria-labelledby="users-heading">
           <header class="admin-section-heading"><div><h2 id="users-heading" tabindex="-1">Пользователи</h2><p>Найдите человека и откройте его карточку, чтобы управлять доступом.</p></div><button id="refresh-users" class="secondary">Обновить</button></header>
+          <details><summary id="registrations-summary">Новые пользователи</summary><p id="registrations-status" class="admin-status" role="status"></p><div id="registrations-list" class="admin-list"></div></details>
           <form id="user-filters" class="admin-filters" role="search">
-            <div class="admin-search"><label for="user-query">Поиск по почте</label><input id="user-query" type="search" placeholder="Введите адрес или его часть" autocomplete="off"></div>
+            <div class="admin-search"><label for="user-query">Имя, @username или почта</label><input id="user-query" type="search" placeholder="Найти пользователя" autocomplete="off"></div>
             <div><label for="user-role">Роль</label><select id="user-role"><option value="all">Все роли</option><option value="author">Автор</option><option value="moderator">Модератор</option><option value="admin">Администратор</option><option value="player">Читатель (включая другие роли)</option></select></div>
             <div><label for="user-status">Доступ</label><select id="user-status"><option value="all">Любой</option><option value="active">Открыт</option><option value="blocked">Заблокирован</option></select></div>
             <button id="reset-users" class="secondary" type="button">Сбросить</button>

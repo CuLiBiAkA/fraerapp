@@ -2,6 +2,23 @@
 
 Last updated: 2026-10-23.
 
+## Admin Telegram identities and registrations (2026-10-23)
+
+Admin header and user cards use the stored Telegram display name and username,
+sharing `profileLabel` with the account modal. User search covers names,
+usernames and email; synthetic Telegram emails remain internal account keys.
+Older profiles without names show a Telegram fallback and account ID until the
+next Telegram interaction supplies profile data. No account identity is migrated.
+
+Admin-only GET `/auth/admin/registrations` returns an unread count and newest 50
+users; POST `/auth/admin/registrations/{id}/read` acknowledges one. Auth V12 sets
+a deployment-time baseline so historical accounts are not presented as new.
+Read receipts persist per administrator. The users section exposes a collapsible
+list and navigation count, refreshed every 30 seconds while the page is visible
+and no dialog/action is active. Opening a notice acknowledges it explicitly;
+older unread notices become visible as the newest are read. No Telegram message
+is sent. Admin module v7 requires an auth-service rebuild for its HTML and V12.
+
 ## Cat drop experiment (2026-10-23)
 
 `/cat-merge/` is the public standalone «Котопад» game, linked beside Meow piano

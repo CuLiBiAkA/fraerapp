@@ -592,6 +592,22 @@ class AuthController {
 		return store.adminUsers(page, size, query, role, status);
 	}
 
+	@GetMapping("/admin/registrations")
+	Map<String, Object> registrations(@RequestHeader(name="Authorization",required=false) String authorization,
+			@CookieValue(name="fraer_access",required=false) String accessToken, HttpServletResponse response) {
+		User admin = requireSubscriptionAdmin(authorization, accessToken);
+		response.setHeader("Cache-Control", "private, no-store");
+		return store.registrations(admin.id());
+	}
+
+	@PostMapping("/admin/registrations/{id}/read")
+	Map<String, Boolean> readRegistration(@RequestHeader(name="Authorization",required=false) String authorization,
+			@CookieValue(name="fraer_access",required=false) String accessToken, @PathVariable String id) {
+		User admin = requireSubscriptionAdmin(authorization, accessToken);
+		store.readRegistration(admin.id(), id);
+		return Map.of("read", true);
+	}
+
 	@GetMapping("/subscription/plan")
 	SubscriptionService.Plan subscriptionPlan() { return subscriptions.plan(); }
 
@@ -1077,6 +1093,9 @@ class AuthController {
 	record AdminUserSummary(
 			String id,
 			String email,
+			String displayName,
+			String telegramUsername,
+			boolean telegramLinked,
 			List<String> roles,
 			boolean blocked,
 			Instant blockedAt,
@@ -1371,11 +1390,12 @@ class AuthStore {
 		String search = query == null ? "" : query.trim().toLowerCase();
 		String like = "%" + search + "%";
 		String filter = """
-				where lower(u.email) like ?
+				where (lower(u.email) like ? or exists (select 1 from telegram_identities t
+				where t.user_id=u.id and lower(concat_ws(' ',t.first_name,t.last_name,'@' || t.username)) like ?))
 				and (? = 'all' or exists (select 1 from effective_user_roles r where r.user_id=u.id and r.role_name=?))
 				and (? = 'all' or (? = 'blocked' and u.blocked_at is not null) or (? = 'active' and u.blocked_at is null))
 				""";
-		long total = jdbc.queryForObject("select count(*) from users u " + filter, Long.class, like, role, role, status, status, status);
+		long total = jdbc.queryForObject("select count(*) from users u " + filter, Long.class, like, like, role, role, status, status, status);
 		int totalPages = total == 0 ? 0 : (int) Math.ceil((double) total / safeSize);
 		safePage = Math.min(safePage, Math.max(0, totalPages - 1));
 		List<AuthController.AdminUserSummary> items = jdbc.query("""
@@ -1389,7 +1409,7 @@ class AuthStore {
 				rs.getString(2),
 				instant(rs.getTimestamp(3)),
 				rs.getTimestamp(4).toInstant(),
-				rs.getTimestamp(5).toInstant()), like, role, role, status, status, status, safeSize, safePage * safeSize);
+				rs.getTimestamp(5).toInstant()), like, like, role, role, status, status, status, safeSize, safePage * safeSize);
 		return new AuthController.AdminUserPage(safePage, safeSize, total, totalPages, items);
 	}
 
@@ -1678,8 +1698,25 @@ class AuthStore {
 				Long.class, id, timestamp(Instant.now()));
 		long passkeys = jdbc.queryForObject("select count(*) from passkey_credentials where user_id = ?", Long.class, id);
 		long auditEvents = jdbc.queryForObject("select count(*) from auth_audit_events where user_id = ? or email = ?", Long.class, id, email);
-		return new AuthController.AdminUserSummary(id, email, roles, blockedAt != null, blockedAt, createdAt, updatedAt,
+		Map<String, Object> profile = telegramProfile(id);
+		return new AuthController.AdminUserSummary(id, email, (String) profile.get("displayName"),
+				(String) profile.get("telegramUsername"), (Boolean) profile.get("telegramLinked"), roles, blockedAt != null, blockedAt, createdAt, updatedAt,
 				sessionsCount, activeSessions, passkeys, auditEvents);
+	}
+
+	Map<String, Object> registrations(String adminId) {
+		String filter = " from users u where u.created_at >= (select started_at from admin_registration_baseline where id=1)"
+				+ " and not exists (select 1 from admin_registration_reads r where r.admin_id=? and r.user_id=u.id)";
+		long total = jdbc.queryForObject("select count(*)" + filter, Long.class, adminId);
+		List<AuthController.AdminUserSummary> items = jdbc.query(
+				"select u.id,u.email,u.blocked_at,u.created_at,u.updated_at" + filter + " order by u.created_at desc,u.id limit 50",
+				(rs,row) -> adminUserRow(rs.getString(1),rs.getString(2),instant(rs.getTimestamp(3)),
+						rs.getTimestamp(4).toInstant(),rs.getTimestamp(5).toInstant()), adminId);
+		return Map.of("total", total, "items", items);
+	}
+
+	void readRegistration(String adminId, String userId) {
+		jdbc.update("insert into admin_registration_reads(admin_id,user_id) select ?,id from users where id=? on conflict do nothing", adminId,userId);
 	}
 
 	private AuthController.AdminLoginRequestSummary adminLoginRequestRow(String email, Instant lastRequestedAt, long requestCount) {
