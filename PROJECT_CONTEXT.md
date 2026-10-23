@@ -4,6 +4,14 @@ Last updated: 2026-10-24.
 
 ## Story age classification (2026-10-24)
 
+About story spacing correction: all nine content-warning groups (24 choices)
+are directly visible, with no collapsed Other warnings section. Cover aligns
+with the title input; description is 140px high, selects share a 32px height,
+help circle is 24px. Dialog label margins are explicitly reset to avoid doubled
+spacing. Shared dialog typography uses Figma H2 35/57 Playfair Display SC,
+Body L 18/25 Montserrat and Button 23/25 Inter Medium. Workspace entry 31,
+collection workspace 32, story workspace 10, age fields/CSS 3, typography 2.
+
 About story now places the portrait cover/button above-left beside a one-line
 title and larger description. Safety fields include grouped multiple warning
 checkboxes and an optional Other field. Stable Russian warning labels are stored

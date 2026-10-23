@@ -2,6 +2,12 @@
 
 ## Age classification release (2026-10-24)
 
+Spacing/typography follow-up is frontend-only: age fields/CSS, typography,
+workspace modules and HTML entries. Check author workspace in RU/EN at four
+widths, all nine groups, computed H2/body/button fonts, equal select heights,
+cover alignment; also run review-screen and image-preparation checks. Back up
+and replace static files, verify public hashes; no service rebuild is required.
+
 Warning-selector follow-up: deploy content-warning-options.js with age fields/CSS
 and workspace entry files; rebuild API for review-only minimum category checks.
 Verify multi-selection, preservation of legacy warnings, explicit upgrade and no

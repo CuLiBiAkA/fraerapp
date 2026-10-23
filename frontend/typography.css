@@ -5,6 +5,7 @@
 @font-face { font-family: "Inter UI"; font-style: normal; font-weight: 400; font-display: swap; src: url('./assets/home/inter-regular.ttf') format('truetype'); }
 @font-face { font-family: "Inter UI"; font-style: normal; font-weight: 500; font-display: swap; src: url('./assets/home/inter-medium.ttf') format('truetype'); }
 :root { --font-body: "Montserrat", sans-serif; --font-heading: "Playfair Display SC", Georgia, serif; --font-control: "Inter UI", sans-serif; font-family: var(--font-body); }
+:root { --type-h2:400 35px/57px var(--font-heading); --type-body-l:400 18px/25px var(--font-body); --type-body-m:400 22px/24px var(--font-body); --type-button:500 23px/25px var(--font-control); }
 body, input, textarea, select { font-family: var(--font-body); }
 button, .outline-button, .home-actions .outline-button { font-family: var(--font-control); font-weight: 500; }
 h1, h2, h3, .modal-layer .modal-card h2 { font-family: var(--font-heading); font-weight: 400; letter-spacing: .11em; }
@@ -18,6 +19,17 @@ body:has(#story-screen:not(.hidden)) .site-footer { font-family: var(--font-body
 #story-screen h1, #story-screen .eyebrow { font-family: var(--font-heading); font-weight: 400; letter-spacing: .11em; }
 #story-screen h1 { font-size: max(28px, calc(40 * var(--library-unit))); line-height: 1.375; }
 .home-catalog-links { font-size: 18px; line-height: 25px; }
+/* Shared dialog roles, including About story, author profile and image selection. */
+body dialog,body .modal-layer .modal-card { font:var(--type-body-l); }
+body dialog:is(.workspace-dialog,.review-dialog,.author-profile-dialog,.image-preparation) :is(h2,.content-warning-section h3),
+body .workspace dialog.story-about-dialog :is(h2,.content-warning-section h3),
+body .modal-layer .modal-card h2 { font:var(--type-h2);letter-spacing:.11em;margin:0 0 12px;overflow-wrap:anywhere; }
+body dialog:is(.workspace-dialog,.review-dialog,.author-profile-dialog,.image-preparation) :is(p,label,legend,small,input,select,textarea),
+body .workspace dialog.story-about-dialog :is(p,label,legend,small,input,select,textarea),
+body .modal-layer .modal-card :is(p,label,input,select,textarea) { font:var(--type-body-l); }
+body dialog:is(.workspace-dialog,.review-dialog,.author-profile-dialog,.image-preparation) button,
+body .workspace dialog.story-about-dialog button,
+body .modal-layer .modal-card button { font:var(--type-button);letter-spacing:0; }
 @media (max-width:700px) {
   h1, h2, h3, .modal-layer .modal-card h2, #story-screen h1, #story-screen .eyebrow { letter-spacing: .06em; }
   body .site-footer, body.is-public-home:has(#login-screen:not(.hidden)) .site-footer, body:has(#story-screen:not(.hidden)) .site-footer { font-size: 12px; line-height: 1.5; }
