@@ -34,6 +34,18 @@ directory if reverting the page. Keep the additive V26 tables and user telemetry
 never restore an older database dump over subsequent user activity. A screenshot
 or successful static response alone does not prove statistics persisted.
 
+Release receipt: source `3f48048`, pushed to main and deployed; backup
+`backups/cat-merge-20261023-104850` (UTC). Prior image tags are
+`fraerapp-api:before-cat-merge-20261023-104850` and
+`fraerapp-auth-service:before-cat-merge-20261023-104850`. The runtime archive,
+both database dumps and the extra API cutover dump validated. All 13 runtime
+files, both running JARs, public static hashes and admin module version matched;
+V26 succeeded, anonymous admin access returned 401 and duplicate-event probes
+persisted the expected counts. Exact synthetic probe rows were removed. Six
+services are healthy, all public probes return 200 and recent error markers
+are zero. Live browser gameplay/pause has no console errors. Local verification
+passed 405 tests plus build/lint and the four-width admin browser suite.
+
 ## Reader pagination release (2026-10-23)
 
 Publish the shared `frontend/reading-pagination.js` before its reader and Builder

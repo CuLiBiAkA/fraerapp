@@ -47,8 +47,16 @@ four-width admin suite. Browser gameplay covers a full 153-drop loss with 137
 merges, score/record, keyboard, pause, restart and reload recovery. Five sizes
 (320/390/768/1440px and short landscape) have no horizontal overflow. Independent review
 ran 100 seeded full games, including wins. Physical devices, assistive technology
-and subjective sound remain outside automated verification. Release receipt is
-recorded after deployment; until then these changes are local.
+and subjective sound remain outside automated verification.
+
+Release `3f48048` is committed, pushed to main and deployed. Backup
+`backups/cat-merge-20261023-104850` (UTC) contains validated database dumps,
+the previous runtime files and references to retained API/auth images. All 13
+release files, both running JARs and public static hashes match; V26 succeeded.
+Anonymous admin statistics return 401. Duplicate visit/start/finish probes
+persisted exactly one browser/two opens and one result; synthetic rows were
+removed. Public browser gameplay/pause works without console errors. All six
+services are healthy, public probes return 200 and recent error markers are zero.
 
 ## Reader pages and Builder guidance (2026-10-23)
 
