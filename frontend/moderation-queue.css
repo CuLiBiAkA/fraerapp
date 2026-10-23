@@ -1,5 +1,5 @@
 /* Figma 309:8. Queue styling is scoped away from the existing review editor. */
-body[data-workspace="moderation"] :is(#site-controls,.workspace.collections-panel){width:min(1299px,calc(100% - 140px));margin-left:max(24px,calc((100% - 1280px)/2));margin-right:auto;}
+body[data-workspace="moderation"] .workspace.collections-panel{width:min(1299px,calc(100% - 140px));margin-left:max(24px,calc((100% - 1280px)/2));margin-right:auto;}
 body[data-workspace="moderation"] .author-title-row{margin-bottom:47px;}
 body[data-workspace="moderation"] .moderation-filters{display:flex;flex-wrap:wrap;gap:20px;margin:0 0 20px;}
 body[data-workspace="moderation"] :is(.moderation-filters button,.moderation-open){display:inline-flex;align-items:center;justify-content:center;min-height:55px;padding:14px 18px;border:1px solid #fee3e2;border-radius:14px;background:#4f3a68;color:#fee3e2;font:500 23px/25px var(--font-control);letter-spacing:0;text-decoration:none;}
@@ -33,7 +33,7 @@ body[data-workspace="moderation"] .collection-list{grid-template-columns:minmax(
  .workspace .moderation-card h2{font-size:28px;line-height:37px;}
 }
 @media(max-width:700px){
- body[data-workspace="moderation"] :is(#site-controls,.workspace.collections-panel){width:calc(100% - 32px);margin-inline:16px;}
+ body[data-workspace="moderation"] .workspace.collections-panel{width:calc(100% - 32px);margin-inline:16px;}
  body[data-workspace="moderation"] .moderation-filters{gap:10px;}
  body[data-workspace="moderation"] :is(.moderation-filters button,.moderation-open){font-size:18px;line-height:25px;padding:10px 14px;min-height:46px;}
  body[data-workspace="moderation"] .author-title-row{margin-bottom:24px;}

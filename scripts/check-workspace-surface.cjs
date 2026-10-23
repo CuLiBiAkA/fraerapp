@@ -10,14 +10,23 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
   let f=path.join(process.cwd(),p.startsWith('/builder/')?'story-builder':'frontend',p.startsWith('/builder/')?p.slice(9):p.slice(1));if(fs.existsSync(f)&&fs.statSync(f).isDirectory())f=path.join(f,'index.html');return r.fulfill({path:f});
  });
  const p=await c.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));
- for(const route of ['/moderation/','/my-stories/','/builder/']){
+ let navigation;
+ for(const route of ['/moderation/','/moderation/?view=stories','/my-stories/','/builder/']){
   await p.goto('https://fraerapp.ru'+route);await p.locator('#site-controls').waitFor();await p.evaluate(()=>document.fonts.ready);
-  if(route==='/moderation/'){
+  if(route.startsWith('/moderation/')){
    await p.getByRole('heading',{name:'Модерация',exact:true}).waitFor();await p.getByRole('heading',{name:'Заявки на публикацию',exact:true}).waitFor();
    assert.equal(await p.locator('.author-section-nav').count(),0);
+   assert.equal(new URL(p.url()).searchParams.has('view'),false);
+   assert.equal(await p.getByText('Доступ проверен:',{exact:false}).count(),0);
    const h=await p.locator('.author-title-row h1').boundingBox();if(width===1440)assert.ok(h.y<120);
   }
   if(route==='/builder/') {await p.locator('[data-help-topic=storyMetadata]').waitFor();assert.equal(await p.locator('.builder-home').getAttribute('href'),'/');assert.equal(await p.locator('.builder-home span').innerText(),'На главную');}
+  const home=await p.locator(route==='/builder/'?'.builder-home':'.site-home').boundingBox();
+  const account=await p.locator('[data-site-account]').boundingBox();
+  const settings=await p.locator('[data-site-settings]').boundingBox();
+  const geometry=[home.x,home.y+home.height/2,account.x,account.y,settings.x,settings.y];
+  if(navigation)geometry.forEach((v,i)=>assert.ok(Math.abs(v-navigation[i])<1,`${route} nav ${width}: ${geometry} != ${navigation}`));
+  else navigation=geometry;
   assert.ok(await p.evaluate(()=>getComputedStyle(document.body).backgroundImage.includes('workspace-background.svg')));
   const heading=p.locator(route==='/builder/'?'.topbar h1':'.author-title-row h1');await heading.waitFor();assert.equal(await heading.evaluate(e=>getComputedStyle(e).color),'rgb(254, 227, 226)');
   assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),route+' '+width);

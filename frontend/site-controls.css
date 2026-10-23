@@ -1,13 +1,17 @@
 @import url('/typography.css?v=1');
 @import url('/account-ui.css?v=2');
 @import url('/account-dialogs.css?v=4');
-#site-controls { box-sizing: border-box; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 16px; width: 100%; min-height: 72px; margin: 0; padding: 12px 24px; position: relative; z-index: 25; }
+:root { --site-nav-gutter:24px; }
+#site-controls { box-sizing: border-box; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 16px; width: 100%; min-height: 72px; margin: 0; padding: 12px var(--site-nav-gutter); position: relative; z-index: 25; }
 #site-controls .site-home { display: inline-flex; align-items: center; gap: 10px; min-width: 0; min-height: 44px; margin: 0 auto 0 0; padding: 0; color: #fee3e2; background: transparent; border: 0; text-decoration: none; white-space: normal; overflow-wrap: anywhere; font: 500 23px/25px var(--font-control); letter-spacing: 0; }
 /* Figma 176:39: 30.91 × 15.35 path plus the 2px stroke. */
 #site-controls .site-home img, .builder-navigation .builder-home img { display: block; flex: 0 0 32.9086px; width: 32.9086px; height: 17.3501px; transform: rotate(180deg); }
 .builder-navigation .builder-home { gap: 10px; letter-spacing: 0; }
-body:has(#story-screen:not(.hidden)) #site-controls { max-width: 1440px; margin-inline: auto; padding-inline: calc(81 * var(--library-unit)); }
-@media (max-width: 700px) { body:has(#story-screen:not(.hidden)) #site-controls { padding-inline: 20px; } }
+/* Navigation belongs to the viewport, never to the page's content column.
+   Keep this shared geometry authoritative even when a page theme loads later. */
+body > #site-controls { width:100%!important;max-width:none!important;margin:0!important;padding:12px var(--site-nav-gutter)!important; }
+body > .builder-navigation { box-sizing:border-box;width:100%!important;max-width:none!important;margin:0!important;padding:12px var(--site-nav-gutter)!important; }
+.builder-navigation #site-controls { gap:16px; }
 @media (max-width: 600px) { #site-controls .site-home, .builder-navigation .builder-home { font-size: 18px; gap: 10px; } }
 body:has(.board-shell) #site-controls .site-home { color: #fee3e2; }
 body.is-public-home #site-controls .site-home { display: none; }
@@ -28,4 +32,4 @@ body:has(#site-controls) main > nav > a[href="/"] { display: none; }
 body:has(#site-controls) :is(#home-settings, #home-profile, #library-settings, #library-profile) { display: none; }
 body:has(#site-controls) > .builder, body:has(#site-controls) > .board-shell { padding-top: 12px; }
 body:has(#site-controls) #author-requests { top: 88px; max-height: calc(100dvh - 112px); }
-@media(max-width: 600px) { #site-controls { padding-inline: 14px; gap: 12px; } }
+@media(max-width: 600px) { :root { --site-nav-gutter:14px; } #site-controls { padding-inline:var(--site-nav-gutter); gap: 12px; } .builder-navigation #site-controls { gap:12px; } }

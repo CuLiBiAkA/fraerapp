@@ -12,8 +12,13 @@ Counts reflect the search across the whole queue before pagination. Queue order
 is oldest submission first; grouped submissions use their latest pending date.
 Approved parts awaiting publication are excluded from Waiting. No identity/email
 is exposed when the public author nickname is missing; the fallback is “Автор”.
-The queue stylesheet is moderation-queue.css v1, collection-workspace v27 and
-workspace-entry v26 after review-screen delivery.
+The queue stylesheet is moderation-queue.css v2, collection-workspace v28 and
+workspace-entry v27. Legacy moderation ?view=stories bookmarks normalize to the
+same queue, including its empty state; explicit story/revision review links remain.
+Navigation geometry is owned by site-controls.css: viewport-wide, 24px side
+gutters (14px up to 600px), 12px vertical padding, Home left and settings/account
+right. Page content widths must not constrain this bar. New pages reuse it;
+the builder's separate Home container follows the same geometry.
 Both action labels open the review screen; moderator assignment remains separate.
 
 ## Application review screen (2026-10-23)

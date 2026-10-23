@@ -1,5 +1,16 @@
 # FraerApp deploy and ops runbook
 
+## Shared navigation and legacy moderation entry (2026-10-23)
+
+Frontend-only files: site-controls.css, workspace-surface.css,
+moderation-queue.css, workspace-entry.js and moderation/index.html. Verify
+check-workspace-surface.cjs (including ?view=stories and equal nav coordinates),
+check-moderation-queue.cjs, check-review-screen.cjs and Node baseline. Back up
+the affected runtime files before replacement. Check public CSS hashes at both
+existing v7 and new v8 URLs, service health and anonymous moderation rejection.
+CSS is served with no-cache; other existing entrypoints share the updated file.
+No service rebuild or database change is needed. Rollback restores these files.
+
 ## Application review screen (2026-10-23)
 
 Frontend-only release: review-screen.js/css, collection-workspace, workspace-entry,
