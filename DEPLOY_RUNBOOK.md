@@ -2,6 +2,12 @@
 
 ## Age classification release (2026-10-24)
 
+Warning-selector follow-up: deploy content-warning-options.js with age fields/CSS
+and workspace entry files; rebuild API for review-only minimum category checks.
+Verify multi-selection, preservation of legacy warnings, explicit upgrade and no
+automatic downgrade, draft save on conflict, and rejected review submission.
+Check the existing About story modal at 320/390/768/1440 widths.
+
 Run API/auth tests, check-author-workspace.cjs, check-review-screen.cjs and
 check-unified-catalog.cjs plus Node baseline. Verify invalid category/oversized
 warnings are rejected and published labels stay unchanged after draft edits.

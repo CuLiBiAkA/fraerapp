@@ -1,7 +1,8 @@
 import {el,field,select,words} from './collection-ui.js?v=6';
+import {warningGroups,splitWarnings,needsAdultRating} from './content-warning-options.js?v=1';
 
 if(!document.querySelector('link[data-age-classification]')){
- const style=document.createElement('link');style.rel='stylesheet';style.href='/age-classification.css?v=1';style.dataset.ageClassification='';document.head.append(style);
+ const style=document.createElement('link');style.rel='stylesheet';style.href='/age-classification.css?v=2';style.dataset.ageClassification='';document.head.append(style);
 }
 export function ageBadge(value){
  const badge=el('span',value||words('Возраст не указан','Age not specified'),'age-badge');
@@ -19,8 +20,30 @@ export function classificationFields(doc,onChange,{readOnly=false}={}){
  question.title=explanation;help.append(question,el('p',explanation));row.append(title,help);
  const rating=select(words('Возрастная категория','Age category'),[['',words('Не указана','Not specified')],...['0+','6+','12+','16+','18+'].map(v=>[v,v])],doc.ageRating||'');
  rating.label.firstChild.remove();
- rating.input.disabled=readOnly;rating.input.onchange=()=>{doc.ageRating=rating.input.value||null;onChange();};
- const warnings=field(words('Предупреждения о содержании (необязательно)','Content warnings (optional)'),doc.contentWarnings||'','textarea');warnings.input.maxLength=1000;warnings.input.readOnly=readOnly;
- warnings.input.placeholder=words('Например: пугающие сцены, грубая лексика','For example: frightening scenes, strong language');warnings.input.oninput=()=>{doc.contentWarnings=warnings.input.value;onChange();};
- box.append(row,rating.label,warnings.label,el('small',words('Изменения станут видны читателям после модерации и публикации.','Readers will see changes after review and publication.')));return box;
+ const age=el('div',null,'age-control');age.append(row,rating.label);
+ const state=splitWarnings(doc.contentWarnings);
+ const warningSection=el('section',null,'content-warning-section');
+ warningSection.append(el('h3',words('Предупреждения о содержании','Content warnings')),el('p',words('Можно выбрать несколько. Отметьте то, что встречается в истории.','Select all that appear in your story.')));
+ const groups=el('div',null,'warning-groups'),more=el('details',null,'warning-more');more.append(el('summary',words('Другие предупреждения','Other warnings')));
+ const otherGroups=el('div',null,'warning-groups');more.append(otherGroups);
+ const warnings=field(words('Другое предупреждение','Other content warning'),state.other,'textarea');warnings.input.maxLength=1000;warnings.input.readOnly=readOnly;
+ const alert=el('div',null,'age-conflict');alert.setAttribute('role','alert');
+ const promote=el('button',words('Установить 18+','Set to 18+'));promote.type='button';promote.disabled=readOnly;
+ alert.append(el('strong',words('Нужно повысить категорию до 18+','An 18+ category is required')),el('p',words('Выбранные подробные сцены требуют категории 18+. Черновик можно сохранить, но перед отправкой на модерацию повысьте категорию.','The selected explicit scenes require 18+. You can save the draft, but must raise the category before submitting for review.')),promote);
+ const refresh=()=>{alert.hidden=!needsAdultRating(doc);};
+ const update=()=>{doc.contentWarnings=[...state.selected,warnings.input.value.trim()].filter(Boolean).join('\n');onChange();refresh();};
+ warningGroups.forEach(([ru,en,options],index)=>{
+  const group=el('fieldset'),legend=el('legend',words(ru,en));group.append(legend);
+  for(const [label,english,minimum] of options){
+   const item=el('label',null,'warning-choice'),input=el('input');input.type='checkbox';input.checked=state.selected.has(label);input.disabled=readOnly;
+   input.onchange=()=>{if(input.checked)state.selected.add(label);else state.selected.delete(label);update();};
+   item.append(input,el('span',words(label,english)+(minimum?' · 18+':'')));group.append(item);
+  }
+  (index<4?groups:otherGroups).append(group);
+ });
+ warnings.input.oninput=update;
+ rating.input.disabled=readOnly;rating.input.onchange=()=>{doc.ageRating=rating.input.value||null;onChange();refresh();};
+ promote.onclick=()=>{rating.input.value='18+';rating.input.onchange();};
+ warningSection.append(groups,more,warnings.label,alert);refresh();
+ box.append(age,warningSection,el('small',words('Изменения станут видны читателям после модерации и публикации.','Readers will see changes after review and publication.')));return box;
 }

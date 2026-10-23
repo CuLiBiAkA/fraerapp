@@ -4,6 +4,17 @@ Last updated: 2026-10-24.
 
 ## Story age classification (2026-10-24)
 
+About story now places the portrait cover/button above-left beside a one-line
+title and larger description. Safety fields include grouped multiple warning
+checkboxes and an optional Other field. Stable Russian warning labels are stored
+as newline-separated contentWarnings, preserving the existing JSON contract and
+unrecognized legacy text in Other. Explicit intimate scenes, graphic killings/
+torture/cruelty and sexual violence scenes require 18+ at review submission in
+both story and collection services. Drafts may retain a mismatch. The interface
+offers Set to 18+ but never changes or lowers the category silently. This is a
+platform rule, not automatic narrative analysis or a legal classification.
+Workspace entry 30, collection workspace 31, story workspace 9, age fields/CSS 2.
+
 CollectionDocument and StoryDocument retain optional ageRating (0+/6+/12+/16+/18+)
 and contentWarnings (max 1000 characters) in versioned JSON; no schema migration.
 Unknown legacy categories remain unspecified, never default to 0+. About story

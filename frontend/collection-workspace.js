@@ -3,7 +3,7 @@ import {chapterState,chapterStateLabel} from "./chapter-state.js?v=2";
 import {reviewLimitMessage} from "./review-limit.js?v=2";
 import {workflowLabel, renderDocumentDiff, canEditStoryDraft} from "./story-workflow.js?v=3";
 import {renderFolderReview} from "./review-screen.js?v=2";
-import {classificationFields} from './age-classification.js?v=1';
+import {classificationFields} from './age-classification.js?v=2';
 import {coverImage} from "./author-ui.js?v=3";
 import {seasonGroups,seasonDialog} from "./author-seasons.js?v=1";
 import {genres,topics,fillClassification} from '/builder/genre-topic.js?v=1';
@@ -343,7 +343,12 @@ async function start(root) {
     fields.append(classification,completion.label);metadata.append(fields);
     const cover=el("div",null,"author-cover-setting");cover.append(coverImage(doc.coverUrl),button(words("Выбрать обложку","Choose cover"),()=>chooseCover({url:doc.coverUrl,getImages:()=>current?request(`${api}/${current.collectionId}/covers`):[],upload:async file=>{if(!current)await save();return uploadImage(`${api}/${current.collectionId}/cover`,file);},onSelect:url=>{doc.coverUrl=url;changed();renderEditor();}})));metadata.append(cover);
     if(metadataLocked){metadata.querySelectorAll('input,textarea').forEach(control=>control.readOnly=true);metadata.querySelectorAll('select').forEach(control=>control.disabled=true);cover.querySelector('button').remove();}
-    metadata.insertBefore(classificationFields(doc,changed),cover);
+    const safety=classificationFields(doc,changed);
+    const top=el('div',null,'story-metadata-top'),textFields=el('div',null,'story-metadata-text');
+    for(const label of [...fields.children])if(label.tagName==='LABEL'&&label!==completion.label)textFields.append(label);
+    top.append(cover,textFields);metadata.prepend(top);
+    const categoryRow=el('div',null,'story-classification');categoryRow.append(completion.label,safety.querySelector('.age-control'));fields.append(categoryRow);
+    metadata.append(safety);
     const chapterHeading=el('div',null,'chapter-heading');chapterHeading.append(el('h3',words('Главы','Chapters')),aboutButton);chapters.append(chapterHeading);
     const items=el("ol",null,"collection-items");
     for(const group of seasonGroups(doc.items||[])){

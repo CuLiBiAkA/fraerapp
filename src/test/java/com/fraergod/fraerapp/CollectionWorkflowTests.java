@@ -51,6 +51,14 @@ class CollectionWorkflowTests extends ApiTestSupport {
   changed.put("ageRating","21+");assertThat(call("PUT","/api/author/collections/"+id,Map.of("generation",details(id).get("generation"),"document",changed),author).statusCode()).isEqualTo(400);
   changed.put("ageRating","16+");changed.put("contentWarnings","x".repeat(1001));assertThat(call("PUT","/api/author/collections/"+id,Map.of("generation",details(id).get("generation"),"document",changed),author).statusCode()).isEqualTo(400);
  }
+ @Test void warningConflictSavesDraftButBlocksReview() {
+  var chapterDoc=scenario(key(),1);chapterDoc.put("ageRating","16+");chapterDoc.put("contentWarnings","Подробные интимные сцены");
+  var chapter=draft(chapterDoc);
+  assertThat(call("POST","/api/author/stories/"+sid(chapter)+"/review",Map.of("generation",chapter.get("generation")),author).statusCode()).isEqualTo(400);
+  var d=document("story",List.of(item("scenario",chapter)));d.put("ageRating","16+");d.put("contentWarnings","Подробные интимные сцены");String id=cid(create(d));
+  assertThat(call("POST","/api/author/collections/"+id+"/review",Map.of("generation",details(id).get("generation")),author).statusCode()).isEqualTo(400);
+  assertThat(((Map<?,?>)details(id).get("draftDocument")).get("contentWarnings")).isEqualTo("Подробные интимные сцены");
+ }
  @Test void firstPublishedChapterLocksStoryMetadataButAllowsNewChapters() {
   var a=draft(scenario(key(),1));var b=draft(scenario(key(),2));
   String id=cid(create(document("story",List.of(item("scenario",a)))));

@@ -192,6 +192,7 @@ class StoryWorkflowService {
   reviewCapacity.claim(s.getOwnerPlayerId(),"scenario",id);
   checkMedia(json.readStory(w.draftJson()));
   var normalized=links.normalize(json.readStory(w.draftJson()),s.getOwnerPlayerId(),true);
+  AgeClassification.requireReviewRating(normalized.ageRating(),normalized.contentWarnings());
   if(normalized.metadata()!=null&&!json.readMap(json.write(normalized)).equals(json.readMap(w.draftJson()))){saveDraft(s,json.readMap(json.write(normalized)));w=workspace(id);}
   var valid=content.validate(json.readStory(w.draftJson()));
   if(!valid.valid())throw new ResponseStatusException(HttpStatus.BAD_REQUEST,String.join("; ",valid.errors()));

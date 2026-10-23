@@ -175,6 +175,7 @@ class CollectionService {
   if(Objects.equals(r.published(),r.draftRevision()))throw conflict("This revision is already published");
   reviewCapacity.claim(r.owner(),"collection",id);
   var normalized=normalize(json.readCollection(r.draft()),player,id,true);
+  AgeClassification.requireReviewRating(normalized.ageRating(),normalized.contentWarnings());
   // Resolved IDs are frozen into a fresh immutable draft before submission.
   if(!json.write(normalized).equals(r.draft())){save(id,generation,normalized,player);r=row(id);}
   if("in_review".equals(r.review()))event(r,actor,"superseded",r.submitted(),"","");

@@ -60,7 +60,17 @@ for(const language of ['ru','en'])for(const width of [320,390,768,1440]){
  assert.equal(await page.locator('.chapter-settings').count(),0);assert.equal(await role('button','↓ Ниже','↓ Down').count(),0);assert.equal(await page.locator('.author-season').count(),2);await page.locator('.author-season > summary').first().click();assert.equal(document.items[0].target.id,'chapter');
  await role('button','Об истории','About story').click();assert.ok(await role('dialog','Об истории','About story').isVisible());
  await role('combobox','Возрастная категория','Age category').selectOption('16+');
- await role('textbox','Предупреждения о содержании (необязательно)','Content warnings (optional)').fill('Пугающие сцены');
+ await role('checkbox','Пугающие сцены','Frightening scenes').check();
+ await role('checkbox','Подробные интимные сцены · 18+','Explicit intimate scenes · 18+').check();
+ assert.ok(await page.locator('.age-conflict').isVisible());
+ await role('button','Установить 18+','Set to 18+').click();
+ assert.equal(await role('combobox','Возрастная категория','Age category').inputValue(),'18+');
+ await role('checkbox','Подробные интимные сцены · 18+','Explicit intimate scenes · 18+').uncheck();
+ assert.equal(await role('combobox','Возрастная категория','Age category').inputValue(),'18+');
+ await role('combobox','Возрастная категория','Age category').selectOption('16+');
+ assert.ok(!await page.locator('.age-conflict').isVisible());
+ await page.locator('.story-about-dialog').evaluate(node=>node.scrollTop=0);
+ await page.screenshot({path:`/tmp/about-story-warnings-${language}-${width}.png`});
  const options=await page.evaluate(async()=>{const {genres,topics}=await import('/builder/genre-topic.js?v=1');return {genres:genres.map(x=>x[0]),topics:topics.map(x=>x[0])};});
  assert.deepEqual(await role('combobox','Тема','Topic').locator('option').evaluateAll(nodes=>nodes.slice(1).map(n=>n.value)),options.topics);
  assert.deepEqual((await role('combobox','Жанр','Genre').locator('option').evaluateAll(nodes=>nodes.slice(1).map(n=>n.value))).slice(0,options.genres.length),options.genres);
