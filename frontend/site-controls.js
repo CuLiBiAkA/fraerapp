@@ -1,4 +1,5 @@
 import { mountStandaloneDialogs } from './standalone-dialogs.js?v=5';
+import './dialog-dismiss.js?v=1';
 
 const ru = () => localStorage.getItem('fraerapp.language') !== 'en';
 const words = (a, b) => ru() ? a : b;

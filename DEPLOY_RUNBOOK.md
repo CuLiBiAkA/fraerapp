@@ -2,6 +2,12 @@
 
 ## Age classification release (2026-10-24)
 
+Dialog dismissal/layout delivery: deploy dialog-dismiss.js and site-controls.js,
+age module, review/workspace modules and author/moderation HTML. Check the HTML
+direct stylesheet link and computed layout, backdrop close/reopen with retained
+edits, inside clicks and drags. No API changes or rebuild required. Back up all
+existing files and include the new dependency before changed entrypoints.
+
 Warning-card presentation uses the same static-only release procedure: verify
 nine bordered groups, 18+ notice/action on desktop/mobile, retained selections,
 and unchanged save/review semantics with check-author-workspace.cjs.

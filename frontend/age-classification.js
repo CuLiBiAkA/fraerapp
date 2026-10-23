@@ -1,9 +1,9 @@
 import {el,field,select,words} from './collection-ui.js?v=6';
 import {warningGroups,splitWarnings,needsAdultRating} from './content-warning-options.js?v=1';
 
-if(!document.querySelector('link[data-age-classification]')){
- const style=document.createElement('link');style.rel='stylesheet';style.href='/age-classification.css?v=4';style.dataset.ageClassification='';document.head.append(style);
-}
+const classificationStyle=document.querySelector('link[data-age-classification]')||document.createElement('link');
+classificationStyle.rel='stylesheet';classificationStyle.href='/age-classification.css?v=5';classificationStyle.dataset.ageClassification='';
+if(!classificationStyle.isConnected)document.head.append(classificationStyle);
 export function ageBadge(value){
  const badge=el('span',value||words('Возраст не указан','Age not specified'),'age-badge');
  badge.setAttribute('aria-label',words('Возрастная категория: ','Age category: ')+(value||words('не указана','not specified')));return badge;

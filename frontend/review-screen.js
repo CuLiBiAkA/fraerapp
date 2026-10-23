@@ -1,7 +1,7 @@
 import {el,button,field,checkbox,words,request,errorMessage} from './collection-ui.js?v=6';
 import {renderDocumentDiff,workflowLabel} from './story-workflow.js?v=3';
 import {coverImage} from './author-ui.js?v=3';
-import {classificationSummary} from './age-classification.js?v=1';
+import {classificationSummary} from './age-classification.js?v=5';
 
 function modal(title,wide=false){
  const opener=document.activeElement,dialog=el('dialog',null,'review-dialog'+(wide?' review-reader-dialog':''));

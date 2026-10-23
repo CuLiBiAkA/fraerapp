@@ -59,6 +59,16 @@ for(const language of ['ru','en'])for(const width of [320,390,768,1440]){
  assert.ok(await page.locator('.author-list-screen').isVisible());assert.equal(await page.locator('.accordion-story .collection-editor').count(),1);assert.ok(await page.locator('.collection-editor').isVisible());
  assert.equal(await page.locator('.chapter-settings').count(),0);assert.equal(await role('button','↓ Ниже','↓ Down').count(),0);assert.equal(await page.locator('.author-season').count(),2);await page.locator('.author-season > summary').first().click();assert.equal(document.items[0].target.id,'chapter');
  await role('button','Об истории','About story').click();assert.ok(await role('dialog','Об истории','About story').isVisible());
+ assert.equal(await page.locator('link[data-age-classification]').getAttribute('href'),'/age-classification.css?v=5');
+ await role('textbox','Название','Title').fill('Retained after backdrop close');
+ await role('textbox','Название','Title').click();assert.ok(await page.locator('.story-about-dialog').isVisible());
+ await page.mouse.click(2,2);assert.ok(!await page.locator('.story-about-dialog').isVisible());
+ await role('button','Об истории','About story').click();
+ assert.equal(await role('textbox','Название','Title').inputValue(),'Retained after backdrop close');
+ await role('textbox','Название','Title').fill('Open doors');
+ const inputBox=await role('textbox','Название','Title').boundingBox();
+ await page.mouse.move(inputBox.x+10,inputBox.y+10);await page.mouse.down();await page.mouse.move(2,2);await page.mouse.up();
+ assert.ok(await page.locator('.story-about-dialog').isVisible(),'Dragging out of an input must not dismiss');
  assert.equal(await page.locator('.warning-groups fieldset').count(),9);
  assert.equal(await page.locator('.warning-groups input[type=checkbox]').count(),24);
  assert.equal(await page.locator('.warning-groups').evaluate(node=>!!node.closest('details')),false);

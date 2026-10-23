@@ -4,6 +4,15 @@ Last updated: 2026-10-24.
 
 ## Story age classification (2026-10-24)
 
+About-story layout CSS v5 is linked directly by author/moderation HTML and its
+module reuses/updates that link. Review and edit imports now share age module v5;
+an older cached review import must not claim the stylesheet link and keep v1.
+Workspace entry 33, collection workspace 34, story workspace 12, review screen 3.
+Site controls load dialog-dismiss: workspace/profile/review/image dialogs close
+on genuine outside clicks, retaining existing cancel/busy guards. Clicks in
+padding and gestures starting inside fields do not close dialogs. About-story
+form state stays in memory when closed and reopened; closing is not saving.
+
 Warning groups use the approved bordered-card layout: nine visible fieldsets
 inside a thin lavender outline, two columns on desktop and one on mobile.
 The 18+ conflict is a compact text-and-action row (stacked on phones), with
