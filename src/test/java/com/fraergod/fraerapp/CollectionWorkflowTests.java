@@ -216,6 +216,22 @@ class CollectionWorkflowTests extends ApiTestSupport {
    if(published)assertThat(call("GET","/api/catalog/stories",null,reader).body()).contains(target.get("key").toString());
   }
  }
+ @Test void moderationQueueFindsPublicAuthorNameAndCountsResubmissions() {
+  var chapter=draft(scenario(key(),1));String id=cid(create(document("story",List.of(item("scenario",chapter)))));
+  String player=jdbc.queryForObject("select owner_player_id from work_collections where id=?",String.class,id),nickname="Writer"+key();
+  jdbc.update("insert into author_profiles(player_id,nickname) values (?,?)",player,nickname);
+  batch(id);
+  var first=ok(call("GET","/api/moderation/folders?status=in_review&q="+nickname,null,reviewer));
+  assertThat(maps(first.get("items"))).hasSize(1);assertThat(body(first.get("counts"))).contains("\"waiting\":1","\"repeat\":0");
+  var entry=maps(first.get("items")).get(0);assertThat(entry).containsEntry("authorName",nickname).containsEntry("hasRepeatReview",false);assertThat(entry.get("submittedAt")).isNotNull();
+  ok(call("POST","/api/moderation/folders/"+id+"/decision",folderDecision(folderReview(id),"reject"),reviewer));
+  assertThat(maps(ok(call("GET","/api/moderation/folders?status=in_review&q="+nickname,null,reviewer)).get("items"))).isEmpty();
+  advanceReviewDay(jdbc,"collection",id);batch(id);
+  var repeated=ok(call("GET","/api/moderation/folders?status=repeat&q="+nickname,null,reviewer));
+  assertThat(body(repeated.get("counts"))).contains("\"waiting\":1","\"repeat\":1");assertThat(maps(repeated.get("items"))).hasSize(1);
+  assertThat(maps(maps(repeated.get("items")).get(0).get("children")).get(0)).containsEntry("repeatReview",true).containsEntry("awaitingReview",true);
+  assertThat(call("GET","/api/moderation/folders?status=repeat",null,reader).statusCode()).isEqualTo(403);
+ }
  @Test void folderQueueGroupsPendingChildrenAndPublishesOnlyExactSubmittedParts() {
   var unchanged=draft(scenario(key(),1));publishStory(unchanged);var changedDoc=scenario(key(),2);var changed=draft(changedDoc);publishStory(changed);var draftOnly=draft(scenario(key(),3));
   String id=cid(create(document("story",List.of(item("scenario",unchanged),item("scenario",changed),item("scenario",draftOnly)))));publish(id);

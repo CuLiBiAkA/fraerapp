@@ -3,11 +3,12 @@ import {chapterState,chapterStateLabel} from "./chapter-state.js?v=2";
 import {reviewLimitMessage} from "./review-limit.js?v=2";
 import {workflowLabel, renderDocumentDiff, canEditStoryDraft} from "./story-workflow.js?v=3";
 import {renderFolderReview} from "./folder-review.js?v=6";
-import {authorCard,coverImage} from "./author-ui.js?v=3";
+import {coverImage} from "./author-ui.js?v=3";
 import {seasonGroups,seasonDialog} from "./author-seasons.js?v=1";
 import {genres,topics,fillClassification} from '/builder/genre-topic.js?v=1';
 import {chooseCover,uploadImage} from "./author-cover.js?v=3";
 import {editAuthorProfile} from './author-profile.js?v=3';
+import {moderationCard} from './moderation-queue.js?v=1';
 
 const params = new URLSearchParams(location.search);
 try { document.documentElement.lang = localStorage.getItem("fraerapp.language") === "en" ? "en" : "ru"; } catch { document.documentElement.lang = "ru"; }
@@ -39,7 +40,7 @@ async function start(root) {
   aboutDialog.addEventListener('cancel',event=>{if(busy)event.preventDefault();});
   const toolbar = el("form",null,"collection-toolbar");
   const query = field(words("Поиск", "Search"),"","search");
-  const state = select(words("Состояние", "Status"),["all","in_review","draft","approved","rejected","public","unlisted","private","hidden","archived"].map(k=>[k,workflowLabel(k,document.documentElement.lang)]),params.get("status")||(moderation?"in_review":"all"));
+  const state = select(words("Состояние", "Status"),(moderation?['in_review','repeat']:["all","in_review","draft","approved","rejected","public","unlisted","private","hidden","archived"]).map(k=>[k,workflowLabel(k,document.documentElement.lang)]),moderation?(params.get('status')==='repeat'?'repeat':'in_review'):(params.get("status")||"all"));
   query.input.value=params.get("q")||"";
   const refresh = button(words("Обновить список", "Refresh list"),()=>work(loadList));
   toolbar.append(query.label,state.label,refresh);
@@ -56,9 +57,17 @@ async function start(root) {
   const utilities=el("div",null,"author-utilities");
   const activeButton=button(words("Истории","Stories"),()=>switchTrash(false)),trashButton=button(words("Корзина","Trash"),()=>switchTrash(true));
   utilities.append(activeButton,trashButton);
+  const waitingFilter=button('',()=>{state.input.value='in_review';filterChanged();}),repeatFilter=button('',()=>{state.input.value='repeat';filterChanged();});
+  if(moderation){
+    trash=false;utilities.className='moderation-filters';utilities.replaceChildren(waitingFilter,repeatFilter);
+    query.input.placeholder=words('Название истории или автор','Story title or author');query.input.setAttribute('aria-label',query.input.placeholder);
+    query.label.replaceChildren(query.input);const icon=el('img');icon.src='/assets/moderation-search.svg';icon.alt='';query.label.prepend(icon);
+    toolbar.replaceChildren(query.label);toolbar.classList.add('moderation-search');
+  }
   const back=button(words("← К моим историям","← My stories"),()=>{if(!discard())return;dirty=false;if(historyIndex>0)history.back();else{writeUrl(false,null);showScreen("list",true);}});
   if(moderation)back.textContent=words("← К заявкам","← Applications");back.className="author-back";back.hidden=true;
   grid.append(listColumn,editor); root.append(titleRow,back,toolbar,utilities,status,grid);
+  if(moderation)toolbar.before(utilities);
   if(!moderation){const filters=el('div',null,'author-list-tools');filters.append(toolbar,utilities);titleRow.after(filters);}
   const trashNotice=el('p',words('Истории хранятся в корзине 30 дней с момента удаления. В течение этого времени их можно восстановить. Затем они удаляются автоматически.','Stories stay in trash for 30 days after deletion. You can restore them during this time. After that, they are deleted automatically.'),'author-trash-notice');
   trashNotice.hidden=!trash;status.before(trashNotice);
@@ -79,7 +88,7 @@ async function start(root) {
     if(!discard()){restoringHistory=true;history.go(historyIndex-nextIndex);return;}
     dirty=false;historyIndex=nextIndex;
     const nextParams=new URLSearchParams(location.search),id=nextParams.get("collection");
-    trash=nextParams.get("trash")==="1";query.input.value=nextParams.get("q")||"";state.input.value=nextParams.get("status")||(moderation?"in_review":"all");
+    trash=!moderation&&nextParams.get("trash")==="1";query.input.value=nextParams.get("q")||"";state.input.value=moderation?(nextParams.get('status')==='repeat'?'repeat':'in_review'):(nextParams.get("status")||"all");
     if(id==="new")work(()=>createNew(false));else if(id)work(()=>all.some(n=>n.id===id&&n.kind==="scenario")?openStandalone(id,false):open(id,false));else {current=null;doc=null;showScreen("list");work(async()=>{await loadList();showScreen("list",true);});}
   });
   function writeUrl(push,id){
@@ -141,6 +150,7 @@ async function start(root) {
     const visibility=trash?"deleted":["public","unlisted","private","hidden","archived"].includes(state.input.value)?state.input.value:"all";
     const searchParams=new URLSearchParams({page:pageIndex,size:pageSize,q:query.input.value,type:"all",status:trash?"deleted":visibility!=="all"?"all":state.input.value,visibility});
     const data=await request(`/api/${moderation?"moderation":"author"}/folders?${searchParams}`);all=data.items||[];totalPages=Math.ceil((data.total||all.length)/pageSize);
+    if(moderation){waitingFilter.textContent=words('Ожидают','Waiting')+' · '+(data.counts?.waiting??data.total??0);repeatFilter.textContent=words('Повторно','Repeated')+' · '+(data.counts?.repeat??0);waitingFilter.setAttribute('aria-pressed',String(state.input.value!=='repeat'));repeatFilter.setAttribute('aria-pressed',String(state.input.value==='repeat'));}
     if(pageIndex>Math.max(0,totalPages-1)){pageIndex=Math.max(0,totalPages-1);return loadList();}
     previous.disabled=pageIndex===0;next.disabled=pageIndex+1>=totalPages;pageLabel.textContent=words(`Страница ${pageIndex+1}`,`Page ${pageIndex+1}`);pagination.hidden=pageIndex===0&&all.length<pageSize;
     if(!moderation)notices=(await request("/api/account")).notifications||[];
@@ -158,7 +168,7 @@ async function start(root) {
     if(!entries.length)list.append(el('p',moderation?words('Заявок с таким состоянием пока нет.','No applications with this status yet.'):words('Здесь пока пусто. Создайте историю или измените фильтр.','No stories yet. Create one or change the filter.')));
     for(const item of entries){
       const id=item.collectionId||item.id,deleted=item.visibility==='deleted';
-      if(moderation){const action=item.kind==='scenario'?link(words('Проверить историю','Review story'),`${path}?story=${encodeURIComponent(id)}`):button(words('Проверить заявку','Review application'),()=>{if(discard())work(()=>open(id,true));});list.append(authorCard({title:item.title||item.key,coverUrl:item.coverUrl,status:labels(item),description:item.description,action}));continue;}
+      if(moderation){const caption=item.hasRepeatReview?words('Открыть заявку','Open application'):words('Взять в работу','Start review');const action=item.kind==='scenario'?link(caption,`${path}?story=${encodeURIComponent(id)}`):button(caption,()=>{if(discard())work(()=>open(id,true));});list.append(moderationCard(item,action));continue;}
       const expanded=screen==='editor'&&(current?.collectionId===id||(!current&&id==='new'));
       const card=el('article',null,'author-story-card accordion-story');
       const trigger=button('',()=>{

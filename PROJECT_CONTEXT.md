@@ -4,6 +4,18 @@ Last updated: 2026-10-23.
 
 ## Workspace appearance contract (Figma 309:8)
 
+Moderation queue now follows the updated 309:8 layout: Waiting/Repeated counters,
+story-or-public-author-name search, full-width cover cards, submission dates and
+submitted chapter summaries. Repeated is a subset of Waiting, derived from the
+latest moderation decision (reject/request-correction), not revision numbers.
+Counts reflect the search across the whole queue before pagination. Queue order
+is oldest submission first; grouped submissions use their latest pending date.
+Approved parts awaiting publication are excluded from Waiting. No identity/email
+is exposed when the public author nickname is missing; the fallback is “Автор”.
+The queue stylesheet is moderation-queue.css v1, collection-workspace v26 and
+workspace-entry v25. Both action labels open the existing review; no moderator
+assignment or reader-mode review flow was introduced. Those remain discussion.
+
 My stories, moderation and the builder share workspace-surface.css and the exact
 exported linear background assets/workspace-background.svg: #715185 at 0%,
 #694A7D at 55%, #79588E at 100%, with no additional radial overlay. Headings

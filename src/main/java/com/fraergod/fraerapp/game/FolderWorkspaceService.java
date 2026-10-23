@@ -95,6 +95,32 @@ class FolderWorkspaceService {
   return false;
  }
  @SuppressWarnings("unchecked") private Map<String,Object> cast(Object value){return (Map<String,Object>)value;}
+ private void queueMetadata(Map<String,Object> node,Map<String,Work> all,Map<String,String> names,Map<String,List<Map<String,Object>>> events){
+  var work=all.get(node.get("kind")+":"+node.get("id"));
+  node.put("authorName",names.getOrDefault(work.owner(),"Автор"));
+  boolean awaiting="in_review".equals(work.review())&&work.pending(),repeat=false;
+  java.time.Instant submitted=null;
+  for(var event:events.getOrDefault(work.identity(),List.of())){
+   String action=(String)event.get("action");
+   if(submitted==null&&"submitted".equals(action)&&Objects.equals(work.submitted(),event.get("revision")))submitted=TrashRetentionService.instant(event.get("created_at"));
+  }
+  if(awaiting)for(var event:events.getOrDefault(work.identity(),List.of())){
+   String action=(String)event.get("action");
+   if(List.of("reject","request-correction","approve","approve-publish","publish-approved").contains(action)){
+    repeat=List.of("reject","request-correction").contains(action);break;
+   }
+  }
+  if(!awaiting)submitted=null;
+  node.put("awaitingReview",awaiting);node.put("repeatReview",repeat);
+  node.put("submittedAt",awaiting?submitted:null);
+  boolean hasAwaiting=awaiting,hasRepeat=repeat;
+  for(Object child:(List<?>)node.get("children")){
+   var c=cast(child);queueMetadata(c,all,names,events);
+   hasAwaiting|=Boolean.TRUE.equals(c.get("hasAwaitingReview"));hasRepeat|=Boolean.TRUE.equals(c.get("hasRepeatReview"));
+   var date=(java.time.Instant)c.get("submittedAt");if(date!=null&&(submitted==null||date.isAfter(submitted)))submitted=date;
+  }
+  node.put("hasAwaitingReview",hasAwaiting);node.put("hasRepeatReview",hasRepeat);node.put("submittedAt",hasAwaiting?submitted:null);
+ }
  @Transactional(readOnly=true)
  Map<String,Object> list(String owner,boolean moderation,int page,int size,String q,String status,String visibility,String type){
   var all=works(owner,moderation);Set<String> nested=new HashSet<>();
@@ -105,6 +131,21 @@ class FolderWorkspaceService {
   for(var w:all.values())if(!nested.contains(w.identity())){var n=node(w,all,seen,false,null,new ArrayList<>(),new ArrayList<>());if(n!=null)roots.add(n);}
   for(var w:all.values())if(!seen.contains(w.identity())){var n=node(w,all,seen,false,null,new ArrayList<>(),new ArrayList<>());if(n!=null)roots.add(n);}
   String query=q==null?"":q.strip().toLowerCase(Locale.ROOT);
+  if(moderation){
+   Map<String,String> names=new HashMap<>();
+   for(var r:collections.database().queryForList("select player_id,nickname from author_profiles where nickname<>''"))names.put((String)r.get("player_id"),(String)r.get("nickname"));
+   Map<String,List<Map<String,Object>>> events=new HashMap<>();
+   for(String kind:List.of("collection","story"))for(var event:collections.database().queryForList("select "+kind+"_id as work_id,action,revision,created_at from "+kind+"_moderation_events order by created_at desc,id desc"))events.computeIfAbsent((kind.equals("story")?"scenario":kind)+":"+event.get("work_id"),key->new ArrayList<>()).add(event);
+   roots.forEach(n->queueMetadata(n,all,names,events));
+   if(List.of("in_review","repeat").contains(status)){
+    var queue=roots.stream().filter(n->Boolean.TRUE.equals(n.get("hasAwaitingReview")))
+     .filter(n->matches(n,query,"all",visibility,type)||Objects.toString(n.get("authorName"),"").toLowerCase(Locale.ROOT).contains(query)).toList();
+    var filtered=queue.stream().filter(n->!"repeat".equals(status)||Boolean.TRUE.equals(n.get("hasRepeatReview")))
+     .sorted(Comparator.comparing(n->(java.time.Instant)n.get("submittedAt"),Comparator.nullsLast(Comparator.naturalOrder()))).toList();
+    page=Math.max(0,Math.min(100000,page));size=Math.max(1,Math.min(100,size));int from=Math.min(filtered.size(),page*size),to=Math.min(filtered.size(),from+size);
+    return Map.of("items",filtered.subList(from,to),"page",page,"size",size,"total",filtered.size(),"counts",Map.of("waiting",queue.size(),"repeat",queue.stream().filter(n->Boolean.TRUE.equals(n.get("hasRepeatReview"))).count()));
+   }
+  }
   var filtered=roots.stream().filter(n->matches(n,query,status,visibility,type)).sorted(Comparator.comparingInt(n->(Integer)n.get("pendingCount")>0?0:1)).toList();
   page=Math.max(0,Math.min(100000,page));size=Math.max(1,Math.min(100,size));int from=Math.min(filtered.size(),page*size),to=Math.min(filtered.size(),from+size);
   return Map.of("items",filtered.subList(from,to),"page",page,"size",size,"total",filtered.size());

@@ -1,5 +1,20 @@
 # FraerApp deploy and ops runbook
 
+## Moderation queue refresh (2026-10-23)
+
+Run API/auth tests and the CollectionWorkflowTests queue resubmission test;
+run check-moderation-queue.cjs, check-workspace-surface.cjs and
+check-author-workspace.cjs. Verify actual counters, author-name search, repeated
+submissions, chapter numbering, empty results and widths 320/390/768/1440.
+Back up affected files, API database and current API image. Build/recreate only
+API for FolderWorkspaceService metadata; no migration is required. Ship queue
+JS/CSS and exported icons before collection-workspace/workspace-entry and the
+moderation HTML. Reload edge after API health and verify public file/JAR hashes,
+service health, API catalogue and anonymous moderation access rejection. Keep
+the existing review/decision endpoints and reader progress behavior unchanged.
+Rollback restores static files and API image; never restore the backup database
+over later user activity.
+
 ## Author profiles and typography (2026-10-23)
 
 Run API/auth tests, Node tests, build/lint, check-author-accordion.cjs and

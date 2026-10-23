@@ -99,7 +99,7 @@ for(const language of ['ru','en'])for(const width of [320,390,768,1440]){
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${language} ${width}: no overflow`);assert.deepEqual(errors,[]);
  await page.screenshot({path:`/tmp/author-workspace-${language}-${width}.png`,fullPage:true});
  roles=['moderator'];const moderator=await context.newPage();moderator.on('pageerror',error=>errors.push(error.message));await moderator.goto('https://fraerapp.ru/moderation/');
- await moderator.getByRole('button',{name:words('Проверить заявку','Review application'),exact:true}).click();
+ await moderator.getByRole('button',{name:words('Взять в работу','Start review'),exact:true}).click();
  const approve=moderator.getByRole('button',{name:words('Одобрить заявку','Approve application'),exact:true});await approve.waitFor();assert.ok(await approve.isVisible());assert.ok(await approve.isDisabled());assert.ok(await moderator.locator('.author-list-screen').isHidden());
  await audit(moderator,`${language} ${width} moderation`);
  await moderator.locator('.folder-review-part>summary').click();await moderator.getByRole('checkbox',{name:words('Эту часть проверил(а)','I have reviewed this part'),exact:true}).check();assert.ok(await approve.isEnabled());
