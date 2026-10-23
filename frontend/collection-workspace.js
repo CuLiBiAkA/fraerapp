@@ -43,8 +43,7 @@ async function start(root) {
   const query = field(words("Поиск", "Search"),"","search");
   const state = select(words("Состояние", "Status"),(moderation?['in_review','repeat']:["all","in_review","draft","approved","rejected","public","unlisted","private","hidden","archived"]).map(k=>[k,workflowLabel(k,document.documentElement.lang)]),moderation?(params.get('status')==='repeat'?'repeat':'in_review'):(params.get("status")||"all"));
   query.input.value=params.get("q")||"";
-  const refresh = button(words("Обновить список", "Refresh list"),()=>work(loadList));
-  toolbar.append(query.label,state.label,refresh);
+  toolbar.append(query.label,state.label);
   const grid = el("div",null,"collection-grid"), list = el("section",null,"collection-list"), editor = el("section",null,"collection-editor");
   list.id = "folder-list"; document.querySelector(".skip-link")?.setAttribute("href","#folder-list");list.setAttribute("aria-label",words("Истории", "Stories"));
   editor.append(el("h2",words("История состоит из глав", "A story contains chapters")),el("p",moderation?words("Откройте заявку истории. Проверьте новые и изменённые главы; уже опубликованные главы остаются на месте.","Open a story application to review its new and changed parts. Previously published parts stay in place."):words("Создайте историю с общей обложкой и описанием. Добавляйте главы по мере написания: каждая открывается в конструкторе со своими сценами. Выбор читателя сохраняется между главами автоматически.","Create a story with a shared cover and description. Add chapters as you write; each opens in the scene builder. Reader choices carry over automatically.")));
@@ -75,7 +74,7 @@ async function start(root) {
   const changed = () => { dirty = true; status.textContent = words("Есть несохранённые изменения в форме.", "There are unsaved changes in this form."); };
   const discard = () => !dirty || confirm(words("В форме есть несохранённые изменения. Перейти без сохранения?", "This form has unsaved changes. Leave without saving?"));
   window.addEventListener("beforeunload",event=>{if(dirty){event.preventDefault();event.returnValue="";}});
-  window.addEventListener("focus",()=>{if(!busy)refreshReviewEligibility().catch(error=>{status.textContent=errorMessage(error);status.classList.add("error");});});
+  window.addEventListener("focus",()=>{if(!busy)refreshReviewEligibility().then(()=>{if(!moderation&&!busy&&!dirty&&!current)work(loadList);}).catch(error=>{status.textContent=errorMessage(error);status.classList.add("error");});});
   root.addEventListener("click",event=>{
     const anchor=event.target.closest("a[href]");
     if(!anchor||event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||anchor.hasAttribute("download")||(anchor.target&&anchor.target!=="_self"))return;

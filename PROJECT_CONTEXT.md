@@ -2,6 +2,14 @@
 
 Last updated: 2026-10-24.
 
+## My stories filter toolbar (2026-10-24)
+
+Search and status use equal 48px fields with aligned labels and balanced panel
+padding; below 600px they stack. The redundant refresh button is removed.
+Search submits on Enter, status changes reload immediately, and returning to
+the tab reloads the list only when no story is open and no edits are pending.
+Author CSS v4, collection workspace v36, workspace entry v35.
+
 ## Story age classification (2026-10-24)
 
 Compact About story follow-up: field-row gaps are 8px, description 110px,

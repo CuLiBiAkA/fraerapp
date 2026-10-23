@@ -55,6 +55,13 @@ for(const language of ['ru','en'])for(const width of [320,390,768,1440]){
  assert.ok(await role('searchbox','Поиск','Search').isVisible());assert.ok(await role('button','Корзина','Trash').isVisible());assert.ok(!await page.locator('.author-trash-notice').isVisible());await role('combobox','Состояние','Status').selectOption('unlisted');await page.waitForFunction(()=>!document.querySelector('main.collections-panel').inert);assert.equal(queries.at(-1).visibility,'unlisted');
  for(const status of ['approved','hidden']){await role('combobox','Состояние','Status').selectOption(status);await page.waitForFunction(()=>!document.querySelector('main.collections-panel').inert);assert.ok(queries.some(query=>query.status===status||query.visibility===status));}
  await role('combobox','Состояние','Status').selectOption('all');
+ assert.equal(await role('button','Обновить список','Refresh list').count(),0);
+ const toolbar=await page.locator('.collection-toolbar').evaluate(node=>{const rect=n=>{const r=n.getBoundingClientRect();return {top:r.top,height:r.height,bottom:r.bottom};};return {panel:rect(node),labels:[...node.querySelectorAll('label')].map(rect),fields:[...node.querySelectorAll('input,select')].map(rect)};});
+ assert.ok(toolbar.fields.every(field=>field.height===48));
+ if(width>600){assert.equal(toolbar.labels[0].top,toolbar.labels[1].top);assert.equal(toolbar.fields[0].top,toolbar.fields[1].top);assert.ok(Math.abs((toolbar.labels[0].top-toolbar.panel.top)-(toolbar.panel.bottom-toolbar.fields[0].bottom))<2);}
+ await role('searchbox','Поиск','Search').fill('doors');await role('searchbox','Поиск','Search').press('Enter');await page.waitForFunction(()=>!document.querySelector('main.collections-panel').inert);assert.equal(queries.at(-1).q,'doors');
+ await role('searchbox','Поиск','Search').fill('');await role('searchbox','Поиск','Search').press('Enter');await page.waitForFunction(()=>!document.querySelector('main.collections-panel').inert);
+ await page.locator('.collection-toolbar').screenshot({path:`/tmp/author-toolbar-${language}-${width}.png`});
  await page.locator('[data-work-id="work"]').click();await role('heading','Главы','Chapters').waitFor();
  assert.ok(await page.locator('.author-list-screen').isVisible());assert.equal(await page.locator('.accordion-story .collection-editor').count(),1);assert.ok(await page.locator('.collection-editor').isVisible());
  assert.equal(await page.locator('.chapter-settings').count(),0);assert.equal(await role('button','↓ Ниже','↓ Down').count(),0);assert.equal(await page.locator('.author-season').count(),2);await page.locator('.author-season > summary').first().click();assert.equal(document.items[0].target.id,'chapter');

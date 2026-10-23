@@ -1,5 +1,13 @@
 # FraerApp deploy and ops runbook
 
+## My stories toolbar release (2026-10-24)
+
+Static-only: back up and deploy author-workspace.css, collection-workspace.js,
+workspace-entry.js and author/moderation HTML. Verify equal field heights,
+aligned desktop labels, stacked mobile fields, search on Enter and status
+filtering. The refresh button is removed; focus refresh must preserve open
+stories and unsaved edits. Browser coverage runs in RU/EN at four widths.
+
 ## Age classification release (2026-10-24)
 
 Compact geometry revision: author-workspace browser assertions check 28px selects,
