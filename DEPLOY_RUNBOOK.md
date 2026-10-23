@@ -1,5 +1,47 @@
 # FraerApp deploy and ops runbook
 
+## District story content release (2026-10-23)
+
+Release: `/collections/kto_ty_po_zhizni`, one native chapter, 60 illustrated scenes,
+159 choices, 16 endings. Backup `backups/district-20261023-001058` contains
+validated custom-format API/auth database dumps and scenario-source archive.
+The 60 JPEGs and two scenario JSONs match runtime hashes; public image hashes
+match local bytes. No API/auth/Builder rebuild is needed for this data/static
+publication. Builder reads the saved document through its existing API.
+
+For this content flow:
+1. Inspect local branch/state, six runtime services and sanitized recent logs.
+   Back up both databases before an authenticated import or moderation mutation;
+   validate dumps with `pg_restore --list` and preserve existing runtime files.
+2. Install real `/assets/stories/...` images first. Validate hashes, media types
+   and sizes from the public domain before submitting a document that uses them.
+3. Use the audited operator login procedure documented below; never forge JWTs,
+   grant roles or write publication tables. Keep raw login tokens/cookies only in
+   process memory and revoke only the temporary session in a finally block.
+4. Preview the native package import and require a conflict-free creation. Save
+   returned IDs/revisions in a nonsecret release receipt so a retry reopens the
+   same draft rather than overwriting/importing blindly.
+5. Compare the exact server draft/submission against the source with only the
+   server's known normalization: absent scene ending becomes null; metadata gets
+   schemaVersion 1, empty relations and null inputContract. Compare all other
+   fields exactly. Replay all 16 route fixtures through the private playtest API.
+6. Check live reader widths and Builder export, then review-batch and inspect the
+   exact submitted document. Folder decision pins both revisions/generations.
+   Administrator self-review uses ownOverride=true and an explicit release reason.
+7. Verify authenticated public contents, public images, service health, public
+   home/health/catalogue responses and recent logs. Guest chapter access stays
+   restricted by the existing policy. Avoid inflating reader statistics with QA.
+
+Verified: 148 API/78 auth/58 focused Node tests; all production ending replays;
+live 320/390/1440px reader and Builder export. Six services healthy, no recent
+API/auth error markers. Public collection and all 60 images respond successfully.
+
+The requested old-catalogue cleanup is not yet applied: the owner must identify
+the story referred to as «щелочение». Once identified, back up/reinspect current
+states and use revision/generation-aware moderation archive actions for only the
+other published works. Preserve private drafts and audit history; do not purge.
+If archiving a collection, inspect and handle its published descendants too.
+
 ## Meow default timbre (2026-10-23)
 
 Publish settings.js v2, app.js v8 and meow index.html after baseline inspection

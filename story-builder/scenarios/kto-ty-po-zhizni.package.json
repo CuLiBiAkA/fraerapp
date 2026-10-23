@@ -1,0 +1,4694 @@
+{
+  "schemaVersion": 1,
+  "kind": "fraerapp-work-package",
+  "root": {
+    "kind": "collection",
+    "key": "kto_ty_po_zhizni"
+  },
+  "scenarios": [
+    {
+      "key": "kto_ty_po_zhizni_raion",
+      "title": "Кто ты по жизни? Район решает",
+      "description": "60 сцен, 16 финалов и один чужой район. Зарабатывай, покупай, отвечай за слово и решай, что для тебя значит быть своим. Дворовая драма с жаргоном, деньгами, уважением и последствиями.",
+      "genre": "Драма",
+      "topic": "Дружба",
+      "completionStatus": "completed",
+      "metadata": {
+        "coverUrl": "/assets/stories/kto-ty-po-zhizni/arrival.jpg"
+      },
+      "version": 1,
+      "startSceneId": "arrival",
+      "variables": {
+        "деньги": {
+          "value": 600,
+          "showInStats": true
+        },
+        "уважение": {
+          "value": 1,
+          "showInStats": true
+        },
+        "совесть": {
+          "value": 3,
+          "showInStats": true
+        },
+        "долг": {
+          "value": 0,
+          "showInStats": true
+        },
+        "дела": 5,
+        "связи": 0,
+        "кличка": "Артём",
+        "развели": false,
+        "наблюдал": false,
+        "шестёрка": false,
+        "слово": false,
+        "работал": false,
+        "грузил": false,
+        "носил": false,
+        "играл": false,
+        "крыша": false,
+        "соседка": false,
+        "зал": false,
+        "чай": false,
+        "кассета": false,
+        "аптечка": false,
+        "часы_проданы": false,
+        "инструмент": false,
+        "торговал": false,
+        "прикид": false,
+        "починил": false,
+        "обман": false,
+        "выручил": false,
+        "конверт": false,
+        "песня": false,
+        "выступил": false,
+        "соседи": false,
+        "пёс": false,
+        "тренировка": false,
+        "занял": false,
+        "квитанция": false,
+        "площадка": false,
+        "люди": false,
+        "доказательства": false,
+        "спас": false,
+        "отступил": false,
+        "предал": false,
+        "давил": false,
+        "мир": false
+      },
+      "assets": [
+        {
+          "id": "arrival",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/arrival.jpg",
+          "metadata": {
+            "title": "Чужой район",
+            "alt": "Иллюстрация к сцене «Чужой район» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "bench",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/bench.jpg",
+          "metadata": {
+            "title": "За спрос денег не берут",
+            "alt": "Иллюстрация к сцене «За спрос денег не берут» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "name",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/name.jpg",
+          "metadata": {
+            "title": "Погоняло или имя",
+            "alt": "Иллюстрация к сцене «Погоняло или имя» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "tea",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/tea.jpg",
+          "metadata": {
+            "title": "Чай без сахара",
+            "alt": "Иллюстрация к сцене «Чай без сахара» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "room",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/room.jpg",
+          "metadata": {
+            "title": "Комната с видом на завтра",
+            "alt": "Иллюстрация к сцене «Комната с видом на завтра» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "morning",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/morning.jpg",
+          "metadata": {
+            "title": "Пять дел до заката",
+            "alt": "Иллюстрация к сцене «Пять дел до заката» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "market",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/market.jpg",
+          "metadata": {
+            "title": "Барахолка возможностей",
+            "alt": "Иллюстрация к сцене «Барахолка возможностей» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "kiosk",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/kiosk.jpg",
+          "metadata": {
+            "title": "Лена сдачу считает точно",
+            "alt": "Иллюстрация к сцене «Лена сдачу считает точно» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "pawn",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/pawn.jpg",
+          "metadata": {
+            "title": "Цена отцовских часов",
+            "alt": "Иллюстрация к сцене «Цена отцовских часов» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "tracksuit",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/tracksuit.jpg",
+          "metadata": {
+            "title": "Понты на молнии",
+            "alt": "Иллюстрация к сцене «Понты на молнии» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "workshop",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/workshop.jpg",
+          "metadata": {
+            "title": "Михалыч понты не ремонтирует",
+            "alt": "Иллюстрация к сцене «Михалыч понты не ремонтирует» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "repair",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/repair.jpg",
+          "metadata": {
+            "title": "Когда шум становится музыкой",
+            "alt": "Иллюстрация к сцене «Когда шум становится музыкой» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "loaders",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/loaders.jpg",
+          "metadata": {
+            "title": "Деньги пахнут картоном",
+            "alt": "Иллюстрация к сцене «Деньги пахнут картоном» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "delivery",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/delivery.jpg",
+          "metadata": {
+            "title": "Посылка до третьего этажа",
+            "alt": "Иллюстрация к сцене «Посылка до третьего этажа» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "envelope",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/envelope.jpg",
+          "metadata": {
+            "title": "Штука за молчание",
+            "alt": "Иллюстрация к сцене «Штука за молчание» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "cards",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/cards.jpg",
+          "metadata": {
+            "title": "Стол любит новичков",
+            "alt": "Иллюстрация к сцене «Стол любит новичков» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "cheat",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/cheat.jpg",
+          "metadata": {
+            "title": "Краплёная дружба",
+            "alt": "Иллюстрация к сцене «Краплёная дружба» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "roof",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/roof.jpg",
+          "metadata": {
+            "title": "Рыжий без публики",
+            "alt": "Иллюстрация к сцене «Рыжий без публики» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "radio",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/radio.jpg",
+          "metadata": {
+            "title": "Песня без блатной афиши",
+            "alt": "Иллюстрация к сцене «Песня без блатной афиши» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "neighbor",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/neighbor.jpg",
+          "metadata": {
+            "title": "Нина Павловна и два пакета",
+            "alt": "Иллюстрация к сцене «Нина Павловна и два пакета» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "dog",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/dog.jpg",
+          "metadata": {
+            "title": "Не каждый дрожащий — слабый",
+            "alt": "Иллюстрация к сцене «Не каждый дрожащий — слабый» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "gym",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/gym.jpg",
+          "metadata": {
+            "title": "Подвал, где учат стоять",
+            "alt": "Иллюстрация к сцене «Подвал, где учат стоять» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "spar",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/spar.jpg",
+          "metadata": {
+            "title": "После гонга",
+            "alt": "Иллюстрация к сцене «После гонга» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "evening",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/evening.jpg",
+          "metadata": {
+            "title": "Сходка без расписания",
+            "alt": "Иллюстрация к сцене «Сходка без расписания» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "debt",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/debt.jpg",
+          "metadata": {
+            "title": "Завтрашние деньги",
+            "alt": "Иллюстрация к сцене «Завтрашние деньги» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "warehouse",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/warehouse.jpg",
+          "metadata": {
+            "title": "Ночная смена",
+            "alt": "Иллюстрация к сцене «Ночная смена» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "temptation",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/temptation.jpg",
+          "metadata": {
+            "title": "Тебе предлагают место",
+            "alt": "Иллюстрация к сцене «Тебе предлагают место» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "witness",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/witness.jpg",
+          "metadata": {
+            "title": "Касса не сходится",
+            "alt": "Иллюстрация к сцене «Касса не сходится» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "courtyard",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/courtyard.jpg",
+          "metadata": {
+            "title": "Район — это кто?",
+            "alt": "Иллюстрация к сцене «Район — это кто?» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "fund",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/fund.jpg",
+          "metadata": {
+            "title": "Общее без кассы взаимных понтов",
+            "alt": "Иллюстрация к сцене «Общее без кассы взаимных понтов» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "lena",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/lena.jpg",
+          "metadata": {
+            "title": "Чеки против слухов",
+            "alt": "Иллюстрация к сцене «Чеки против слухов» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "storm",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/storm.jpg",
+          "metadata": {
+            "title": "Когда ливень спросил со всех",
+            "alt": "Иллюстрация к сцене «Когда ливень спросил со всех» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "shelter",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/shelter.jpg",
+          "metadata": {
+            "title": "Сухие носки дороже понтов",
+            "alt": "Иллюстрация к сцене «Сухие носки дороже понтов» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "ledger",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/ledger.jpg",
+          "metadata": {
+            "title": "Восемьсот на бумаге",
+            "alt": "Иллюстрация к сцене «Восемьсот на бумаге» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "betrayal",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/betrayal.jpg",
+          "metadata": {
+            "title": "По какую сторону стола",
+            "alt": "Иллюстрация к сцене «По какую сторону стола» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "hearing",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/hearing.jpg",
+          "metadata": {
+            "title": "За базар ответишь",
+            "alt": "Иллюстрация к сцене «За базар ответишь» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "defend",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/defend.jpg",
+          "metadata": {
+            "title": "Голос, который не сорвался",
+            "alt": "Иллюстрация к сцене «Голос, который не сорвался» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "deal",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/deal.jpg",
+          "metadata": {
+            "title": "За мир тоже выставили счёт",
+            "alt": "Иллюстрация к сцене «За мир тоже выставили счёт» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "lastnight",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/lastnight.jpg",
+          "metadata": {
+            "title": "Что остаётся под утро",
+            "alt": "Иллюстрация к сцене «Что остаётся под утро» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "station",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/station.jpg",
+          "metadata": {
+            "title": "Билет без погоняла",
+            "alt": "Иллюстрация к сцене «Билет без погоняла» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "garage_future",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/garage_future.jpg",
+          "metadata": {
+            "title": "Ключ от своего дела",
+            "alt": "Иллюстрация к сцене «Ключ от своего дела» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "yard_future",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/yard_future.jpg",
+          "metadata": {
+            "title": "Кому здесь рады",
+            "alt": "Иллюстрация к сцене «Кому здесь рады» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "road_future",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/road_future.jpg",
+          "metadata": {
+            "title": "Бродяга — не тот, кому некуда",
+            "alt": "Иллюстрация к сцене «Бродяга — не тот, кому некуда» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "mirror",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/mirror.jpg",
+          "metadata": {
+            "title": "Кто ты, когда никто не спрашивает",
+            "alt": "Иллюстрация к сцене «Кто ты, когда никто не спрашивает» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "end_loh",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/end_loh.jpg",
+          "metadata": {
+            "title": "Лох, который заметил развод",
+            "alt": "Иллюстрация к сцене «Лох, который заметил развод» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "end_six",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/end_six.jpg",
+          "metadata": {
+            "title": "Шестёрка: всегда на связи",
+            "alt": "Иллюстрация к сцене «Шестёрка: всегда на связи» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "end_debt",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/end_debt.jpg",
+          "metadata": {
+            "title": "На счётчике",
+            "alt": "Иллюстрация к сцене «На счётчике» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "end_hustler",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/end_hustler.jpg",
+          "metadata": {
+            "title": "Барыга с человеческим лицом",
+            "alt": "Иллюстрация к сцене «Барыга с человеческим лицом» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "end_traitor",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/end_traitor.jpg",
+          "metadata": {
+            "title": "За столом, где пусто",
+            "alt": "Иллюстрация к сцене «За столом, где пусто» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "end_authority",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/end_authority.jpg",
+          "metadata": {
+            "title": "Авторитет: тяжёлая связка ключей",
+            "alt": "Иллюстрация к сцене «Авторитет: тяжёлая связка ключей» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "end_brother",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/end_brother.jpg",
+          "metadata": {
+            "title": "Брат по поступкам",
+            "alt": "Иллюстрация к сцене «Брат по поступкам» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "end_wanderer",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/end_wanderer.jpg",
+          "metadata": {
+            "title": "Бродяга с правом вернуться",
+            "alt": "Иллюстрация к сцене «Бродяга с правом вернуться» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "end_master",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/end_master.jpg",
+          "metadata": {
+            "title": "Мастер своего угла",
+            "alt": "Иллюстрация к сцене «Мастер своего угла» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "end_musician",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/end_musician.jpg",
+          "metadata": {
+            "title": "Голос района",
+            "alt": "Иллюстрация к сцене «Голос района» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "end_home",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/end_home.jpg",
+          "metadata": {
+            "title": "Свой человек",
+            "alt": "Иллюстрация к сцене «Свой человек» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "end_free",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/end_free.jpg",
+          "metadata": {
+            "title": "Свободный пассажир",
+            "alt": "Иллюстрация к сцене «Свободный пассажир» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "end_peace",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/end_peace.jpg",
+          "metadata": {
+            "title": "Решала без короны",
+            "alt": "Иллюстрация к сцене «Решала без короны» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "end_shadow",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/end_shadow.jpg",
+          "metadata": {
+            "title": "Человек при тени",
+            "alt": "Иллюстрация к сцене «Человек при тени» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "end_burnout",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/end_burnout.jpg",
+          "metadata": {
+            "title": "Пауза без свидетелей",
+            "alt": "Иллюстрация к сцене «Пауза без свидетелей» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        },
+        {
+          "id": "end_fresh",
+          "type": "image",
+          "url": "/assets/stories/kto-ty-po-zhizni/end_fresh.jpg",
+          "metadata": {
+            "title": "Пока просто Артём",
+            "alt": "Иллюстрация к сцене «Пока просто Артём» из истории «Кто ты по жизни? Район решает».",
+            "original": true
+          }
+        }
+      ],
+      "scenes": [
+        {
+          "id": "arrival",
+          "title": "Чужой район",
+          "text": "Тебя зовут Артём. Тебе двадцать четыре, в кармане 600 рублей, в сумке сменная футболка и адрес комнаты. Автобус захлопывает двери так, будто вопрос с твоим прошлым уже решён.\n\nУ гаражей хрипит магнитола. Трое на лавке провожают тебя взглядом.\n— Земляк, тормозни. Ты к кому вообще?\n\nЗдесь можно купить чай, но нельзя купить готовую биографию. Деньги оплачивают вещи, уважение открывает двери, совесть мешает спать, долг требует возврата. Всё остальное придётся узнать на своей шкуре.",
+          "variables": {},
+          "assets": [],
+          "background": "arrival",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "approach",
+              "label": "Подойти: «Здорово. Комнату тут снял»",
+              "target": "bench",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "set": "кличка",
+                  "value": "Артём"
+                }
+              ]
+            },
+            {
+              "id": "joke",
+              "label": "«К жизни новой. Она тут не проходила?»",
+              "target": "bench",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 1
+                },
+                {
+                  "set": "кличка",
+                  "value": "Весёлый"
+                }
+              ]
+            },
+            {
+              "id": "pose",
+              "label": "Расправить плечи: «Я по своим делам, братва»",
+              "target": "bench",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 1
+                },
+                {
+                  "inc": "совесть",
+                  "value": -1
+                },
+                {
+                  "set": "кличка",
+                  "value": "Тихий"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "bench",
+          "title": "За спрос денег не берут",
+          "text": "Рыжий крутит зажигалку, Валера в кожанке улыбается одними губами. Седой молчит. Он здесь старше остальных, но никто не зовёт его главным.\n— На районе жить — в общий котёл вложиться. Двести на знакомство, — говорит Валера.\n\nРыжий отворачивается. Под лавкой валяются шелухи от семечек; рядом стоит пустая банка из-под кофе. Слишком уж быстро тебе предлагают тариф на человеческое отношение.",
+          "variables": {},
+          "assets": [],
+          "background": "bench",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "honest",
+              "label": "«Соседям помогу. За знакомство кассу не пробивают»",
+              "target": "name",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 2
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "id": "pay",
+              "label": "«Ладно, держите двести. Без кипиша» [200 ₽]",
+              "target": "name",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 200
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -200
+                },
+                {
+                  "set": "развели",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "observe",
+              "label": "Не спорить, присмотреться к Рыжему",
+              "target": "name",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "set": "наблюдал",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "name",
+          "title": "Погоняло или имя",
+          "text": "— А звать-то тебя как? — спрашивает Рыжий.\n— Не торопись погоняло примерять, — вставляет Седой. — Чужую куртку хоть снять можно. Чужую легенду потом со шкурой отдирают.\n\nВалера предлагает послать тебя за чаем: «Новенький проставляется». В голосе уже звучит привычка командовать. Рыжий представляется Русланом — тихо, будто это имя предназначено не для всей лавки.",
+          "variables": {},
+          "assets": [],
+          "background": "name",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "real",
+              "label": "«Артём. За своим именем и отвечу»",
+              "target": "tea",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 1
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "set": "кличка",
+                  "value": "Артём"
+                }
+              ]
+            },
+            {
+              "id": "nickname",
+              "label": "«Зовите Тихим. Я базар лишний не люблю»",
+              "target": "tea",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 2
+                },
+                {
+                  "inc": "совесть",
+                  "value": -1
+                },
+                {
+                  "set": "кличка",
+                  "value": "Тихий"
+                }
+              ]
+            },
+            {
+              "id": "errand",
+              "label": "«Сбегаю, чего уж. Только сдача моя» [+100 ₽]",
+              "target": "tea",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 100
+                },
+                {
+                  "set": "шестёрка",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "tea",
+          "title": "Чай без сахара",
+          "text": "Гараж внутри оказывается почти гостиной. Кипятильник, продавленный диван, календарь многолетней давности. Рыжий ставит перед тобой стакан.\n— Братва — это когда тебя не только за стол зовут, но и из беды вытаскивают, — говорит он.\n— Не разбрасывайся словом, — отвечает Седой. — «Брат» денег не стоит, зато предъявляют за него дорого.\n\nЗавтра во дворе собирают на лавку и свет над подъездом. Михалычу нужен помощник в мастерскую. Валера обещает «тему попроще».",
+          "variables": {},
+          "assets": [],
+          "background": "tea",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "promise",
+              "label": "«Если своим назвался — не сольюсь»",
+              "target": "room",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "set": "слово",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "buytea",
+              "label": "Поставить чай всем [50 ₽, +1 уважение]",
+              "target": "room",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 50
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -50
+                },
+                {
+                  "inc": "уважение",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "id": "distance",
+              "label": "«Я пока присмотрюсь. Пустого не обещаю»",
+              "target": "room",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "room",
+          "title": "Комната с видом на завтра",
+          "text": "Хозяйка оставила чистое бельё и записку про воду. На тумбочку ложатся деньги и старые отцовские часы. За стеной кашляет телевизор.\n\nЗдесь никто не знает, каким ты был раньше. Можно начать с понтов, можно с работы, можно опять ждать, пока кто-нибудь выберет за тебя. Только утро короткое: до вечерней встречи успеешь пять дел. Повторно за одну и ту же работу не платят.\n\nВ кармане {{деньги}} ₽. Уважение: {{уважение}}. Завтра район впервые увидит тебя при дневном свете.",
+          "variables": {},
+          "assets": [],
+          "background": "room",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "sleep",
+              "label": "Убрать деньги, выспаться и выйти во двор",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            },
+            {
+              "id": "call",
+              "label": "Позвонить домой: «Доехал. Пока обживаюсь»",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "morning",
+          "title": "Пять дел до заката",
+          "text": "Двор шумит ведрами, моторами и чужими планами. Михалыч открыл гараж; у магазина разгружают фургон. Лена в киоске машет знакомым. Над крышей появляется рыжая макушка Руслана.\n\nДел до вечера: {{дела}}. Денег: {{деньги}} ₽. Уважение: {{уважение}}.\n\nКаждый выход со двора занимает одно дело. Внутри рынка можно обойти все прилавки. Уже выполненная подработка больше не появится. На вечернюю встречу можно уйти в любой момент.",
+          "variables": {},
+          "assets": [],
+          "background": "morning",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "market",
+              "label": "Пошуршать по рынку [1 дело]",
+              "target": "market",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "дела",
+                  "op": ">=",
+                  "value": 1
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "дела",
+                  "value": -1
+                }
+              ]
+            },
+            {
+              "id": "work",
+              "label": "К Михалычу: «Рабочие руки нужны?» [1 дело]",
+              "target": "workshop",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "работал",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "var": "дела",
+                  "op": ">=",
+                  "value": 1
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "дела",
+                  "value": -1
+                },
+                {
+                  "set": "работал",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "load",
+              "label": "Разгрузить фургон [1 дело]",
+              "target": "loaders",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "грузил",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "var": "дела",
+                  "op": ">=",
+                  "value": 1
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "дела",
+                  "value": -1
+                },
+                {
+                  "set": "грузил",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "delivery",
+              "label": "Взяться за доставку [1 дело]",
+              "target": "delivery",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "носил",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "var": "дела",
+                  "op": ">=",
+                  "value": 1
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "дела",
+                  "value": -1
+                },
+                {
+                  "set": "носил",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "cards",
+              "label": "Заглянуть на карточный базар [1 дело]",
+              "target": "cards",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "играл",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "var": "дела",
+                  "op": ">=",
+                  "value": 1
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "дела",
+                  "value": -1
+                },
+                {
+                  "set": "играл",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "roof",
+              "label": "Подняться к Рыжему на крышу [1 дело]",
+              "target": "roof",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "крыша",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "var": "дела",
+                  "op": ">=",
+                  "value": 1
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "дела",
+                  "value": -1
+                },
+                {
+                  "set": "крыша",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "neighbor",
+              "label": "Помочь соседке Нине [1 дело]",
+              "target": "neighbor",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "соседка",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "var": "дела",
+                  "op": ">=",
+                  "value": 1
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "дела",
+                  "value": -1
+                },
+                {
+                  "set": "соседка",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "gym",
+              "label": "Зайти в подвальную качалку [1 дело]",
+              "target": "gym",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "зал",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "var": "дела",
+                  "op": ">=",
+                  "value": 1
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "дела",
+                  "value": -1
+                },
+                {
+                  "set": "зал",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "finish",
+              "label": "Хватит метаться. Идти на вечернюю встречу",
+              "target": "evening",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            }
+          ]
+        },
+        {
+          "id": "market",
+          "title": "Барахолка возможностей",
+          "text": "Под тентами продают всё, чему ещё можно придумать вторую жизнь. Магнитолы лежат рядом с кроссовками, радиодетали — с чашками. Здесь у каждого есть рассказ о том, почему вещь почти новая.\n\nТебе предлагают инструмент, кассету, аптечку и костюм, который выглядит увереннее своего покупателя. Можно продать часы. Можно просто уйти.\n\nНа руках {{деньги}} ₽. Покупка не повторяется, если вещь уже твоя.",
+          "variables": {},
+          "assets": [],
+          "background": "market",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "kiosk",
+              "label": "К Лене: чай, кассеты и полезная мелочь",
+              "target": "kiosk",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            },
+            {
+              "id": "pawn",
+              "label": "Оценить часы и посмотреть инструмент",
+              "target": "pawn",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            },
+            {
+              "id": "clothes",
+              "label": "Примерить прикид с авторитетом",
+              "target": "tracksuit",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            },
+            {
+              "id": "back",
+              "label": "Вернуться во двор",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            }
+          ]
+        },
+        {
+          "id": "kiosk",
+          "title": "Лена сдачу считает точно",
+          "text": "— Чай тридцать, кассета триста, аптечка двести, — говорит Лена. — Разговор бесплатно, пока очередь не собралась.\n\nНа кассете дворовые песни, которые записывали явно не ради славы. В аптечке бинт, пластырь и самое обыкновенное человеческое предусмотрение. Лена замечает твою серую куртку: «Вчера тебя у Валериной лавки видела. Не всё, что уверенно сказано, правда».\n\nОна никого не поучает. Просто выдаёт сдачу — всегда до рубля.",
+          "variables": {},
+          "assets": [],
+          "background": "kiosk",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "tea",
+              "label": "Взять чай и разговор [30 ₽, +1 связь]",
+              "target": "kiosk",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "чай",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 30
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -30
+                },
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "set": "чай",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "cassette",
+              "label": "«Заверни музыку для души» [300 ₽]",
+              "target": "kiosk",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "кассета",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 300
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -300
+                },
+                {
+                  "set": "кассета",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "medkit",
+              "label": "Взять аптечку [200 ₽]",
+              "target": "kiosk",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "аптечка",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 200
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -200
+                },
+                {
+                  "set": "аптечка",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "back",
+              "label": "«Бывай, Лена». Вернуться к прилавкам",
+              "target": "market",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            }
+          ]
+        },
+        {
+          "id": "pawn",
+          "title": "Цена отцовских часов",
+          "text": "Часовщик подносит часы к уху, как ракушку.\n— Четыреста пятьдесят. Больше не дам. Память я оценить не умею.\n\nРядом лежит набор инструмента за 350 рублей. Им можно чинить радиолы и дверные ручки, а можно просто носить тяжёлый ящик и думать о несостоявшейся мастерской. Скупщик готов заплатить ещё 300 за помощь с продажей старых колонок — один раз, прямо сейчас.\n\nОн не торопит. От этого выбирать труднее.",
+          "variables": {},
+          "assets": [],
+          "background": "pawn",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "watch",
+              "label": "Продать часы [+450 ₽]",
+              "target": "pawn",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "часы_проданы",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 450
+                },
+                {
+                  "set": "часы_проданы",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "tools",
+              "label": "Купить набор инструмента [350 ₽]",
+              "target": "pawn",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "инструмент",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 350
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -350
+                },
+                {
+                  "set": "инструмент",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "trade",
+              "label": "Помочь честно продать колонки [+300 ₽]",
+              "target": "pawn",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "торговал",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 300
+                },
+                {
+                  "set": "торговал",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "back",
+              "label": "«За память пока не торгуемся». На рынок",
+              "target": "market",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            }
+          ]
+        },
+        {
+          "id": "tracksuit",
+          "title": "Понты на молнии",
+          "text": "Продавец встряхивает тёмный спортивный костюм. В зеркале рынка ты на секунду выглядишь человеком, которого здесь ждали.\n— Четыреста, и хоть на стрелку, хоть в булочную.\n\nРыжий, случайно оказавшийся рядом, смеётся: «Есть у меня запасной. Но перед пацанами сам объясняй, откуда прикид». Заимствованный авторитет — тоже долг, пусть и не денежный.\n\nНи костюм, ни куртка не ответят за тебя, когда разговор станет серьёзным.",
+          "variables": {},
+          "assets": [],
+          "background": "tracksuit",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "buy",
+              "label": "Взять костюм [400 ₽, +2 уважение]",
+              "target": "market",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "прикид",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 400
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -400
+                },
+                {
+                  "inc": "уважение",
+                  "value": 2
+                },
+                {
+                  "set": "прикид",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "borrow",
+              "label": "Занять у Рыжего [2 уважения]",
+              "target": "market",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "прикид",
+                  "op": "==",
+                  "value": false
+                },
+                {
+                  "var": "уважение",
+                  "op": ">=",
+                  "value": 2
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": -2
+                },
+                {
+                  "set": "прикид",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "leave",
+              "label": "«Встречают по одёжке, а я надолго». Уйти",
+              "target": "market",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            }
+          ]
+        },
+        {
+          "id": "workshop",
+          "title": "Михалыч понты не ремонтирует",
+          "text": "Михалыч смотрит сначала на твои руки, потом в глаза.\n— Радиолу оживишь — шестьсот пятьдесят. Не умеешь — покажу. Врать только не надо: железка байки слушать не станет.\n\nВ гараже пахнет нагретой пылью. На полке стоят приборы, за которыми хозяева ещё вернутся. Здесь вещи называют по поломкам, людей — по именам. Можно попросить инструмент, если уже есть чем поручиться. Можно ограничиться уборкой: меньше денег, зато без обещаний.",
+          "variables": {},
+          "assets": [],
+          "background": "workshop",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "own",
+              "label": "«Инструмент свой. Показывай пациента»",
+              "target": "repair",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "инструмент",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": []
+            },
+            {
+              "id": "borrow",
+              "label": "Попросить набор под честное слово [1 уважение]",
+              "target": "repair",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "уважение",
+                  "op": ">=",
+                  "value": 1
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": -1
+                }
+              ]
+            },
+            {
+              "id": "clean",
+              "label": "«Пока разберу завалы». Уборка [+300 ₽]",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 300
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "repair",
+          "title": "Когда шум становится музыкой",
+          "text": "Через час радиола перестаёт шипеть и ловит знакомый мотив. Михалыч не вмешивается — только подаёт нужную деталь.\n— Ну вот. Руки у тебя не для карманов.\n\nНа оплату отложено 650 рублей. Рядом лежит чужая купюра, которую клиент, кажется, посчитал дважды. Можно сделать вид, что всё так и было. Но Михалыч уже тянется записывать твоё имя в тетрадь постоянных помощников.\n\nИногда репутация начинается с мелочи, которую никто не заметил.",
+          "variables": {},
+          "assets": [],
+          "background": "repair",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "honest",
+              "label": "Вернуть лишнее. Забрать свои [+650 ₽, +2 уважение]",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 650
+                },
+                {
+                  "inc": "уважение",
+                  "value": 2
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "set": "починил",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "pocket",
+              "label": "«Расчёт правильный, хозяин» [+850 ₽, −2 совести]",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 850
+                },
+                {
+                  "inc": "совесть",
+                  "value": -2
+                },
+                {
+                  "set": "починил",
+                  "value": true
+                },
+                {
+                  "set": "обман",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "teach",
+              "label": "Попросить ещё урок вместо части платы [+450 ₽, +1 связь]",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 450
+                },
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "inc": "уважение",
+                  "value": 1
+                },
+                {
+                  "set": "починил",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "loaders",
+          "title": "Деньги пахнут картоном",
+          "text": "У фургона все равны перед мокрой коробкой. Рыжий тащит мешки и вовсе не похож на человека, которому работа не по понятиям.\n— Понятия понятиями, а коммуналка сама себя не закроет, — отвечает он на твой взгляд.\n\nЗа смену дают 500. Один взрослый грузчик подвернул ногу и просит подменить его на последней ходке. Начальник спешит: можно взять дополнительные деньги, можно уступить ходку тому, кому нужнее, можно остаться помочь без счётчика.",
+          "variables": {},
+          "assets": [],
+          "background": "loaders",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "shift",
+              "label": "Отработать ровно свою смену [+500 ₽]",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 500
+                },
+                {
+                  "inc": "уважение",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "id": "extra",
+              "label": "Взять дополнительную ходку [+700 ₽]",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 700
+                }
+              ]
+            },
+            {
+              "id": "help",
+              "label": "Подменить товарища без доплаты [+400 ₽, +2 связи]",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 400
+                },
+                {
+                  "inc": "связи",
+                  "value": 2
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "set": "выручил",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "delivery",
+          "title": "Посылка до третьего этажа",
+          "text": "Пожилой мужчина получает починенный вентилятор и протягивает обещанные двести. От двери тянет супом. На лестнице Валера перехватывает тебя с другим предложением.\n— У тебя ноги быстрые. Тут ещё конвертик донести. За один проход штука. Вопросы только не грузи.\n\nРыжий говорил: всякая лёгкая тема сначала обещает избавить от вопросов, а потом оставляет тебя с ними одного. Но тысяча — почти два честных рабочих дня.",
+          "variables": {},
+          "assets": [],
+          "background": "delivery",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "finish",
+              "label": "Взять честные двести и вернуться [+200 ₽]",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 200
+                },
+                {
+                  "inc": "уважение",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "id": "offer",
+              "label": "Выслушать Валеру, деньги за доставку забрать [+200 ₽]",
+              "target": "envelope",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 200
+                }
+              ]
+            },
+            {
+              "id": "tip",
+              "label": "Отказаться от денег: «Дед, супом лучше угости»",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "inc": "связи",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "envelope",
+          "title": "Штука за молчание",
+          "text": "Валера не объясняет, что внутри конверта. Сумма лежит сверху, словно должна заменить объяснение.\n— Ты исполнитель. С тебя спроса нет.\n\nЭта фраза звучит особенно удобно для того, кто собирается спрашивать. Ты можешь согласиться, отказаться или предложить обычную оплачиваемую работу. Валера щурится: ему интересны не ноги, а готовность делать то, что скажут.\n\nВопрос в том, кому после этого будет принадлежать твоё время.",
+          "variables": {},
+          "assets": [],
+          "background": "envelope",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "accept",
+              "label": "«Ладно, брат, донесу. Без лишнего» [+1000 ₽]",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 1000
+                },
+                {
+                  "inc": "совесть",
+                  "value": -2
+                },
+                {
+                  "set": "конверт",
+                  "value": true
+                },
+                {
+                  "set": "шестёрка",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "no",
+              "label": "«Тёмные пакеты — мимо меня»",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "inc": "уважение",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "id": "clean",
+              "label": "«Открытый заказ возьму. Тайны таскай сам» [+250 ₽]",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 250
+                },
+                {
+                  "set": "торговал",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "cards",
+          "title": "Стол любит новичков",
+          "text": "— Садись, земляк. На интерес, — зовёт улыбчивый взрослый парень.\nИнтерес начинается со ста рублей. Рыжий смотрит на тебя так, будто хочет сказать что-то при всех и не может. По столу скользят чужие ладони, шутки повторяются слишком вовремя.\n\nМожно поставить сотню, можно отступить с шуткой, можно вспомнить, как Валера вчера придумывал плату за знакомство. Здесь никто не заставляет играть. Зато очень стараются, чтобы отказ показался трусостью.",
+          "variables": {},
+          "assets": [],
+          "background": "cards",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "bet",
+              "label": "«По сотке? Раздавай» [100 ₽]",
+              "target": "cheat",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 100
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -100
+                }
+              ]
+            },
+            {
+              "id": "watch",
+              "label": "«Я пока глазами поиграю»",
+              "target": "cheat",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "set": "наблюдал",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "leave",
+              "label": "«Мой азарт сегодня на работе». Уйти",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "cheat",
+          "title": "Краплёная дружба",
+          "text": "Ты замечаешь, что один игрок радуется раньше, чем увидит карты. А может, лишь убеждаешь себя, что замечаешь. Ставка уже не главное: тебя проверяют на готовность стерпеть любую версию происходящего.\n\nРыжий двигает к тебе пустой стул: «Сядь ближе, спокойнее будет». Можно назвать подмену разговором, можно продать собственное молчание, можно уйти и принять потерю. Уважение иногда приходится тратить, чтобы не тратить остаток жизни.",
+          "variables": {},
+          "assets": [],
+          "background": "cheat",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "expose",
+              "label": "«Хватит фуфло толкать. Вижу ваши фокусы» [+100 ₽, +2 уважение]",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "наблюдал",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 100
+                },
+                {
+                  "inc": "уважение",
+                  "value": 2
+                }
+              ]
+            },
+            {
+              "id": "sell",
+              "label": "Продать молчание хозяину стола [+350 ₽, −2 совести]",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "наблюдал",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 350
+                },
+                {
+                  "inc": "совесть",
+                  "value": -2
+                },
+                {
+                  "set": "торговал",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "respect",
+              "label": "«Я за этот цирк не подписывался» [2 уважения]",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "уважение",
+                  "op": ">=",
+                  "value": 2
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": -2
+                }
+              ]
+            },
+            {
+              "id": "lose",
+              "label": "«Бывает. Сегодня не мой расклад». Уйти",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "set": "развели",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "roof",
+          "title": "Рыжий без публики",
+          "text": "С крыши двор похож на ладонь с трещинами. Рыжий достаёт термос.\n— Я хотел музыку писать. Потом решил: несолидно. Потом вообще перестал решать.\n\nОн смеётся над собой, но не предлагает смеяться тебе. Его мать работает в две смены, он подрабатывает грузчиком и играет роль беззаботного пацана так давно, что иногда сам верит. Внизу магнитола снова жуёт плёнку.\n— Ну что, {{кличка}}, по жизни только бабки рубить будем?",
+          "variables": {},
+          "assets": [],
+          "background": "roof",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "listen",
+              "label": "Дослушать: «Своим про такое говорить можно»",
+              "target": "radio",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "связи",
+                  "value": 2
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "set": "песня",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "encourage",
+              "label": "«Доставай тетрадку. Рифмы тоже дело»",
+              "target": "radio",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "set": "песня",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "mock",
+              "label": "«Лирика потом, братан. Где тут движ?»",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 1
+                },
+                {
+                  "inc": "совесть",
+                  "value": -1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "radio",
+          "title": "Песня без блатной афиши",
+          "text": "Во дворе ставят магнитолу на ящик. Руслан мнётся с тетрадкой: там слова про мать, последний автобус и друга, которому не смог позвонить. Никаких чужих корон — одна собственная жизнь.\n\nЧтобы выступить, нужна кассета для записи или работающая аппаратура. Ты можешь помочь техникой, заплатить за вечер у соседей или оставить эту затею до лучших времён. Никто не обещает славы. Зато впервые с момента приезда тебе предлагают сделать что-то своё.",
+          "variables": {},
+          "assets": [],
+          "background": "radio",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "tape",
+              "label": "Записать куплет на свою кассету",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "кассета",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 2
+                },
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "set": "выступил",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "repair",
+              "label": "Настроить аппаратуру своими руками",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "починил",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 2
+                },
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "set": "выступил",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "rent",
+              "label": "Оплатить аппаратуру на вечер [200 ₽]",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 200
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -200
+                },
+                {
+                  "inc": "уважение",
+                  "value": 2
+                },
+                {
+                  "set": "выступил",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "later",
+              "label": "«Вернёмся к песне. Я помню»",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            }
+          ]
+        },
+        {
+          "id": "neighbor",
+          "title": "Нина Павловна и два пакета",
+          "text": "Нина Павловна стоит у подъезда с пакетами. На запястье поводок, но собаки рядом нет.\n— Шарик опять под машины полез. Он людей боится, а мне с коленями за ним никак.\n\nИз окна кто-то кричит, что это «не пацанское занятие — за собакой бегать». Нина делает вид, что не услышала. В одном пакете картошка, в другом лекарство. Ни один не выглядит легче от того, что на тебя смотрят.\n\nИногда район проверяет без публики. Просто публика потом всё равно узнаёт.",
+          "variables": {},
+          "assets": [],
+          "background": "neighbor",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "dog",
+              "label": "Занести пакеты и поискать Шарика",
+              "target": "dog",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "set": "соседи",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "bags",
+              "label": "«Давайте хоть сумки дотащу»",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "set": "соседи",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "fee",
+              "label": "«За сотку и собаку найду» [+100 ₽]",
+              "target": "dog",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 100
+                },
+                {
+                  "inc": "совесть",
+                  "value": -1
+                },
+                {
+                  "set": "соседи",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "dog",
+          "title": "Не каждый дрожащий — слабый",
+          "text": "Шарик забился под старую машину. Он крупный, грязный и совершенно не опасный — просто устал пугаться. Ты приседаешь в мокрые листья. Нина ждёт в стороне, чтобы не напугать его голосом.\n\nРыжий проходит мимо и останавливается: «Чё, переговоры?» Ты впервые замечаешь, что он тоже не смеётся над теми, кому страшно. Рядом киоск. Можно потратиться на корм, можно дождаться, пока собака сама сделает шаг.\n\nУважение бывает очень тихим.",
+          "variables": {},
+          "assets": [],
+          "background": "dog",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "wait",
+              "label": "Посидеть рядом: «Выходи, бродяга. Свои»",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 1
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "set": "пёс",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "food",
+              "label": "Взять корм [60 ₽, +2 связи]",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 60
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -60
+                },
+                {
+                  "inc": "связи",
+                  "value": 2
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "set": "пёс",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "call",
+              "label": "Позвать Рыжего помочь [1 уважение, +1 связь]",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "уважение",
+                  "op": ">=",
+                  "value": 1
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": -1
+                },
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "set": "пёс",
+                  "value": true
+                },
+                {
+                  "set": "выручил",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "gym",
+          "title": "Подвал, где учат стоять",
+          "text": "Тренер не интересуется, с какой ты лавки. Спрашивает только, когда последний раз нормально спал.\n— Тут не учат искать драку. Тут учат не разваливаться от первого чужого окрика.\n\nЗанятие стоит двести. Можно помочь убрать зал вместо оплаты, но это не отменит усилия: тренировка всё равно будет. На стене потёртые фотографии взрослых ребят, которые давно работают водителями, мастерами и учителями. В их лицах нет ничего показного.",
+          "variables": {},
+          "assets": [],
+          "background": "gym",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "pay",
+              "label": "Оплатить тренировку [200 ₽, +3 уважения]",
+              "target": "spar",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 200
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -200
+                },
+                {
+                  "inc": "уважение",
+                  "value": 3
+                },
+                {
+                  "set": "тренировка",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "clean",
+              "label": "Прибрать зал и остаться [+1 уважение]",
+              "target": "spar",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 1
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "set": "тренировка",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "pose",
+              "label": "Постоять у входа: «Я так, обстановку проверить»",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": -1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "spar",
+          "title": "После гонга",
+          "text": "После короткой тренировки противник садится рядом, такой же запыхавшийся. Он протягивает воду первым.\n— Нормально держался. Не суетился.\n\nТренер уходит закрывать раздевалку. Сейчас можно рассказывать во дворе, будто ты тут всех положил. Можно попросить партнёра показать ошибку. Он взрослый, здоровый человек, и ему, кажется, совершенно не нужно твоё унижение для собственного уважения.\n\nНеожиданно оказывается, что крепость — это ещё и способность признать: пока не умею.",
+          "variables": {},
+          "assets": [],
+          "background": "spar",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "learn",
+              "label": "«Покажи, где я поплыл. Без понтов»",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "inc": "уважение",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "id": "boast",
+              "label": "«Расскажешь пацанам, как я держался?»",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 2
+                },
+                {
+                  "inc": "совесть",
+                  "value": -1
+                }
+              ]
+            },
+            {
+              "id": "friend",
+              "label": "Подать воду: «Ещё поработаем, брат»",
+              "target": "morning",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "связи",
+                  "value": 2
+                },
+                {
+                  "set": "выручил",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "evening",
+          "title": "Сходка без расписания",
+          "text": "К вечеру в карманах {{деньги}} ₽, а за спиной уже ходит какая-то версия тебя. Кто-то видел у станка, кто-то за картами. Собрать все версии обратно не получится.\n\nРыжий ждёт у гаража. Во дворе пропала часть денег на свет и лавку. Валера хмурится слишком громко. Седой предлагает сначала разобраться, но для начала нужно закончить разгрузку на складе.\n\nКостыль, аккуратный человек с бородой, предлагает занять тысячу: завтра вернуть 1400. «Не кабала, просто условия».",
+          "variables": {},
+          "assets": [],
+          "background": "evening",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "warehouse",
+              "label": "Идти на склад. Со своими деньгами разберусь",
+              "target": "warehouse",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            },
+            {
+              "id": "loan",
+              "label": "Послушать условия Костыля",
+              "target": "debt",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            },
+            {
+              "id": "warn",
+              "label": "Сказать Рыжему: «Если что, один не останешься»",
+              "target": "warehouse",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "set": "слово",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "debt",
+          "title": "Завтрашние деньги",
+          "text": "Костыль кладёт тысячу на стол, но руки не убирает.\n— Завтра четыреста сверху. Всё словами проговорили, без обид.\n\nЗа тысячу можно купить инструменты, помочь двору или красиво провести один вечер. Вернуть придётся 1400 независимо от того, насколько красиво всё выглядело. Долг будет виден в статистике и останется с тобой до расчёта.\n\nРыжий молчит. Он слишком хорошо знает, как звучит чужое «да ладно, выкручусь».",
+          "variables": {},
+          "assets": [],
+          "background": "debt",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "borrow",
+              "label": "«Беру. За возврат отвечаю» [+1000 ₽, долг 1400 ₽]",
+              "target": "warehouse",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "занял",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 1000
+                },
+                {
+                  "inc": "долг",
+                  "value": 1400
+                },
+                {
+                  "set": "занял",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "decline",
+              "label": "«Не вывожу такие условия. Пас»",
+              "target": "warehouse",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "id": "respect",
+              "label": "Попросить беспроцентный аванс [3 уважения, +400 ₽]",
+              "target": "warehouse",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "уважение",
+                  "op": ">=",
+                  "value": 3
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": -3
+                },
+                {
+                  "inc": "деньги",
+                  "value": 400
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "warehouse",
+          "title": "Ночная смена",
+          "text": "На складе пахнет картофелем, мокрыми досками и дизелем. Это обычная работа, которую Валера описывал как «движ». За честную смену обещают 350.\n\nВ дальнем углу Валера разговаривает с человеком в хорошем пальто. Тот смотрит на тебя оценивающе. Рыжий уже берёт первую коробку.\n— Давай закончим и домой. Не люблю я, когда о простом говорят загадками.\n\nЗа воротами кто-то спорит о потерявшейся дворовой кассе. Разговор становится громче.",
+          "variables": {},
+          "assets": [],
+          "background": "warehouse",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "work",
+              "label": "Разгрузить как договаривались [+350 ₽, +1 уважение]",
+              "target": "witness",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 350
+                },
+                {
+                  "inc": "уважение",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "id": "temptation",
+              "label": "Узнать, что за отдельная тема у Валеры",
+              "target": "temptation",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            },
+            {
+              "id": "friend",
+              "label": "Помочь Рыжему закрыть его часть [+250 ₽, +1 связь]",
+              "target": "witness",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 250
+                },
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "set": "выручил",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "temptation",
+          "title": "Тебе предлагают место",
+          "text": "— Ты толковый. С такими можно работать, — говорит Валера.\n\nПод словом «работать» он подразумевает оставаться рядом, когда ему удобно, и не слышать того, что неудобно тебе. Сегодня — просто посидеть у двери, пока взрослые разговаривают. Завтра обещают объяснить отдельно.\n\nЗа ожидание дают 700. За обычную уборку склада — 300. За отказ ничего не дают, зато никто не сможет сказать: «Ты сам подписался».",
+          "variables": {},
+          "assets": [],
+          "background": "temptation",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "accept",
+              "label": "«Я свой. Посижу, если надо» [+700 ₽, −2 совести]",
+              "target": "witness",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 700
+                },
+                {
+                  "inc": "совесть",
+                  "value": -2
+                },
+                {
+                  "set": "конверт",
+                  "value": true
+                },
+                {
+                  "set": "шестёрка",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "clean",
+              "label": "«Давай лучше склад приведу в порядок» [+300 ₽]",
+              "target": "witness",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 300
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "id": "no",
+              "label": "«Чужие тени караулить не нанимался»",
+              "target": "witness",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 1
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "witness",
+          "title": "Касса не сходится",
+          "text": "В гараже на столе пустая банка и пачка квитанций. По словам Валеры, из общих денег исчезло восемьсот. Последним банку держал Рыжий.\n— Вот тебе и брат, — бросает кто-то.\n\nТы замечаешь квитанцию из Лениного киоска. Часть суммы могла уйти на материалы ещё днём. Рыжий вспоминает, что покупал лампы по просьбе Валеры, но голоса перекрывают его объяснение. Седой стучит стаканом: «Сначала факты. Потом ярлыки».\n\nЗапомнить увиденное можно сейчас. Потом тебе предложат запомнить другое.",
+          "variables": {},
+          "assets": [],
+          "background": "witness",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "notice",
+              "label": "Запомнить квитанцию и слова Рыжего",
+              "target": "courtyard",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "set": "квитанция",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "accuse",
+              "label": "«Чужие деньги в руках — уже косяк»",
+              "target": "courtyard",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 1
+                },
+                {
+                  "inc": "совесть",
+                  "value": -2
+                }
+              ]
+            },
+            {
+              "id": "support",
+              "label": "Встать рядом: «Человека хотя бы дослушаем»",
+              "target": "courtyard",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "set": "выручил",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "courtyard",
+          "title": "Район — это кто?",
+          "text": "На лавке обсуждают пропажу, у подъезда обсуждают сломанную лампу. Две компании говорят об одном дворе так, будто живут в разных городах.\n\nЛена закрывает киоск и зовёт тебя разобраться с чеками. Нина Павловна просит не забыть про свет: ступеньки после дождя опасные. Валера обещает «решить вопрос по-мужски» и ничего не говорит о лампе.\n\nТы можешь вложиться деньгами, собрать людей или заняться фактами. На всё хватит не денег, а внимания.",
+          "variables": {},
+          "assets": [],
+          "background": "courtyard",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "fund",
+              "label": "Обсудить свет и лавку с соседями",
+              "target": "fund",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            },
+            {
+              "id": "lena",
+              "label": "К Лене: «Покажи, что там по расходам»",
+              "target": "lena",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            },
+            {
+              "id": "hype",
+              "label": "«Сперва найдём крайнего, потом лампочки»",
+              "target": "lena",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 1
+                },
+                {
+                  "inc": "совесть",
+                  "value": -1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "fund",
+          "title": "Общее без кассы взаимных понтов",
+          "text": "Соседи готовы починить лавку сами. Нужны доски, светильник и тот, кто не исчезнет после громкой речи.\n\nПятьсот рублей закрывают материалы. Если деньги нужны тебе самому, можно попросить людей принести инструмент и выйти завтра. Такая просьба стоит уже заработанного доверия. Нина смотрит не на карман, а на лицо: «Если соберёшь, мы придём».\n\nЗдесь впервые предлагают стать нужным. Это немного тяжелее, чем стать заметным.",
+          "variables": {},
+          "assets": [],
+          "background": "fund",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "pay",
+              "label": "Купить материалы [500 ₽, +3 уважения]",
+              "target": "lena",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 500
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -500
+                },
+                {
+                  "inc": "уважение",
+                  "value": 3
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "set": "площадка",
+                  "value": true
+                },
+                {
+                  "set": "люди",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "organize",
+              "label": "Собрать добровольцев [2 уважения, +2 связи]",
+              "target": "lena",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "уважение",
+                  "op": ">=",
+                  "value": 2
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": -2
+                },
+                {
+                  "inc": "связи",
+                  "value": 2
+                },
+                {
+                  "set": "площадка",
+                  "value": true
+                },
+                {
+                  "set": "люди",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "promise",
+              "label": "Пообещать громко, разбираться потом",
+              "target": "lena",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 2
+                },
+                {
+                  "inc": "совесть",
+                  "value": -1
+                }
+              ]
+            },
+            {
+              "id": "quiet",
+              "label": "«Пока не обещаю. С чеками помогу»",
+              "target": "lena",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            }
+          ]
+        },
+        {
+          "id": "lena",
+          "title": "Чеки против слухов",
+          "text": "Лена выкладывает квитанции на прилавок. Лампы покупал Рыжий, деньги отдавал Валера, сдачу забирал кто-то третий. Бумажки скучные, зато не меняют рассказ, когда рядом становится тесно.\n— Возьми копии. Только потом не делай вид, что я тебе про другое говорила.\n\nЕсли ты уже помогал соседям, Лена доверится сразу. Если сохранил квитанцию в памяти — тоже. Иначе придётся попросить в долг не рубли, а собственную репутацию. С улицы начинает доноситься шум сильного дождя.",
+          "variables": {},
+          "assets": [],
+          "background": "lena",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "receipt",
+              "label": "Сверить с увиденной квитанцией",
+              "target": "storm",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "квитанция",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": [
+                {
+                  "set": "доказательства",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "neighbor",
+              "label": "«Нина за меня скажет. Давай разберёмся»",
+              "target": "storm",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "соседи",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": [
+                {
+                  "set": "доказательства",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "credit",
+              "label": "Попросить копии под своё имя [2 уважения]",
+              "target": "storm",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "уважение",
+                  "op": ">=",
+                  "value": 2
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": -2
+                },
+                {
+                  "set": "доказательства",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "wait",
+              "label": "Дождаться общего разговора. Выйти под дождь",
+              "target": "storm",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            }
+          ]
+        },
+        {
+          "id": "storm",
+          "title": "Когда ливень спросил со всех",
+          "text": "Ночью ливень забивает сток. Вода добирается до подвального клуба, где лежат инструменты и мебель. Свет гаснет. Валера внезапно оказывается занят телефонным разговором.\n\nРыжий уже по колено в воде, Нина держит дверь, Лена переносит коробки. Здесь никто не спрашивает, какой у тебя статус. Нужны руки, сухое место и насос.\n\nМожно заплатить за аренду насоса, поднять знакомых или таскать вещи самому. Можно уйти. Дождь не станет спорить с твоей причиной.",
+          "variables": {},
+          "assets": [],
+          "background": "storm",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "pump",
+              "label": "Оплатить насос [600 ₽, +3 уважения]",
+              "target": "shelter",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 600
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -600
+                },
+                {
+                  "inc": "уважение",
+                  "value": 3
+                },
+                {
+                  "inc": "связи",
+                  "value": 2
+                },
+                {
+                  "set": "спас",
+                  "value": true
+                },
+                {
+                  "set": "выручил",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "crew",
+              "label": "Поднять знакомых [3 уважения, +3 связи]",
+              "target": "shelter",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "уважение",
+                  "op": ">=",
+                  "value": 3
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": -3
+                },
+                {
+                  "inc": "связи",
+                  "value": 3
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "set": "спас",
+                  "value": true
+                },
+                {
+                  "set": "выручил",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "carry",
+              "label": "Молча встать в цепочку с вёдрами",
+              "target": "shelter",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 1
+                },
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "set": "спас",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "leave",
+              "label": "«Я на такое не подписывался». Уйти",
+              "target": "betrayal",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": -2
+                },
+                {
+                  "set": "отступил",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "shelter",
+          "title": "Сухие носки дороже понтов",
+          "text": "К утру вещи разложены в гараже. Нина укрывает Шарика старым пледом, Рыжий разливает чай, Лена считает потери. Кто-то разбил колено о ступеньку; серьёзного ничего, но пластырь сейчас ценнее красивой речи.\n\nСедой отжимает рукав: «Вот вам и сходка. Без старших, без младших — кто подхватил, тот и свой».\n\nУ тебя {{деньги}} ₽ и {{уважение}} уважения. Можно отдать аптечку, купить сухие полотенца или просто остаться рядом. Потом всё равно придётся вернуться к пропавшим деньгам.",
+          "variables": {},
+          "assets": [],
+          "background": "shelter",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "medkit",
+              "label": "Отдать аптечку [+2 связи, +1 совесть]",
+              "target": "ledger",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "аптечка",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "связи",
+                  "value": 2
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "set": "аптечка",
+                  "value": false
+                },
+                {
+                  "set": "выручил",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "towels",
+              "label": "Купить полотенца [150 ₽, +1 уважение]",
+              "target": "ledger",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 150
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -150
+                },
+                {
+                  "inc": "уважение",
+                  "value": 1
+                },
+                {
+                  "inc": "связи",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "id": "stay",
+              "label": "Остаться разбирать вещи вместе",
+              "target": "ledger",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "set": "выручил",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "ledger",
+          "title": "Восемьсот на бумаге",
+          "text": "За мокрыми вещами обнаруживается старая тетрадь расходов. Восемьсот рублей не исчезли: часть ушла на свет, часть — на обещанные Валерой материалы. Он собирался «потом объяснить», но успел назначить виновного.\n\nБез квитанций это всего лишь новая версия. С квитанциями — разговор, в котором придётся отвечать уже Валере. Лена предлагает ещё раз сверить суммы. Седой ждёт тебя вечером: «Правда не любит беготни. Но и опаздывать ей незачем».\n\nМожно разобраться, купить копии или отдать решение тем, кто громче.",
+          "variables": {},
+          "assets": [],
+          "background": "ledger",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "proof",
+              "label": "Сложить тетрадь и чеки в одну историю",
+              "target": "betrayal",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "доказательства",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "id": "copy",
+              "label": "Сделать недостающие копии [100 ₽]",
+              "target": "betrayal",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 100
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -100
+                },
+                {
+                  "set": "доказательства",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "observe",
+              "label": "Восстановить разговоры по памяти",
+              "target": "betrayal",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "наблюдал",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": [
+                {
+                  "set": "доказательства",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "ignore",
+              "label": "«Пусть старшие сами разбираются»",
+              "target": "betrayal",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": -1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "betrayal",
+          "title": "По какую сторону стола",
+          "text": "Валера ловит тебя до встречи.\n— Скажешь, что Рыжий мутил с кассой, и все забудут. Тебе три сотки за потраченное время. Парень покрутится, ничего с ним не станет.\n\nРуслан в этот момент ждёт тебя у подъезда. Он не просил врать за него. Просил только не исчезнуть, пока остальные решают, кто он такой.\n\nДеньги здесь небольшие. Именно поэтому отговорка «так вышло» потом будет звучать особенно жалко. Но решение всё ещё твоё.",
+          "variables": {},
+          "assets": [],
+          "background": "betrayal",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "sell",
+              "label": "«Ладно. Подтвержу твою версию» [+300 ₽, −3 совести]",
+              "target": "hearing",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": 300
+                },
+                {
+                  "inc": "совесть",
+                  "value": -3
+                },
+                {
+                  "inc": "уважение",
+                  "value": 1
+                },
+                {
+                  "set": "предал",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "friend",
+              "label": "«Своих за три сотки не сдают»",
+              "target": "hearing",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "set": "выручил",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "facts",
+              "label": "«Я скажу то, что могу подтвердить»",
+              "target": "hearing",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "id": "neutral",
+              "label": "«Меня в ваши расклады не вписывай»",
+              "target": "hearing",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "set": "отступил",
+                  "value": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "hearing",
+          "title": "За базар ответишь",
+          "text": "В гараже все пришли как будто случайно и сели так, будто готовились полдня. Седой просит тебя говорить. Рыжий смотрит прямо, Валера — на остальных.\n\nТеперь пригодится то, что нельзя было купить на рынке: память, доверие, выполненные обещания. Но и деньги способны закончить спор — только не обязательно правильно.\n\nЗа тобой {{уважение}} уважения, {{связи}} связей. В кармане {{деньги}} ₽. Можно предъявить факты, поручиться собой, предложить расчёт или честно признать, что ты не разобрался.",
+          "variables": {},
+          "assets": [],
+          "background": "hearing",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "proof",
+              "label": "Положить чеки: «Вот мой расклад. По пунктам»",
+              "target": "defend",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "доказательства",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": []
+            },
+            {
+              "id": "word",
+              "label": "«За Рыжего отвечу своим именем» [4 уважения]",
+              "target": "defend",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "уважение",
+                  "op": ">=",
+                  "value": 4
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": -4
+                },
+                {
+                  "set": "выручил",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "power",
+              "label": "«Хватит галдеть. Сейчас я скажу» [нужно 8 уважения]",
+              "target": "defend",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "уважение",
+                  "op": ">=",
+                  "value": 8
+                }
+              ],
+              "effects": [
+                {
+                  "set": "давил",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "money",
+              "label": "Предложить закрыть спор деньгами",
+              "target": "deal",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            },
+            {
+              "id": "admit",
+              "label": "«Не разобрался. Чужую вину придумывать не стану»",
+              "target": "lastnight",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "defend",
+          "title": "Голос, который не сорвался",
+          "text": "Ты говоришь, и тебя не перебивают. Это ещё не победа. Иногда молчат, потому что слушают; иногда — потому что запоминают, за что потом спросить.\n\nСедой поворачивается к Валере: «Лампы куплены. Человек работал. Ты почему его первым назначил?» Рыжий впервые выдыхает. Если за тобой есть и факты, и люди, спор можно закончить общим решением. Если есть только громкость — можно занять освободившееся место.\n\nРайон отдаёт тебе слово. Что ты с ним сделаешь?",
+          "variables": {},
+          "assets": [],
+          "background": "defend",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "peace",
+              "label": "Предложить открытый учёт и общую работу",
+              "target": "lastnight",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "доказательства",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "var": "люди",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "var": "предал",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 3
+                },
+                {
+                  "inc": "совесть",
+                  "value": 1
+                },
+                {
+                  "set": "мир",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "brother",
+              "label": "«Извиниться перед Русланом. И дальше жить»",
+              "target": "lastnight",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "предал",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 2
+                },
+                {
+                  "inc": "связи",
+                  "value": 1
+                },
+                {
+                  "set": "выручил",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "rule",
+              "label": "«Теперь вопросы через меня» [+3 уважения, −2 совести]",
+              "target": "lastnight",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "уважение",
+                  "value": 3
+                },
+                {
+                  "inc": "совесть",
+                  "value": -2
+                }
+              ]
+            },
+            {
+              "id": "truth",
+              "label": "Признать и свой косяк, если был. Закончить разговор",
+              "target": "lastnight",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "deal",
+          "title": "За мир тоже выставили счёт",
+          "text": "Костыль считает быстро: «Восемьсот вернём в общий, ещё пятьсот на новые материалы. Но можно начать с меньшего». Лена возражает: «Покупка тишины — не объяснение».\n\nДеньги могут починить лампу. Не могут отменить сказанное про Рыжего. Ты выбираешь, за что платишь: за двор, за прекращение спора или за право больше не участвовать.\n\nТвои {{деньги}} ₽ — всё ещё настоящие. Чужое уважение пока только обещают.",
+          "variables": {},
+          "assets": [],
+          "background": "deal",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "fund",
+              "label": "Вложить 800 в двор [800 ₽, +4 уважения]",
+              "target": "lastnight",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 800
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -800
+                },
+                {
+                  "inc": "уважение",
+                  "value": 4
+                },
+                {
+                  "set": "площадка",
+                  "value": true
+                },
+                {
+                  "set": "люди",
+                  "value": true
+                }
+              ]
+            },
+            {
+              "id": "buyout",
+              "label": "Закрыть перепалку [500 ₽, +1 уважение]",
+              "target": "lastnight",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 500
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -500
+                },
+                {
+                  "inc": "уважение",
+                  "value": 1
+                }
+              ]
+            },
+            {
+              "id": "withdraw",
+              "label": "«Я чужую ошибку оплачивать не обязан»",
+              "target": "lastnight",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": [
+                {
+                  "inc": "совесть",
+                  "value": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "lastnight",
+          "title": "Что остаётся под утро",
+          "text": "К утру район снова становится просто домами. Всё важное теперь умещается в нескольких цифрах — и в том, чего цифры не объясняют.\n\nДеньги: {{деньги}} ₽. Уважение: {{уважение}}. Совесть: {{совесть}}. Долг: {{долг}} ₽. Связи: {{связи}}.\n\nЕсли занимал у Костыля, сейчас можно рассчитаться. Потом решай, куда идти: на вокзал, к Михалычу, обратно во двор или дальше по дороге. Ни один путь не обязан продолжать чужую легенду о тебе. Но каждый помнит сделанное.",
+          "variables": {},
+          "assets": [],
+          "background": "lastnight",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "repay",
+              "label": "Вернуть Костылю 1400 ₽ и закрыть долг",
+              "target": "lastnight",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "долг",
+                  "op": "==",
+                  "value": 1400
+                },
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 1400
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -1400
+                },
+                {
+                  "inc": "долг",
+                  "value": -1400
+                }
+              ]
+            },
+            {
+              "id": "station",
+              "label": "Проверить, сколько стоит уехать",
+              "target": "station",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            },
+            {
+              "id": "garage",
+              "label": "Открыть ворота мастерской",
+              "target": "garage_future",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            },
+            {
+              "id": "yard",
+              "label": "Остаться и посмотреть людям в глаза",
+              "target": "yard_future",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            },
+            {
+              "id": "road",
+              "label": "Пройти к дороге за районом",
+              "target": "road_future",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            },
+            {
+              "id": "mirror",
+              "label": "Сначала разобраться с собой",
+              "target": "mirror",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            }
+          ]
+        },
+        {
+          "id": "station",
+          "title": "Билет без погоняла",
+          "text": "В кассе спрашивают только направление. Кассирше безразлично, уважает ли тебя Валера. За шестьсот рублей автобус увезёт тебя туда, где всё придётся рассказывать заново.\n\nНо долг не исчезает от расстояния. И иногда уехать — свободный выбор, а иногда единственный оставшийся. На лавке у перрона ты рассматриваешь свои руки: они успели многое за эти дни, хотя выглядят почти как раньше.\n\nДеньги: {{деньги}} ₽. Долг: {{долг}} ₽.",
+          "variables": {},
+          "assets": [],
+          "background": "station",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "free",
+              "label": "Купить билет без хвостов [600 ₽, долг закрыт]",
+              "target": "end_free",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "долг",
+                  "op": "==",
+                  "value": 0
+                },
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 600
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -600
+                }
+              ]
+            },
+            {
+              "id": "debt",
+              "label": "Уехать, оставив расчёт на потом [есть долг]",
+              "target": "end_debt",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "долг",
+                  "op": ">",
+                  "value": 0
+                }
+              ],
+              "effects": []
+            },
+            {
+              "id": "back",
+              "label": "Вернуться к утренним вариантам",
+              "target": "lastnight",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            }
+          ]
+        },
+        {
+          "id": "garage_future",
+          "title": "Ключ от своего дела",
+          "text": "Михалыч поднимает ворота. Внутри свободный угол, верстак и розетка, которая искрит только по четвергам, как он утверждает.\n— Семьсот на материалы и аренду угла. Если радиолу поднял, с остальным разберёшься. Если торговля ближе — рынок рядом. Только людям про поломки честно говори.\n\nРуслан оставил здесь гитару: «Для твоего первого нормального вечера». Можно стать мастером, продавцом или тем, кто наконец споёт свою песню. Ни одному занятию корона не нужна.",
+          "variables": {},
+          "assets": [],
+          "background": "garage_future",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "master",
+              "label": "Взять угол под мастерскую [700 ₽, опыт ремонта]",
+              "target": "end_master",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "починил",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 700
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -700
+                }
+              ]
+            },
+            {
+              "id": "hustler",
+              "label": "Открыть свой прилавок [1500 ₽, опыт торговли]",
+              "target": "end_hustler",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "торговал",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "var": "деньги",
+                  "op": ">=",
+                  "value": 1500
+                }
+              ],
+              "effects": [
+                {
+                  "inc": "деньги",
+                  "value": -1500
+                }
+              ]
+            },
+            {
+              "id": "music",
+              "label": "Собрать первый дворовый концерт [есть выступление]",
+              "target": "end_musician",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "песня",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "var": "выступил",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": []
+            },
+            {
+              "id": "back",
+              "label": "«Я ещё подумаю». Вернуться во двор",
+              "target": "lastnight",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            }
+          ]
+        },
+        {
+          "id": "yard_future",
+          "title": "Кому здесь рады",
+          "text": "Во дворе сохнет отремонтированная лавка. Даже если ты не помогал, кто-то всё равно нашёл доски и время. Это неприятное открытие для желающего быть незаменимым — и хорошее для желающего жить среди людей.\n\nРуслан ждёт разговора. Нина зовёт пить чай. Валера тоже может предложить место рядом, только смысл этого места теперь понятнее.\n\nТы можешь принять имя, которое заслужил, или попробовать навязать новое. Условия ниже — следы твоих поступков, а не случайный жребий.",
+          "variables": {},
+          "assets": [],
+          "background": "yard_future",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "authority",
+              "label": "«Дальше вопросы решаем со мной» [12 уважения, вклад в двор]",
+              "target": "end_authority",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "уважение",
+                  "op": ">=",
+                  "value": 12
+                },
+                {
+                  "var": "площадка",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": []
+            },
+            {
+              "id": "brother",
+              "label": "Остаться Рыжему братом [3 связи, выручил, не предал]",
+              "target": "end_brother",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "связи",
+                  "op": ">=",
+                  "value": 3
+                },
+                {
+                  "var": "выручил",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "var": "предал",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "effects": []
+            },
+            {
+              "id": "peace",
+              "label": "Держать общее дело без короны [добился примирения]",
+              "target": "end_peace",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "мир",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": []
+            },
+            {
+              "id": "home",
+              "label": "Принять приглашение Нины [соседи, совесть ≥ 4]",
+              "target": "end_home",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "соседи",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "var": "совесть",
+                  "op": ">=",
+                  "value": 4
+                }
+              ],
+              "effects": []
+            },
+            {
+              "id": "six",
+              "label": "Остаться на подхвате у Валеры [брал его поручения]",
+              "target": "end_six",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "шестёрка",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": []
+            },
+            {
+              "id": "traitor",
+              "label": "Сесть за Валерин стол [предал Рыжего]",
+              "target": "end_traitor",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "предал",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": []
+            },
+            {
+              "id": "back",
+              "label": "Ещё пройтись. Вернуться к выбору",
+              "target": "lastnight",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            }
+          ]
+        },
+        {
+          "id": "road_future",
+          "title": "Бродяга — не тот, кому некуда",
+          "text": "За последним домом начинается дорога. Рыжий догоняет с термосом, но не пытается удержать.\n— Бродяга, — говорит он, — это когда сам решаешь, где быть. А не когда тебя отовсюду гонят.\n\nДля такого имени мало красивого ухода. Нужно оставить за собой выполненные обещания, закрытый долг и людей, которые вспомнят тебя без скрежета зубов. Если ты выбрал тёмную работу, дорога может повернуть обратно к Валериному складу.\n\nИ всегда можно признаться: прежнее имя пока тесно, нового ещё нет.",
+          "variables": {},
+          "assets": [],
+          "background": "road_future",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "wanderer",
+              "label": "Уйти бродягой [8 уважения, совесть ≥ 5, без долгов и предательства]",
+              "target": "end_wanderer",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "уважение",
+                  "op": ">=",
+                  "value": 8
+                },
+                {
+                  "var": "совесть",
+                  "op": ">=",
+                  "value": 5
+                },
+                {
+                  "var": "долг",
+                  "op": "==",
+                  "value": 0
+                },
+                {
+                  "var": "предал",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "effects": []
+            },
+            {
+              "id": "shadow",
+              "label": "Принять постоянную «тему» [конверт, совесть ≤ 2]",
+              "target": "end_shadow",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "конверт",
+                  "op": "==",
+                  "value": true
+                },
+                {
+                  "var": "совесть",
+                  "op": "<=",
+                  "value": 2
+                }
+              ],
+              "effects": []
+            },
+            {
+              "id": "back",
+              "label": "Вернуться и честно посмотреть на себя",
+              "target": "mirror",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            }
+          ]
+        },
+        {
+          "id": "mirror",
+          "title": "Кто ты, когда никто не спрашивает",
+          "text": "Зеркало в прихожей не знает фени. Оно показывает усталого взрослого человека в обычной куртке.\n\nТы можешь назвать себя лохом, если тебя развели. Можешь признать, что устал и отступил. Можешь не торопиться с окончательным именем. Этот район оказался не экзаменом с одним правильным ответом, а местом, где каждое решение оставило свидетеля.\n\nНа руках {{деньги}} ₽, за спиной {{уважение}} уважения, внутри {{совесть}} совести. Твоя жизнь не обязана кончаться там, где кончается чужой разговор.",
+          "variables": {},
+          "assets": [],
+          "background": "mirror",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "choices": [
+            {
+              "id": "loh",
+              "label": "«Развели меня. Но теперь хоть вижу» [был обманут]",
+              "target": "end_loh",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "развели",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": []
+            },
+            {
+              "id": "burnout",
+              "label": "Признать усталость и взять паузу [отступал]",
+              "target": "end_burnout",
+              "fallbackTarget": null,
+              "conditions": [
+                {
+                  "var": "отступил",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "effects": []
+            },
+            {
+              "id": "fresh",
+              "label": "«Я пока Артём. Остальное — поступками»",
+              "target": "end_fresh",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            },
+            {
+              "id": "back",
+              "label": "Решить иначе: вернуться к выбору будущего",
+              "target": "lastnight",
+              "fallbackTarget": null,
+              "conditions": [],
+              "effects": []
+            }
+          ]
+        },
+        {
+          "id": "end_loh",
+          "title": "Лох, который заметил развод",
+          "text": "Ты остаёшься на пустой лавке с ощущением, будто заплатил за билет на собственное унижение. В голове ещё звучит удобное «не мой расклад». Но теперь ты различаешь, где дружеская шутка, а где тебя понемногу приучают быть удобным.\n\nРыжий садится рядом без свидетелей.\n— Лох — не тот, кого один раз развели. Хуже, когда человек всё понял и решил, что так и надо.\n\nТы не получаешь красивого погоняла. Получаешь неприятный опыт и право больше за него не платить. Завтра можно вернуться к Михалычу или к Нине. Место за карточным столом ты больше не считаешь подарком.",
+          "variables": {},
+          "assets": [],
+          "background": "end_loh",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "ending": {
+            "type": "bitter",
+            "title": "Лох, который заметил развод"
+          },
+          "choices": []
+        },
+        {
+          "id": "end_six",
+          "title": "Шестёрка: всегда на связи",
+          "text": "Тебе звонят часто. Забрать, отнести, подождать, прикрыть отсутствие. За столом для тебя есть место — обычно то, с которого удобнее вставать.\n\nВалера говорит: «Ты свой, на тебя положиться можно». Но твои собственные планы каждый раз оказываются несвоевременными. Деньги бывают. Благодарность тоже. Равного разговора почему-то всё ещё нет.\n\nОднажды Рыжий спрашивает, когда вы допишете песню. Ты отвечаешь: «Как освобожусь». И впервые слышишь, насколько давно живёшь в этом будущем времени. Район дал тебе занятие. Решать, достаточно ли этого для собственной жизни, он за тебя не станет.",
+          "variables": {},
+          "assets": [],
+          "background": "end_six",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "ending": {
+            "type": "bitter",
+            "title": "Шестёрка: всегда на связи"
+          },
+          "choices": []
+        },
+        {
+          "id": "end_debt",
+          "title": "На счётчике",
+          "text": "Автобус трогается, а цифра долга остаётся с тобой: {{долг}} ₽. Костыль не звонит каждый час. Ему достаточно знать, что ты сам вспоминаешь о нём чаще.\n\nТы хотел купить свободный день, а купил обязательство на завтра. Теперь случайный заработок уже не выглядит твоим: сначала из него вычитается чужое ожидание.\n\nВ кармане ещё {{деньги}} ₽, и это не конец света. Но начинать придётся с простого: признать сумму, договориться о расчёте, перестать путать занятые деньги со своими. На новом месте тебя никто не знает. Старый долг знает достаточно.",
+          "variables": {},
+          "assets": [],
+          "background": "end_debt",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "ending": {
+            "type": "bitter",
+            "title": "На счётчике"
+          },
+          "choices": []
+        },
+        {
+          "id": "end_hustler",
+          "title": "Барыга с человеческим лицом",
+          "text": "Ты открываешь небольшой прилавок. После вложения на руках {{деньги}} ₽. Радиолы, инструменты, колонки — вещи получают второй шанс, а ты первый устойчивый заработок.\n\nВо дворе зовут барыгой. Ты пока не решил, обидно ли это. Важнее другое: скажешь ли покупателю о треснувшем динамике, когда он уже достал деньги? Вернёшь ли лишнюю сдачу? Будешь ли платить помощнику вовремя?\n\nУважение района теперь не гарантирует ни одной продажи. Зато человек, которого ты не обманул, возвращается и приводит другого. Каждый новый день открывается одной и той же проверкой: что именно ты продаёшь — вещи или чужое доверие?",
+          "variables": {},
+          "assets": [],
+          "background": "end_hustler",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "ending": {
+            "type": "pragmatic",
+            "title": "Барыга с человеческим лицом"
+          },
+          "choices": []
+        },
+        {
+          "id": "end_traitor",
+          "title": "За столом, где пусто",
+          "text": "Валера встречает тебя щедро. Чай крепкий, закуска куплена, место удобное. Триста рублей за слова давно растворились в других деньгах.\n\nРыжий больше не здоровается первым. Лена выдаёт сдачу молча. В разговорах при тебе иногда появляется пауза — маленькая, почти вежливая. Тебя не выгнали из района. Просто перестали приносить сюда себя без защиты.\n\nТы получил доступ к одному столу и потерял несколько дверей. Теперь Валера знает цену твоего слова. Самое неприятное — ты тоже. Извинение ещё возможно, но это будет другой разговор, где нельзя назначить цену заранее.",
+          "variables": {},
+          "assets": [],
+          "background": "end_traitor",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "ending": {
+            "type": "bitter",
+            "title": "За столом, где пусто"
+          },
+          "choices": []
+        },
+        {
+          "id": "end_authority",
+          "title": "Авторитет: тяжёлая связка ключей",
+          "text": "Теперь тебя спрашивают раньше, чем спорят. Кто чинит свет, кому дать ключ от гаража, с кем говорить о новой скамейке. Слово «авторитет» звучит приятно ровно до первого звонка в шесть утра.\n\nЗа тобой {{уважение}} уважения. Оно заработано по-разному, и люди помнят каждую часть. Одни доверяют, другие предпочитают не возражать. Отличать одно от другого становится твоей главной работой.\n\nСедой отдаёт связку ключей: «Следи, чтобы тебя не боялись там, где должны были верить». Ты принимаешь их. Район больше не спрашивает, кто ты по жизни. Теперь он каждый день смотрит, что ты с этим делаешь.",
+          "variables": {},
+          "assets": [],
+          "background": "end_authority",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "ending": {
+            "type": "ambiguous",
+            "title": "Авторитет: тяжёлая связка ключей"
+          },
+          "choices": []
+        },
+        {
+          "id": "end_brother",
+          "title": "Брат по поступкам",
+          "text": "Руслан приносит доски, ты — инструмент или просто руки. Лавка получается чуть кривой. Вдвоём вы решаете, что это её характер.\n\nВ телефоне появляется контакт «Рыжий», в его телефоне — твоё настоящее имя. Вы ещё будете спорить, занимать друг у друга по мелочи, пропадать на работе и не сразу отвечать. Но больше не придётся доказывать дружбу готовностью терпеть любую глупость.\n\nТы выручил человека, когда за это нельзя было заранее получить аплодисменты. Он запомнил. Слово «брат» наконец перестаёт быть приглашением куда-то бежать. Иногда это просто тот, рядом с кем можно спокойно остаться собой.",
+          "variables": {},
+          "assets": [],
+          "background": "end_brother",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "ending": {
+            "type": "warm",
+            "title": "Брат по поступкам"
+          },
+          "choices": []
+        },
+        {
+          "id": "end_wanderer",
+          "title": "Бродяга с правом вернуться",
+          "text": "Ты уходишь без свиты, без чужих денег и без необходимости бежать. В сумке термос, в кармане {{деньги}} ₽, за спиной люди, которые не жалеют, что встретили тебя.\n\nРыжий хлопает по плечу: «Будешь рядом — заходи». Седой добавляет: «Дорога длинная. Не потеряй по ней того, кто по ней идёт».\n\nБродягой тебя называют не за отсутствие дома. За способность не продавать себя за место у чужой лавки. Ты научился отвечать за слово и не отвечать за чужую жадность. Район остаётся позади, но больше не становится чужим. У тебя есть главное дорожное имущество: право вернуться без опущенных глаз.",
+          "variables": {},
+          "assets": [],
+          "background": "end_wanderer",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "ending": {
+            "type": "warm",
+            "title": "Бродяга с правом вернуться"
+          },
+          "choices": []
+        },
+        {
+          "id": "end_master",
+          "title": "Мастер своего угла",
+          "text": "У твоего верстака появляется первая очередь. Сначала из знакомых, потом из тех, кому знакомые сказали: «Артём делает нормально». После платы за угол осталось {{деньги}} ₽. Немного, зато это понятная арифметика.\n\nМихалыч приходит посмотреть, как ты сам объясняешь клиенту поломку. Не вмешивается. Потом оставляет старую лампу: «У меня лишняя». Вы оба понимаете, что лишней она не была.\n\nВо дворе тебя иногда зовут Мастером. Впервые прозвище ничего не маскирует. Оно просто описывает то, чему ты научился. Руки пахнут металлом, вечерами болит спина, а на вопрос «кто ты?» больше не требуется длинная легенда.",
+          "variables": {},
+          "assets": [],
+          "background": "end_master",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "ending": {
+            "type": "warm",
+            "title": "Мастер своего угла"
+          },
+          "choices": []
+        },
+        {
+          "id": "end_musician",
+          "title": "Голос района",
+          "text": "Первый концерт помещается между гаражом и фонарём. Руслан сбивается, ты забываешь строчку, магнитола хрипит на припеве. Никто не уходит.\n\nВ песнях остаются двор, чужие понты, чай, работа и страх оказаться ненужным. Ты не выдаёшь это за красивую судьбу. Просто рассказываешь так, как было. И люди неожиданно узнают себя там, где раньше ждали только очередной истории про самого крутого.\n\nГонорар — чай и несколько искренних просьб сыграть ещё. Жить всё равно придётся работать. Но голос уже твой, и его нельзя одолжить у Валеры. В этом районе ты оказался человеком, которого захотели дослушать.",
+          "variables": {},
+          "assets": [],
+          "background": "end_musician",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "ending": {
+            "type": "warm",
+            "title": "Голос района"
+          },
+          "choices": []
+        },
+        {
+          "id": "end_home",
+          "title": "Свой человек",
+          "text": "Нина накрывает на стол так, будто ты не новый сосед, а человек, который долго задерживался в дороге. Шарик ложится у твоей сумки. Лена приносит хлеб, Руслан — ужасный анекдот, который всё равно смешит.\n\nТы не стал хозяином района. Не заработал сказочное состояние. Просто носил пакеты, слушал людей, помогал, когда мог, и не превращал каждое доброе дело в счёт к оплате.\n\nТеперь, если свет в твоём окне долго не загорается, кто-нибудь постучит. Это не громкое уважение. У него нет сцены, на которой оно объявляется. Оно начинается с того, что за столом оставляют чашку и не спрашивают, заслужил ли ты чай сегодня.",
+          "variables": {},
+          "assets": [],
+          "background": "end_home",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "ending": {
+            "type": "warm",
+            "title": "Свой человек"
+          },
+          "choices": []
+        },
+        {
+          "id": "end_free",
+          "title": "Свободный пассажир",
+          "text": "На билете нет ни клички, ни районной характеристики. Только направление. После покупки осталось {{деньги}} ₽, долг закрыт, и никто не получает права выбирать за тебя следующий город.\n\nТы не доказал, что сильнее всех. Ты доказал себе, что можешь уйти по собственной воле. Всё хорошее, что случилось во дворе, не обязывает остаться навсегда. Всё плохое не обязано ехать с тобой.\n\nВ окне плывут панельные дома. Один из них был твоим несколько дней. Ты сохраняешь номер Руслана — звонок не равен долгу. Впереди опять неизвестность. Теперь она хотя бы не выдана тебе кем-то за единственный возможный путь.",
+          "variables": {},
+          "assets": [],
+          "background": "end_free",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "ending": {
+            "type": "open",
+            "title": "Свободный пассажир"
+          },
+          "choices": []
+        },
+        {
+          "id": "end_peace",
+          "title": "Решала без короны",
+          "text": "На гаражной стене появляется открытая тетрадь расходов. Не памятник твоей мудрости, а скучный способ больше не искать виноватого по громкости голоса. Валера приносит недостающие материалы. Руслан принимает извинение без торжества.\n\nТы свёл вместе факты и людей, которым предстоит дальше жить рядом. Это оказалось труднее, чем выбрать сильную сторону. Никто не стал святым, никто не получил пожизненного права решать за остальных.\n\nТебя зовут решалой. Ты просишь: «Лучше по имени». Когда снова спорят, ты сначала слушаешь. Район постепенно узнаёт неприятную и полезную вещь: уважение не обязано заканчиваться там, где начинается чужое мнение.",
+          "variables": {},
+          "assets": [],
+          "background": "end_peace",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "ending": {
+            "type": "warm",
+            "title": "Решала без короны"
+          },
+          "choices": []
+        },
+        {
+          "id": "end_shadow",
+          "title": "Человек при тени",
+          "text": "Оплата приходит вовремя. Тебе больше не приходится считать мелочь у киоска. Зато всё чаще приходится ждать в коридоре, пока кто-то другой решает, сколько продлится твой вечер.\n\nВалера уверяет, что ты поднялся. Из этого подъёма почему-то не видно дороги наружу. Вопросов становится меньше не потому, что всё понятно, а потому, что ты научился глотать их раньше, чем они прозвучат.\n\nВ кармане {{деньги}} ₽. Внутри {{совесть}} совести — цифра условная, бессонница настоящая. Ты выбрал удобную тень. Она пока укрывает от дождя. Кто будет выбирать, когда ей придёт время двигаться, ты уже начинаешь понимать.",
+          "variables": {},
+          "assets": [],
+          "background": "end_shadow",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "ending": {
+            "type": "dark",
+            "title": "Человек при тени"
+          },
+          "choices": []
+        },
+        {
+          "id": "end_burnout",
+          "title": "Пауза без свидетелей",
+          "text": "Ты закрываешь дверь комнаты и впервые за несколько дней никуда не идёшь. Не отвечаешь сразу, не придумываешь оправданий, не собираешь лицо для очередной компании.\n\nГде-то ты отступил из страха, где-то — потому что больше не мог. Разобрать эти причины будет честнее, чем назвать всю усталость характером или всю осторожность слабостью. На столе остывает чай. Район за окном прекрасно обходится без твоего немедленного участия.\n\nСегодня твоё имя — не победитель и не проигравший. Уставший человек, которому нужна пауза. Завтра можно извиниться, вернуть долг, закончить работу. Но сначала поспать, чтобы следующие решения действительно принимал ты.",
+          "variables": {},
+          "assets": [],
+          "background": "end_burnout",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "ending": {
+            "type": "open",
+            "title": "Пауза без свидетелей"
+          },
+          "choices": []
+        },
+        {
+          "id": "end_fresh",
+          "title": "Пока просто Артём",
+          "text": "Утром тебя снова спрашивают: «Ну что, определился, кто ты по жизни?»\n— Артём, — отвечаешь ты. — А дальше посмотрим по делам.\n\nЭто не стирает прошлое. На руках {{деньги}} ₽, долг — {{долг}} ₽, у людей осталось своё мнение. Придётся расплачиваться за ошибки и беречь то, что получилось. Но тебе больше не кажется, что однажды найденное погоняло должно освободить от ежедневного выбора.\n\nТы поднимаешь соседский пакет, потому что он тяжёлый, а у тебя свободна рука. Небольшое начало. Без фанфар, без клятвы стать другим навсегда. Просто следующий поступок, который пока ещё никто не сделал за тебя.",
+          "variables": {},
+          "assets": [],
+          "background": "end_fresh",
+          "music": null,
+          "animation": {
+            "type": "fade-in",
+            "durationMs": 600
+          },
+          "effects": [],
+          "ending": {
+            "type": "open",
+            "title": "Пока просто Артём"
+          },
+          "choices": []
+        }
+      ]
+    }
+  ],
+  "collections": [
+    {
+      "schemaVersion": 2,
+      "key": "kto_ty_po_zhizni",
+      "type": "story",
+      "title": "Кто ты по жизни? Район решает",
+      "description": "60 сцен, 16 финалов и один чужой район. Зарабатывай, покупай, отвечай за слово и решай, что для тебя значит быть своим. Дворовая драма с жаргоном, деньгами, уважением и последствиями.",
+      "coverUrl": "/assets/stories/kto-ty-po-zhizni/arrival.jpg",
+      "genre": "Драма",
+      "topic": "Дружба",
+      "completionStatus": "completed",
+      "items": [
+        {
+          "target": {
+            "kind": "scenario",
+            "key": "kto_ty_po_zhizni_raion"
+          },
+          "label": "Район решает — полная игра"
+        }
+      ],
+      "transitions": []
+    }
+  ]
+}

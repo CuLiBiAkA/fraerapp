@@ -2,6 +2,43 @@
 
 Last updated: 2026-10-23.
 
+## District story: native Builder publication (2026-10-23)
+
+Published «Кто ты по жизни? Район решает» at
+`/collections/kto_ty_po_zhizni`: collection `08ffb627-7f28-4f0c-b804-d263c4a1bf8c`,
+chapter `3169f83f-09e3-42aa-8198-11af3346877e`, revision 1. The native schema-2
+story has one branching chapter: 60 scenes, 159 choices and 16 endings. Money,
+respect, conscience, debt, connections, purchases and five limited daytime actions
+use the existing declarations, conditions and set/inc effects. No engine, auth,
+guest-demo policy or database schema change. All content remains editable/exportable
+through the existing Builder workflow.
+
+Sources: `story-builder/scenarios/kto-ty-po-zhizni{,.package}.json`; 60 individually
+generated JPEGs under `frontend/assets/stories/kto-ty-po-zhizni/` (about 16 MiB,
+each below 500 KB). Story/image prompts and coverage notes are in
+`docs/prompts/kto-ty-po-zhizni*` and `docs/kto-ty-po-zhizni.md`.
+
+Backup `backups/district-20261023-001058` (UTC) contains validated API/auth dumps
+and former scenario sources. All 62 installed source/image hashes and all 60
+public image hashes match. Publication used an existing unblocked admin, an
+audited temporary login, native import/review-batch, exact submitted-document
+inspection and explicit ownOverride with a reason. Only the temporary sessions
+were revoked. No roles changed or direct publication-table writes occurred.
+
+Verification: 148 API and 78 auth tests, 53 baseline Node tests and 5 scenario
+tests; 10,000 deterministic random routes; every scene and all 16 endings covered.
+The production private engine replays reached all endings with expected balances.
+Live browser checks at 320/390/1440px include a 43-transition mobile completion,
+no horizontal overflow and download of all 60 scenes from Builder. Six services
+remain healthy, recent API/auth error markers zero. No service rebuild/restart.
+
+Catalogue cleanup is PENDING USER CLARIFICATION. No exact «щелочение» title exists.
+The closest title is «Каждая щёлочка — обещание», chapter 1 of «Мира и искусство
+открытых дверей»; cat-petting and toilet demos also exist. Preserve all existing
+publications/private drafts until the owner identifies the retained work, then
+archive only the other scoped publications through moderation. New stories with
+chapters retain the existing sign-in requirement.
+
 ## Meow default timbre (2026-10-23)
 
 New/invalid/absent preferences and full reset now select 100% open timbre.
