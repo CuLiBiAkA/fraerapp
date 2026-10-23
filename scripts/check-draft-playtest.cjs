@@ -225,6 +225,10 @@ async function checkSerial(browser, width) {
       await page.locator('#modal-lang-ru').click();
       await page.keyboard.press('Escape');
       assert.match(await page.locator('#status').textContent(), /Черновик недоступен/);
+      denied=false;await page.goto(url+'&moderationPreview=1');await page.locator('#choices button').waitFor();
+      assert.match(await page.locator('.draft-playtest-banner').textContent(),/Глава на проверке/);
+      assert.equal(await page.locator('.draft-playtest-banner a').getAttribute('href'),'/moderation/');
+      assert.deepEqual(await page.evaluate(()=>[localStorage.getItem('fraerapp.sessionId'),localStorage.getItem('fraerapp.storyKey')]),['existing-reader-save','existing-public-story']);
       assert.deepEqual(errors, []);
       console.log(`${width}px: private preview, choice/retry, ending/restart, language, no reader activity, stale route and denial passed`);
       await context.close();

@@ -16,7 +16,7 @@ import { mountAccountDialogs } from "./account-dialogs.js?v=4";
 import { createCollectionReader } from "./collection-reader.js?v=8";
 import { readingBackground, decorateReadingStat } from "./reader-presentation.js?v=2";
 import { createReaderAds } from "./reader-ads.js?v=1";
-import { createDraftPlaytest } from "./draft-playtest.js?v=2";
+import { createDraftPlaytest } from "./draft-playtest.js?v=3";
 import { createReadingPager } from "./reader-pages.js?v=1";
 
 mountAccountDialogs();

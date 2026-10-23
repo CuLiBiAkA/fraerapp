@@ -12,9 +12,28 @@ Counts reflect the search across the whole queue before pagination. Queue order
 is oldest submission first; grouped submissions use their latest pending date.
 Approved parts awaiting publication are excluded from Waiting. No identity/email
 is exposed when the public author nickname is missing; the fallback is “Автор”.
-The queue stylesheet is moderation-queue.css v1, collection-workspace v26 and
-workspace-entry v25. Both action labels open the existing review; no moderator
-assignment or reader-mode review flow was introduced. Those remain discussion.
+The queue stylesheet is moderation-queue.css v1, collection-workspace v27 and
+workspace-entry v26 after review-screen delivery.
+Both action labels open the review screen; moderator assignment remains separate.
+
+## Application review screen (2026-10-23)
+
+review-screen.js/css implements the approved screenshot: submitted chapter rows,
+past feedback, review checkboxes, author comment, return/approve actions. About
+story, decision history, revision differences and reader preview use native modal
+dialogs with focus restoration. The root metadata and chapter text come from the
+submitted snapshot, not a later draft. Differences prefer the last rejected
+revision, otherwise the published revision. Published context chapters remain
+readable. Grouped decisions retain exact revision/generation atomic validation;
+standalone stories use their existing decision endpoint with the same checks.
+
+Reader preview uses the existing private playtest engine in a same-origin iframe,
+with the exact submitted revision and moderationPreview=1. Returning via the
+banner or closing the dialog preserves the parent form and checked parts. The
+existing playtest flow does not create reader saves, ads or engagement writes.
+Comments remain in the form after decision errors; navigating away warns about
+unsaved review work. Draft review notes are not persisted after a browser reload.
+Approval remains distinct from publication. Entry engine-102/draft-playtest v3.
 
 My stories, moderation and the builder share workspace-surface.css and the exact
 exported linear background assets/workspace-background.svg: #715185 at 0%,

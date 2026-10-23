@@ -1,5 +1,17 @@
 # FraerApp deploy and ops runbook
 
+## Application review screen (2026-10-23)
+
+Frontend-only release: review-screen.js/css, collection-workspace, workspace-entry,
+moderation HTML, draft-playtest, engine and index HTML. No API rebuild/migration.
+Run check-review-screen.cjs, check-author-workspace.cjs, check-draft-playtest.cjs,
+Node baseline and git diff --check. Check grouped/standalone decisions, exact
+revisions, previous feedback, modal close/focus, no lost comments on return,
+409 preservation, and 320/390/768/1440 layouts. Back up affected runtime files,
+install dependencies before entrypoints and verify public hashes/service health.
+Anonymous /moderation/ redirects to sign-in (302); moderation API rejects (401).
+Rollback restores the backed-up frontend files; no database changes are involved.
+
 ## Moderation queue refresh (2026-10-23)
 
 Run API/auth tests and the CollectionWorkflowTests queue resubmission test;

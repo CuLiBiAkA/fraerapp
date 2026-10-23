@@ -1,5 +1,6 @@
 // A private replay uses the same scene renderer without creating a reader save.
 export function createDraftPlaytest({ request, panel, language, onLoading, onState, onError, onBusy }) {
+  const moderationPreview=new URLSearchParams(globalThis.location?.search||'').get('moderationPreview')==='1';
   let draft = null, generation = 0, busy = false, failure = null;
   const banner = document.createElement('section');
   banner.className = 'draft-playtest-banner';
@@ -12,6 +13,7 @@ export function createDraftPlaytest({ request, panel, language, onLoading, onSta
   const actions = document.createElement('div');
   const back = document.createElement('a');
   back.href = '/my-stories/';
+  back.addEventListener('click',event=>{if(moderationPreview&&window.parent!==window){event.preventDefault();window.parent.postMessage({type:'fraer-review-close'},location.origin);}});
   const restart = document.createElement('button');
   restart.type = 'button';
   restart.id = 'draft-playtest-restart';
@@ -30,6 +32,7 @@ export function createDraftPlaytest({ request, panel, language, onLoading, onSta
       : 'Проверьте историю перед публикацией. Это прохождение не сохраняется.';
     back.textContent = en ? 'My stories' : 'Мои истории';
     back.href = draft?.kind === 'collection' ? `/my-stories/?collection=${encodeURIComponent(draft.id)}` : '/my-stories/';
+    if(moderationPreview){title.textContent=en?'Submitted chapter':'Глава на проверке';note.textContent=en?'Private review. Reader progress is not saved.':'Режим проверки. Читательский прогресс не сохраняется.';back.textContent=en?'Back to application':'К заявке';back.href='/moderation/';}
     restart.textContent = en ? 'Start again' : 'Начать сначала';
     restart.disabled = busy;
     const manifest = draft?.manifest;
@@ -43,6 +46,7 @@ export function createDraftPlaytest({ request, panel, language, onLoading, onSta
 
   function errorMessage(error) {
     const en = language() === 'en';
+    if(moderationPreview&&[401,403,404,409].includes(error.status))return en?'The submitted chapter is unavailable. Close this window and reload the application.':'Глава из заявки недоступна. Закройте это окно и обновите заявку.';
     if (error.code === 'NO_CHAPTERS') return en
       ? 'Add a chapter to this story before starting its preview.' : 'Добавьте главу в историю, чтобы открыть предпросмотр.';
     if (error.code === 'UNSUPPORTED_PREVIEW') return en
