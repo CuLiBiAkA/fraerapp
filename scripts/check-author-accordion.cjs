@@ -38,6 +38,11 @@ for(const width of [320,390,768,1440]){
  assert.equal(await chapterHistory.getByRole('link',{name:'Посмотреть редакцию'}).getAttribute('href'),'/author-preview.html?previewStory=c0&revision=1');
  await chapterHistory.locator('summary').click();
  const toggle=page.locator('[data-work-id=city]');
+ if(width===1440){
+  const specs=[['.author-title-row h1',40,63,4.4,'Playfair Display SC','400'],['.story-card-title',35,57,3.85,'Playfair Display SC','400'],['.chapter-heading h3',35,57,3.85,'Playfair Display SC','400'],['.chapter-overview h4',28,37,3.08,'Playfair Display SC','400'],['.story-unread',18,25,0,'Montserrat','400'],['.chapter-feedback > summary',18,25,0,'Montserrat','400'],['.chapter-feedback > p',14,18,0,'Inter UI','400']];
+  for(const [selector,size,line,spacing,family,weight] of specs){const s=await page.locator(selector).first().evaluate(el=>{const c=getComputedStyle(el);return {size:parseFloat(c.fontSize),line:parseFloat(c.lineHeight),spacing:parseFloat(c.letterSpacing)||0,family:c.fontFamily,weight:c.fontWeight};});assert.equal(s.size,size,selector);assert.equal(s.line,line,selector);assert.ok(Math.abs(s.spacing-spacing)<.01,selector);assert.ok(s.family.includes(family),selector);assert.equal(s.weight,weight,selector);}
+  await page.screenshot({path:'/tmp/my-stories-figma-type-1440.png',fullPage:true});
+ }
  await page.keyboard.press('Tab');await toggle.focus();
  assert.equal(await toggle.evaluate(el=>getComputedStyle(el).outlineStyle),'none','Story header has no rectangular focus frame');
  assert.equal(await toggle.locator('.story-chevron').evaluate(el=>getComputedStyle(el).outlineStyle),'solid','Keyboard focus remains visible on the disclosure arrow');

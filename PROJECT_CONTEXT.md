@@ -4,6 +4,14 @@ Last updated: 2026-10-23.
 
 ## Public author profiles and author-page controls (2026-10-23)
 
+My stories desktop typography follows the detailed first card in Figma 282:142:
+Playfair Display SC Regular 40/63 for the page title, 35/57 for story titles and
+the chapter heading, 28/37 with 11% tracking for chapter names. Feedback heading
+and unread notice use Montserrat Regular 18/25; feedback body uses Inter Regular
+14/18. Buttons use Inter Medium 23/25. All story cards share these roles (the
+second Figma sample's Times/Arial styles are not a separate card variant).
+Mobile type sizes remain responsive. author-accordion.css entry version is 14.
+
 Avatar preparation uses a dedicated circular preview (`purpose: avatar`), matching
 the centred object-fit cover rendering in profiles. Cover/scene crop guides do
 not apply to avatars. Author dialogs use the shared translucent purple/light
