@@ -1,5 +1,52 @@
 # FraerApp deploy and ops runbook
 
+## Reader pagination release (2026-10-23)
+
+Publish the shared `frontend/reading-pagination.js` before its reader and Builder
+consumers. Runtime files: frontend reading-pagination.js, reader-pages.js,
+reader.css, engine.js, index.html; Builder reading-preview.js, app.js, theme.css,
+index.html. Versions are engine-97/reader v7 and builder-64/theme v29; new modules
+v1. The source story JSON and database publication state do not change.
+
+1. Inspect branch/state, live services/logs and existing runtime hashes. Back up
+   changed runtime files and the complete Builder directory; retain the old
+   Builder image. Back up both databases before the temporary operator QA login.
+2. Install shared/dependent assets before HTML entrypoints. Rebuild/recreate only
+   story-builder, then reload edge to refresh its upstream address. No API/auth
+   rebuild, migration, story import or republication is needed.
+3. Verify all nine runtime and public hashes, six healthy services, public
+   home/health/catalogue/Builder routes and recent logs. Use the private preview
+   for authenticated live QA; export the existing chapter from Builder without
+   editing it. Check every visible page fits, then exercise real choices.
+4. In browser checks, wait for the playtest POST response and released busy state
+   after each choice. Scene title/ID alone cannot prove completion: purchases and
+   jobs can return to the same scene. Pagination itself must issue no gameplay
+   requests. Wait for fonts and layout before checking geometry.
+5. Revoke only the temporary QA session. Record its `/auth/me` session ID in the
+   private operational receipt before testing. If public logout fails at the
+   transport layer, verify that exact session's ownership and revoke only it and
+   its refresh tokens through the operator procedure, with an audit reason.
+   Never revoke an entire account or infer session identity from recency alone.
+
+Backup: `backups/reading-pages-20261023-071012`; prior image tag
+`fraerapp-story-builder:before-reading-pages-20261023-071012`. Both dumps and the
+runtime archive validated; nine installed/public file hashes match. Rollback
+restores the previous runtime snapshot and Builder image and reloads edge;
+preserve all database writes. Unreferenced new modules need no destructive cleanup.
+
+Checks: `node --check frontend/engine.js`, the 93 focused frontend/Builder Node
+tests, `scripts/check-reading-pages.cjs`, existing draft-playtest/Builder usability
+and frontend audit browser suites, then authenticated `scripts/check-district-live.cjs`.
+The latter accepts credentials only on stdin and exercises private previews and
+read-only Builder export. Physical-device testing is separate from browser sizes.
+Live verification passed at 320/390/1440px, including 43 private-engine transitions
+to an ending and unchanged 60-scene Builder export. All visible reading pages fit
+the viewport; publication/draft signatures stayed identical. Six services healthy,
+recent API/auth error markers zero; home/health/catalogue/Builder probes 200.
+One public TLS interruption was transient; the exact affected temporary session
+was revoked with an audit entry. The subsequent full check and normal logout
+succeeded; prior sessions stayed unchanged.
+
 ## District story content release (2026-10-23)
 
 Release: `/collections/kto_ty_po_zhizni`, one native chapter, 60 illustrated scenes,

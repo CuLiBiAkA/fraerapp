@@ -258,3 +258,12 @@ dialog { max-height: calc(100dvh - 32px); overflow: auto; }
 .builder .chapter-content #chapter-review-feedback > summary,
 .builder .chapter-content #chapter-review-comment { font:400 18px/25px var(--font-body); }
 .builder .collapsible-item > .scene-order { margin-top:12px; gap:12px; }
+/* Shared reader limits are visible while editing, without truncating a scene. */
+.reading-page-preview { margin-top: 12px; padding: 12px; border: 1px solid #9180a8; border-radius: 10px; }
+.reading-page-preview summary { cursor: pointer; font-weight: 600; }
+.reading-page-preview > p:not(.reading-page-prose), .choice-reading-hint { font-size: 13px; line-height: 1.5; }
+.reading-page-prose { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; font-size: 18px; line-height: 1.5; }
+.reading-preview-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.reading-preview-controls button { min-height: 44px; }
+.choice-reading-hint { display: block; margin-top: 5px; }
+.reading-guidance-warning { font-weight: 600; }

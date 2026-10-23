@@ -2,6 +2,47 @@
 
 Last updated: 2026-10-23.
 
+## Reader pages and Builder guidance (2026-10-23)
+
+Long scenes now use presentation pages inside the existing logical scene.
+`frontend/reading-pagination.js` owns the shared limits: up to 500 characters of
+prose and four choice controls per page. `reader-pages.js` measures the available
+viewport and splits further at paragraph/sentence/word boundaries. Short text and
+all choices share a page when they fit; otherwise choices follow the prose.
+Back/Next/page count send no requests and apply no effects. A real choice resets
+reading to the first page of its resulting scene, including self-transitions;
+resize/font changes preserve the current text anchor. Story JSON, publication
+revisions, saves, statistics, conditions and effects are unchanged.
+
+The reader uses the viewport height instead of reserving 64–67svh above all text.
+Controls retain readable fonts and 44px minimum targets. At extreme text sizes
+or with an individually oversized control, the panel remains scrollable rather
+than clipping content. Builder's “Страницы чтения” shows automatic pages under
+the text field and explains screen-dependent subdivision. Choice labels have a
+100-character recommendation, without truncation or a new publication blocker.
+The complete source text and graph survive import/edit/export. No author-entered
+page-break syntax, extra scene IDs, new API or database schema was introduced.
+
+Versions: engine-97, reader.css v7, reading-pagination/reader-pages v1;
+Builder app builder-64, theme v29, reading-preview v1. Backup
+`backups/reading-pages-20261023-071012` includes validated API/auth dumps, former
+runtime files and a tagged prior Builder image. Nine public/runtime files match.
+Only story-builder was rebuilt; edge reloaded, API/auth stayed running.
+
+Local checks: 93 Node tests; all 90 District/Mira scenes at 390×844, representative
+long prose/many choices/endings at five more sizes including 320×568 and landscape
+844×390; complete text/choices, request-free paging, failure/retry and resize.
+Builder preview/edit/export passed at 390/1440px. Existing private/serial preview,
+Builder usability and RU/EN frontend checks (including doubled text) passed.
+Physical devices and assistive-technology sessions were not exercised.
+Live 320/390/1440px private-reader checks passed with all visible pages fitting;
+390px completed 43 real engine transitions to an ending. Builder export preserved
+all 60 scenes and variables. Publication/draft signatures are unchanged, six
+services healthy, recent API/auth error markers zero and all public probes 200.
+Temporary QA sessions were revoked; prior sessions preserved. One transient
+public TLS timeout required an audited revocation of its exact temporary session;
+the subsequent full public verification passed.
+
 ## District story: native Builder publication (2026-10-23)
 
 Published «Кто ты по жизни? Район решает» at

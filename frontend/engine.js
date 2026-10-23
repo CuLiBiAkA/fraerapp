@@ -16,6 +16,7 @@ import { createCollectionReader } from "./collection-reader.js?v=8";
 import { readingBackground, decorateReadingStat } from "./reader-presentation.js?v=2";
 import { createReaderAds } from "./reader-ads.js?v=1";
 import { createDraftPlaytest } from "./draft-playtest.js?v=2";
+import { createReadingPager } from "./reader-pages.js?v=1";
 
 mountAccountDialogs();
 observeHomeFit();
@@ -1992,9 +1993,11 @@ function render(state) {
     syncSoundToScene();
   }
   if (!draftPlaytest.active) readerAds.present(state);
+  readingPager.set(scene.text);
 }
 
 function setChoicesBusy(busy) {
+  readingPager.busy(busy);
   choices.classList.toggle("choices-busy", busy);
   choices.toggleAttribute("aria-busy", busy);
   choices.querySelectorAll("button").forEach((choiceButton) => {
@@ -2003,6 +2006,7 @@ function setChoicesBusy(busy) {
 }
 
 function releaseChoices() {
+  readingPager.busy(false);
   choiceInFlight = false;
   choices.classList.remove("choices-busy");
   choices.removeAttribute("aria-busy");
@@ -2456,6 +2460,7 @@ const readerAds = createReaderAds({request, language: () => storage.language});
 const draftPlaytest = createDraftPlaytest({
   request, panel: document.querySelector("#scene-screen .story-panel"), language: () => currentLanguage,
   onLoading: () => {
+    readingPager.clear();
     currentState = null;
     stopSound({ resetPreference: true });
     readerAds.hide();
@@ -2476,6 +2481,9 @@ const collectionReader = createCollectionReader({
   signedIn:()=>Boolean(storage.email), signIn:openAuthModal,
   onSession:(session,runId)=>{stopSound({resetPreference:true});storage.setGame(session);history.pushState({},"",`/read/${encodeURIComponent(session.sessionId)}${runId?`?run=${encodeURIComponent(runId)}`:""}`);render(session);},
 });
+const readingPager = createReadingPager({ screen: sceneScreen,
+  panel: sceneScreen.querySelector('.story-panel'), text: sceneText, choices,
+  language: () => currentLanguage });
 applyTranslations();
 updateSoundLabel();
 updateConsentState();

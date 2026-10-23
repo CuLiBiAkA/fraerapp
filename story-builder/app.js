@@ -5,6 +5,7 @@ import { reviewLimitMessage } from "../review-limit.js?v=2";
 import { decorateHelp, helpButton, helpTopics } from "./help.js?v=6";
 import { chooseCover } from "../author-cover.js?v=3";
 import { prepareImage } from "../image-preparation.js?v=1";
+import { readingPreview, addChoiceReadingHint } from "./reading-preview.js?v=1";
 
 import { initChapterTabs } from "./chapter-panel.js?v=1";
 import { genres, topics, fillClassification } from "./genre-topic.js?v=1";
@@ -1033,7 +1034,7 @@ function choicesEditor(scene, sceneIndex) {
     item.append(
       rowHead(choiceTitle, () => removeAt(scene.choices, index)),
       field(t("idLabel"), input(choice.id, (value) => (choice.id = value))),
-      field(t("labelLabel"), input(choice.label, (value) => (choice.label = value))),
+      choiceReadingField(choice),
       selectField(t("targetSceneLabel"), draft.scenes.map((candidate) => candidate.id), choice.target, (value) => (choice.target = value)),
       selectField(t("fallbackTargetSceneLabel"), ["", ...draft.scenes.map((candidate) => candidate.id)], choice.fallbackTarget || "", (value) => (choice.fallbackTarget = value)),
       conditionsEditor(choice.conditions, scene, { sceneIndex, choiceIndex: index, choice }),
@@ -1634,8 +1635,13 @@ function sceneTextField(scene) {
     insert.title = `${t("insertVariableIntoText")}: ${name}`;
     tools.append(insert);
   });
-  wrap.append(label, control, tools);
+  wrap.append(label, control, tools, readingPreview(control, () => currentLanguage));
   return wrap;
+}
+
+function choiceReadingField(choice) {
+  const control = input(choice.label, value => (choice.label = value));
+  return addChoiceReadingHint(field(t('labelLabel'), control), control, () => currentLanguage);
 }
 
 function insertTextAtCursor(control, text) {
@@ -1644,6 +1650,7 @@ function insertTextAtCursor(control, text) {
   control.value = `${control.value.slice(0, start)}${text}${control.value.slice(end)}`;
   const nextPosition = start + text.length;
   control.setSelectionRange(nextPosition, nextPosition);
+  control.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 function selectField(labelText, options, selected, onChange) {
