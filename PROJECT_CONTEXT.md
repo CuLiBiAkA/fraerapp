@@ -14,7 +14,10 @@ chapter variables. If attachment fails, the created draft is kept and retried
 without another import during this panel session. The help topic is updated.
 Moderator feedback appears in this panel; unread dots use account notifications
 and opening feedback marks only this chapter's moderation notices read.
-Builder entry builder-67, story-picker.js/css v1, help.js v7.
+The selector uses /api/author/folders, the same tree as My stories, including
+standalone scenarios (opened as one chapter). Add chapter remains available for
+collections. Completed stories are excluded by their completionStatus.
+Builder entry builder-68, story-picker.js v2/css v1, help.js v7.
 
 Home has one Mini-games link opening an accessible native dialog with Meow piano
 and Cat drop links. Both existing game URLs remain unchanged; Escape/close return

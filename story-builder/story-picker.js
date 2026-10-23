@@ -13,11 +13,11 @@ export function createStoryPicker({request,state,save}) {
   function render(){
     const s=state();storyText.textContent=words('История','Story');chapterText.textContent=words('Глава','Chapter');hint.textContent=words('Только незаконченные истории','Unfinished stories only');
     status.hidden=!status.textContent;
-    options(storySelect,works.map(w=>[w.collectionId||w.id,w.title]),selected?.collectionId,words('Выберите историю','Choose a story'));
+    options(storySelect,works.map(w=>[w.collectionId||w.id,w.title]),selected?.collectionId||selected?.storyId,words('Выберите историю','Choose a story'));
     options(chapterSelect,chapters.map((c,i)=>[c.storyId,`${i+1}. ${c.title||c.draftDocument?.title||c.key} · ${c.publishedRevision?words('Опубликована · Только просмотр','Published · View only'):c.reviewState==='in_review'?words('На модерации','Under review'):c.reviewState==='rejected'?words('Нужны исправления','Changes requested'):words('Черновик','Draft')}`]),s.id,words('Выберите главу','Choose a chapter'));
     storySelect.title=selected?.title||'';chapterSelect.title=chapterSelect.selectedOptions[0]?.textContent||'';
     storySelect.disabled=loading||!s.canEdit;chapterSelect.disabled=loading||!s.canEdit||!chapters.length;
-    add.textContent=words('+ Добавить главу','+ Add chapter');add.disabled=loading||!s.canEdit||!selected||selected.draftDocument?.completionStatus==='completed';
+    add.textContent=words('+ Добавить главу','+ Add chapter');add.disabled=loading||!s.canEdit||!selected?.collectionId||selected.draftDocument?.completionStatus==='completed';
     feedback.querySelector('summary').setAttribute('aria-label',words('Комментарии модератора','Moderator comments'));
     feedback.querySelector('summary').title=words('Комментарии модератора','Moderator comments');
     const unread=notices.some(n=>n.unread&&n.kind==='moderation'&&n.storyId===s.id);
@@ -26,8 +26,9 @@ export function createStoryPicker({request,state,save}) {
   async function selectWork(id){
     const seq=++sequence;loading=true;render();
     try{
-      const work=id?await request(`/api/author/collections/${encodeURIComponent(id)}`):null;
-      const parts=work?await Promise.all((work.draftDocument?.items||[]).filter(i=>i.target.kind==='scenario').map(i=>request(`/api/author/stories/${encodeURIComponent(i.target.id)}`))):[];
+      const standalone=works.find(w=>w.id===id||w.collectionId===id)?.kind==='scenario';
+      const work=id?await request(standalone?`/api/author/stories/${encodeURIComponent(id)}`:`/api/author/collections/${encodeURIComponent(id)}`):null;
+      const parts=standalone?[work]:work?await Promise.all((work.draftDocument?.items||[]).filter(i=>i.target.kind==='scenario').map(i=>request(`/api/author/stories/${encodeURIComponent(i.target.id)}`))):[];
       if(seq!==sequence)return;
       selected=work;chapters=parts;pendingChapter=null;status.textContent='';
     }catch(e){if(seq===sequence)status.textContent=e.message;}finally{if(seq===sequence){loading=false;render();}}
@@ -44,7 +45,7 @@ export function createStoryPicker({request,state,save}) {
     const result=await dialog(words('Есть несохранённые изменения','Unsaved changes'),words('Сохранить текущую главу перед переходом?','Save the current chapter before leaving?'),[['save',words('Сохранить и перейти','Save and continue')],['discard',words('Перейти без сохранения','Discard and continue')],['cancel',words('Остаться','Stay')]]);
     if(result.action==='save')await save();return ['save','discard'].includes(result.action);
   }
-  function navigate(id,published=false){const url=new URL('/builder/',location.origin);url.searchParams.set('story',id);if(selected)url.searchParams.set('work',selected.collectionId);if(published)url.searchParams.set('view','published');try{sessionStorage.setItem('fraerapp.builderNavigation',id);}catch{}location.assign(url);}
+  function navigate(id,published=false){const url=new URL('/builder/',location.origin);url.searchParams.set('story',id);if(selected?.collectionId)url.searchParams.set('work',selected.collectionId);if(published)url.searchParams.set('view','published');try{sessionStorage.setItem('fraerapp.builderNavigation',id);}catch{}location.assign(url);}
   storySelect.onchange=()=>selectWork(storySelect.value);
   chapterSelect.onchange=async()=>{
     const chapter=chapters.find(c=>c.storyId===chapterSelect.value);if(!chapter)return;
@@ -80,11 +81,12 @@ export function createStoryPicker({request,state,save}) {
     try{for(const n of notices.filter(n=>n.unread&&n.kind==='moderation'&&n.storyId===id)){await request(`/api/account/notifications/${encodeURIComponent(n.id)}/read`,{method:'POST'});n.unread=false;}render();}catch(e){status.textContent=e.message;}
   });
   return {
-    update(){const s=state(),key=`${s.id||''}:${s.parent?.collectionId||''}`;if(lastId!==key){lastId=key;selectWork(s.parent?.collectionId||'');}render();},
+    update(){const s=state(),key=`${s.id||''}:${s.parent?.collectionId||''}`;if(lastId!==key){lastId=key;selectWork(s.parent?.collectionId||(works.some(w=>w.kind==='scenario'&&w.id===s.id)?s.id:''));}render();},
     async refresh(){
       if(!state().canEdit)return;
-      const all=[];for(let page=0;;page++){const rows=await request(`/api/author/collections?page=${page}&size=100`);if(!Array.isArray(rows))break;all.push(...rows);if(rows.length<100)break;}
+      const all=[];for(let page=0;;page++){const result=await request(`/api/author/folders?page=${page}&size=100`);const rows=result.items||[];all.push(...rows);if(rows.length<100||all.length>=result.total)break;}
       works=all.filter(w=>w.completionStatus!=='completed'&&!['deleted','purged','archived'].includes(w.visibility));
+      if(!selected&&state().id&&works.some(w=>w.kind==='scenario'&&w.id===state().id))await selectWork(state().id);
       notices=(await request('/api/account')).notifications||[];render();
     }
   };

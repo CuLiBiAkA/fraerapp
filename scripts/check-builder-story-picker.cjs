@@ -12,7 +12,7 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
   if(p==='/api/author/home')return send({stories:Object.values(chapters)});
   if(p==='/api/account')return send({notifications:[{id:'note',kind:'moderation',storyId:'draft',unread}]});
   if(p==='/api/account/notifications/note/read'){unread=false;return send({});}
-  if(p==='/api/author/collections')return send([{collectionId:'work',title:work.title,completionStatus:'in_development'},{collectionId:'finished',title:'Законченная история',completionStatus:'completed'}]);
+  if(p==='/api/author/folders')return send({items:[{kind:'collection',id:'work',title:work.title,completionStatus:'in_development'},{kind:'scenario',id:'draft',title:'Самостоятельная история',completionStatus:'in_development'},{kind:'collection',id:'finished',title:'Законченная история',completionStatus:'completed'}],total:3});
   if(p==='/api/author/collections/parents')return send([{collectionId:'work'}]);
   if(p==='/api/author/collections/work'){if(req.method()==='PUT'){const b=req.postDataJSON();assert.equal(b.generation,3);work.draftDocument=b.document;}return send(work);}
   if(p==='/api/author/stories/import'){const d=req.postDataJSON();assert.equal(d.variables.trust,2);chapters.new={storyId:'new',generation:1,draftRevision:1,reviewState:'draft',draftDocument:d};return send(chapters.new);}
@@ -23,6 +23,9 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
  const p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto('https://fraerapp.ru/builder/?story=draft');
  await p.waitForFunction(()=>document.querySelector('#builder-chapter-select')?.value==='draft');
  assert.equal(await p.locator('#builder-story-select option[value="finished"]').count(),0);
+ assert.equal(await p.locator('#builder-story-select option[value="draft"]').count(),1);
+ await p.locator('#builder-story-select').selectOption('draft');await p.waitForFunction(()=>document.querySelector('#builder-chapter-select')?.options.length===2);assert.ok(await p.locator('#builder-add-chapter').isDisabled());
+ await p.locator('#builder-story-select').selectOption('work');await p.waitForFunction(()=>document.querySelector('#builder-chapter-select')?.options.length===3);
  await p.locator('#chapter-review-feedback summary').click();await p.waitForFunction(()=>document.querySelector('.feedback-unread').hidden);assert.equal(unread,false);assert.match(await p.locator('#chapter-review-comment').innerText(),/предупреждение/);
  await p.screenshot({path:`/tmp/builder-story-picker-${width}.png`,fullPage:false});
  await p.locator('[data-meta="title"]').fill('Несохранённое название');
