@@ -102,6 +102,14 @@ body:not(.is-public-home) #site-controls #home-search-form { display: none; }
   gap: 16px 32px; margin: 44px auto 0; color: var(--home-ink); font-size: 16px;
 }
 .home-catalog-links a { color: inherit; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.home-catalog-links #home-mini-games { padding:0;border:0;border-radius:0;background:none;box-shadow:none;color:inherit;font:inherit;letter-spacing:inherit;text-decoration:underline;text-underline-offset:4px;cursor:pointer; }
+#mini-games-dialog { box-sizing:border-box;width:min(540px,calc(100% - 32px));padding:40px 28px;border:1px solid #fee3e2;border-radius:28px;background:linear-gradient(145deg,#715185 0%,#694a7d 55%,#79588e 100%);color:#fee3e2; }
+#mini-games-dialog::backdrop { background:#21142e99;backdrop-filter:blur(6px); }
+#mini-games-dialog h2 { margin:0 36px 28px 0;color:#fee3e2; }
+#mini-games-dialog nav { display:grid;gap:16px; }
+#mini-games-dialog nav a { padding:16px;border:1px solid #fee3e2;border-radius:14px;color:#fee3e2;font:500 23px/25px var(--font-control);text-decoration:none; }
+#mini-games-dialog .modal-close { top:12px;right:12px;width:44px;height:44px;border:0;border-radius:0;background:transparent;box-shadow:none;font-size:0;color:#fee3e2; }
+#mini-games-dialog .modal-close::before,#mini-games-dialog .modal-close::after { width:26px;height:2px;background:#fee3e2; }
 #author-request-modal .modal-card { text-align: center; }
 #author-request-modal p { line-height: 1.6; }
 #demo-welcome-modal { z-index: 41; }

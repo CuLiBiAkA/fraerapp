@@ -130,6 +130,7 @@ const translations = {
     homeCreateStory: "Создать свою",
     homeSearchLabel: "Поиск историй",
     homeAllStories: "Все истории",
+    homeMiniGames: "Мини-игры",
     homeMeowPiano: "Мяу-пианино",
     homeCatMerge: "Котопад",
     homeDefaultOrder: "По умолчанию",
@@ -298,6 +299,7 @@ const translations = {
     homeCreateStory: "Create yours",
     homeSearchLabel: "Search stories",
     homeAllStories: "All stories",
+    homeMiniGames: "Mini-games",
     homeMeowPiano: "Meow piano",
     homeCatMerge: "Cat drop",
     homeDefaultOrder: "Default order",
@@ -2289,6 +2291,10 @@ homeReadButton.addEventListener("click", () => {
 });
 
 homeCreateButton.addEventListener("click", createHomeStory);
+const miniGamesDialog=document.querySelector('#mini-games-dialog');
+document.querySelector('#home-mini-games').addEventListener('click',()=>miniGamesDialog.showModal());
+document.querySelector('#mini-games-close').addEventListener('click',()=>miniGamesDialog.close());
+miniGamesDialog.addEventListener('close',()=>document.querySelector('#home-mini-games').focus());
 
 function updateHomeSearch() {
   homeCarouselIndex = 0;

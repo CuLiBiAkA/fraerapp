@@ -11,7 +11,7 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://fraerapp.ru/">
     <link rel="stylesheet" href="/styles.css?v=game-25">
-    <link rel="stylesheet" href="/home.css?v=cosmos-36">
+    <link rel="stylesheet" href="/home.css?v=cosmos-37">
     <link rel="stylesheet" href="/account-ui.css?v=2">
     <link rel="stylesheet" href="/library.css?v=13">
     <link rel="stylesheet" href="/story-cards.css?v=7">
@@ -99,8 +99,7 @@
         </section>
         <div class="home-catalog-links">
           <a id="home-all-stories" href="/history" data-i18n="homeAllStories">Все истории</a>
-          <a href="/meow/" data-i18n="homeMeowPiano">Мяу-пианино</a>
-          <a href="/cat-merge/" data-i18n="homeCatMerge">Котопад</a>
+          <button id="home-mini-games" type="button" aria-haspopup="dialog" data-i18n="homeMiniGames">Мини-игры</button>
         </div>
         <p id="home-search-status" class="home-search-status" role="status" aria-live="polite"></p>
       </section>
@@ -313,6 +312,14 @@
       </div>
     </aside>
 
-    <script src="/engine.js?v=engine-102" type="module"></script>
+    <dialog id="mini-games-dialog" aria-labelledby="mini-games-title">
+      <h2 id="mini-games-title" data-i18n="homeMiniGames">Мини-игры</h2>
+      <button id="mini-games-close" class="modal-close" type="button" aria-label="Закрыть" data-i18n-aria-label="closeControl">×</button>
+      <nav aria-labelledby="mini-games-title">
+        <a href="/meow/" data-i18n="homeMeowPiano">Мяу-пианино</a>
+        <a href="/cat-merge/" data-i18n="homeCatMerge">Котопад</a>
+      </nav>
+    </dialog>
+    <script src="/engine.js?v=engine-103" type="module"></script>
   </body>
 </html>
