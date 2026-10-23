@@ -2184,6 +2184,7 @@ function bindDraftStory(storyId, savedDocument = null, revision = null, generati
 }
 
 function saveDraft() {
+  if(publishedView())return;
   draftStorageFailed = !writeLocalStorage(storageKey, JSON.stringify(draft));
   const warning = document.querySelector("#local-draft-warning");
   warning.hidden = !draftStorageFailed;
@@ -2428,7 +2429,7 @@ function renderAuthorWorkspace(home = authorHomeCache) {
   document.querySelector('#chapter-number').textContent = index < 0 ? '' : [items[index].season, `${en ? 'Chapter' : 'Глава'} ${index + 1}`].filter(Boolean).join(' · ');
   document.querySelector('#chapter-title').textContent = draft.title || draft.key;
   const simpleStatus = !current ? (en ? 'Draft' : 'Черновик') : [current.publishedRevision ? (en ? 'Published' : 'Опубликована') : (en ? 'Not published' : 'Не опубликована'), ({draft:en?'Draft':'Черновик',in_review:en?'Under review':'На модерации',rejected:en?'Changes requested':'Нужны исправления',approved:en?'Review passed':'Модерация пройдена'})[current.reviewState]].filter(Boolean).join(' · ');
-  document.querySelector('#chapter-status').textContent = simpleStatus;
+  document.querySelector('#chapter-status').textContent = publishedView() ? (en ? 'Published · View only' : 'Опубликована · Только просмотр') : simpleStatus;
   document.querySelector('#chapter-publication-status').textContent = current?.reviewState === 'in_review'
     ? (en ? 'Under review' : 'На модерации')
     : current?.publishedRevision && (hasUnsavedChanges() || current.draftRevision !== current.publishedRevision)
@@ -2446,7 +2447,7 @@ function renderAuthorWorkspace(home = authorHomeCache) {
   comment.textContent = commentText;
   feedback.hidden = !commentText;
   const editNotice=document.querySelector('#chapter-edit-notice');
-  editNotice.textContent=publishedCorrectionNotice(current,currentLanguage);
+  editNotice.textContent=publishedView() ? (en ? 'You can inspect scenes, transitions and effects. Editing and saving are unavailable.' : 'Можно просматривать сцены, переходы и эффекты. Изменение и сохранение недоступны.') : publishedCorrectionNotice(current,currentLanguage);
   editNotice.hidden=!editNotice.textContent;
   els.authorState.textContent = canAuthor() ? '' : (authorSession ? t('authorRoleMissing') : t('authorLoggedOut'));
   els.authorState.hidden = canAuthor();
@@ -2457,6 +2458,10 @@ function renderAuthorWorkspace(home = authorHomeCache) {
 function statusLabel(status) {
   const key = `status${String(status || "draft").replace(/^\w/, (char) => char.toUpperCase())}`;
   return t(key);
+}
+
+function publishedView() {
+  return new URLSearchParams(location.search).get('view') === 'published';
 }
 
 function updateAuthorGate() {
@@ -2477,12 +2482,13 @@ function updateAuthorGate() {
       return;
     }
     control.disabled = !loggedIn || (builderWorkflowBusy && (control.dataset.authorMutation === "true" || ["import-runtime", "validate-runtime", "publish-runtime", "author-story-select", "refresh-author", "runtime-url"].includes(control.id)));
-    if(current&&!canEditStoryDraft(current)&&!['preview-chapter','copy-json','download-json','validate-runtime','refresh-author','scroll-top','scroll-bottom'].includes(control.id))control.disabled=true;
+    if((publishedView()||(current&&!canEditStoryDraft(current)))&&!control.matches('.outline-link,.collection-toolbar button')&&!['preview-chapter','copy-json','download-json','validate-runtime','refresh-author','scroll-top','scroll-bottom'].includes(control.id))control.disabled=true;
     if(control.id==='publish-runtime'&&(current?.reviewLimitReached || current?.reviewDailyLimitReached))control.disabled=true;
   });
   document.querySelectorAll("a.nav-link").forEach((link) => {
-    link.classList.toggle("is-disabled", !loggedIn);
-    link.setAttribute("aria-disabled", String(!loggedIn));
+    link.classList.toggle("is-disabled", !loggedIn||publishedView());
+    link.setAttribute("aria-disabled", String(!loggedIn||publishedView()));
+    link.onclick=event=>{if(!loggedIn||publishedView())event.preventDefault();};
     link.tabIndex = loggedIn ? 0 : -1;
   });
   document.querySelectorAll(".file-button").forEach((label) => {
@@ -2860,7 +2866,9 @@ async function openAuthorStory(storyId) {
   if (parents.length) url.searchParams.set("work", parents[0].collectionId || parents[0].id);
   else url.searchParams.delete("work");
   history.replaceState({}, "", url);
-  const story = detail.draftDocument;
+  const story = publishedView() ? detail.publishedDocument : detail.draftDocument;
+  if(!story)throw new Error(currentLanguage==='en'?'Published chapter is unavailable.':'Опубликованная глава недоступна.');
+  authorHomeCache={...authorHomeCache,stories:[...(authorHomeCache?.stories||[]).filter(item=>item.storyId!==storyId),detail]};
   fromStoryJson(story);
   bindDraftStory(storyId, JSON.stringify(toStoryJson()), detail.draftRevision, detail.generation);
   els.apiResult.textContent = "";
@@ -2998,6 +3006,7 @@ document.querySelector("#publish-runtime").onclick = () => runtimeCall("review")
 document.querySelector("#choose-story-cover").onclick = () => openCoverPicker().catch(error => { els.apiResult.textContent = error.message; });
 
 async function importDraftToRuntime(base = els.runtimeUrl.value.replace(/\/$/, "")) {
+  if(publishedView())throw new Error(currentLanguage==='en'?'Published chapter is read-only.':'Опубликованная глава доступна только для просмотра.');
   ensureDraftKey();
   const importedDraft = draft;
   const importedKey = draft.key;
@@ -3040,6 +3049,7 @@ function showDraftSaveConflict() {
 }
 
 async function runtimeCall(action) {
+  if(publishedView())return;
   if (builderWorkflowBusy) return;
   if (action === 'review' && validateStory(toStoryJson()).length) {
     renderPreview(); selectChapterTab('check', true);

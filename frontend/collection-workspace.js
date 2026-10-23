@@ -225,7 +225,20 @@ async function start(root) {
     const stateIcon={in_review:'clock',rejected:'warning',approved:'approved',draft:'draft'}[state];
     if(stateIcon){const badge=top.querySelector('.chapter-state');badge.textContent=badge.textContent.replace(/^✓\s*/,'');const icon=el('img');icon.src=`/assets/author/${stateIcon}.svg`;icon.alt='';badge.prepend(icon);}
     const actions=el('div',null,'chapter-buttons');
-    if(canEdit&&canEditStoryDraft(detail))actions.append(link(words('Редактировать','Edit'),`/builder/?story=${encodeURIComponent(id)}${current?.standalone?'':`&work=${encodeURIComponent(current?.collectionId||'')}`}`));
+    if(canEdit&&(canEditStoryDraft(detail)||detail.publishedRevision)){
+      const href=`/builder/?story=${encodeURIComponent(id)}${current?.standalone?'':`&work=${encodeURIComponent(current?.collectionId||'')}`}${detail.publishedRevision?'&view=published':''}`;
+      const edit=link(words('Редактировать','Edit'),href);
+      if(detail.publishedRevision)edit.onclick=event=>{
+        event.preventDefault();
+        const dialog=el('dialog',null,'workspace-dialog');dialog.setAttribute('aria-labelledby','published-view-title');
+        const title=el('h2',words('Глава уже опубликована','This chapter is published'));title.id='published-view-title';
+        const controls=el('div',null,'collection-actions');
+        controls.append(button(words('Отмена','Cancel'),()=>dialog.close()),button(words('Открыть для просмотра','Open for viewing'),()=>{if(discard())location.assign(href);}));
+        dialog.append(title,el('p',words('Можно открыть её в конструкторе, чтобы посмотреть сцены, переходы и настройки эффектов. Изменение и сохранение этой главы недоступны.','You can inspect scenes, transitions and effect settings in the builder. Editing and saving this chapter are unavailable.')),controls);
+        dialog.addEventListener('close',()=>{dialog.remove();edit.focus();},{once:true});document.body.append(dialog);dialog.showModal();
+      };
+      actions.append(edit);
+    }
     if(!detail.publishedRevision&&state!=='unavailable')actions.append(button(words('Предпросмотр','Preview'),()=>{if(discard())location.href=`/author-preview.html?previewStory=${encodeURIComponent(id)}&revision=${encodeURIComponent(detail.draftRevision)}`;}));
     if(detail.publishedRevision&&state!=='unavailable')actions.append(button(words('Читать','Read'),()=>{if(discard())location.href=`/history/${encodeURIComponent(detail.publishedSlug||detail.slug||detail.key||item.target.key||id)}`;}));
     if(canEdit&&canEditStoryDraft(detail)&&(['draft','rejected'].includes(state)||detail.correctionRequested)){

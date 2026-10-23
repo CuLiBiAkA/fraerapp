@@ -1,5 +1,15 @@
 # FraerApp deploy and ops runbook
 
+## Published chapter inspection (2026-10-23)
+
+Run check-published-builder.cjs, check-builder-editing.cjs, author workspace
+checks and Node baseline. Verify cancel/confirm, exact published snapshot,
+disabled save/edit controls and preservation of local drafts. Back up collection
+workspace/entry, my-stories HTML, Builder app/index and the current Builder image.
+Deploy the frontend files and rebuild only story-builder, then verify health and
+public asset hashes. No API or schema change. Rollback restores files and the
+retained Builder image.
+
 ## Shared navigation and legacy moderation entry (2026-10-23)
 
 Frontend-only files: site-controls.css, workspace-surface.css,

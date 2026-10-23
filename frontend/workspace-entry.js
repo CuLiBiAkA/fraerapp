@@ -4,4 +4,4 @@ if(document.body.dataset.workspace==='moderation'&&view.get('view')==='stories'&
  view.delete('view');history.replaceState(history.state,'',location.pathname+(view.size?'?'+view:'')+location.hash);
 }
 if(view.has("story")||view.get("view")==="stories")await import("./story-workspace.js?v=7");
-await import("./collection-workspace.js?v=28");
+await import("./collection-workspace.js?v=29");

@@ -2,6 +2,17 @@
 
 Last updated: 2026-10-23.
 
+## Published chapter inspection (2026-10-23)
+
+My stories retains the Edit label for published chapters. It opens a shared
+confirmation dialog, then /builder/?story=ID&view=published. This mode loads
+publishedDocument, locks mutation controls and save/review calls, and never
+overwrites the browser's working draft. Scene navigation, disclosures and preview
+remain available. The status reads Published · View only. Normal draft editing
+and the existing moderator-requested correction policy are unchanged; this
+published-view entry always stays read-only, including for correction drafts.
+
+
 ## Workspace appearance contract (Figma 309:8)
 
 Moderation queue now follows the updated 309:8 layout: Waiting/Repeated counters,
