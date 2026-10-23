@@ -1,0 +1,21 @@
+/* Figma 309:8: common background and headings on purple workspace pages. */
+:root { --workspace-gradient:linear-gradient(144.582deg,#715185 0%,#694a7d 55%,#79588e 100%); --workspace-heading:#fee3e2; }
+body:is([data-workspace="author"],[data-workspace="moderation"]),body:has(> .builder-navigation) { background:#715185 url('/assets/workspace-background.svg') center/100% 100% fixed no-repeat; min-height:100vh; }
+body[data-workspace] .author-title-row :is(h1,h2),body:has(> .builder-navigation) .topbar h1 { color:var(--workspace-heading); }
+.builder-navigation .builder-home { min-height:44px; margin:0; color:#fee3e2; font:500 23px/25px var(--font-control); letter-spacing:0; }
+body[data-workspace="moderation"] #site-controls { width:min(1280px,calc(100% - 48px)); margin-inline:auto; padding:28px 0 0; }
+body[data-workspace="moderation"] .workspace.collections-panel { width:min(1280px,calc(100% - 48px)); margin:12px auto 32px; }
+body[data-workspace="moderation"] .author-title-row { display:block; margin:0 0 40px; }
+body[data-workspace="moderation"] .author-title-row h1 { margin:0; font:400 40px/63px var(--font-heading); letter-spacing:.11em; }
+body[data-workspace="moderation"] .author-title-row h2 { margin:0; font:400 35px/57px var(--font-heading); letter-spacing:.11em; }
+body[data-workspace="moderation"] .collection-toolbar { padding:22px 30px; gap:30px; }
+body[data-workspace="moderation"] .collection-toolbar :is(label,input,select) { font:400 18px/25px var(--font-body); }
+body[data-workspace="moderation"] .collection-toolbar button { font:500 23px/25px var(--font-control); }
+@media(max-width:700px){
+ body[data-workspace="moderation"] :is(#site-controls,.workspace.collections-panel){width:calc(100% - 32px);}
+ body[data-workspace="moderation"] .author-title-row { margin-bottom:24px; }
+ body[data-workspace="moderation"] .author-title-row h1 { font-size:30px;line-height:42px; }
+ body[data-workspace="moderation"] .author-title-row h2 { font-size:25px;line-height:37px; }
+ body[data-workspace="moderation"] .collection-toolbar { padding:18px;gap:14px; }
+ .builder-navigation .builder-home { font-size:18px; }
+}

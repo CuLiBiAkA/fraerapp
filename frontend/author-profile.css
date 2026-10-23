@@ -23,6 +23,7 @@ body button.author-capsule { display:inline-flex; align-items:center; width:fit-
 .engagement-card:has(> .author-capsule) > .story-card-link { flex:1; height:auto; min-height:0; }
 .engagement-card > .author-capsule { flex-shrink:0; }
 body button.author-capsule:hover { background:#fee3e214; }
+#story-detail-byline .author-capsule { min-height:36px; padding:5px 12px; font:500 16px/22px var(--font-control); }
 .author-profile-dialog :focus-visible,button.author-capsule:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
 .author-profile-dialog button:disabled { opacity:.6; cursor:wait; }
 .author-profile-dialog :is(input,textarea,button,a) { color:inherit; border-color:#ffffff94; }

@@ -72,6 +72,16 @@ services are healthy, all public probes return 200 and recent error markers
 are zero. Live browser gameplay/pause has no console errors. Local verification
 passed 405 tests plus build/lint and the four-width admin browser suite.
 
+## Shared workspace surface release (2026-10-23)
+
+Publish workspace-surface.css and assets/workspace-background.svg before the
+My stories, moderation and Builder HTML entrypoints. Builder app.js version 65
+keeps its top-left link on Home after loading a chapter. Rebuild/recreate only
+story-builder, retaining its previous image and complete source directory first;
+reload edge afterwards. No database or API changes. Verify public asset hashes,
+all service health, Home navigation and the absence of the moderation view
+switcher. Browser proof: scripts/check-workspace-surface.cjs at four widths.
+
 ## Reader pagination release (2026-10-23)
 
 Publish the shared `frontend/reading-pagination.js` before its reader and Builder

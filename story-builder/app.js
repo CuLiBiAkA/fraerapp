@@ -53,6 +53,7 @@ const translations = {
     downloadJson: "Скачать JSON главы",
     importJsonFile: "Импорт JSON главы",
     pasteJson: "Вставить JSON главы",
+    homeLink: "На главную",
     myStories: "Мои истории",
     replaceDraft: "Заменить открытый черновик? Сначала скачайте JSON, если хотите сохранить текущие изменения. Серверная версия не изменится до сохранения.",
     packageInChapter: "Это пакет целой истории. Импортируйте его в разделе «Мои истории» → «Импорт истории». Текущая глава не изменена.",
@@ -244,6 +245,7 @@ const translations = {
     downloadJson: "Download chapter JSON",
     importJsonFile: "Import chapter JSON",
     pasteJson: "Paste chapter JSON",
+    homeLink: "Home",
     myStories: "My stories",
     replaceDraft: "Replace the open draft? Download its JSON first if you want to keep your current changes. The server version will not change until you save.",
     packageInChapter: "This is a complete story package. Import it in My stories → Import story. The current chapter has not changed.",
@@ -2416,8 +2418,8 @@ function renderAuthorWorkspace(home = authorHomeCache) {
   const index = items.findIndex(item => item.target.id === getDraftStoryId());
   const parentId = chapterParent?.collectionId || chapterParent?.id;
   const parentLink = document.querySelector('.builder-home');
-  parentLink.href = parentId ? `/my-stories/?collection=${encodeURIComponent(parentId)}` : '/my-stories/';
-  parentLink.querySelector('span').textContent = parentId ? (en ? 'Story chapters' : 'К главам истории') : t('myStories');
+  parentLink.href = '/';
+  parentLink.querySelector('span').textContent = en ? 'Home' : 'На главную';
   parentLink.onclick = event => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     if (hasUnsavedChanges() && !confirm(t('leaveChapterUnsaved'))) event.preventDefault();

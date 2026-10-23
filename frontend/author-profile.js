@@ -2,7 +2,7 @@ import {el,button,field,words,request,errorMessage} from './collection-ui.js?v=6
 import {uploadImage} from './author-cover.js?v=3';
 import {prepareImage} from './image-preparation.js?v=2';
 
-const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/author-profile.css?v=2';document.head.append(sheet);
+const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/author-profile.css?v=3';document.head.append(sheet);
 function modal(){
  const previous=document.activeElement,dialog=el('dialog',null,'author-profile-dialog');
  const heading=el('h2',words('Об авторе','About the author'));heading.id='author-profile-'+crypto.randomUUID();dialog.setAttribute('aria-labelledby',heading.id);

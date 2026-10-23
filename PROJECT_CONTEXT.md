@@ -2,6 +2,18 @@
 
 Last updated: 2026-10-23.
 
+## Workspace appearance contract (Figma 309:8)
+
+My stories, moderation and the builder share workspace-surface.css and the exact
+exported linear background assets/workspace-background.svg: #715185 at 0%,
+#694A7D at 55%, #79588E at 100%, with no additional radial overlay. Headings
+on that background use #FEE3E2; headings inside light panels retain dark ink.
+The builder's top-left link always leads Home, including after chapter loading;
+its unsaved-change confirmation remains active. Moderation has no legacy view
+switcher above navigation; its headings are Moderation (40/63) and Publication
+applications (35/57). The reader story-detail author capsule uses Inter 16/22.
+Author-modal redesign options are discussion only; no new layout selected.
+
 ## Public author profiles and author-page controls (2026-10-23)
 
 My stories desktop typography follows the detailed first card in Figma 282:142:

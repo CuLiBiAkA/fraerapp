@@ -7,7 +7,7 @@ import {authorCard,coverImage} from "./author-ui.js?v=3";
 import {seasonGroups,seasonDialog} from "./author-seasons.js?v=1";
 import {genres,topics,fillClassification} from '/builder/genre-topic.js?v=1';
 import {chooseCover,uploadImage} from "./author-cover.js?v=3";
-import {editAuthorProfile} from './author-profile.js?v=2';
+import {editAuthorProfile} from './author-profile.js?v=3';
 
 const params = new URLSearchParams(location.search);
 try { document.documentElement.lang = localStorage.getItem("fraerapp.language") === "en" ? "en" : "ru"; } catch { document.documentElement.lang = "ru"; }
@@ -15,10 +15,6 @@ const moderation = document.body.dataset.workspace === "moderation";
 const pageSize = moderation ? 20 : 10;
 const path = moderation ? "/moderation/" : "/my-stories/";
 const selectedView = !params.has("story") && params.get("view") !== "stories";
-const switcher = el("nav",null,"workspace-nav author-section-nav"); switcher.style.padding = "18px 28px 0";
-switcher.setAttribute("aria-label",words("Разделы произведений", "Work sections"));
-switcher.append(link(words("Истории", "Stories"),path),link(words("Все истории списком", "All stories as a list"),`${path}?view=stories`));
-if(moderation)document.body.prepend(switcher);
 if (selectedView) {
   document.querySelector("#workspace").hidden = true;
   const root = el("main",null,"workspace collections-panel"); document.body.append(root);
@@ -55,6 +51,7 @@ async function start(root) {
   const next=button(words("Далее →", "Next →"),()=>work(async()=>{pageIndex++;await loadList();}));const pageLabel=el("span");pagination.append(previous,pageLabel,next);
   const listColumn=el("div",null,"author-list-screen");listColumn.append(list,pagination);
   const titleRow=el("div",null,"author-title-row"); titleRow.append(heading);
+  if(moderation){heading.textContent=words('Модерация','Moderation');titleRow.append(el('h2',words('Заявки на публикацию','Publication applications')));}
   if(!moderation){const intro=el('div',null,'author-heading-copy');intro.append(heading,el('p',words('Пишите. Вдохновляйте. Создавайте другие миры.','Write. Inspire. Create other worlds.'),'author-tagline'));titleRow.append(intro);}
   const utilities=el("div",null,"author-utilities");
   const activeButton=button(words("Истории","Stories"),()=>switchTrash(false)),trashButton=button(words("Корзина","Trash"),()=>switchTrash(true));
@@ -158,7 +155,7 @@ async function start(root) {
     list.replaceChildren();
     const entries=[...all];
     if(!moderation&&screen==='editor'&&doc&&!entries.some(n=>(n.collectionId||n.id)===current?.collectionId))entries.unshift({...current,id:current?.collectionId||'new',kind:'collection',title:doc.title||words('Новая история','New story'),description:doc.description,coverUrl:doc.coverUrl});
-    if(!entries.length)list.append(el('p',words('Здесь пока пусто. Создайте историю или измените фильтр.','No stories yet. Create one or change the filter.')));
+    if(!entries.length)list.append(el('p',moderation?words('Заявок с таким состоянием пока нет.','No applications with this status yet.'):words('Здесь пока пусто. Создайте историю или измените фильтр.','No stories yet. Create one or change the filter.')));
     for(const item of entries){
       const id=item.collectionId||item.id,deleted=item.visibility==='deleted';
       if(moderation){const action=item.kind==='scenario'?link(words('Проверить историю','Review story'),`${path}?story=${encodeURIComponent(id)}`):button(words('Проверить заявку','Review application'),()=>{if(discard())work(()=>open(id,true));});list.append(authorCard({title:item.title||item.key,coverUrl:item.coverUrl,status:labels(item),description:item.description,action}));continue;}
