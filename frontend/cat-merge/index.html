@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f9f5ec">
+  <meta name="description" content="Выбери котика, брось в колбу и соединяй одинаковых. Собери самого большого кота и не дай колбе переполниться. Бесплатная игра FraerApp.">
+  <title>Котопад — котикам нужно место · FraerApp</title>
+  <link rel="icon" href="../meow/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css?v=1">
+  <script type="module" src="./app.js?v=1"></script>
+</head>
+<body>
+  <main class="toy">
+    <header class="topbar"><a href="/">← <span>FraerApp</span></a><span class="edition">✿ маленькая кошачья вселенная</span><a href="/meow/">Мяу-пианино ↗</a></header>
+    <section class="intro" aria-labelledby="title"><p class="eyebrow">ТРИ НА ВЫБОР. МЕСТА НА ВСЕХ?</p><h1 id="title">Кото<span>пад</span><i aria-hidden="true">✳</i></h1><p>Соединяй одинаковых. Вырасти большого кота.</p></section>
+    <div class="play-layout">
+      <aside class="guide">
+        <div class="guide-doodle" aria-hidden="true">↘</div><h2>Уютно, пока<br>не тесно</h2>
+        <ol><li><span>01</span>Выбери одного из трёх котиков.</li><li><span>02</span>Брось его в колбу. Одинаковые сливаются!</li><li><span>03</span>Не заполняй колбу выше пунктирной линии.</li></ol>
+        <p class="guide-note">Три секунды над линией — и котикам тесно. Соберёшь Фисташку — победа!</p>
+        <p class="keyboard-hint"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> выбор<br><kbd>←</kbd><kbd>→</kbd> прицел · <kbd>пробел</kbd> бросок</p>
+      </aside>
+      <section class="arena" aria-label="Игра Котопад">
+        <div class="scorebar"><div><span>СЧЁТ</span><strong id="score">0</strong></div><span class="score-flower" aria-hidden="true">✿</span><div><span>ТВОЙ РЕКОРД</span><strong id="best">0</strong></div></div>
+        <div class="board-wrap">
+          <div id="board" class="board" role="button" tabindex="0" aria-label="Колба. Нажми для броска котика. Стрелки меняют прицел, пробел бросает." aria-describedby="play-status">
+            <svg class="vessel" viewBox="0 0 480 560" aria-hidden="true"><defs><linearGradient id="rim" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#83b7a6"/><stop offset=".3" stop-color="#d8bd67"/><stop offset=".6" stop-color="#db958c"/><stop offset="1" stop-color="#a392bb"/></linearGradient></defs><path class="vessel-fill" d="M166 22V123.5A210 210 0 1 0 314 123.5V22Z"/><path class="vessel-rim" d="M166 22V123.5A210 210 0 1 0 314 123.5V22"/><path class="limit-line" d="M111 154H369"/><text x="374" y="158" class="limit-label">max</text><path id="aim-line" d="M240 90V470"/><ellipse class="floor-shadow" cx="240" cy="549" rx="140" ry="5"/></svg>
+            <div id="idle" class="idle"><span>Всем найдётся<br>местечко.</span><small>Выбери котика и бросай ↓</small></div>
+            <div id="bodies" aria-hidden="true"></div><div id="ghost" class="ghost" aria-hidden="true"></div><div id="sparks" aria-hidden="true"></div>
+          </div>
+          <p id="warning" class="warning" role="status" hidden></p>
+        </div>
+        <p id="play-status" class="play-status" role="status">Выбери котика справа или снизу — и бросай в колбу.</p>
+      </section>
+      <aside class="selection" aria-label="Выбор котика">
+        <div class="selection-title"><span class="eyebrow">СЛЕДУЮЩИЙ ПРЫЖОК</span><span aria-hidden="true">↓</span></div><h2>Кто полетит?</h2>
+        <div id="offers" class="offers" role="group" aria-label="Три котика на выбор"></div>
+        <div class="aim-control"><label for="aim">Куда бросить</label><input id="aim" aria-label="Куда бросить котика" type="range" min="170" max="310" value="240" step="1"></div>
+        <button id="drop" class="primary" type="button">Бросить котика <span aria-hidden="true">↓</span></button>
+        <p class="choice-note">Один прыжок — новая тройка.</p>
+        <div class="tools"><button id="sound" type="button" aria-label="Включить звук" aria-pressed="false">♫ <span>Звук выкл.</span></button><button id="pause" type="button" disabled>Ⅱ Пауза</button><button id="restart" type="button" disabled>↻ Заново</button></div>
+        <p id="sound-status" class="sound-status" role="status"></p>
+      </aside>
+    </div>
+    <section class="evolution" aria-label="Цепочка слияний"><div class="evolution-label"><span class="eyebrow">ОТ МАЛЕНЬКОГО МЯУ К БОЛЬШОМУ</span><span id="discovered">1 / 9</span></div><div id="levels" class="levels"></div></section>
+    <footer class="footer"><span>Сделано для улыбки. Без спешки.</span><span>Твой рекорд хранится в этом браузере.</span></footer>
+    <noscript>Для игры нужен JavaScript. Включи его в настройках браузера.</noscript>
+  </main>
+  <dialog id="dialog" aria-labelledby="dialog-title" aria-describedby="dialog-copy"><div class="dialog-cat" id="dialog-cat" aria-hidden="true"></div><p id="dialog-eyebrow" class="eyebrow"></p><h2 id="dialog-title"></h2><p id="dialog-copy"></p><div id="result-metrics" class="result-metrics"></div><button id="dialog-primary" class="primary" type="button"></button><button id="dialog-secondary" class="text-button" type="button"></button></dialog>
+</body>
+</html>

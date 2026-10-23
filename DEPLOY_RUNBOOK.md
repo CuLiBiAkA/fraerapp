@@ -1,5 +1,39 @@
 # FraerApp deploy and ops runbook
 
+## Cat drop game and experiment statistics (2026-10-23)
+
+Run `npm test`, `npm run lint`, `npm run build`, the admin browser suite,
+`sh gradlew :auth-service:test :test :bootJar :auth-service:bootJar --no-daemon`
+and `git diff --check`. `npm run test:cat-merge` covers fixed-step physics,
+collisions, complete seeded games, crowding/pause and telemetry ordering/failure.
+Check `/cat-merge/` at 320/390/768/1440px and a short window: random choices,
+aim/drop, keyboard, merging, warning/result/replay, pause/background handling,
+record persistence and sound toggle. Statistics must not block play.
+
+Inspect local state, live services/logs and baseline hashes before cutover.
+Back up both databases (validate with `pg_restore --list`), changed static/source
+files, compose/environment and current API/auth images. Ship the five files in
+`frontend/cat-merge/`, engine/index, admin-panel/admin-experiments, auth admin.html,
+CatMergeStatsController/Service and V26. Existing meow art/config/audio/favicon
+and `assets/home/inter-regular.ttf` are shared dependencies; verify them too.
+Preserve unrelated runtime files and local `output/` artifacts.
+
+Build API and auth-service from tested JARs using their unchanged runtime Docker
+stages; retain old images for rollback. Static dependencies precede entrypoints.
+Recreate only API/auth, await health and check/reload edge to resolve upstreams.
+Verify all 13 installed release files, both running JAR hashes, public static
+bytes, homepage/health/catalogue, admin HTML v6 and V26 success. Anonymous admin
+stats must return 401. With fresh synthetic UUIDs, submit duplicate visits,
+starts and finishes; assert one visitor/two opens and one final game result.
+Remove only those exact synthetic rows after the probe. Never mutate accounts or
+story data for this test. Recheck six services and sanitized recent logs.
+
+Rollback restores backed-up static/source files and API/auth image aliases, then
+recreates those services and reloads edge. Remove only the newly introduced game
+directory if reverting the page. Keep the additive V26 tables and user telemetry;
+never restore an older database dump over subsequent user activity. A screenshot
+or successful static response alone does not prove statistics persisted.
+
 ## Reader pagination release (2026-10-23)
 
 Publish the shared `frontend/reading-pagination.js` before its reader and Builder

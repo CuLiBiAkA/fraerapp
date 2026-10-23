@@ -4,11 +4,13 @@
   "type": "module",
   "scripts": {
     "lint": "node --check frontend/engine.js && node --check frontend/legal.js && node --check frontend/legal-config.js && node --check scripts/validate-production.mjs",
-    "build": "node scripts/validate-production.mjs && node scripts/build-meow.mjs",
+    "build": "node scripts/validate-production.mjs && node scripts/build-meow.mjs && node scripts/build-cat-merge.mjs",
+    "build:cat-merge": "node scripts/build-cat-merge.mjs",
+    "test:cat-merge": "node --test frontend/cat-merge/*.test.js",
     "dev:meow": "python3 -m http.server 8766 --bind 127.0.0.1 --directory frontend",
     "build:meow": "node scripts/build-meow.mjs",
     "test:meow": "node --test frontend/meow/*.test.js && node scripts/check-meow.cjs",
-    "test": "node --test frontend/*.test.js frontend/meow/*.test.js story-builder/*.test.js scripts/*.test.mjs",
+    "test": "node --test frontend/*.test.js frontend/meow/*.test.js frontend/cat-merge/*.test.js story-builder/*.test.js scripts/*.test.mjs",
     "test:ui": "node scripts/run-ui-tests.mjs",
     "test:browser": "node scripts/run-browser-tests.mjs"
   }

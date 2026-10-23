@@ -2,6 +2,54 @@
 
 Last updated: 2026-10-23.
 
+## Cat drop experiment (2026-10-23)
+
+`/cat-merge/` is the public standalone «Котопад» game, linked beside Meow piano
+on the RU/EN homepage (engine-98). Each turn offers three random small cats;
+choose one, aim in the neck and drop. Matching cats merge through nine levels;
+the final cat wins. Sustained crowding above the marked line loses after three
+seconds, with a 1.6-second grace for newly dropped cats. `model.js` owns fixed
+120 Hz physics, collision/merge rules, score and terminal state. A slight
+alternating launch velocity prevents artificial perfectly balanced towers.
+The viewport scales presentation without changing logical geometry. Background
+tabs pause explicitly; a stalled frame cannot fast-forward the loss countdown.
+
+The page reuses original `meow/cats.js`, configuration and Web Audio synthesis.
+No external assets/dependencies. Touch/mouse, 1/2/3, arrows and space are supported;
+pause, confirmed restart, mute, result/replay and a local record are included.
+Storage key `fraerapp.cat-merge.settings` holds record, highest discovered level
+and mute; unavailable storage/audio/analytics never prevents play. Games are
+not restored after reload. `npm run build` includes both experiments and the
+shared local font. Design/prompt and implementation scope: `docs/prompts/cat-merge.md`.
+
+V26 adds isolated `cat_merge_visitors` and `cat_merge_games`. Anonymous browser
+UUIDs count visits; each first drop starts a UUID game and its first terminal
+result is immutable. Atomic completion prevents double-counting concurrent
+finishes. Restarts are separate; abandoned games remain starts. Client events
+use credentials omitted, five-second timeout, no retry, ordered start/finish.
+No account, IP or User-Agent is stored. These are approximate browser counters,
+not a trusted leaderboard; network loss/blocking can undercount and storage
+clearing can overcount visitors.
+
+`/auth/admin#experiments` has separate Meow and Cat drop cards with independent
+loading/retry/empty states and revoked-access clearing. Admin-only no-store
+`GET /api/admin/experiments/cat-merge` exposes browser totals/today/seven calendar
+days (Europe/Kaliningrad), opens, started/finished/won/lost/restarted games and
+best/average completed scores and active duration. POST visit, games and
+games/{UUID}/finish live under `/api/experiments/cat-merge/`. Payloads have bounds,
+UUID validation and basic result invariants. Meow data and its API stay intact.
+Admin module v6 loads experiments v2; its HTML requires rebuilding auth-service.
+API must rebuild for V26 and the new controller/service. No nginx, account,
+story/publication or existing environment changes are needed.
+
+Local verification: API 152, auth 78 and Node 175 tests, build/lint/diff checks;
+four-width admin suite. Browser gameplay covers a full 153-drop loss with 137
+merges, score/record, keyboard, pause, restart and reload recovery. Five sizes
+(320/390/768/1440px and short landscape) have no horizontal overflow. Independent review
+ran 100 seeded full games, including wins. Physical devices, assistive technology
+and subjective sound remain outside automated verification. Release receipt is
+recorded after deployment; until then these changes are local.
+
 ## Reader pages and Builder guidance (2026-10-23)
 
 Long scenes now use presentation pages inside the existing logical scene.

@@ -2,7 +2,7 @@ import { fetchWithSession } from './auth-session.js?v=1';
 import { credentialToJson, parseCreationOptions, parseRequestOptions, passkeysSupported } from './passkeys.js';
 import { mountSubscriptions } from './admin-subscriptions.js?v=1';
 import { mountReaderAds } from './admin-reader-ads.js?v=1';
-import { mountExperiments } from './admin-experiments.js?v=1';
+import { mountExperiments } from './admin-experiments.js?v=2';
 
 const $ = selector => document.querySelector(selector);
 const roles = {player:'Читатель', author:'Автор', moderator:'Модератор', admin:'Администратор'};
