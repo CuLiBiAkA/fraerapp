@@ -12,6 +12,11 @@ Author CSS v4, collection workspace v36, workspace entry v35.
 
 ## Story age classification (2026-10-24)
 
+Age-category help reminds authors to put a chapter-specific content warning at
+the start of each chapter, with a graphic-violence example. This is author
+guidance; it does not automatically insert text into chapters. Help text scrolls
+within 50dvh. Age CSS/module v8, review v6, collection v38, standalone v15, entry v37.
+
 About-story top inset is now 12px. Desktop cover starts 4px below the title
 label box (near its capital-letter top), with height 177px; its bottom and
 button retain their previous position. Mobile cover remains 150px tall.

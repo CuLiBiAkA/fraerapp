@@ -2,7 +2,7 @@ import {el,field,select,words} from './collection-ui.js?v=6';
 import {warningGroups,splitWarnings,needsAdultRating} from './content-warning-options.js?v=1';
 
 const classificationStyle=document.querySelector('link[data-age-classification]')||document.createElement('link');
-classificationStyle.rel='stylesheet';classificationStyle.href='/age-classification.css?v=7';classificationStyle.dataset.ageClassification='';
+classificationStyle.rel='stylesheet';classificationStyle.href='/age-classification.css?v=8';classificationStyle.dataset.ageClassification='';
 if(!classificationStyle.isConnected)document.head.append(classificationStyle);
 export function ageBadge(value){
  const badge=el('span',value||words('Возраст не указан','Age not specified'),'age-badge');
@@ -16,7 +16,7 @@ export function classificationFields(doc,onChange,{readOnly=false}={}){
  const box=el('section',null,'age-classification-fields');
  const row=el('div',null,'age-classification-heading'),title=el('span',words('Возрастная категория','Age category'));
  const help=el('details',null,'age-help'),question=el('summary','?');question.setAttribute('aria-label',words('Как выбрать возрастную категорию','How to choose an age category'));
- const explanation=words('Выберите категорию для всей истории с учётом наиболее взрослого содержания всех глав. Число обозначает минимальный возраст читателя. Укажите отдельно, есть ли пугающие сцены, насилие, грубая лексика или другие чувствительные темы. Если новая глава требует повышения категории, обновите её перед отправкой на модерацию.','Choose a category for the entire story based on the most mature content across all chapters. The number indicates the minimum reader age. List frightening scenes, violence, strong language or other sensitive themes separately. If a new chapter needs a higher category, update it before submitting for review.');
+ const explanation=words('Выберите категорию для всей истории с учётом наиболее взрослого содержания всех глав. Число обозначает минимальный возраст читателя. Укажите отдельно, есть ли пугающие сцены, насилие, грубая лексика или другие чувствительные темы. Если новая глава требует повышения категории, обновите её перед отправкой на модерацию.\n\nНе забудьте добавить в начало каждой главы предупреждение о чувствительном содержании, которое есть именно в ней. Например: «В этой главе присутствуют сцены жестокого насилия и убийства. Читайте дальше с осторожностью».','Choose a category for the entire story based on the most mature content across all chapters. The number indicates the minimum reader age. List frightening scenes, violence, strong language or other sensitive themes separately. If a new chapter needs a higher category, update it before submitting for review.\n\nRemember to add a content warning at the start of each chapter for sensitive content present in that chapter. For example: “This chapter contains scenes of graphic violence and murder. Please read with caution.”');
  question.title=explanation;help.append(question,el('p',explanation));row.append(title,help);
  const rating=select(words('Возрастная категория','Age category'),[['',words('Не указана','Not specified')],...['0+','6+','12+','16+','18+'].map(v=>[v,v])],doc.ageRating||'');
  rating.label.firstChild.remove();

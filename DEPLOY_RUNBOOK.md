@@ -10,6 +10,10 @@ stories and unsaved edits. Browser coverage runs in RU/EN at four widths.
 
 ## Age classification release (2026-10-24)
 
+Chapter-warning help copy uses age CSS/module v8 and bumped workspace imports.
+Deploy these static dependencies and author/moderation HTML together; verify
+RU/EN help text and scrollability. No chapter data migration or API change.
+
 Top-inset follow-up: deploy age CSS/module v7, review/collection/standalone
 modules, workspace entry and author/moderation HTML together. Verify 12px top
 padding and desktop cover alignment with the title label, preserving mobile

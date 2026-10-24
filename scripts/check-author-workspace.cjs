@@ -66,7 +66,7 @@ for(const language of ['ru','en'])for(const width of [320,390,768,1440]){
  assert.ok(await page.locator('.author-list-screen').isVisible());assert.equal(await page.locator('.accordion-story .collection-editor').count(),1);assert.ok(await page.locator('.collection-editor').isVisible());
  assert.equal(await page.locator('.chapter-settings').count(),0);assert.equal(await role('button','↓ Ниже','↓ Down').count(),0);assert.equal(await page.locator('.author-season').count(),2);await page.locator('.author-season > summary').first().click();assert.equal(document.items[0].target.id,'chapter');
  await role('button','Об истории','About story').click();assert.ok(await role('dialog','Об истории','About story').isVisible());
- assert.equal(await page.locator('link[data-age-classification]').getAttribute('href'),'/age-classification.css?v=7');
+ assert.equal(await page.locator('link[data-age-classification]').getAttribute('href'),'/age-classification.css?v=8');
  assert.equal(await page.locator('.story-about-dialog').evaluate(node=>getComputedStyle(node).paddingTop),'12px');
  await role('textbox','Название','Title').fill('Retained after backdrop close');
  await role('textbox','Название','Title').click();assert.ok(await page.locator('.story-about-dialog').isVisible());
